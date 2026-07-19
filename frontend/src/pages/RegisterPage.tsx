@@ -20,8 +20,8 @@ const RegisterPage: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.post('/api/auth/register', { name, email, password });
-      const { token, user } = response.data;
-      login(token, user);
+      const { token, merchant } = response.data;
+      login(token, merchant);
       navigate('/onboarding');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {

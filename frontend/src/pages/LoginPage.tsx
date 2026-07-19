@@ -19,8 +19,8 @@ const LoginPage: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.post('/api/auth/login', { email, password });
-      const { token, user } = response.data;
-      login(token, user);
+      const { token, merchant } = response.data;
+      login(token, merchant);
       navigate('/dashboard');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {

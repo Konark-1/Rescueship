@@ -46,6 +46,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
         name: merchant.name,
         email: merchant.email,
         platform: merchant.platform,
+        onboardingStatus: merchant.onboardingStatus,
       },
     });
   } catch (err: any) {
@@ -90,6 +91,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         name: merchant.name,
         email: merchant.email,
         platform: merchant.platform,
+        onboardingStatus: merchant.onboardingStatus,
       },
     });
   } catch (err: any) {

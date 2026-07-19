@@ -196,6 +196,24 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
               RescueShip Core Engine Live
             </span>
+            {user?.onboardingStatus === 'skipped' && (
+              <button 
+                onClick={() => navigate('/onboarding')}
+                style={{
+                  marginLeft: '1rem',
+                  padding: '0.3rem 0.8rem',
+                  backgroundColor: 'var(--primary-glow)',
+                  border: '1px solid var(--primary)',
+                  borderRadius: 'var(--radius-sm)',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '0.75rem',
+                  fontWeight: 600
+                }}
+              >
+                Complete Onboarding
+              </button>
+            )}
           </div>
         </header>
 

@@ -71,6 +71,10 @@ router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       merchant.platform = updates.platform;
     }
 
+    if (updates.onboardingStatus) {
+      merchant.onboardingStatus = updates.onboardingStatus;
+    }
+
     // Apply platformConfig updates
     if (updates.platformConfig) {
       merchant.platformConfig = merchant.platformConfig || {};

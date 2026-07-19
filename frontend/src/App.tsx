@@ -42,6 +42,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Layout wrapping component for dashboard pages
 const DashboardLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  
+  if (user?.onboardingStatus === 'pending') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return <AppLayout>{children}</AppLayout>;
 };
 

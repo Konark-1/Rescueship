@@ -6,6 +6,7 @@ export interface IMerchant extends Document {
   email: string;
   password: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
+  onboardingStatus: 'pending' | 'skipped' | 'completed';
   platformConfig?: {
     shopifyDomain?: string;
     shopifyAccessToken?: string;
@@ -61,6 +62,7 @@ const MerchantSchema = new Schema<IMerchant>(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
     platform: { type: String, enum: ['shopify', 'woocommerce', 'custom'], required: true },
+    onboardingStatus: { type: String, enum: ['pending', 'skipped', 'completed'], default: 'pending' },
     platformConfig: {
       shopifyDomain: { type: String },
       shopifyAccessToken: { type: String },

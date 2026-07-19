@@ -5,6 +5,7 @@ interface User {
   name: string;
   email: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
+  onboardingStatus: 'pending' | 'skipped' | 'completed';
 }
 
 interface AuthContextType {

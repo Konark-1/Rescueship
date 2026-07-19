@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import api from '../services/api';
 import './onboarding.css';
@@ -31,18 +32,40 @@ interface SettingsData {
 }
 
 const OnboardingPage: React.FC = () => {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    const saved = localStorage.getItem('onboardingStep');
+    return saved ? parseInt(saved, 10) : 1;
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const { user, token, login } = useAuth();
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState<SettingsData>({
-    platform: 'shopify',
-    platformConfig: {},
-    carrierConfig: {},
-    whatsappConfig: {},
-    paymentConfig: {},
+  const [formData, setFormData] = useState<SettingsData>(() => {
+    const saved = localStorage.getItem('onboardingData');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse saved onboarding data');
+      }
+    }
+    return {
+      platform: 'shopify',
+      platformConfig: {},
+      carrierConfig: {},
+      whatsappConfig: {},
+      paymentConfig: {},
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('onboardingStep', step.toString());
+  }, [step]);
+
+  useEffect(() => {
+    localStorage.setItem('onboardingData', JSON.stringify(formData));
+  }, [formData]);
 
   const totalSteps = 6;
   const progressPercentage = ((step - 1) / (totalSteps - 1)) * 100;
@@ -63,7 +86,76 @@ const OnboardingPage: React.FC = () => {
     }
   };
 
+  const validateStep = (currentStep: number) => {
+    if (currentStep === 2) {
+      if (formData.platform === 'shopify') {
+        const domain = formData.platformConfig?.shopifyDomain;
+        const token = formData.platformConfig?.shopifyAccessToken;
+        if (!domain || !domain.includes('myshopify.com')) {
+          setError('Please enter a valid Shopify domain (e.g., your-store.myshopify.com)');
+          return false;
+        }
+        if (!token || token.length < 5) {
+          setError('Please enter a valid Shopify Access Token');
+          return false;
+        }
+      } else if (formData.platform === 'woocommerce') {
+        const url = formData.platformConfig?.woocommerceUrl;
+        const key = formData.platformConfig?.woocommerceKey;
+        const secret = formData.platformConfig?.woocommerceSecret;
+        if (!url || !url.startsWith('http')) {
+          setError('Please enter a valid WooCommerce Store URL (must start with http:// or https://)');
+          return false;
+        }
+        if (!key || !secret) {
+          setError('Please enter both Consumer Key and Consumer Secret');
+          return false;
+        }
+      } else if (formData.platform === 'custom') {
+        const secret = formData.platformConfig?.customApiSecret;
+        if (!secret || secret.length < 5) {
+          setError('Please enter a valid Custom API Secret (minimum 5 characters)');
+          return false;
+        }
+      }
+    } else if (currentStep === 3) {
+      const provider = formData.carrierConfig?.provider;
+      if (!provider || provider.trim().length === 0) {
+        setError('Please enter a preferred shipping carrier (e.g., shiprocket, clickpost)');
+        return false;
+      }
+    } else if (currentStep === 4) {
+      const phoneId = formData.whatsappConfig?.phoneNumberId;
+      const accountId = formData.whatsappConfig?.businessAccountId;
+      const token = formData.whatsappConfig?.accessToken;
+      if (!phoneId || !/^\d{14,16}$/.test(phoneId)) {
+        setError('Invalid Phone Number ID. It must be exactly 14-16 digits (found on your Meta dashboard), NOT your actual phone number.');
+        return false;
+      }
+      if (!accountId || !/^\d{14,16}$/.test(accountId)) {
+        setError('Invalid Business Account ID. It must be exactly 14-16 digits.');
+        return false;
+      }
+      if (!token || !token.startsWith('EAAG')) {
+        setError('Please enter a valid Access Token (must start with EAAG...)');
+        return false;
+      }
+    } else if (currentStep === 5) {
+      const keyId = formData.paymentConfig?.keyId;
+      const keySecret = formData.paymentConfig?.keySecret;
+      if (!keyId || !keySecret) {
+        setError('Please enter both Payment Key ID and Key Secret');
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleNext = () => {
+    setError('');
+    if (!validateStep(step)) {
+      return;
+    }
     if (step < totalSteps) setStep(step + 1);
   };
 
@@ -75,7 +167,12 @@ const OnboardingPage: React.FC = () => {
     setLoading(true);
     setError('');
     try {
-      await api.put('/api/settings', formData);
+      await api.put('/api/settings', { ...formData, onboardingStatus: 'completed' });
+      if (user && token) {
+        login(token, { ...user, onboardingStatus: 'completed' });
+      }
+      localStorage.removeItem('onboardingStep');
+      localStorage.removeItem('onboardingData');
       navigate('/dashboard');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
@@ -85,6 +182,21 @@ const OnboardingPage: React.FC = () => {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSkip = async () => {
+    try {
+      await api.put('/api/settings', { onboardingStatus: 'skipped' });
+      if (user && token) {
+        login(token, { ...user, onboardingStatus: 'skipped' });
+      }
+      localStorage.removeItem('onboardingStep');
+      localStorage.removeItem('onboardingData');
+      navigate('/dashboard');
+    } catch (err) {
+      console.error('Failed to skip onboarding', err);
+      navigate('/dashboard'); // Still let them go
     }
   };
 
@@ -194,6 +306,13 @@ const OnboardingPage: React.FC = () => {
         return (
           <div className="step-content" key="step3">
             <h3>Step 3: Carrier Configuration</h3>
+            <div className="info-box" style={{ backgroundColor: 'rgba(79, 70, 229, 0.1)', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(79, 70, 229, 0.3)' }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#818cf8' }}>💡 How to get your Carrier API Token</h4>
+              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <li><strong>Shiprocket:</strong> Go to Settings &gt; API &gt; Generate API Credential.</li>
+                <li><strong>Delhivery:</strong> Go to Settings &gt; API Settings and generate a new token.</li>
+              </ul>
+            </div>
             <div className="form-group">
               <label>Preferred Shipping Carrier</label>
               <input
@@ -219,23 +338,32 @@ const OnboardingPage: React.FC = () => {
         return (
           <div className="step-content" key="step4">
             <h3>Step 4: WhatsApp Integration</h3>
+            <div className="info-box" style={{ backgroundColor: 'rgba(79, 70, 229, 0.1)', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid rgba(79, 70, 229, 0.3)' }}>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#818cf8' }}>💡 WhatsApp Cloud API Setup</h4>
+              <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <li>Go to <strong>Meta for Developers</strong> (developers.facebook.com)</li>
+                <li>Select your App &gt; WhatsApp &gt; API Setup</li>
+                <li>Copy your <strong>Phone Number ID</strong> and <strong>Business Account ID</strong></li>
+                <li>Generate a permanent <strong>Access Token</strong> in the System Users section</li>
+              </ul>
+            </div>
             <div className="form-group">
-              <label>WhatsApp Business Number</label>
+              <label>Meta Phone Number ID (NOT your actual phone number)</label>
               <input
                 type="text"
                 name="whatsappConfig.phoneNumberId"
                 value={formData.whatsappConfig?.phoneNumberId || ''}
                 onChange={handleChange}
-                placeholder="Phone Number ID"
+                placeholder="e.g. 102033001234567 (15 digits)"
               />
               <br />
-              <label>Business Account ID</label>
+              <label>Meta Business Account ID</label>
               <input
                 type="text"
                 name="whatsappConfig.businessAccountId"
                 value={formData.whatsappConfig?.businessAccountId || ''}
                 onChange={handleChange}
-                placeholder="Business Account ID"
+                placeholder="e.g. 112033001234567 (15 digits)"
               />
               <br />
               <label>Access Token</label>
@@ -346,6 +474,23 @@ const OnboardingPage: React.FC = () => {
               {loading ? 'Saving...' : 'Finish Setup'}
             </button>
           )}
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+          <button 
+            type="button" 
+            onClick={handleSkip} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: 'var(--text-secondary)', 
+              textDecoration: 'underline', 
+              cursor: 'pointer',
+              fontSize: '0.85rem'
+            }}
+          >
+            Skip for now and go to Dashboard
+          </button>
         </div>
       </div>
     </div>
