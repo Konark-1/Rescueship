@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock Shopify Store</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #f4f6f8; margin: 0; padding: 0; }
+        .header { background: #000; color: #fff; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+        .header h1 { margin: 0; font-size: 1.5rem; }
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; }
+        .product { display: flex; gap: 2rem; background: #fff; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .product-image { flex: 1; background: #e1e3e5; min-height: 300px; border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 4rem; }
+        .product-details { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+        h2 { margin-top: 0; font-size: 2rem; color: #202223; }
+        .price { font-size: 1.5rem; color: #008060; font-weight: bold; margin-bottom: 1.5rem; }
+        .btn-buy { background: #008060; color: white; border: none; padding: 1rem; font-size: 1.1rem; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.2s; }
+        .btn-buy:hover { background: #006e52; }
+        .checkout-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background: white; padding: 2rem; border-radius: 8px; width: 100%; max-width: 400px; }
+        .modal-content h3 { margin-top: 0; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        .input-group input { width: 100%; padding: 0.5rem; border: 1px solid #c9cccf; border-radius: 4px; box-sizing: border-box; }
+        .btn-confirm { background: #000; color: white; width: 100%; padding: 1rem; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 1rem; margin-top: 1rem;}
+        #successMsg { display: none; background: #e3f2fd; color: #0d47a1; padding: 1rem; border-radius: 4px; margin-top: 1rem; border: 1px solid #bbdefb; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛍️ DemoStore</h1>
+        <div>Cart (0)</div>
+    </div>
+
+    <div class="container">
+        <div class="product">
+            <div class="product-image">🎧</div>
+            <div class="product-details">
+                <h2 id="productName">Premium Wireless Headphones</h2>
+                <div class="price">₹2,499.00</div>
+                <p>Experience crystal clear sound with active noise cancellation. 40 hours of battery life.</p>
+                <button class="btn-buy" id="buyNowBtn">Buy Now (Cash on Delivery)</button>
+            </div>
+        </div>
+        
+        <div id="successMsg">
+            <strong>✅ Order Placed Successfully!</strong><br>
+            A Shopify webhook has been dispatched to the RescueShip engine. Check the RescueShip dashboard!
+            <br><br>
+            <a href="/" style="color: #0d47a1; font-weight: bold;">Go to RescueShip Dashboard</a>
+        </div>
+    </div>
+
+    <div class="checkout-modal" id="checkoutModal">
+        <div class="modal-content">
+            <h3>Complete Your Order</h3>
+            <div class="input-group">
+                <label>First Name</label>
+                <input type="text" id="custName" value="Rahul">
+            </div>
+            <div class="input-group">
+                <label>Phone Number</label>
+                <input type="text" id="custPhone" value="+919876543210">
+            </div>
+            <div class="input-group">
+                <label>Payment Method</label>
+                <input type="text" disabled value="Cash on Delivery (COD)">
+            </div>
+            <button class="btn-confirm" id="confirmOrderBtn">Confirm COD Order</button>
+            <button class="btn-confirm" style="background: #fff; color: #000; border: 1px solid #ccc; margin-top: 0.5rem;" id="cancelBtn">Cancel</button>
+        </div>
+    </div>
+
+    <script src="/shopify-script.js"></script>
+</body>
+</html>

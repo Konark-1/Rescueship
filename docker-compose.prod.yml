@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  rescueship_api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rescueship_prod_api
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - rescueship_prod_network
+
+  mongo:
+    image: mongo:6.0
+    container_name: rescueship_prod_mongo
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_prod_data:/data/db
+    networks:
+      - rescueship_prod_network
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: rescueship_prod_redis
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - rescueship_prod_network
+
+volumes:
+  mongo_prod_data:
+  redis_prod_data:
+
+networks:
+  rescueship_prod_network:
+    driver: bridge

@@ -1,0 +1,28 @@
+# RescueShip — Docker Compose (Local Development)
+# Run: docker-compose up -d
+# This starts MongoDB and Redis for local development.
+
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: rescueship-mongo
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: rescueship
+
+  redis:
+    image: redis:7-alpine
+    container_name: rescueship-redis
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+
+volumes:
+  mongo_data:
+  redis_data:

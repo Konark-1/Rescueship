@@ -1,0 +1,37 @@
+{
+  "name": "ndr_rescue_hi",
+  "language": "hi",
+  "category": "UTILITY",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "डिलीवरी अपडेट 📦"
+    },
+    {
+      "type": "BODY",
+      "text": "नमस्ते {{1}}, हमने आपका ऑर्डर #{{2}} डिलीवर करने की कोशिश की लेकिन हम आप तक नहीं पहुँच पाए। कारण: {{3}}।\n\nआप क्या करना चाहेंगे?"
+    },
+    {
+      "type": "FOOTER",
+      "text": "अपनी डिलीवरी बचाने के लिए 24 घंटे के भीतर जवाब दें"
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "QUICK_REPLY",
+          "text": "कल के लिए शेड्यूल करें"
+        },
+        {
+          "type": "QUICK_REPLY",
+          "text": "पता बदलें"
+        },
+        {
+          "type": "QUICK_REPLY",
+          "text": "ऑर्डर रद्द करें"
+        }
+      ]
+    }
+  ]
+}

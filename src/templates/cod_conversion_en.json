@@ -1,0 +1,30 @@
+{
+  "name": "cod_conversion_en",
+  "language": "en",
+  "category": "UTILITY",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "Complete Your Payment 💳"
+    },
+    {
+      "type": "BODY",
+      "text": "Hi {{1}}, your order #{{2}} worth ₹{{3}} is confirmed! Pay now via UPI and get ₹{{4}} off.\n\nTap the button below to pay securely:"
+    },
+    {
+      "type": "FOOTER",
+      "text": "Offer valid for limited time only"
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "URL",
+          "text": "Pay Now",
+          "url": "{{5}}"
+        }
+      ]
+    }
+  ]
+}

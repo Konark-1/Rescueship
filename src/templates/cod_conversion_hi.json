@@ -1,0 +1,30 @@
+{
+  "name": "cod_conversion_hi",
+  "language": "hi",
+  "category": "UTILITY",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "भुगतान पूरा करें 💳"
+    },
+    {
+      "type": "BODY",
+      "text": "नमस्ते {{1}}, आपका ऑर्डर #{{2}} ₹{{3}} का कन्फर्म हो गया है! अभी UPI से पेमेंट करें और ₹{{4}} की छूट पाएं।\n\nसुरक्षित भुगतान के लिए नीचे बटन दबाएं:"
+    },
+    {
+      "type": "FOOTER",
+      "text": "यह ऑफर सीमित समय के लिए है"
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "URL",
+          "text": "अभी भुगतान करें",
+          "url": "{{5}}"
+        }
+      ]
+    }
+  ]
+}

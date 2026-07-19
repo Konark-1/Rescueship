@@ -1,0 +1,37 @@
+{
+  "name": "ndr_rescue_en",
+  "language": "en",
+  "category": "UTILITY",
+  "components": [
+    {
+      "type": "HEADER",
+      "format": "TEXT",
+      "text": "Delivery Update 📦"
+    },
+    {
+      "type": "BODY",
+      "text": "Hi {{1}}, we tried to deliver your order #{{2}} but couldn't reach you. Reason: {{3}}.\n\nWhat would you like to do?"
+    },
+    {
+      "type": "FOOTER",
+      "text": "Reply within 24 hours to save your delivery"
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        {
+          "type": "QUICK_REPLY",
+          "text": "Reschedule Tomorrow"
+        },
+        {
+          "type": "QUICK_REPLY",
+          "text": "Update My Address"
+        },
+        {
+          "type": "QUICK_REPLY",
+          "text": "Cancel Order"
+        }
+      ]
+    }
+  ]
+}
