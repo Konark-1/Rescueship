@@ -3,6 +3,8 @@ import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { Merchant } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
+import axios from 'axios';
+import { config } from '../config/env';
 
 const router = Router();
 
@@ -135,17 +137,52 @@ router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     // Apply paymentConfig updates
     if (updates.paymentConfig) {
       merchant.paymentConfig = merchant.paymentConfig || {};
+      const provider = updates.paymentConfig.provider || merchant.paymentConfig.provider || 'razorpay';
       if (updates.paymentConfig.provider) {
         merchant.paymentConfig.provider = updates.paymentConfig.provider;
       }
       
       const payId = updates.paymentConfig.keyId;
-      if (payId && payId !== '********') {
-        merchant.paymentConfig.keyId = encryptionService.encrypt(payId);
+      const paySecret = updates.paymentConfig.keySecret;
+      
+      const isUpdatingPayId = payId && payId !== '********';
+      const isUpdatingPaySecret = paySecret && paySecret !== '********';
+
+      if (isUpdatingPayId || isUpdatingPaySecret) {
+        const testId = isUpdatingPayId ? payId : (merchant.paymentConfig.keyId ? encryptionService.decrypt(merchant.paymentConfig.keyId) : '');
+        const testSecret = isUpdatingPaySecret ? paySecret : (merchant.paymentConfig.keySecret ? encryptionService.decrypt(merchant.paymentConfig.keySecret) : '');
+        
+        if (testId && testSecret) {
+          try {
+            if (provider === 'razorpay') {
+              const auth = Buffer.from(`${testId}:${testSecret}`).toString('base64');
+              await axios.get('https://api.razorpay.com/v1/orders', {
+                headers: { Authorization: `Basic ${auth}` }
+              });
+            } else if (provider === 'cashfree') {
+              const isProd = config.server.nodeEnv === 'production';
+              const baseUrl = isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
+              await axios.get(`${baseUrl}/orders`, {
+                headers: { 
+                  'x-client-id': testId, 
+                  'x-client-secret': testSecret, 
+                  'x-api-version': '2023-08-01' 
+                }
+              });
+            }
+          } catch (error: any) {
+            if (error.response && error.response.status === 401) {
+              res.status(400).json({ error: 'Invalid Payment API Key or Secret provided.' });
+              return;
+            }
+          }
+        }
       }
 
-      const paySecret = updates.paymentConfig.keySecret;
-      if (paySecret && paySecret !== '********') {
+      if (isUpdatingPayId) {
+        merchant.paymentConfig.keyId = encryptionService.encrypt(payId);
+      }
+      if (isUpdatingPaySecret) {
         merchant.paymentConfig.keySecret = encryptionService.encrypt(paySecret);
       }
     }

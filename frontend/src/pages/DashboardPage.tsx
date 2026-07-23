@@ -6,6 +6,10 @@ import {
   BarChart, Bar, Legend
 } from 'recharts';
 import { ShoppingBag, RefreshCw, ShieldCheck, DollarSign, AlertCircle, Zap } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
+import { MotionCard } from '../components/motion/MotionCard';
+import { AnimatedCounter } from '../components/motion/AnimatedCounter';
 
 interface DashboardData {
   totalOrders: number;
@@ -60,9 +64,25 @@ const mockData: DashboardData = {
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444'];
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
+
 export const DashboardPage: React.FC = () => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchAnalytics = async () => {
@@ -97,9 +117,9 @@ export const DashboardPage: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '2rem' }}>
       
       {/* Header section */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="fade-in-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', animationDelay: '0ms' }}>
         <div>
-          <h2 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Overview</h2>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.5rem', fontFamily: 'var(--font-display)' }}>Overview</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Track your e-commerce performance and NDR rescues.</p>
         </div>
         <div className="glass-card" style={{ padding: '0.75rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem', borderRadius: 'var(--radius-lg)' }}>
@@ -108,70 +128,96 @@ export const DashboardPage: React.FC = () => {
           </div>
           <div>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Credits</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)' }}>{data.creditsRemaining || 0}</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{data.creditsRemaining || 0}</p>
           </div>
         </div>
       </div>
 
       {/* Metric Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
-        <MetricCard 
-          title="Total Orders" 
-          value={(data.totalOrders || 0).toLocaleString()} 
-          icon={<ShoppingBag size={24} color="#6366f1" />}
-          colorVar="var(--primary)"
-        />
-        <MetricCard 
-          title="COD to Prepaid" 
-          value={(data.codToPrepaid?.count || 0).toLocaleString()} 
-          subtext={`${data.codToPrepaid?.conversionRate || 0}% Conversion Rate`}
-          icon={<RefreshCw size={24} color="#10b981" />}
-          colorVar="var(--success)"
-        />
-        <MetricCard 
-          title="NDR Rescues" 
-          value={(data.ndrRescues?.count || 0).toLocaleString()} 
-          subtext={`${data.ndrRescues?.rescueRate || 0}% Rescue Rate`}
-          icon={<ShieldCheck size={24} color="#f59e0b" />}
-          colorVar="var(--warning)"
-        />
-        <MetricCard 
-          title="Revenue Saved" 
-          value={`₹${((data.revenueSaved || 0) / 1000).toFixed(1)}K`} 
-          icon={<DollarSign size={24} color="#10b981" />}
-          colorVar="var(--success)"
-        />
-        <MetricCard 
-          title="Active NDR Cases" 
-          value={(data.activeNdrCases || 0).toString()} 
-          icon={<AlertCircle size={24} color="#ef4444" />}
-          colorVar="var(--danger)"
-          pulse={true}
-        />
-      </div>
+      <motion.div 
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}
+      >
+        <motion.div variants={itemVariants}>
+          <MetricCard 
+            title="Total Orders" 
+            value={data.totalOrders || 0} 
+            icon={<ShoppingBag size={24} color="#6366f1" />}
+            colorVar="var(--primary)"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <MetricCard 
+            title="COD to Prepaid" 
+            value={data.codToPrepaid?.count || 0} 
+            subtext={`${data.codToPrepaid?.conversionRate || 0}% Conversion Rate`}
+            icon={<RefreshCw size={24} color="#a855f7" />}
+            colorVar="var(--accent)"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <MetricCard 
+            title="NDR Rescues" 
+            value={data.ndrRescues?.count || 0} 
+            subtext={`${data.ndrRescues?.rescueRate || 0}% Rescue Rate`}
+            icon={<ShieldCheck size={24} color="#f59e0b" />}
+            colorVar="var(--warning)"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <MetricCard 
+            title="Revenue Saved" 
+            value={((data.revenueSaved || 0) / 100000)}
+            isCurrency={true}
+            icon={<DollarSign size={24} color="#a855f7" />}
+            colorVar="var(--success)"
+          />
+        </motion.div>
+        <motion.div variants={itemVariants}>
+          <MetricCard 
+            title="Active NDR Cases" 
+            value={data.activeNdrCases || 0} 
+            icon={<AlertCircle size={24} color="#ef4444" />}
+            colorVar="var(--danger)"
+            pulse={true}
+          />
+        </motion.div>
+      </motion.div>
 
       {/* Charts Row 1 */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Daily Conversions</h3>
+        <div className="glass-card fade-in-up" style={{ display: 'flex', flexDirection: 'column', animationDelay: '600ms' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Daily Conversions</h3>
           <div style={{ height: '300px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.dailyConversions || []}>
+                <defs>
+                  <filter id="glow">
+                    <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+                    <feMerge>
+                      <feMergeNode in="coloredBlur"/>
+                      <feMergeNode in="SourceGraphic"/>
+                    </feMerge>
+                  </filter>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" vertical={false} />
                 <XAxis dataKey="date" stroke="var(--text-secondary)" tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
                 <YAxis stroke="var(--text-secondary)" tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
                 <RechartsTooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)', backdropFilter: 'blur(10px)' }}
-                  itemStyle={{ color: 'var(--text-primary)' }}
+                  cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1 }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color-glow)', borderRadius: 'var(--radius-md)', backdropFilter: 'blur(16px)', boxShadow: 'var(--shadow-glow)' }}
+                  itemStyle={{ color: 'var(--primary)', fontWeight: 'bold' }}
                 />
-                <Line type="monotone" dataKey="conversions" stroke="var(--primary)" strokeWidth={3} dot={{ r: 4, fill: 'var(--bg-main)', stroke: 'var(--primary)', strokeWidth: 2 }} activeDot={{ r: 6, fill: 'var(--primary)', stroke: 'white' }} />
+                <Line type="monotone" dataKey="conversions" stroke="var(--primary)" strokeWidth={3} filter="url(#glow)" dot={{ r: 4, fill: 'var(--bg-main)', stroke: 'var(--primary)', strokeWidth: 2 }} activeDot={{ r: 8, fill: 'var(--primary)', stroke: 'white' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>NDR Reasons</h3>
+        <div className="glass-card fade-in-up" style={{ display: 'flex', flexDirection: 'column', animationDelay: '700ms' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>NDR Reasons</h3>
           <div style={{ height: '300px', width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -179,7 +225,7 @@ export const DashboardPage: React.FC = () => {
                   data={data.ndrReasons || []}
                   cx="50%"
                   cy="50%"
-                  innerRadius={60}
+                  innerRadius={70}
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
@@ -190,7 +236,7 @@ export const DashboardPage: React.FC = () => {
                   ))}
                 </Pie>
                 <RechartsTooltip 
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)', backdropFilter: 'blur(16px)' }}
                   itemStyle={{ color: 'var(--text-primary)' }}
                 />
                 <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '12px', color: 'var(--text-secondary)' }}/>
@@ -204,8 +250,8 @@ export const DashboardPage: React.FC = () => {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', alignItems: 'stretch' }}>
         
         {/* Carrier Performance */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Carrier Performance</h3>
+        <div className="glass-card fade-in-up" style={{ display: 'flex', flexDirection: 'column', animationDelay: '800ms' }}>
+          <h3 style={{ fontSize: '1.1rem', marginBottom: '1.5rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Carrier Performance</h3>
           <div style={{ height: '300px', width: '100%' }}>
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.carrierPerformance || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -214,7 +260,7 @@ export const DashboardPage: React.FC = () => {
                 <YAxis stroke="var(--text-secondary)" tick={{fill: 'var(--text-secondary)', fontSize: 12}} axisLine={false} tickLine={false} />
                 <RechartsTooltip 
                   cursor={{fill: 'rgba(255, 255, 255, 0.05)'}}
-                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-sm)' }}
+                  contentStyle={{ backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', borderRadius: 'var(--radius-md)', backdropFilter: 'blur(16px)' }}
                 />
                 <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--text-secondary)' }} />
                 <Bar dataKey="rescued" name="Rescued" fill="var(--success)" radius={[4, 4, 0, 0]} maxBarSize={40} />
@@ -225,10 +271,10 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Recent Orders */}
-        <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div className="glass-card fade-in-up" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', animationDelay: '900ms' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)' }}>Recent Orders</h3>
-            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>View All</button>
+            <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Recent Orders</h3>
+            <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => navigate('/orders')}>View All</button>
           </div>
           <div className="table-container" style={{ flex: 1, border: 'none', background: 'transparent' }}>
             <table className="custom-table" style={{ fontSize: '0.85rem' }}>
@@ -243,7 +289,7 @@ export const DashboardPage: React.FC = () => {
               <tbody>
                 {(data.recentOrders || []).map((order) => (
                   <tr key={order.id}>
-                    <td style={{ paddingLeft: 0, color: 'var(--primary)', fontWeight: 500 }}>{order.id}</td>
+                    <td style={{ paddingLeft: 0, color: 'var(--primary)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{order.id}</td>
                     <td>
                       <div>{order.customer}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{order.date}</div>
@@ -253,7 +299,7 @@ export const DashboardPage: React.FC = () => {
                         {order.status}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right', paddingRight: 0, fontWeight: 500 }}>₹{order.amount}</td>
+                    <td style={{ textAlign: 'right', paddingRight: 0, fontWeight: 500, fontFamily: 'var(--font-mono)' }}>₹{order.amount}</td>
                   </tr>
                 ))}
               </tbody>
@@ -268,8 +314,8 @@ export const DashboardPage: React.FC = () => {
 
 // Helper components & functions
 
-const MetricCard = ({ title, value, subtext, icon, colorVar, pulse = false }: { title: string, value: string, subtext?: string, icon: React.ReactNode, colorVar: string, pulse?: boolean }) => (
-  <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+const MetricCard = ({ title, value, subtext, icon, colorVar, pulse = false, isCurrency = false }: { title: string, value: number, subtext?: string, icon: React.ReactNode, colorVar: string, pulse?: boolean, isCurrency?: boolean }) => (
+  <MotionCard colorVar={colorVar} pulse={pulse} style={{ display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
     {/* Background accent glow */}
     <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '100px', height: '100px', background: colorVar, opacity: 0.1, filter: 'blur(30px)', borderRadius: '50%' }}></div>
     
@@ -281,7 +327,11 @@ const MetricCard = ({ title, value, subtext, icon, colorVar, pulse = false }: { 
     </div>
     
     <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-      <p style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)' }}>{value}</p>
+      <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center' }}>
+        {isCurrency && <span>₹</span>}
+        <AnimatedCounter value={value} />
+        {isCurrency && <span>L</span>}
+      </div>
       {pulse && <div className="pulse" style={{ marginBottom: '0.5rem' }}></div>}
     </div>
     
@@ -290,7 +340,7 @@ const MetricCard = ({ title, value, subtext, icon, colorVar, pulse = false }: { 
         {subtext}
       </p>
     )}
-  </div>
+  </MotionCard>
 );
 
 const getStatusBadge = (status: string) => {

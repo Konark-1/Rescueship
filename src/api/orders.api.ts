@@ -28,10 +28,11 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
   if (carrier) query.carrier = carrier;
 
   if (search) {
+    const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     query.$or = [
-      { externalOrderId: { $regex: search, $options: 'i' } },
-      { customerPhone: { $regex: search, $options: 'i' } },
-      { customerName: { $regex: search, $options: 'i' } },
+      { externalOrderId: { $regex: escapedSearch, $options: 'i' } },
+      { customerPhone: { $regex: escapedSearch, $options: 'i' } },
+      { customerName: { $regex: escapedSearch, $options: 'i' } },
     ];
   }
 

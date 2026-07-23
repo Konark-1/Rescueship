@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { motion, AnimatePresence } from 'motion/react';
+import { TabPill } from '../components/motion/TabPill';
+import { Eye, EyeOff, Activity } from 'lucide-react';
 
 interface SettingsData {
   platformUrl: string;
@@ -27,7 +30,13 @@ export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('platform');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState({ text: '', type: '' });
+  
+  // Password visibility states
+  const [showPlatformKey, setShowPlatformKey] = useState(false);
+  const [showCarrierKey, setShowCarrierKey] = useState(false);
+  const [showWhatsAppKey, setShowWhatsAppKey] = useState(false);
+  const [showPaymentKey, setShowPaymentKey] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -44,6 +53,14 @@ export const SettingsPage: React.FC = () => {
     fetchSettings();
   }, []);
 
+  const tabs = [
+    { id: 'platform', label: 'Platform Connection' },
+    { id: 'carrier', label: 'Carrier Config' },
+    { id: 'whatsapp', label: 'WhatsApp Meta' },
+    { id: 'payment', label: 'Payment Gateway' },
+    { id: 'features', label: 'Feature Toggles' }
+  ];
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setSettings(prev => ({
@@ -54,128 +71,176 @@ export const SettingsPage: React.FC = () => {
 
   const handleSave = async () => {
     setSaving(true);
-    setMessage('');
+    setMessage({ text: '', type: '' });
     try {
       await api.put('/api/settings', settings);
-      setMessage('Settings saved successfully!');
-    } catch (err) {
+      setMessage({ text: 'Settings saved successfully!', type: 'success' });
+    } catch (err: any) {
       console.error(err);
-      setMessage('Error saving settings.');
+      const errorMsg = err.response?.data?.error || 'Error saving settings.';
+      setMessage({ text: errorMsg, type: 'error' });
     } finally {
       setSaving(false);
+      setTimeout(() => setMessage({ text: '', type: '' }), 5000);
     }
   };
 
-  const tabs = [
-    { id: 'platform', label: 'Platform Connection' },
-    { id: 'carrier', label: 'Carrier Config' },
-    { id: 'whatsapp', label: 'WhatsApp Meta' },
-    { id: 'payment', label: 'Payment Gateway' },
-    { id: 'features', label: 'Feature Toggles' }
-  ];
-
   if (loading) {
-    return <div className="glass-card"><h2>Settings</h2><p>Loading...</p></div>;
+    return (
+      <div className="glass-card fade-in-up">
+        <h2 style={{ fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>Settings</h2>
+        <div style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
+          <div className="pulse" style={{ marginRight: '1rem' }}></div> Loading settings...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="glass-card" style={{ padding: '20px' }}>
-      <h2>Settings</h2>
-      
-      <div style={{ display: 'flex', gap: '15px', borderBottom: '1px solid #ccc', marginBottom: '20px' }}>
-        {tabs.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={{
-              padding: '10px',
-              border: 'none',
-              background: 'none',
-              borderBottom: activeTab === tab.id ? '2px solid #007bff' : 'none',
-              cursor: 'pointer',
-              fontWeight: activeTab === tab.id ? 'bold' : 'normal'
-            }}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ minHeight: '300px' }}>
-        {activeTab === 'platform' && (
-          <div>
-            <h3>Platform Connection</h3>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Platform URL</label>
-              <input type="text" name="platformUrl" value={settings.platformUrl} onChange={handleChange} style={{ width: '100%', padding: '8px' }} />
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Platform API Key</label>
-              <input type="password" name="platformApiKey" value={settings.platformApiKey} onChange={handleChange} placeholder="••••••••••••••••" style={{ width: '100%', padding: '8px' }} />
-              <small style={{ color: '#888' }}>Masked for security. Entering a new value overrides the existing one.</small>
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'carrier' && (
-          <div>
-            <h3>Carrier Configuration</h3>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Carrier Name</label>
-              <input type="text" name="carrierName" value={settings.carrierName} onChange={handleChange} style={{ width: '100%', padding: '8px' }} />
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Carrier API Key</label>
-              <input type="password" name="carrierApiKey" value={settings.carrierApiKey} onChange={handleChange} placeholder="••••••••••••••••" style={{ width: '100%', padding: '8px' }} />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'whatsapp' && (
-          <div>
-            <h3>WhatsApp Meta Setup</h3>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>WhatsApp Token</label>
-              <input type="password" name="whatsappToken" value={settings.whatsappToken} onChange={handleChange} placeholder="••••••••••••••••" style={{ width: '100%', padding: '8px' }} />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'payment' && (
-          <div>
-            <h3>Payment Gateway Setup</h3>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'block', marginBottom: '5px' }}>Payment Gateway Key</label>
-              <input type="password" name="paymentGatewayKey" value={settings.paymentGatewayKey} onChange={handleChange} placeholder="••••••••••••••••" style={{ width: '100%', padding: '8px' }} />
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'features' && (
-          <div>
-            <h3>Feature Toggles</h3>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                <input type="checkbox" name="enableNotifications" checked={settings.enableNotifications} onChange={handleChange} />
-                Enable Push Notifications
-              </label>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                <input type="checkbox" name="enableAutoFulfillment" checked={settings.enableAutoFulfillment} onChange={handleChange} />
-                Enable Auto Fulfillment
-              </label>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div style={{ marginTop: '20px' }}>
-        <button onClick={handleSave} disabled={saving} style={{ padding: '10px 20px', background: '#007bff', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          {saving ? 'Saving...' : 'Save Settings'}
+    <div className="glass-card fade-in-up" style={{ padding: '2.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--text-primary)' }}>System Settings</h2>
+          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Configure integrations, APIs, and automated actions.</p>
+        </div>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+          {saving ? 'Saving Engine...' : 'Save Configuration'}
         </button>
-        {message && <span style={{ marginLeft: '15px', color: message.includes('success') ? 'green' : 'red' }}>{message}</span>}
       </div>
+      
+      {/* Tab Navigation */}
+      <div style={{ marginBottom: '2rem' }}>
+        <TabPill tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      </div>
+
+      <div style={{ minHeight: '350px' }}>
+        <AnimatePresence mode="wait">
+          {activeTab === 'platform' && (
+            <motion.div key="platform" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Platform Connection</h3>
+              <div className="form-group">
+                <label className="form-label">Platform URL</label>
+                <input type="text" name="platformUrl" value={settings.platformUrl} onChange={handleChange} className="form-control" placeholder="https://your-store.myshopify.com" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Platform API Key</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPlatformKey ? "text" : "password"} name="platformApiKey" value={settings.platformApiKey} onChange={handleChange} className="form-control" placeholder={settings.platformApiKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" onClick={() => setShowPlatformKey(!showPlatformKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    {showPlatformKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                <small style={{ color: 'var(--text-muted)', marginTop: '0.5rem', fontSize: '0.8rem', display: 'block' }}>Masked for security. Entering a new value overrides the existing one.</small>
+              </div>
+              <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+                <Activity size={16} /> Test Connection
+              </button>
+            </motion.div>
+          )}
+
+          {activeTab === 'carrier' && (
+            <motion.div key="carrier" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Carrier Configuration</h3>
+              <div className="form-group">
+                <label className="form-label">Carrier Name</label>
+                <input type="text" name="carrierName" value={settings.carrierName} onChange={handleChange} className="form-control" placeholder="e.g., Delhivery, Bluedart" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Carrier API Key</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showCarrierKey ? "text" : "password"} name="carrierApiKey" value={settings.carrierApiKey} onChange={handleChange} className="form-control" placeholder={settings.carrierApiKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" onClick={() => setShowCarrierKey(!showCarrierKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    {showCarrierKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+              <button className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '1rem' }}>
+                <Activity size={16} /> Test Connection
+              </button>
+            </motion.div>
+          )}
+
+          {activeTab === 'whatsapp' && (
+            <motion.div key="whatsapp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>WhatsApp Meta Setup</h3>
+              <div className="form-group">
+                <label className="form-label">WhatsApp Token</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showWhatsAppKey ? "text" : "password"} name="whatsappToken" value={settings.whatsappToken} onChange={handleChange} className="form-control" placeholder={settings.whatsappToken ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" onClick={() => setShowWhatsAppKey(!showWhatsAppKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    {showWhatsAppKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'payment' && (
+            <motion.div key="payment" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Payment Gateway Setup</h3>
+              <div className="form-group">
+                <label className="form-label">Payment Gateway Key</label>
+                <div style={{ position: 'relative' }}>
+                  <input type={showPaymentKey ? "text" : "password"} name="paymentGatewayKey" value={settings.paymentGatewayKey} onChange={handleChange} className="form-control" placeholder={settings.paymentGatewayKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" onClick={() => setShowPaymentKey(!showPaymentKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                    {showPaymentKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'features' && (
+            <motion.div key="features" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
+              <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Feature Toggles</h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', cursor: 'pointer', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <input 
+                    type="checkbox" 
+                    name="enableNotifications" 
+                    checked={settings.enableNotifications} 
+                    onChange={handleChange} 
+                    style={{ marginTop: '0.25rem', accentColor: 'var(--primary)', width: '18px', height: '18px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Enable Push Notifications</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Receive real-time alerts for NDR cases and successful rescues.</div>
+                  </div>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', cursor: 'pointer', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
+                  <input 
+                    type="checkbox" 
+                    name="enableAutoFulfillment" 
+                    checked={settings.enableAutoFulfillment} 
+                    onChange={handleChange} 
+                    style={{ marginTop: '0.25rem', accentColor: 'var(--primary)', width: '18px', height: '18px' }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Enable Auto Fulfillment</div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Automatically trigger carrier fulfillment when an order is converted from COD to Prepaid.</div>
+                  </div>
+                </label>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {message.text && (
+        <div style={{ 
+          marginTop: '2rem', 
+          padding: '1rem', 
+          borderRadius: 'var(--radius-sm)', 
+          background: message.type === 'success' ? 'var(--success-glow)' : 'var(--danger-glow)',
+          border: `1px solid ${message.type === 'success' ? 'var(--success)' : 'var(--danger)'}`,
+          color: message.type === 'success' ? 'var(--success)' : 'var(--danger)',
+          display: 'flex', alignItems: 'center', gap: '0.5rem'
+        }}>
+          {message.text}
+        </div>
+      )}
     </div>
   );
 };

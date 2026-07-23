@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs';
 export interface IMerchant extends Document {
   name: string;
   email: string;
-  password: string;
+  password?: string;
+  googleId?: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
   onboardingStatus: 'pending' | 'skipped' | 'completed';
   platformConfig?: {
@@ -60,7 +61,8 @@ const MerchantSchema = new Schema<IMerchant>(
   {
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-    password: { type: String, required: true },
+    password: { type: String, required: false },
+    googleId: { type: String, required: false, unique: true, sparse: true },
     platform: { type: String, enum: ['shopify', 'woocommerce', 'custom'], required: true },
     onboardingStatus: { type: String, enum: ['pending', 'skipped', 'completed'], default: 'pending' },
     platformConfig: {
@@ -115,13 +117,14 @@ const MerchantSchema = new Schema<IMerchant>(
 
 // Pre-save hook to hash password
 MerchantSchema.pre<IMerchant>('save', async function () {
-  if (!this.isModified('password')) return;
+  if (!this.isModified('password') || !this.password) return;
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });
 
 // Compare password method
 MerchantSchema.methods.comparePassword = async function (candidate: string): Promise<boolean> {
+  if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
 };
 

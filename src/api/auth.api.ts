@@ -2,8 +2,10 @@ import { Router, Request, Response } from 'express';
 import { Merchant } from '../models';
 import { generateToken } from '../middleware/auth';
 import { logger } from '../utils/logger';
+import { OAuth2Client } from 'google-auth-library';
 
 const router = Router();
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 /**
  * POST /api/auth/register
@@ -97,6 +99,73 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
   } catch (err: any) {
     logger.error('Login failed', { error: err.message });
     res.status(500).json({ error: 'Login failed. Please try again.' });
+  }
+});
+
+/**
+ * POST /api/auth/google
+ * Google Login / Signup
+ */
+router.post('/google', async (req: Request, res: Response): Promise<void> => {
+  const { credential } = req.body;
+
+  if (!credential) {
+    res.status(400).json({ error: 'Missing Google credential' });
+    return;
+  }
+
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+      res.status(400).json({ error: 'Invalid Google credential payload' });
+      return;
+    }
+
+    const { email, name, sub: googleId } = payload;
+
+    // Check if user exists by email or googleId
+    let merchant = await Merchant.findOne({ $or: [{ email }, { googleId }] });
+
+    if (!merchant) {
+      // Create new merchant without password
+      merchant = await Merchant.create({
+        name: name || 'Google User',
+        email,
+        googleId,
+        platform: 'shopify', // Default, they will configure in onboarding
+        onboardingStatus: 'pending'
+      });
+      logger.info('New merchant registered via Google', { merchantId: merchant._id });
+    } else {
+      // If user exists but doesn't have googleId linked, link it now
+      if (!merchant.googleId) {
+        merchant.googleId = googleId;
+        await merchant.save();
+      }
+      logger.info('Merchant logged in via Google', { merchantId: merchant._id });
+    }
+
+    const token = generateToken(merchant._id.toString());
+
+    res.status(200).json({
+      message: 'Login successful',
+      token,
+      merchant: {
+        id: merchant._id,
+        name: merchant.name,
+        email: merchant.email,
+        platform: merchant.platform,
+        onboardingStatus: merchant.onboardingStatus,
+      },
+    });
+  } catch (err: any) {
+    logger.error('Google Auth failed', { error: err.message });
+    res.status(500).json({ error: 'Google Authentication failed. Please try again.' });
   }
 });
 

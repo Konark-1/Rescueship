@@ -21,7 +21,12 @@ export const codConversionWorker = new Worker(
       }
     } catch (err: any) {
       logger.error(`Error in cod-conversion worker for job ${job.id}`, { error: err.message });
-      throw err; // Fail the job to trigger retry
+      const isAuthError = err.response?.status === 401 || err.message?.includes('401') || err.message?.includes('Authentication failed');
+      if (isAuthError) {
+        logger.warn(`Job ${job.id} stopped due to unrecoverable invalid API credentials for merchant: ${merchantId}. Please update Payment Gateway keys in Settings.`);
+        return;
+      }
+      throw err; // Fail the job for transient errors to allow BullMQ retries
     }
   },
   {

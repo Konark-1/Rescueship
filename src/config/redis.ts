@@ -116,7 +116,9 @@ export async function connectRedis(): Promise<void> {
       port: config.redis.port,
     });
 
-    await redisConnection.connect();
+    if (redisConnection.status === 'wait' || redisConnection.status === 'end') {
+      await redisConnection.connect();
+    }
 
     // Verify with a PING
     const pong = await redisConnection.ping();

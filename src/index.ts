@@ -13,6 +13,7 @@ import { startAllWorkers, stopAllWorkers } from './jobs';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { webhookLimiter, apiLimiter } from './middleware/rateLimiter';
 import { logger } from './utils/logger';
+import hpp from 'hpp';
 
 // Webhook Routers
 import shopifyRouter from './webhooks/shopify.webhook';
@@ -39,9 +40,12 @@ const PORT = process.env.PORT || 3000;
 
 // Setup Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  credentials: true,
+}));
 
-// Capture raw body for signature verification
+// Capture raw body for signature verification and parse JSON
 app.use(
   express.json({
     verify: (req: any, res, buf) => {
@@ -49,6 +53,9 @@ app.use(
     },
   })
 );
+
+// Prevent HTTP Parameter Pollution (must be after express.json)
+app.use(hpp());
 
 // Serve Static Dashboard UI
 app.use(express.static(path.join(__dirname, 'public')));

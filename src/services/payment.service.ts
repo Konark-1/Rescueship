@@ -67,19 +67,20 @@ export class PaymentService {
 
     const url = 'https://api.razorpay.com/v1/payment_links';
 
-    // Razorpay amount is in paise (1 INR = 100 paise)
-    const amountInPaise = Math.round(params.amount * 100);
-    const expireTimestamp = params.expiresInMinutes
-      ? Math.floor(Date.now() / 1000) + params.expiresInMinutes * 60
-      : Math.floor(Date.now() / 1000) + 24 * 60 * 60; // default 24h
+    // Razorpay amount is in paise (1 INR = 100 paise), min ₹1 (100 paise)
+    const validAmount = Math.max(1, params.amount);
+    const amountInPaise = Math.round(validAmount * 100);
+
+    const safeExpireMinutes = Math.min(params.expiresInMinutes || 1440, 10080); // Max 7 days
+    const expireTimestamp = Math.floor(Date.now() / 1000) + safeExpireMinutes * 60;
 
     const payload = {
       amount: amountInPaise,
       currency: params.currency,
       accept_partial: false,
-      description: params.description,
+      description: (params.description || 'Order Upgrade').slice(0, 200),
       customer: {
-        name: params.customerName,
+        name: (params.customerName || 'Customer').slice(0, 50),
         contact: params.customerPhone,
         email: params.customerEmail || 'customer@example.com',
       },
@@ -135,19 +136,19 @@ export class PaymentService {
     const url = `${baseUrl}/links`;
 
     const linkId = `link_${params.orderId}_${Date.now().toString().slice(-4)}`;
-    const expiryTime = params.expiresInMinutes
-      ? new Date(Date.now() + params.expiresInMinutes * 60 * 1000).toISOString()
-      : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(); // default 24h
+    const safeExpireMinutes = Math.min(params.expiresInMinutes || 1440, 10080); // Max 7 days
+    const expiryTime = new Date(Date.now() + safeExpireMinutes * 60 * 1000).toISOString();
+    const validAmount = Math.max(1, params.amount);
 
     const payload = {
       link_id: linkId,
-      link_amount: params.amount,
+      link_amount: validAmount,
       link_currency: params.currency,
-      link_purpose: params.description,
+      link_purpose: (params.description || 'Order Upgrade').slice(0, 200),
       customer_details: {
         customer_phone: params.customerPhone,
         customer_email: params.customerEmail || 'customer@example.com',
-        customer_name: params.customerName,
+        customer_name: (params.customerName || 'Customer').slice(0, 50),
       },
       link_meta: {
         notify_url: `${config.server.apiBaseUrl}/webhooks/cashfree/payment`,

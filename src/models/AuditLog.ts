@@ -20,7 +20,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
     payload: { type: Schema.Types.Mixed, default: {} },
     status: { type: String, enum: ['success', 'failed', 'retrying'], default: 'success' },
     error: { type: String, default: null },
-    timestamp: { type: Date, default: Date.now, index: true },
+    timestamp: { type: Date, default: Date.now },
   },
   {
     timestamps: false,

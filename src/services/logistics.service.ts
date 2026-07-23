@@ -33,6 +33,34 @@ export interface RescheduleResult {
   carrierResponse?: any;
 }
 
+function sanitizeString(input: string | undefined, maxLength: number, fallback: string = ''): string {
+  if (!input) return fallback;
+  const sanitized = input.replace(/[^a-zA-Z0-9\s,\-/#.]/g, '').trim();
+  return sanitized.slice(0, maxLength) || fallback;
+}
+
+function sanitizePincode(pincode: string | undefined): string {
+  if (!pincode) return '000000';
+  const digitsOnly = pincode.replace(/\D/g, '');
+  return digitsOnly.slice(0, 6);
+}
+
+function sanitizeDeferredDate(dateStr: string | undefined): string {
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const maxFuture = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  const requestedDate = new Date(dateStr);
+  if (isNaN(requestedDate.getTime()) || requestedDate > maxFuture) {
+    return tomorrow.toISOString().split('T')[0];
+  }
+
+  return dateStr;
+}
+
 export class LogisticsService {
   private static instance: LogisticsService;
   private tokenPromises = new Map<string, Promise<string>>();
@@ -152,18 +180,18 @@ export class LogisticsService {
   /* ----------------- Carrier Implementations ----------------- */
 
   private async rescheduleShiprocket(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-    // Shiprocket NDR action update endpoint
-    const url = 'https://api.shiprocket.in/v1/external/ndr/action';
-    
-    // Map common reason to Shiprocket NDR action codes (1 = Reattempt, etc.)
-    const payload = {
-      awb: params.awb,
-      action: 'reattempt', // 'reattempt' or 'rto'
-      deferred_date: params.newDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    };
-
     try {
+      const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
+      // Shiprocket NDR action update endpoint
+      const url = 'https://api.shiprocket.in/v1/external/ndr/action';
+      
+      // Map common reason to Shiprocket NDR action codes (1 = Reattempt, etc.)
+      const payload = {
+        awb: params.awb,
+        action: 'reattempt', // 'reattempt' or 'rto'
+        deferred_date: sanitizeDeferredDate(params.newDate),
+      };
+
       const response = await axios.post(url, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -183,20 +211,20 @@ export class LogisticsService {
   }
 
   private async updateAddressShiprocket(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-    const url = 'https://api.shiprocket.in/v1/external/ndr/action';
-
-    const payload = {
-      awb: params.awb,
-      action: 'address_update',
-      address1: params.address,
-      city: params.city,
-      pin_code: params.pincode,
-      phone: params.phone,
-      name: params.customerName || 'Customer',
-    };
-
     try {
+      const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
+      const url = 'https://api.shiprocket.in/v1/external/ndr/action';
+
+      const payload = {
+        awb: params.awb,
+        action: 'address_update',
+        address1: sanitizeString(params.address, 200),
+        city: sanitizeString(params.city, 50),
+        pin_code: sanitizePincode(params.pincode),
+        phone: params.phone,
+        name: sanitizeString(params.customerName, 50, 'Customer'),
+      };
+
       const response = await axios.post(url, payload, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -216,23 +244,23 @@ export class LogisticsService {
   }
 
   private async rescheduleClickPost(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    const apiToken = carrierConfig?.apiToken;
-    if (!apiToken) {
-      throw new Error('ClickPost API Token is not configured');
-    }
-
-    // ClickPost NDR action update endpoint
-    const url = 'https://api.clickpost.in/v1/ndr-update/';
-    const payload = {
-      awb: params.awb,
-      action: 'REATTEMPT', // REATTEMPT or DEFER_DLV
-      meta: {
-        preferred_date: params.newDate,
-        reason: params.reason,
-      },
-    };
-
     try {
+      const apiToken = carrierConfig?.apiToken;
+      if (!apiToken) {
+        throw new Error('ClickPost API Token is not configured');
+      }
+
+      // ClickPost NDR action update endpoint
+      const url = 'https://api.clickpost.in/v1/ndr-update/';
+      const payload = {
+        awb: params.awb,
+        action: 'REATTEMPT', // REATTEMPT or DEFER_DLV
+        meta: {
+          preferred_date: sanitizeDeferredDate(params.newDate),
+          reason: sanitizeString(params.reason, 150, 'Customer request'),
+        },
+      };
+
       const response = await axios.post(url, payload, {
         headers: {
           'Content-Type': 'application/json',
@@ -251,24 +279,24 @@ export class LogisticsService {
   }
 
   private async updateAddressClickPost(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    const apiToken = carrierConfig?.apiToken;
-    if (!apiToken) {
-      throw new Error('ClickPost API Token is not configured');
-    }
-
-    const url = 'https://api.clickpost.in/v1/ndr-update/';
-    const payload = {
-      awb: params.awb,
-      action: 'ADDRESS_UPDATE',
-      meta: {
-        new_address: params.address,
-        new_pincode: params.pincode,
-        new_city: params.city,
-        new_phone: params.phone,
-      },
-    };
-
     try {
+      const apiToken = carrierConfig?.apiToken;
+      if (!apiToken) {
+        throw new Error('ClickPost API Token is not configured');
+      }
+
+      const url = 'https://api.clickpost.in/v1/ndr-update/';
+      const payload = {
+        awb: params.awb,
+        action: 'ADDRESS_UPDATE',
+        meta: {
+          new_address: sanitizeString(params.address, 200),
+          new_pincode: sanitizePincode(params.pincode),
+          new_city: sanitizeString(params.city, 50),
+          new_phone: params.phone,
+        },
+      };
+
       const response = await axios.post(url, payload, {
         headers: {
           'Content-Type': 'application/json',
@@ -287,22 +315,23 @@ export class LogisticsService {
   }
 
   private async rescheduleDelhivery(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    const apiToken = carrierConfig?.apiToken;
-    if (!apiToken) {
-      throw new Error('Delhivery API Token is not configured');
-    }
-
-    const isProd = config.server.nodeEnv === 'production';
-    const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
-    const url = `${baseUrl}/api/p/update`;
-
-    const payload = {
-      waybill: params.awb,
-      action: 'reattempt', // reattempt
-      deferred_date: params.newDate,
-    };
-
     try {
+      const apiToken = carrierConfig?.apiToken;
+      if (!apiToken) {
+        throw new Error('Delhivery API Token is not configured');
+      }
+
+      const isProd = config.server.nodeEnv === 'production';
+      const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
+      const url = `${baseUrl}/api/p/update`;
+
+      // Delhivery requires a date, if missing fallback to tomorrow
+      const payload = {
+        waybill: params.awb,
+        action: 'reattempt', // reattempt
+        deferred_date: sanitizeDeferredDate(params.newDate),
+      };
+
       const response = await axios.post(url, payload, {
         headers: {
           Authorization: `Token ${apiToken}`,
@@ -321,25 +350,25 @@ export class LogisticsService {
   }
 
   private async updateAddressDelhivery(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    const apiToken = carrierConfig?.apiToken;
-    if (!apiToken) {
-      throw new Error('Delhivery API Token is not configured');
-    }
-
-    const isProd = config.server.nodeEnv === 'production';
-    const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
-    const url = `${baseUrl}/api/p/update`;
-
-    const payload = {
-      waybill: params.awb,
-      action: 'address_update',
-      address: params.address,
-      city: params.city,
-      pincode: params.pincode,
-      phone: params.phone,
-    };
-
     try {
+      const apiToken = carrierConfig?.apiToken;
+      if (!apiToken) {
+        throw new Error('Delhivery API Token is not configured');
+      }
+
+      const isProd = config.server.nodeEnv === 'production';
+      const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
+      const url = `${baseUrl}/api/p/update`;
+
+      const payload = {
+        waybill: params.awb,
+        action: 'address_update',
+        address: sanitizeString(params.address, 200),
+        city: sanitizeString(params.city, 50),
+        pincode: sanitizePincode(params.pincode),
+        phone: params.phone,
+      };
+
       const response = await axios.post(url, payload, {
         headers: {
           Authorization: `Token ${apiToken}`,
