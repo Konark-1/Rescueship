@@ -183,6 +183,41 @@ export class PaymentService {
   }
 
   /**
+   * Generate QR Code Data URL or Buffer for UPI Payment
+   */
+  public async generateQRCode(paymentUrl: string): Promise<string> {
+    const QRCode = require('qrcode');
+    try {
+      const qrDataUrl = await QRCode.toDataURL(paymentUrl, {
+        margin: 2,
+        width: 300,
+      });
+      return qrDataUrl;
+    } catch (err: any) {
+      logger.error('Failed to generate QR code', { error: err.message });
+      throw err;
+    }
+  }
+
+  /**
+   * Notify Seller when COD conversion payment is received
+   */
+  public async notifySellerPaymentReceived(
+    merchantPhone: string,
+    orderId: string,
+    amount: number,
+    whatsappServiceInstance: any
+  ): Promise<void> {
+    try {
+      const message = `✅ *Payment Received!*\n\nCustomer paid ₹${amount} for Order #${orderId} via UPI. The order is now converted to Prepaid. Delivery can proceed smoothly.`;
+      logger.info('Notifying seller of converted payment', { merchantPhone, orderId, amount });
+      // In production, send via WhatsApp or SMS to seller's registered phone
+    } catch (err: any) {
+      logger.error('Failed to notify seller of payment', { orderId, error: err.message });
+    }
+  }
+
+  /**
    * Verify signature of Razorpay webhook
    */
   public verifyRazorpayWebhook(rawBody: string, signature: string, secret: string): boolean {

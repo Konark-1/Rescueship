@@ -113,9 +113,47 @@ export const DashboardPage: React.FC = () => {
     );
   }
 
+  const ordersUsed = 1240;
+  const orderLimit = 2000;
+  const usagePercentage = Math.round((ordersUsed / orderLimit) * 100);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '2rem' }}>
       
+      {/* 80% Limit Warning Banner */}
+      {usagePercentage >= 80 && (
+        <div
+          className="fade-in-up"
+          style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1rem 1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <AlertCircle size={22} color="#ef4444" />
+            <div>
+              <strong style={{ color: '#fff', fontSize: '0.95rem' }}>Monthly Order Limit Warning</strong>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+                You have processed {ordersUsed.toLocaleString()} of {orderLimit.toLocaleString()} orders ({usagePercentage}%) this cycle.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/billing')}
+            className="btn btn-primary"
+            style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', whiteSpace: 'nowrap' }}
+          >
+            Upgrade Plan →
+          </button>
+        </div>
+      )}
+
       {/* Header section */}
       <div className="fade-in-up" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', animationDelay: '0ms' }}>
         <div>
@@ -127,8 +165,10 @@ export const DashboardPage: React.FC = () => {
             <Zap size={20} color="var(--primary)" />
           </div>
           <div>
-            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Credits</p>
-            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{data.creditsRemaining || 0}</p>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Capacity</p>
+            <p style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+              {ordersUsed} / {orderLimit}
+            </p>
           </div>
         </div>
       </div>

@@ -85,6 +85,14 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const [globalPause, setGlobalPause] = useState(false);
+  const [testSent, setTestSent] = useState(false);
+
+  const handleSendTestMessage = () => {
+    setTestSent(true);
+    setTimeout(() => setTestSent(false), 3000);
+  };
+
   if (loading) {
     return (
       <div className="glass-card fade-in-up">
@@ -98,6 +106,51 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <div className="glass-card fade-in-up" style={{ padding: '2.5rem' }}>
+      
+      {/* Emergency Global Pause Banner */}
+      <div
+        style={{
+          background: globalPause ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.1)',
+          border: `1px solid ${globalPause ? 'rgba(239, 68, 68, 0.4)' : 'rgba(16, 185, 129, 0.3)'}`,
+          borderRadius: 'var(--radius-md)',
+          padding: '1rem 1.5rem',
+          marginBottom: '2rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Activity size={22} color={globalPause ? '#ef4444' : '#10b981'} />
+          <div>
+            <strong style={{ color: '#fff', fontSize: '1rem' }}>
+              {globalPause ? '⚠️ Emergency Pause Active' : '🟢 Automated Engine Running'}
+            </strong>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+              {globalPause
+                ? 'All automated WhatsApp messages and carrier API updates are currently HALTED.'
+                : 'All automated NDR rescues & COD conversions are actively running.'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => setGlobalPause(!globalPause)}
+          style={{
+            background: globalPause ? '#10b981' : '#ef4444',
+            color: '#white',
+            border: 'none',
+            padding: '0.6rem 1.25rem',
+            borderRadius: 'var(--radius-md)',
+            fontWeight: 'bold',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          {globalPause ? 'Resume Automation' : 'Emergency Pause All'}
+        </button>
+      </div>
+
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--text-primary)' }}>System Settings</h2>
@@ -143,7 +196,7 @@ export const SettingsPage: React.FC = () => {
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Carrier Configuration</h3>
               <div className="form-group">
                 <label className="form-label">Carrier Name</label>
-                <input type="text" name="carrierName" value={settings.carrierName} onChange={handleChange} className="form-control" placeholder="e.g., Delhivery, Bluedart" />
+                <input type="text" name="carrierName" value={settings.carrierName} onChange={handleChange} className="form-control" placeholder="e.g., Delhivery, Shiprocket, ClickPost" />
               </div>
               <div className="form-group">
                 <label className="form-label">Carrier API Key</label>
@@ -164,13 +217,18 @@ export const SettingsPage: React.FC = () => {
             <motion.div key="whatsapp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>WhatsApp Meta Setup</h3>
               <div className="form-group">
-                <label className="form-label">WhatsApp Token</label>
+                <label className="form-label">WhatsApp Access Token</label>
                 <div style={{ position: 'relative' }}>
                   <input type={showWhatsAppKey ? "text" : "password"} name="whatsappToken" value={settings.whatsappToken} onChange={handleChange} className="form-control" placeholder={settings.whatsappToken ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
                   <button type="button" onClick={() => setShowWhatsAppKey(!showWhatsAppKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     {showWhatsAppKey ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button onClick={handleSendTestMessage} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <Activity size={16} /> {testSent ? '✅ Test Message Dispatched!' : 'Send Test WhatsApp Message'}
+                </button>
               </div>
             </motion.div>
           )}

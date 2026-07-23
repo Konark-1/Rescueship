@@ -3,6 +3,7 @@ import { ndrRescueWorker } from './ndrRescue.job';
 import { whatsappSendWorker } from './whatsappSend.job';
 import { escalationWorker } from './escalation.job';
 import { deadLetterWorker } from './deadLetter.job';
+import { setupMonthlyResetWorker, scheduleMonthlyReset } from './monthlyReset.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -10,6 +11,9 @@ export * from './ndrRescue.job';
 export * from './whatsappSend.job';
 export * from './escalation.job';
 export * from './deadLetter.job';
+export * from './monthlyReset.job';
+
+const monthlyResetWorker = setupMonthlyResetWorker();
 
 /**
  * Start all BullMQ workers.
@@ -23,6 +27,11 @@ export function startAllWorkers(): void {
   whatsappSendWorker.run();
   escalationWorker.run();
   deadLetterWorker.run();
+  monthlyResetWorker.run();
+
+  scheduleMonthlyReset().catch((err) => {
+    logger.error('Failed to schedule monthly reset cron job', { error: err.message });
+  });
 
   logger.info('✅  All BullMQ workers running');
 }
@@ -40,6 +49,7 @@ export async function stopAllWorkers(): Promise<void> {
     whatsappSendWorker.close(),
     escalationWorker.close(),
     deadLetterWorker.close(),
+    monthlyResetWorker.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

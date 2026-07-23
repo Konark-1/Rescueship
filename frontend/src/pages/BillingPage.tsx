@@ -1,27 +1,18 @@
 import { useState, useRef } from 'react';
-import { CreditCard, Zap, Download, Check, Shield, Star, X } from 'lucide-react';
+import { CreditCard, Zap, Download, Check, Shield, Star, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import PricingComparisonModal from '../components/PricingComparisonModal';
 
 export default function BillingPage() {
-  const creditsUsed = 400;
-  const creditsTotal = 500;
-  const percentageUsed = (creditsUsed / creditsTotal) * 100;
-  
-  const [isAnnual, setIsAnnual] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'quarterly' | 'semi_annual' | 'annual'>('annual');
   const [toast, setToast] = useState<string | null>(null);
-  const [showCheckoutModal, setShowCheckoutModal] = useState<{ type: string, name: string, price: string } | null>(null);
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      setMousePosition({
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top,
-      });
-    }
-  };
+  // Mock order usage data
+  const currentOrdersUsed = 1240;
+  const currentOrderLimit = 2000;
+  const percentageUsed = Math.min(100, Math.round((currentOrdersUsed / currentOrderLimit) * 100));
 
   const showToast = (message: string) => {
     setToast(message);
@@ -32,235 +23,289 @@ export default function BillingPage() {
     showToast(`Downloading Invoice PDF for ${id}...`);
   };
 
-  const handleBuy = (type: string, name: string, price: string) => {
-    setShowCheckoutModal({ type, name, price });
+  const handleSelectPlan = (name: string, price: string) => {
+    if (name === 'Starter') {
+      showToast('You are currently on the Starter Plan.');
+      return;
+    }
+    if (name === 'Enterprise') {
+      window.location.href = 'mailto:support@rescueship.io?subject=RescueShip Enterprise Inquiry';
+      return;
+    }
+    showToast(`Upgrading to ${name} Plan (${price})... Redirecting to Checkout.`);
   };
-
-  const topupPackages = [
-    { credits: 500, price: '₹999', popular: false },
-    { credits: 2000, price: '₹3,499', popular: true },
-    { credits: 5000, price: '₹7,999', popular: false },
-  ];
 
   const subscriptions = [
     {
       name: 'Starter',
-      price: isAnnual ? '₹1,599' : '₹1,999',
+      price: billingCycle === 'quarterly' ? '₹1,599' : billingCycle === 'semi_annual' ? '₹1,359' : '₹1,119',
       period: '/mo',
-      features: ['Up to 1,000 orders/mo', 'Basic WhatsApp Templates', 'Email Support'],
+      orderLimit: '2,000 orders/mo',
+      features: [
+        'Up to 2,000 orders/mo',
+        'Smart Address Correction (Text, Pin, Both)',
+        'Fake Remark Detection',
+        'Shiprocket & Delhivery Integrations',
+        'Email Support (24h SLA)',
+      ],
       buttonText: 'Current Plan',
       active: true,
       popular: false,
     },
     {
       name: 'Growth',
-      price: isAnnual ? '₹3,999' : '₹4,999',
+      price: billingCycle === 'quarterly' ? '₹3,999' : billingCycle === 'semi_annual' ? '₹3,399' : '₹2,799',
       period: '/mo',
-      features: ['Up to 5,000 orders/mo', 'Custom WhatsApp Flows', 'Priority Support', 'COD to Prepaid Conversions'],
+      orderLimit: '10,000 orders/mo',
+      features: [
+        'Up to 10,000 orders/mo',
+        'Everything in Starter',
+        'UPI QR Payment Link Generation',
+        'Seller Payment WhatsApp Alerts',
+        'ClickPost Integration',
+        'Advanced Analytics & Charts',
+        'Priority Support (12h SLA)',
+      ],
       buttonText: 'Upgrade Now',
       active: false,
       popular: true,
     },
     {
-      name: 'Scale Enterprise',
+      name: 'Scale',
+      price: billingCycle === 'quarterly' ? '₹9,999' : billingCycle === 'semi_annual' ? '₹8,499' : '₹6,999',
+      period: '/mo',
+      orderLimit: '50,000 orders/mo',
+      features: [
+        'Up to 50,000 orders/mo',
+        'Everything in Growth',
+        'Custom Carrier Integration',
+        'CSV Data Exports',
+        'Priority Support (6h SLA)',
+        '99.5% Uptime SLA Guarantee',
+      ],
+      buttonText: 'Upgrade to Scale',
+      active: false,
+      popular: false,
+    },
+    {
+      name: 'Enterprise',
       price: 'Custom',
       period: '',
-      features: ['Unlimited orders', 'Dedicated Account Manager', 'Custom Integrations', 'SLA Guarantee'],
+      orderLimit: 'Unlimited orders',
+      features: [
+        'Unlimited orders & volume',
+        'Everything in Scale',
+        'Dedicated Account Manager',
+        'Custom SLA & Escalation Flow',
+        'Whitelabel & Custom Workflows',
+      ],
       buttonText: 'Contact Sales',
       active: false,
       popular: false,
-    }
+    },
   ];
 
   const invoices = [
-    { id: 'INV-2026-001', date: 'Oct 1, 2026', amount: '₹1,999', status: 'Paid' },
-    { id: 'INV-2026-002', date: 'Sep 1, 2026', amount: '₹1,999', status: 'Paid' },
-    { id: 'INV-2026-003', date: 'Aug 1, 2026', amount: '₹999', status: 'Paid' },
+    { id: 'INV-2026-001', date: 'Oct 1, 2026', amount: '₹1,599', status: 'Paid' },
+    { id: 'INV-2026-002', date: 'Sep 1, 2026', amount: '₹1,599', status: 'Paid' },
+    { id: 'INV-2026-003', date: 'Aug 1, 2026', amount: '₹1,599', status: 'Paid' },
   ];
 
-  // Circular progress math
-  const radius = 30;
-  const circumference = 2 * Math.PI * radius;
-  const strokeDashoffset = circumference - (percentageUsed / 100) * circumference;
-
   return (
-    <div className="fade-in-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '3rem', maxWidth: '1200px', margin: '0 auto' }}>
-      
-      <div className="glass-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', overflow: 'hidden', flexWrap: 'wrap', gap: '1.5rem' }}>
-        <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '300px', height: '300px', background: 'var(--primary)', opacity: 0.1, filter: 'blur(50px)', borderRadius: '50%' }}></div>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-display)', margin: '0 0 0.5rem 0' }}>Billing & Credits</h1>
-          <p style={{ color: 'var(--text-secondary)', margin: 0 }}>Manage your subscription and top up your message credits.</p>
+    <div className="fade-in-up p-6 max-w-7xl mx-auto space-y-10">
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 right-6 bg-indigo-600 text-white px-5 py-3 rounded-xl shadow-xl z-50 text-sm font-semibold flex items-center gap-2">
+          <span>{toast}</span>
         </div>
-        <div style={{ background: 'rgba(0,0,0,0.3)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1.25rem', minWidth: '300px', position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <div style={{ position: 'relative', width: '80px', height: '80px' }}>
-            <svg width="80" height="80" viewBox="0 0 80 80">
-              <circle
-                cx="40" cy="40" r={radius}
-                fill="none"
-                stroke="rgba(255,255,255,0.1)"
-                strokeWidth="6"
-              />
-              <circle
-                cx="40" cy="40" r={radius}
-                fill="none"
-                stroke={percentageUsed > 80 ? 'var(--danger)' : 'var(--primary)'}
-                strokeWidth="6"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                transform="rotate(-90 40 40)"
-                style={{ transition: 'stroke-dashoffset 1s ease-out' }}
-              />
-            </svg>
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold' }}>
-              {Math.round(percentageUsed)}%
-            </div>
+      )}
+
+      {/* Header & Order Limit Usage */}
+      <div className="glass-card p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 z-0"></div>
+        <div className="relative z-10">
+          <h1 className="text-3xl font-bold text-white mb-2 font-display">Billing & Subscription</h1>
+          <p className="text-gray-400">Manage your subscription plan, order capacity, and billing history.</p>
+        </div>
+
+        {/* Current Usage Bar */}
+        <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-5 min-w-[320px] relative z-10">
+          <div className="flex justify-between text-sm font-medium mb-2">
+            <span className="text-gray-400">Monthly Order Capacity</span>
+            <span className="text-indigo-400 font-bold">
+              {currentOrdersUsed.toLocaleString()} / {currentOrderLimit.toLocaleString()}
+            </span>
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', fontWeight: 500, marginBottom: '0.25rem' }}>
-              <span style={{ color: 'var(--text-secondary)' }}>Credits Remaining</span>
-            </div>
-            <div style={{ color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-              {creditsTotal - creditsUsed} <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', fontWeight: 'normal' }}>/ {creditsTotal}</span>
-            </div>
-            {percentageUsed > 80 && <span style={{ color: 'var(--danger)', fontSize: '0.75rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px' }}><Zap size={12} /> Refill needed soon</span>}
+          <div className="w-full bg-gray-800 rounded-full h-3 mb-2 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                percentageUsed > 80 ? 'bg-rose-500' : 'bg-indigo-500'
+              }`}
+              style={{ width: `${percentageUsed}%` }}
+            ></div>
+          </div>
+          <div className="flex justify-between items-center text-xs text-gray-400 mt-2">
+            <span>{percentageUsed}% Used this cycle</span>
+            {percentageUsed >= 80 && (
+              <span className="text-rose-400 font-semibold flex items-center gap-1">
+                <Zap size={12} /> Near Limit
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      <div ref={containerRef} onMouseMove={handleMouseMove} style={{ position: 'relative' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-display)' }}>
-          <Zap size={20} color="var(--accent)" />
-          Quick Credit Top-Up
-        </h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-          {topupPackages.map((pkg, i) => (
-            <motion.div 
-              key={i} 
-              className="glass-card" 
-              whileHover={{ y: -5, scale: 1.02 }}
-              style={{ padding: '2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', border: pkg.popular ? '1px solid var(--primary)' : '1px solid var(--border-color)', position: 'relative', cursor: 'pointer', overflow: 'hidden' }}
+      {/* Subscription Plans Section */}
+      <div ref={containerRef} className="relative">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display">
+              <Shield size={22} className="text-emerald-400" />
+              Select Your Plan
+            </h2>
+            <p className="text-sm text-gray-400">Scale your COD recovery & NDR management seamlessly.</p>
+          </div>
+
+          {/* Billing Cycle Toggle */}
+          <div className="flex items-center bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
+            <button
+              onClick={() => setBillingCycle('quarterly')}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+                billingCycle === 'quarterly'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
             >
-              <div 
-                style={{
-                  position: 'absolute',
-                  inset: '-1px',
-                  background: `radial-gradient(400px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(255,255,255,0.06), transparent 40%)`,
-                  zIndex: 0,
-                  pointerEvents: 'none',
-                }}
-              />
-              {pkg.popular && <div style={{ position: 'absolute', top: '-12px', background: 'var(--primary)', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '0.25rem 0.75rem', borderRadius: '9999px', textTransform: 'uppercase', letterSpacing: '0.05em', boxShadow: 'var(--shadow-glow)', zIndex: 1 }}>Most Popular</div>}
-              <h3 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', margin: '0 0 0.25rem 0', zIndex: 1 }}>{pkg.credits.toLocaleString()}</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem', zIndex: 1 }}>Message Credits</p>
-              <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', marginBottom: '1.5rem', zIndex: 1 }}>{pkg.price}</div>
-              <button onClick={() => handleBuy('Top-Up', `${pkg.credits} Credits`, pkg.price)} className={pkg.popular ? "btn btn-primary" : "btn btn-secondary"} style={{ width: '100%', zIndex: 1 }}>
-                Buy Now
+              Quarterly
+            </button>
+            <button
+              onClick={() => setBillingCycle('semi_annual')}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                billingCycle === 'semi_annual'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Semi-Annual
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
+                15% OFF
+              </span>
+            </button>
+            <button
+              onClick={() => setBillingCycle('annual')}
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
+                billingCycle === 'annual'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-gray-400 hover:text-gray-200'
+              }`}
+            >
+              Annual
+              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded">
+                30% OFF
+              </span>
+            </button>
+          </div>
+        </div>
+
+        {/* Plan Cards Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {subscriptions.map((plan, i) => (
+            <motion.div
+              key={i}
+              whileHover={{ y: -6 }}
+              className={`glass-card p-6 flex flex-col justify-between border relative overflow-hidden transition-all ${
+                plan.popular
+                  ? 'bg-gradient-to-b from-indigo-950/60 to-gray-900/90 border-indigo-500 shadow-xl shadow-indigo-950/40'
+                  : 'border-gray-800 hover:border-gray-700'
+              }`}
+            >
+              {plan.popular && (
+                <div className="absolute top-0 right-4 transform -translate-y-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-md">
+                  <Star size={12} className="fill-white" /> Popular
+                </div>
+              )}
+
+              <div>
+                <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
+                <p className="text-xs text-indigo-400 font-semibold mb-4">{plan.orderLimit}</p>
+
+                <div className="mb-6 flex items-baseline gap-1">
+                  <span className="text-3xl font-extrabold text-white">{plan.price}</span>
+                  <span className="text-xs text-gray-400">{plan.period}</span>
+                </div>
+
+                <ul className="space-y-3 mb-6">
+                  {plan.features.map((feat, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5 text-xs text-gray-300">
+                      <Check size={16} className="text-emerald-400 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <button
+                onClick={() => handleSelectPlan(plan.name, plan.price)}
+                className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all ${
+                  plan.active
+                    ? 'bg-gray-800 text-gray-400 cursor-default border border-gray-700'
+                    : plan.popular
+                    ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30'
+                    : 'bg-gray-800 text-white hover:bg-gray-700'
+                }`}
+              >
+                {plan.buttonText}
               </button>
             </motion.div>
           ))}
         </div>
-      </div>
 
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 'bold', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'var(--font-display)' }}>
-            <Shield size={20} color="var(--success)" />
-            Subscription Plans
-          </h2>
-          
-          <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.2)', padding: '4px', borderRadius: '12px', border: '1px solid var(--border-color)', position: 'relative' }}>
-            {['Monthly', 'Annual'].map((planType) => {
-              const isActive = (planType === 'Annual') === isAnnual;
-              return (
-                <button
-                  key={planType}
-                  onClick={() => setIsAnnual(planType === 'Annual')}
-                  style={{
-                    position: 'relative', padding: '8px 16px', fontSize: '0.875rem', fontWeight: 500,
-                    color: isActive ? '#ffffff' : 'var(--text-muted)', border: 'none', background: 'transparent',
-                    cursor: 'pointer', borderRadius: '8px', zIndex: 2
-                  }}
-                >
-                  {planType} {planType === 'Annual' && <span style={{ color: 'var(--success)', marginLeft: '4px', fontSize: '0.75rem' }}>Save 20%</span>}
-                  {isActive && (
-                    <motion.div
-                      layoutId="billingToggle"
-                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                      style={{
-                        position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.1)',
-                        border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px', zIndex: -1
-                      }}
-                    />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-          {subscriptions.map((plan, i) => (
-            <div key={i} className="glass-card" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', position: 'relative', border: plan.popular ? '1px solid var(--accent)' : '1px solid var(--border-color)', background: plan.popular ? 'var(--primary-glow)' : 'var(--bg-card)' }}>
-              {plan.popular && <div style={{ position: 'absolute', top: '-12px', right: '1.5rem', background: 'linear-gradient(90deg, var(--accent), var(--primary))', color: 'white', fontSize: '0.75rem', fontWeight: 'bold', padding: '0.25rem 0.75rem', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '4px', boxShadow: 'var(--shadow-glow)' }}><Star size={12} fill="white" /> Popular Glow</div>}
-              
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 'bold', color: plan.popular ? 'var(--accent)' : 'var(--text-secondary)', margin: '0 0 0.5rem 0' }}>{plan.name}</h3>
-              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.25rem', marginBottom: '1.5rem' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--text-primary)', lineHeight: 1 }}>{plan.price}</span>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>{plan.period}</span>
-              </div>
-              
-              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 2rem 0', flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {plan.features.map((feature, idx) => (
-                  <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-                    <Check size={18} color={plan.popular ? 'var(--accent)' : 'var(--success)'} style={{ flexShrink: 0, marginTop: '2px' }} />
-                    <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)' }}>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              <button 
-                onClick={() => !plan.active && handleBuy('Subscription', plan.name, plan.price)}
-                disabled={plan.active}
-                className={plan.active ? "btn" : "btn btn-primary"} 
-                style={{ width: '100%', background: plan.active ? 'rgba(255,255,255,0.05)' : plan.popular ? 'var(--accent)' : 'var(--primary)', color: plan.active ? 'var(--text-muted)' : 'white', cursor: plan.active ? 'default' : 'pointer', border: plan.active ? '1px solid var(--border-color)' : 'none' }}
-              >
-                {plan.buttonText}
-              </button>
-            </div>
-          ))}
+        {/* Feature Comparison Link */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => setIsModalOpen(true)}
+            className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-950/40 border border-indigo-800/50 px-5 py-2.5 rounded-xl"
+          >
+            <HelpCircle size={18} />
+            Compare All Features in Detail →
+          </button>
         </div>
       </div>
 
-      <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(255,255,255,0.02)' }}>
-          <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Invoice History</h2>
-          <CreditCard size={20} color="var(--text-muted)" />
+      {/* Invoice History Table */}
+      <div className="glass-card overflow-hidden">
+        <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
+          <h2 className="text-lg font-bold text-white font-display">Invoice History</h2>
+          <CreditCard className="w-5 h-5 text-gray-400" />
         </div>
-        <div className="table-container" style={{ border: 'none', background: 'transparent' }}>
-          <table className="custom-table" style={{ margin: 0 }}>
-            <thead>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-gray-300">
+            <thead className="bg-gray-900/60 border-b border-gray-800 text-gray-400 uppercase text-xs font-semibold">
               <tr>
-                <th style={{ background: 'transparent' }}>Invoice ID</th>
-                <th style={{ background: 'transparent' }}>Date</th>
-                <th style={{ background: 'transparent' }}>Amount</th>
-                <th style={{ background: 'transparent' }}>Status</th>
-                <th style={{ background: 'transparent', textAlign: 'right' }}>Receipt</th>
+                <th className="px-6 py-4">Invoice ID</th>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4">Amount</th>
+                <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-right">Receipt</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-gray-800/40">
               {invoices.map((inv, i) => (
-                <tr key={i}>
-                  <td style={{ fontWeight: 500, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{inv.id}</td>
-                  <td>{inv.date}</td>
-                  <td style={{ fontWeight: 500 }}>{inv.amount}</td>
-                  <td>
-                    <span className="badge badge-success">{inv.status}</span>
+                <tr key={i} className="hover:bg-gray-800/20 transition-colors">
+                  <td className="px-6 py-4 font-medium text-white">{inv.id}</td>
+                  <td className="px-6 py-4">{inv.date}</td>
+                  <td className="px-6 py-4 font-medium">{inv.amount}</td>
+                  <td className="px-6 py-4">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      {inv.status}
+                    </span>
                   </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button onClick={() => handleDownload(inv.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--primary)', background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.5rem', borderRadius: 'var(--radius-sm)', fontWeight: 500 }} onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                      <Download size={16} /> PDF
+                  <td className="px-6 py-4 text-right">
+                    <button
+                      onClick={() => handleDownload(inv.id)}
+                      className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-medium text-xs transition-colors p-2 hover:bg-gray-800 rounded-lg"
+                    >
+                      <Download className="w-4 h-4" /> PDF
                     </button>
                   </td>
                 </tr>
@@ -270,40 +315,8 @@ export default function BillingPage() {
         </div>
       </div>
 
-      {showCheckoutModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Confirm Purchase</h3>
-              <button onClick={() => setShowCheckoutModal(null)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
-            </div>
-            <div style={{ padding: '2rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', textAlign: 'center' }}>
-              <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--primary-glow)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
-                <Zap size={32} color="var(--primary)" />
-              </div>
-              <h4 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)' }}>{showCheckoutModal.name}</h4>
-              <p style={{ margin: 0, color: 'var(--text-secondary)' }}>You are about to purchase the {showCheckoutModal.type}.</p>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: 'var(--text-primary)', marginTop: '0.5rem' }}>{showCheckoutModal.price}</div>
-            </div>
-            <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <button 
-                onClick={() => { showToast(`Successfully purchased ${showCheckoutModal.name}!`); setShowCheckoutModal(null); }}
-                className="btn btn-primary" style={{ width: '100%', padding: '0.75rem' }}
-              >
-                Confirm Payment
-              </button>
-              <button onClick={() => setShowCheckoutModal(null)} className="btn btn-secondary" style={{ width: '100%', padding: '0.75rem' }}>Cancel</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {toast && (
-        <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', background: 'var(--primary-glow)', border: '1px solid var(--primary)', color: 'white', padding: '1rem 1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 2000, boxShadow: 'var(--shadow-glow)', animation: 'fadeInUp 0.3s ease-out' }}>
-          <Check size={20} color="var(--primary)" />
-          <span style={{ fontWeight: 500 }}>{toast}</span>
-        </div>
-      )}
+      {/* Comparison Modal */}
+      <PricingComparisonModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

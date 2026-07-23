@@ -32,26 +32,32 @@ export interface IMerchant extends Document {
     keySecret?: string;
   };
   settings: {
+    globalPause?: boolean;
     codConversion: {
       enabled: boolean;
       incentiveType: 'flat' | 'percentage';
       incentiveAmount: number;
       minOrderValue: number;
-      messageLanguage: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
+      messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
     };
     ndrRescue: {
       enabled: boolean;
       escalationChain: number[]; // e.g. [4, 12, 24] hours
-      messageLanguage: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
+      messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
       fakeAttemptDetection: boolean;
     };
   };
   billing: {
-    plan: 'free_trial' | 'usage_based';
+    plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'enterprise';
+    billingCycle?: 'quarterly' | 'semi_annual' | 'annual';
+    planOrderLimit: number;
+    currentMonthOrders: number;
+    cycleStartDate?: Date;
     rescueCredits: number;
     totalRescues: number;
     totalConversions: number;
   };
+  tokenVersion?: number;
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
   updatedAt: Date;
@@ -63,6 +69,7 @@ const MerchantSchema = new Schema<IMerchant>(
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: false },
     googleId: { type: String, required: false, unique: true, sparse: true },
+    tokenVersion: { type: Number, default: 1 },
     platform: { type: String, enum: ['shopify', 'woocommerce', 'custom'], required: true },
     onboardingStatus: { type: String, enum: ['pending', 'skipped', 'completed'], default: 'pending' },
     platformConfig: {
@@ -89,6 +96,7 @@ const MerchantSchema = new Schema<IMerchant>(
       keySecret: { type: String },
     },
     settings: {
+      globalPause: { type: Boolean, default: false },
       codConversion: {
         enabled: { type: Boolean, default: false },
         incentiveType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
@@ -104,7 +112,19 @@ const MerchantSchema = new Schema<IMerchant>(
       },
     },
     billing: {
-      plan: { type: String, enum: ['free_trial', 'usage_based'], default: 'free_trial' },
+      plan: {
+        type: String,
+        enum: ['free_trial', 'starter', 'growth', 'scale', 'enterprise'],
+        default: 'free_trial',
+      },
+      billingCycle: {
+        type: String,
+        enum: ['quarterly', 'semi_annual', 'annual'],
+        default: 'annual',
+      },
+      planOrderLimit: { type: Number, default: 500 },
+      currentMonthOrders: { type: Number, default: 0 },
+      cycleStartDate: { type: Date, default: Date.now },
       rescueCredits: { type: Number, default: 100 },
       totalRescues: { type: Number, default: 0 },
       totalConversions: { type: Number, default: 0 },

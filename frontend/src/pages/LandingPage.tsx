@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { Link } from 'react-router-dom';
+import { AnimatedCounter } from '../components/motion/AnimatedCounter';
+import PricingComparisonModal from '../components/PricingComparisonModal';
 import './landing.css';
 
 export default function LandingPage() {
   const [activeScenario, setActiveScenario] = useState<'fake_remark' | 'cancellation'>('fake_remark');
-  const [chatState, setChatState] = useState<'initial' | 'home' | 'reschedule' | 'paid' | 'accept_tomorrow'>('initial');
+  const [chatState, setChatState] = useState<'initial' | 'home' | 'reschedule' | 'paid' | 'accept_tomorrow' | 'express_confirm' | 'cancelled_confirm' | 'gps_shared' | 'landmark_updated' | 'both_step1_prompt' | 'both_step2_prompt' | 'both_completed'>('initial');
+  const [cancelReason, setCancelReason] = useState<'cheaper' | 'delay' | 'address' | null>(null);
   const [isPaying, setIsPaying] = useState(false);
   const [orderVolume, setOrderVolume] = useState(10000);
   const [isAnnual, setIsAnnual] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Scroll animations for hero mockup
   const { scrollYProgress } = useScroll();
@@ -18,6 +22,12 @@ export default function LandingPage() {
   const handleScenarioChange = (scenario: 'fake_remark' | 'cancellation') => {
     setActiveScenario(scenario);
     setChatState('initial');
+    setCancelReason(null);
+  };
+
+  const resetChat = () => {
+    setChatState('initial');
+    setCancelReason(null);
   };
 
   const handlePayment = () => {
@@ -296,7 +306,7 @@ export default function LandingPage() {
               </button>
             </div>
             
-            <button className="chat-btn" onClick={() => setChatState('initial')}>
+            <button className="chat-btn" onClick={resetChat}>
               🔄 Reset Conversation
             </button>
           </motion.div>
@@ -331,7 +341,7 @@ export default function LandingPage() {
 
                   {activeScenario === 'fake_remark' && (
                     <motion.div key="fr" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} style={{display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%'}}>
-                      <div className="chat-banner">🔴 CARRIER EXCEPTION: Agent marked "Door Locked"</div>
+                      <div className="chat-banner">🔴 CARRIER EXCEPTION: Agent marked "Door Locked" (8:14 PM)</div>
                       <div className="chat-bubble bot">
                         Hi! Delivery agent marked order #89421 as "Door Locked". Our system flagged this. Were you at home?
                       </div>
@@ -352,7 +362,7 @@ export default function LandingPage() {
                             ⚡ FAKE REMARK ESCALATED TO HUB SUPERVISOR
                           </motion.div>
                           <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
-                            Thanks! The agent has been instructed to re-visit your location today.
+                            Thanks for confirming! We flagged this fake remark to the Delhivery Hub Supervisor. A priority first-slot re-attempt is scheduled for tomorrow morning (9 AM - 12 PM), with hub supervisor GPS tracking enabled.
                           </motion.div>
                         </>
                       )}
@@ -375,52 +385,220 @@ export default function LandingPage() {
 
                   {activeScenario === 'cancellation' && (
                     <motion.div key="ca" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} style={{display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%'}}>
-                      <div className="chat-banner">🔴 CARRIER EXCEPTION: Buyer Cancelled</div>
+                      <div className="chat-banner">🔴 CARRIER EXCEPTION: Buyer Requested Cancellation</div>
                       <div className="chat-bubble bot">
-                        Hi! You requested cancellation for order #89422. Why?
+                        Hi! You requested cancellation for order #89422. Please select a reason below:
                       </div>
-                      <div className="chat-bubble user">
-                        Found it cheaper elsewhere.
-                      </div>
-                      <div className="chat-banner" style={{background: '#fef3c7', color: '#b45309'}}>
-                        ⚡ CALCULATING RETENTION INCENTIVE
-                      </div>
-                      <div className="chat-bubble bot">
-                        Wait! Get an instant ₹75 discount (Total: ₹1,424) if you convert to Prepaid via UPI right now. Guaranteed delivery tomorrow!
-                      </div>
-                      
-                      {chatState === 'initial' && (
+
+                      {cancelReason === null && (
                         <div className="chat-actions">
-                          <button className="chat-btn primary" onClick={handlePayment}>Pay ₹1,424 via UPI</button>
-                          <button className="chat-btn" onClick={() => setChatState('accept_tomorrow')}>I will accept tomorrow</button>
+                          <button className="chat-btn" onClick={() => setCancelReason('cheaper')}>🏷️ Found it cheaper elsewhere</button>
+                          <button className="chat-btn" onClick={() => setCancelReason('delay')}>⏰ Delivery is taking too long</button>
+                          <button className="chat-btn" onClick={() => setCancelReason('address')}>📍 Want to change delivery location</button>
                         </div>
                       )}
-                      
-                      {chatState === 'paid' && (
+
+                      {/* BRANCH A: Cheaper Elsewhere */}
+                      {cancelReason === 'cheaper' && (
                         <>
                           <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
-                            Paid ₹1,424 via UPI
+                            Found it cheaper elsewhere.
                           </motion.div>
-                          <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
-                            ✅ TXN_98412 • RESCUED_PREPAID
+                          <motion.div className="chat-banner" style={{background: '#fef3c7', color: '#b45309'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                            ⚡ CALCULATING RETENTION INCENTIVE
                           </motion.div>
                           <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
-                            Payment received! We have upgraded your shipment to Priority Delivery.
+                            Wait! Get an instant ₹75 discount (Total: ₹1,424) if you convert to Prepaid via UPI right now. Guaranteed priority delivery tomorrow!
                           </motion.div>
+                          
+                          {chatState === 'initial' && (
+                            <div className="chat-actions">
+                              <button className="chat-btn primary" onClick={handlePayment}>Pay ₹1,424 via UPI (Save ₹75)</button>
+                              <button className="chat-btn" onClick={() => setChatState('accept_tomorrow')}>I will accept delivery tomorrow</button>
+                            </div>
+                          )}
+                          
+                          {chatState === 'paid' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                Paid ₹1,424 via UPI
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                ✅ TXN_98412 • RESCUED_PREPAID
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Payment received! We have upgraded your shipment to Priority Delivery for tomorrow morning.
+                              </motion.div>
+                            </>
+                          )}
+
+                          {chatState === 'accept_tomorrow' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                I will accept delivery tomorrow
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                ⚡ DELIVERY CONFIRMED FOR TOMORROW
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Perfect! Your order has been held for delivery tomorrow morning. The courier agent will call you before arriving. Please keep cash ready!
+                              </motion.div>
+                            </>
+                          )}
                         </>
                       )}
 
-                      {chatState === 'accept_tomorrow' && (
+                      {/* BRANCH B: Delivery Delay */}
+                      {cancelReason === 'delay' && (
                         <>
                           <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
-                            I will accept tomorrow
+                            Delivery is taking too long.
                           </motion.div>
-                          <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
-                            ⚡ DELIVERY CONFIRMED FOR TOMORROW
+                          <motion.div className="chat-banner" style={{background: '#fef3c7', color: '#b45309'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                            ⚡ AIR EXPRESS DISPATCH UPGRADE APPLIED
                           </motion.div>
                           <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
-                            Perfect! Your order has been held for delivery tomorrow. The courier agent will call you before arriving. Please keep cash ready!
+                            We apologize for the delay! We've upgraded your package to Delhivery Air Express Priority at zero extra charge. It will be delivered tomorrow morning before 12 PM.
                           </motion.div>
+                          
+                          {chatState === 'initial' && (
+                            <div className="chat-actions">
+                              <button className="chat-btn primary" onClick={() => setChatState('express_confirm')}>Confirm Air Express Tomorrow (Before 12 PM)</button>
+                              <button className="chat-btn" onClick={() => setChatState('cancelled_confirm')}>Proceed with Cancellation</button>
+                            </div>
+                          )}
+                          
+                          {chatState === 'express_confirm' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                Confirm Air Express Tomorrow
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                ⚡ AIR EXPRESS LOCKED • SLOT: 9 AM - 12 PM
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Confirmed! Your order has been prioritized in tomorrow's morning delivery slot. Tracking updates will be sent via SMS.
+                              </motion.div>
+                            </>
+                          )}
+
+                          {chatState === 'cancelled_confirm' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                Proceed with Cancellation
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#fee2e2', color: '#991b1b'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                🔴 ORDER CANCELLED — RTO RETURN INITIATED
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Understood. Your cancellation request has been processed. We hope to serve you again soon!
+                              </motion.div>
+                            </>
+                          )}
+                        </>
+                      )}
+
+                      {/* BRANCH C: Change Location */}
+                      {cancelReason === 'address' && (
+                        <>
+                          <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                            Want to change delivery location.
+                          </motion.div>
+                          <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                            ⚡ SMART ADDRESS CORRECTION INITIATED
+                          </motion.div>
+                          <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                            No problem! Share your Google Maps location pin or type your full address & landmark so the driver reaches you directly.
+                          </motion.div>
+                          
+                          {chatState === 'initial' && (
+                            <div className="chat-actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <button className="chat-btn primary" onClick={() => setChatState('both_step1_prompt')}>
+                                ⭐ 📍+✏️ Both Location Pin & Text Address (Recommended)
+                              </button>
+                              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                <button className="chat-btn" style={{ flex: 1 }} onClick={() => setChatState('gps_shared')}>📍 Location Pin Only</button>
+                                <button className="chat-btn" style={{ flex: 1 }} onClick={() => setChatState('landmark_updated')}>✏️ Text Address Only</button>
+                              </div>
+                            </div>
+                          )}
+
+                          {chatState === 'both_step1_prompt' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                Selected Option: 📍+✏️ Both Location Pin & Text Address
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                📍 <strong>Step 1 of 2:</strong> First, please tap below to share your Google Maps Location Pin.
+                              </motion.div>
+                              <div className="chat-actions" style={{ marginTop: '0.5rem' }}>
+                                <button className="chat-btn primary" onClick={() => setChatState('both_step2_prompt')}>
+                                  📍 Send Location Pin (28.5355° N, 77.3910° E)
+                                </button>
+                              </div>
+                            </>
+                          )}
+
+                          {chatState === 'both_step2_prompt' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                📍 Shared Location Pin (28.5355° N, 77.3910° E)
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                📍 STEP 1/2: GPS PIN LOCKED (Green Park, Sector 12)
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                ✏️ <strong>Step 2 of 2:</strong> Location pin received! Now, please type your floor, tower, room number, or landmark so the driver knows your exact door.
+                              </motion.div>
+                              <div className="chat-actions" style={{ marginTop: '0.5rem' }}>
+                                <button className="chat-btn primary" onClick={() => setChatState('both_completed')}>
+                                  ✏️ Type Text: "4th Floor, A Tower, Room 401"
+                                </button>
+                              </div>
+                            </>
+                          )}
+
+                          {chatState === 'both_completed' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                📍 Shared Pin + 🏢 4th Floor, A Tower, Room 401
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                ✅ BOTH GPS PIN & ENRICHED TEXT ADDRESS SYNCED TO DRIVER APP
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Awesome! Both your Google Maps GPS pin and specific building details (4th Floor, A Tower, Room 401) have been pushed to the driver app for tomorrow's delivery re-attempt.
+                              </motion.div>
+                            </>
+                          )}
+
+                          {chatState === 'gps_shared' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                📍 Shared Live GPS Location (28.5355° N, 77.3910° E)
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                ✅ GPS PIN SYNCED TO DRIVER APP (5km Radius Verified)
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Location locked! Your GPS pin has been pushed directly into the Delhivery Last-Mile Driver App for tomorrow morning's re-attempt.
+                              </motion.div>
+                            </>
+                          )}
+
+                          {chatState === 'landmark_updated' && (
+                            <>
+                              <motion.div className="chat-bubble user" initial={{opacity: 0, x: 20}} animate={{opacity: 1, x: 0}}>
+                                Updated Landmark: 4th Floor, A Tower, Room 401
+                              </motion.div>
+                              <motion.div className="chat-banner" style={{background: '#d1fae5', color: '#065f46'}} initial={{opacity: 0}} animate={{opacity: 1}}>
+                                ✅ DESTINATION ADDRESS UPDATED ON WAYBILL
+                              </motion.div>
+                              <motion.div className="chat-bubble bot" initial={{opacity: 0, x: -20}} animate={{opacity: 1, x: 0}}>
+                                Address updated! The courier waybill has been updated for tomorrow morning's re-attempt.
+                              </motion.div>
+                            </>
+                          )}
                         </>
                       )}
                     </motion.div>
@@ -437,10 +615,18 @@ export default function LandingPage() {
         <h2 className="section-title">Calculate Your Savings</h2>
         <p className="section-subtitle">See how much revenue you can rescue every month.</p>
         
-        <div className="calc-box">
-          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem'}}>
-            <span>Monthly Order Volume</span>
-            <strong>{orderVolume.toLocaleString()} Orders</strong>
+        <motion.div 
+          className="calc-box"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div style={{display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', alignItems: 'center'}}>
+            <span style={{fontSize: '1rem', color: 'var(--text-secondary)'}}>Monthly Order Volume</span>
+            <strong style={{fontSize: '1.25rem', color: '#fff', fontFamily: 'var(--font-mono)'}}>
+              <AnimatedCounter value={orderVolume} suffix=" Orders" />
+            </strong>
           </div>
           <div className="slider-container">
             <input 
@@ -455,20 +641,40 @@ export default function LandingPage() {
           </div>
           
           <div className="calc-results">
-            <div className="result-item">
-              <div className="result-value">₹{Math.round(savedRevenue).toLocaleString()}</div>
+            <motion.div 
+              className="result-item"
+              whileHover={{ scale: 1.04 }}
+              transition={{ type: 'spring', stiffness: 300 }}
+            >
+              <div className="result-value">
+                <AnimatedCounter value={Math.round(savedRevenue)} prefix="₹" />
+              </div>
               <div className="result-label">Monthly Revenue Rescued</div>
-            </div>
-            <div className="result-item">
-              <div className="result-value">{roiMultiplier}x</div>
+            </motion.div>
+
+            <motion.div 
+              className="result-item"
+              whileHover={{ scale: 1.04 }}
+              transition={{ type: 'spring', stiffness: 300 }}
+            >
+              <div className="result-value">
+                <AnimatedCounter value={roiMultiplier} suffix="x" />
+              </div>
               <div className="result-label">Estimated ROI</div>
-            </div>
-            <div className="result-item">
-              <div className="result-value">60%</div>
+            </motion.div>
+
+            <motion.div 
+              className="result-item"
+              whileHover={{ scale: 1.04 }}
+              transition={{ type: 'spring', stiffness: 300 }}
+            >
+              <div className="result-value">
+                <AnimatedCounter value={60} suffix="%" />
+              </div>
               <div className="result-label">RTO Reduction Rate</div>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       </section>
 
       {/* 8. Technical & Anti-Misuse Guardrails */}
@@ -552,49 +758,72 @@ export default function LandingPage() {
               animate={{ left: isAnnual ? '26px' : '2px' }}
             />
           </div>
-          <span style={{color: isAnnual ? '#fff' : 'var(--text-secondary)'}}>Annual (Save 20%)</span>
+          <span style={{color: isAnnual ? '#fff' : 'var(--text-secondary)'}}>Annual (Save 30%)</span>
         </div>
 
         <div className="pricing-grid">
           <div className="pricing-card">
             <h3>Starter</h3>
-            <div className="price">₹{isAnnual ? '1,599' : '1,999'}<span>/mo</span></div>
-            <p style={{color: 'var(--text-secondary)'}}>Perfect for early-stage brands</p>
+            <div className="price">₹{isAnnual ? '1,119' : '1,599'}<span>/mo</span></div>
+            <p style={{color: 'var(--text-secondary)'}}>Perfect for early-stage D2C brands</p>
             <Link to="/register"><button className="hero-btn-secondary" style={{width: '100%', marginTop: '1rem'}}>Get Started</button></Link>
             <ul className="features-list">
               <li>Up to 2,000 orders/mo</li>
+              <li>Smart Address Correction (Text, Pin, Both)</li>
               <li>Fake Remark Detection</li>
-              <li>Basic WhatsApp Bot</li>
-              <li>Email Support</li>
+              <li>Shiprocket & Delhivery Integrations</li>
+              <li>Email Support (24h SLA)</li>
             </ul>
           </div>
           
           <div className="pricing-card popular">
             <div className="pricing-badge">MOST POPULAR</div>
             <h3>Growth</h3>
-            <div className="price">₹{isAnnual ? '3,999' : '4,999'}<span>/mo</span></div>
+            <div className="price">₹{isAnnual ? '2,799' : '3,999'}<span>/mo</span></div>
             <p style={{color: 'var(--text-secondary)'}}>For scaling D2C brands</p>
             <Link to="/register"><button className="hero-btn-primary" style={{width: '100%', marginTop: '1rem'}}>Get Started</button></Link>
             <ul className="features-list">
               <li>Up to 10,000 orders/mo</li>
-              <li>UPI Retention Engine</li>
-              <li>Advanced GPS Sync</li>
-              <li>Priority Support</li>
+              <li>UPI QR Payment Link Generation</li>
+              <li>Seller Payment WhatsApp Alerts</li>
+              <li>ClickPost Integration</li>
+              <li>Priority Support (12h SLA)</li>
             </ul>
           </div>
           
           <div className="pricing-card">
             <h3>Scale</h3>
-            <div className="price">Custom</div>
-            <p style={{color: 'var(--text-secondary)'}}>Enterprise logistics operations</p>
-            <button className="hero-btn-secondary" style={{width: '100%', marginTop: '1rem'}}>Contact Sales</button>
+            <div className="price">₹{isAnnual ? '6,999' : '9,999'}<span>/mo</span></div>
+            <p style={{color: 'var(--text-secondary)'}}>High-volume logistics operations</p>
+            <Link to="/register"><button className="hero-btn-secondary" style={{width: '100%', marginTop: '1rem'}}>Get Started</button></Link>
             <ul className="features-list">
-              <li>Unlimited Orders</li>
-              <li>Custom Integrations</li>
-              <li>Dedicated Account Manager</li>
-              <li>SLA Guarantee</li>
+              <li>Up to 50,000 orders/mo</li>
+              <li>Custom Carrier API Integration</li>
+              <li>CSV Data Exports</li>
+              <li>99.5% Uptime SLA Guarantee</li>
             </ul>
           </div>
+        </div>
+
+        <div style={{ textAlign: 'center', marginTop: '2.5rem' }}>
+          <button
+            onClick={() => setIsModalOpen(true)}
+            style={{
+              background: 'rgba(99, 102, 241, 0.1)',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              color: '#818cf8',
+              padding: '0.75rem 1.5rem',
+              borderRadius: '12px',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+            }}
+          >
+            Compare All Features in Detail →
+          </button>
         </div>
       </section>
 
@@ -610,10 +839,12 @@ export default function LandingPage() {
           <a href="#">Terms of Service</a>
           <a href="#">Privacy Policy</a>
           <a href="#">Help Center</a>
-          <a href="#">Contact Us</a>
+          <a href="mailto:support@rescueship.io">Contact Support</a>
         </div>
         <div>© 2026 RescueShip Inc. All rights reserved.</div>
       </footer>
+
+      <PricingComparisonModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
     </div>
   );
 }

@@ -23,9 +23,15 @@ export interface WhatsAppResponse {
 
 export interface ParsedMessage {
   from: string;
-  type: 'text' | 'button' | 'other';
+  type: 'text' | 'button' | 'location' | 'other';
   text?: string;
   buttonPayload?: string;
+  location?: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+  };
 }
 
 export class WhatsAppService {
@@ -152,6 +158,46 @@ export class WhatsAppService {
   }
 
   /**
+   * Send an image or media message
+   */
+  public async sendMediaMessage(
+    to: string,
+    mediaUrl: string,
+    caption?: string,
+    merchantConfig?: WhatsAppConfig
+  ): Promise<WhatsAppResponse> {
+    const phoneNumberId = merchantConfig?.phoneNumberId || this.defaultPhoneNumberId;
+    const accessToken = merchantConfig?.accessToken || this.defaultAccessToken;
+    const version = this.defaultApiVersion;
+
+    const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
+
+    const payload = {
+      messaging_product: 'whatsapp',
+      to,
+      type: 'image',
+      image: {
+        link: mediaUrl,
+        caption: caption || '',
+      },
+    };
+
+    try {
+      logger.info('Sending WhatsApp media message', { to, mediaUrl });
+      const response = await axios.post<WhatsAppResponse>(url, payload, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      logger.error('Failed to send WhatsApp media message', { to, error: error.response?.data || error.message });
+      throw error;
+    }
+  }
+
+  /**
    * Parse incoming webhook payload
    */
   public parseIncomingMessage(payload: any): ParsedMessage | null {
@@ -185,6 +231,17 @@ export class WhatsAppService {
           type: 'button',
           buttonPayload: message.interactive.button_reply?.id,
           text: message.interactive.button_reply?.title,
+        };
+      } else if (type === 'location') {
+        return {
+          from,
+          type: 'location',
+          location: {
+            latitude: message.location?.latitude,
+            longitude: message.location?.longitude,
+            name: message.location?.name,
+            address: message.location?.address,
+          },
         };
       }
 

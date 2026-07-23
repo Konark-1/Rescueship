@@ -37,6 +37,14 @@ export interface IOrder extends Document {
     resolvedAt?: Date | null;
     resolution?: 'rescheduled' | 'address_updated' | 'cancelled' | 'unresolved' | null;
     isFakeAttempt?: boolean;
+    addressUpdate?: {
+      method?: 'location' | 'text' | 'both';
+      latitude?: number;
+      longitude?: number;
+      textAddress?: string;
+      geocodedAddress?: string;
+      collectionState?: 'idle' | 'awaiting_location' | 'awaiting_text' | 'complete';
+    };
   };
   createdAt: Date;
   updatedAt: Date;
@@ -89,6 +97,18 @@ const OrderSchema = new Schema<IOrder>(
         default: null,
       },
       isFakeAttempt: { type: Boolean, default: false },
+      addressUpdate: {
+        method: { type: String, enum: ['location', 'text', 'both', null], default: null },
+        latitude: { type: Number, default: null },
+        longitude: { type: Number, default: null },
+        textAddress: { type: String, default: null },
+        geocodedAddress: { type: String, default: null },
+        collectionState: {
+          type: String,
+          enum: ['idle', 'awaiting_location', 'awaiting_text', 'complete', null],
+          default: 'idle',
+        },
+      },
     },
   },
   {
