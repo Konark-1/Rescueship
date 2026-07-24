@@ -1,49 +1,15 @@
-/**
- * TiltCard — 3D perspective tilt on hover.
- * GPU-accelerated, follows cursor position.
- */
-import { useRef, useState, ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { motion } from 'motion/react';
 
-interface TiltCardProps {
-  children: ReactNode;
-  className?: string;
-  intensity?: number;
-}
-
-export default function TiltCard({ children, className = '', intensity = 8 }: TiltCardProps) {
+export default function TiltCard({ children, className = '', intensity = 8 }: { children: ReactNode; className?: string; intensity?: number }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState('perspective(800px) rotateX(0deg) rotateY(0deg)');
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const el = ref.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width;
-    const y = (e.clientY - rect.top) / rect.height;
-    const rotateX = (0.5 - y) * intensity;
-    const rotateY = (x - 0.5) * intensity;
-    setTransform(`perspective(800px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`);
+  const [t, setT] = useState('perspective(800px) rotateX(0) rotateY(0)');
+  const move = (e: React.MouseEvent) => {
+    const el = ref.current; if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+    setT(`perspective(800px) rotateX(${(0.5 - y) * intensity}deg) rotateY(${(x - 0.5) * intensity}deg) scale3d(1.02,1.02,1.02)`);
   };
-
-  const handleMouseLeave = () => {
-    setTransform('perspective(800px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)');
-  };
-
-  return (
-    <motion.div
-      ref={ref}
-      className={className}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-      style={{
-        transform,
-        transition: 'transform 0.15s ease-out',
-        willChange: 'transform',
-        transformStyle: 'preserve-3d',
-      }}
-    >
-      {children}
-    </motion.div>
-  );
+  const leave = () => setT('perspective(800px) rotateX(0) rotateY(0)');
+  return <motion.div ref={ref} className={className} onMouseMove={move} onMouseLeave={leave} style={{ transform: t, transition: 'transform 0.15s ease-out', willChange: 'transform', transformStyle: 'preserve-3d' }}>{children}</motion.div>;
 }
