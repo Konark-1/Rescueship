@@ -15,10 +15,7 @@ import AuditLogsPage from './pages/AuditLogsPage';
 import DocsPage from './pages/DocsPage';
 import OnboardingPage from './pages/OnboardingPage';
 
-// Dynamically import LandingPage to avoid compilation errors if it doesn't exist yet
-const LandingPage = React.lazy(() => import('./pages/LandingPage').catch(() => ({ 
-  default: () => <div style={{ color: 'white', padding: '2rem', textAlign: 'center' }}><h2>RescueShip Landing Page</h2><p>This is a placeholder for the landing page.</p><a href="/login" style={{ color: 'var(--primary)' }}>Go to Login</a></div> 
-})));
+import LandingPage from './pages/LandingPage';
 
 // Protected Route wrapper component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -69,75 +66,73 @@ export const App: React.FC = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <React.Suspense fallback={<div style={{ padding: '2rem', color: 'white' }}>Loading...</div>}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-            {/* Protected Routes inside AppLayout */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <DashboardPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/orders" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <OrdersPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <SettingsPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/templates" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <TemplatesPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/billing" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <BillingPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/audit-logs" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <AuditLogsPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/docs" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <DocsPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
+          {/* Protected Routes inside AppLayout */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <DashboardPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/orders" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <OrdersPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/settings" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <SettingsPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/templates" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <TemplatesPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/billing" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <BillingPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/audit-logs" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <AuditLogsPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/docs" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <DocsPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
 
-            {/* Onboarding Wizard (not wrapped in standard layout) */}
-            <Route path="/onboarding" element={
-              <ProtectedRoute>
-                <OnboardingPage />
-              </ProtectedRoute>
-            } />
+          {/* Onboarding Wizard (not wrapped in standard layout) */}
+          <Route path="/onboarding" element={
+            <ProtectedRoute>
+              <OnboardingPage />
+            </ProtectedRoute>
+          } />
 
-            {/* Redirect Wildcard */}
-            <Route path="*" element={<WildcardRedirect />} />
-          </Routes>
-        </React.Suspense>
+          {/* Redirect Wildcard */}
+          <Route path="*" element={<WildcardRedirect />} />
+        </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
