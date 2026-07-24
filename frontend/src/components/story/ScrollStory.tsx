@@ -1,16 +1,11 @@
-/**
- * ScrollStory Engine — sticky scroll chapters with progress tracking.
- */
 import { useRef, type ReactNode } from 'react';
 import { motion, useScroll, useTransform, MotionValue } from 'motion/react';
 
-/* Progress bar (top of page) */
 export function StoryProgress({ progress }: { progress: MotionValue<number> }) {
   const w = useTransform(progress, [0, 1], ['0%', '100%']);
   return <div className="story-progress" aria-hidden="true"><motion.div className="story-progress__bar" style={{ width: w }} /></div>;
 }
 
-/* Chapter number indicator (right side) */
 export function ChapterIndicator({ current, total }: { current: MotionValue<number>; total: number }) {
   const d = useTransform(current, v => String(Math.min(Math.floor(v) + 1, total)).padStart(2, '0'));
   return (
@@ -22,7 +17,6 @@ export function ChapterIndicator({ current, total }: { current: MotionValue<numb
   );
 }
 
-/* Single sticky chapter */
 export function StoryChapter({ children, scrollHeight = '300vh', className = '' }: {
   children: (progress: MotionValue<number>) => ReactNode;
   scrollHeight?: string;
@@ -37,7 +31,6 @@ export function StoryChapter({ children, scrollHeight = '300vh', className = '' 
   );
 }
 
-/* Map progress to a sub-phase (0→1 within a range) */
 export function usePhase(progress: MotionValue<number>, start: number, end: number) {
   return useTransform(progress, [start, end], [0, 1], { clamp: true });
 }

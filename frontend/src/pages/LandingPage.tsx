@@ -1,9 +1,8 @@
-import { useRef, useState } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useLenis } from '../hooks/useLenis';
 import { useMagnetic } from '../hooks/useMagnetic';
-import { StoryChapter, StoryProgress, ChapterIndicator } from '../components/story/ScrollStory';
 import HeroScene from '../components/story/HeroScene';
 import CostScene from '../components/story/CostScene';
 import RescueScene from '../components/story/RescueScene';
@@ -16,9 +15,6 @@ import './landing.css';
 
 export default function LandingPage() {
   useLenis();
-  const storyRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: storyRef, offset: ['start start', 'end end'] });
-  const chapter = useTransform(scrollYProgress, [0, 1], [0, 3]);
   const cta = useMagnetic(0.25);
 
   const [volume, setVolume] = useState(5000);
@@ -35,66 +31,112 @@ export default function LandingPage() {
 
   return (
     <div className="lp">
+      {/* Background Orbs */}
       <div className="lp-ambient" aria-hidden="true">
-        <div className="lp-orb lp-orb--1" /><div className="lp-orb lp-orb--2" /><div className="lp-orb lp-orb--3" /><div className="lp-grain" />
+        <div className="lp-orb lp-orb--1" />
+        <div className="lp-orb lp-orb--2" />
+        <div className="lp-orb lp-orb--3" />
+        <div className="lp-grain" />
       </div>
 
-      <StoryProgress progress={scrollYProgress} />
-      <ChapterIndicator current={chapter} total={3} />
-
-      {/* Nav */}
-      <motion.header className="lp-nav" initial={{ y: -80, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.8, ease: [0.16,1,0.3,1], delay: 0.3 }}>
-        <a href="#" className="lp-nav__logo"><span>⚓</span> RescueShip</a>
-        <nav className="lp-nav__links"><a href="#cost">The ₹430 Problem</a><a href="#calculator">ROI</a><a href="#pricing">Pricing</a></nav>
+      {/* Floating Navigation (Perfect Center Alignment) */}
+      <motion.header
+        className="lp-nav"
+        initial={{ y: -80, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+      >
+        <a href="#" className="lp-nav__logo">
+          <span>⚓</span> RescueShip
+        </a>
+        <nav className="lp-nav__links">
+          <a href="#cost">The ₹430 Problem</a>
+          <a href="#calculator">ROI</a>
+          <a href="#pricing">Pricing</a>
+        </nav>
         <div className="lp-nav__actions">
           <Link to="/login" className="lp-nav__login">Log in</Link>
           <Link to="/register" className="lp-nav__cta">Start Free</Link>
         </div>
       </motion.header>
 
-      {/* ═══ THE STORY (3 chapters) ═══ */}
-      <div ref={storyRef}>
-        <StoryChapter scrollHeight="350vh">{(p) => <HeroScene progress={p} />}</StoryChapter>
-        <StoryChapter scrollHeight="350vh">{(p) => <CostScene progress={p} />}</StoryChapter>
-        <StoryChapter scrollHeight="300vh">{(p) => <RescueScene progress={p} />}</StoryChapter>
-      </div>
+      {/* ═══ SECTION 1: HERO SCENE ═══ */}
+      <HeroScene />
 
-      {/* ═══ POST-STORY ═══ */}
-      <section className="lp-logos"><p className="lp-logos__label">Integrated with your stack</p><MarqueeLogos /></section>
+      {/* ═══ SECTION 2: COST SCENE (₹430 BREAKDOWN) ═══ */}
+      <CostScene />
 
-      {/* Calculator */}
+      {/* ═══ SECTION 3: RESCUE SCENE (INTERACTIVE WHATSAPP ENGINE) ═══ */}
+      <RescueScene />
+
+      {/* ═══ SECTION 4: INTEGRATIONS MARQUEE ═══ */}
+      <section className="lp-logos">
+        <p className="lp-logos__label">Integrated with your stack</p>
+        <MarqueeLogos />
+      </section>
+
+      {/* ═══ SECTION 5: ROI CALCULATOR ═══ */}
       <section className="lp-calc" id="calculator">
-        <div className="container">
-          <SectionReveal>
+        <div className="container lp-calc-container">
+          <SectionReveal className="lp-calc-header">
             <p className="scene-label">ROI Calculator</p>
             <h2 className="lp-calc__title">Now calculate <em className="serif">your</em> loss.</h2>
           </SectionReveal>
-          <SectionReveal delay={0.12}>
+
+          <SectionReveal delay={0.12} className="lp-calc-box-wrap">
             <div className="lp-calc__box">
-              <div className="lp-calc__row"><label>Monthly Orders</label><span className="lp-calc__val">{volume.toLocaleString('en-IN')}</span></div>
-              <input type="range" min={500} max={50000} step={500} value={volume} onChange={e => setVolume(+e.target.value)} className="lp-calc__slider" />
+              <div className="lp-calc__row">
+                <label>Monthly Orders</label>
+                <span className="lp-calc__val">{volume.toLocaleString('en-IN')}</span>
+              </div>
+              <input
+                type="range"
+                min={500}
+                max={50000}
+                step={500}
+                value={volume}
+                onChange={e => setVolume(+e.target.value)}
+                className="lp-calc__slider"
+              />
               <div className="lp-calc__results">
-                <div className="lp-calc__result lp-calc__result--loss"><AnimatedNumber value={rtoLoss} prefix="₹" className="lp-calc__num" /><span>monthly RTO loss</span></div>
-                <div className="lp-calc__result lp-calc__result--saved"><AnimatedNumber value={saved} prefix="₹" className="lp-calc__num" /><span>rescued by RescueShip</span></div>
-                <div className="lp-calc__result lp-calc__result--roi"><AnimatedNumber value={Math.round(saved / (annual ? 33588 : 3999))} suffix="x" className="lp-calc__num" /><span>return on investment</span></div>
+                <div className="lp-calc__result lp-calc__result--loss">
+                  <AnimatedNumber value={rtoLoss} prefix="₹" className="lp-calc__num" />
+                  <span>monthly RTO loss</span>
+                </div>
+                <div className="lp-calc__result lp-calc__result--saved">
+                  <AnimatedNumber value={saved} prefix="₹" className="lp-calc__num" />
+                  <span>rescued by RescueShip</span>
+                </div>
+                <div className="lp-calc__result lp-calc__result--roi">
+                  <AnimatedNumber value={Math.round(saved / (annual ? 33588 : 3999))} suffix="x" className="lp-calc__num" />
+                  <span>return on investment</span>
+                </div>
               </div>
             </div>
           </SectionReveal>
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* ═══ SECTION 6: PRICING ═══ */}
       <section className="lp-pricing" id="pricing">
-        <div className="container">
-          <SectionReveal>
+        <div className="container lp-pricing-container">
+          <SectionReveal className="lp-pricing-header">
             <p className="scene-label">Pricing</p>
             <h2 className="lp-pricing__title">Cheaper than <em className="serif">one failed delivery.</em></h2>
           </SectionReveal>
           <SectionReveal delay={0.1}>
             <div className="lp-pricing__toggle">
               <span className={!annual ? 'active' : ''}>Monthly</span>
-              <button className={`lp-pricing__switch ${annual ? 'on' : ''}`} onClick={() => setAnnual(!annual)} aria-label="Toggle billing"><span className="lp-pricing__knob" /></button>
-              <span className={annual ? 'active' : ''}>Annual <em className="lp-pricing__save">−30%</em></span>
+              <button
+                className={`lp-pricing__switch ${annual ? 'on' : ''}`}
+                onClick={() => setAnnual(!annual)}
+                aria-label="Toggle billing"
+              >
+                <span className="lp-pricing__knob" />
+              </button>
+              <span className={annual ? 'active' : ''}>
+                Annual <em className="lp-pricing__save">−30%</em>
+              </span>
             </div>
           </SectionReveal>
           <div className="lp-pricing__grid">
@@ -104,29 +146,52 @@ export default function LandingPage() {
                   {pl.tag && <span className="lp-pricing__badge">{pl.tag}</span>}
                   <h3>{pl.name}</h3>
                   <p className="lp-pricing__orders">up to {pl.orders} orders/mo</p>
-                  <div className="lp-pricing__price">₹{(annual ? pl.annual : pl.monthly).toLocaleString('en-IN')}<span>/mo</span></div>
+                  <div className="lp-pricing__price">
+                    ₹{(annual ? pl.annual : pl.monthly).toLocaleString('en-IN')}
+                    <span>/mo</span>
+                  </div>
                   <ul className="lp-pricing__feats">
-                    <li>Autonomous NDR rescue</li><li>WhatsApp COD → Prepaid</li><li>3-mode address correction</li><li>UPI QR payment links</li>
+                    <li>Autonomous NDR rescue</li>
+                    <li>WhatsApp COD → Prepaid</li>
+                    <li>3-mode address correction</li>
+                    <li>UPI QR payment links</li>
                     {pl.name !== 'Starter' && <li>Real-time SSE dashboard</li>}
                     {pl.name === 'Scale' && <><li>CSV data exports</li><li>Priority SLA</li></>}
                   </ul>
-                  <Link to="/register"><button className={`lp-btn ${pl.tag ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--full`}>Get Started</button></Link>
+                  <Link to="/register">
+                    <button className={`lp-btn ${pl.tag ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--full`}>
+                      Get Started
+                    </button>
+                  </Link>
                 </TiltCard>
               </SectionReveal>
             ))}
           </div>
-          <SectionReveal delay={0.3}><div className="lp-pricing__compare"><button onClick={() => setModalOpen(true)}>Compare all features →</button></div></SectionReveal>
+          <SectionReveal delay={0.3}>
+            <div className="lp-pricing__compare">
+              <button onClick={() => setModalOpen(true)}>Compare all features →</button>
+            </div>
+          </SectionReveal>
         </div>
       </section>
 
-      {/* CTA */}
+      {/* ═══ SECTION 7: CALL TO ACTION ═══ */}
       <section className="lp-cta">
-        <div className="container">
-          <SectionReveal>
-            <h2 className="lp-cta__title">Stop paying for deliveries<br /><em className="serif">that never happened.</em></h2>
+        <div className="container lp-cta-container">
+          <SectionReveal className="lp-cta-header">
+            <h2 className="lp-cta__title">
+              Stop paying for deliveries
+              <br />
+              <em className="serif">that never happened.</em>
+            </h2>
             <p className="lp-cta__sub">Set up in 10 minutes. First rescue in 24 hours. No credit card.</p>
             <Link to="/register">
-              <button className="lp-btn lp-btn--primary lp-btn--lg" ref={cta.ref as any} onMouseMove={cta.onMouseMove} onMouseLeave={cta.onMouseLeave}>
+              <button
+                className="lp-btn lp-btn--primary lp-btn--lg"
+                ref={cta.ref as any}
+                onMouseMove={cta.onMouseMove}
+                onMouseLeave={cta.onMouseLeave}
+              >
                 Start Rescuing Revenue <span className="lp-btn__arrow">→</span>
               </button>
             </Link>
@@ -134,22 +199,43 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ═══ FOOTER ═══ */}
       <footer className="lp-footer">
         <div className="container">
           <div className="lp-footer__top">
-            <div className="lp-footer__brand"><span>⚓</span> RescueShip<p>Autonomous NDR recovery for Indian D2C brands.</p></div>
+            <div className="lp-footer__brand">
+              <span>⚓</span> RescueShip
+              <p>Autonomous NDR recovery for Indian D2C brands.</p>
+            </div>
             <div className="lp-footer__links">
-              <div><h4>Product</h4><a href="#cost">The Problem</a><a href="#calculator">ROI</a><a href="#pricing">Pricing</a></div>
-              <div><h4>Company</h4><a href="#">About</a><a href="#">Blog</a></div>
-              <div><h4>Legal</h4><a href="#">Privacy</a><a href="#">Terms</a></div>
+              <div>
+                <h4>Product</h4>
+                <a href="#cost">The Problem</a>
+                <a href="#calculator">ROI</a>
+                <a href="#pricing">Pricing</a>
+              </div>
+              <div>
+                <h4>Company</h4>
+                <a href="#">About</a>
+                <a href="#">Blog</a>
+              </div>
+              <div>
+                <h4>Legal</h4>
+                <a href="#">Privacy</a>
+                <a href="#">Terms</a>
+              </div>
             </div>
           </div>
-          <div className="lp-footer__bottom"><span>© 2026 RescueShip. Built in India 🇮🇳</span><span>Made with obsession for D2C merchants.</span></div>
+          <div className="lp-footer__bottom">
+            <span>© 2026 RescueShip. Built in India 🇮🇳</span>
+            <span>Made with obsession for D2C merchants.</span>
+          </div>
         </div>
       </footer>
 
-      <AnimatePresence>{modalOpen && <PricingComparisonModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />}</AnimatePresence>
+      <AnimatePresence>
+        {modalOpen && <PricingComparisonModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />}
+      </AnimatePresence>
     </div>
   );
 }
