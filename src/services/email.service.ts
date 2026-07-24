@@ -185,15 +185,21 @@ export class EmailService {
   }
 
   /**
-   * Send monthly summary report.
+   * Send monthly summary report (Growth+ plan feature).
    */
   public async sendMonthlySummaryReport(
     email: string,
     merchantName: string,
-    reportData: { totalOrders: number; rescuedOrders: number; rescueRate: number; totalRevenueSaved: number }
+    reportData: { totalOrders: number; rescuedOrders: number; rescueRate: number; totalRevenueSaved: number },
+    plan: string = 'starter'
   ): Promise<boolean> {
+    if (plan === 'starter' || plan === 'free_trial') {
+      logger.info('Skipped monthly summary email for Starter plan merchant', { email, merchantName });
+      return false;
+    }
+
     const subject = `📊 Monthly Performance Summary Report for ${merchantName}`;
-    const text = `Hello ${merchantName},\n\nHere is your monthly summary report:\n- Total Orders: ${reportData.totalOrders}\n- Rescued Orders: ${reportData.rescuedOrders}\n- Rescue Rate: ${reportData.rescueRate}%\n- Revenue Saved: ₹${reportData.totalRevenueSaved}\n\nBest regards,\nRescueShip Team`;
+    const text = `Hello ${merchantName},\n\nHeres your monthly summary report:\n- Total Orders: ${reportData.totalOrders}\n- Rescued Orders: ${reportData.rescuedOrders}\n- Rescue Rate: ${reportData.rescueRate}%\n- Revenue Saved: ₹${reportData.totalRevenueSaved}\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>📊 Monthly Performance Summary</h2>
       <p>Hello <strong>${merchantName}</strong>,</p>
@@ -211,8 +217,8 @@ export class EmailService {
     return this.sendEmail({ to: email, subject, text, html });
   }
 
-  public async sendMonthlySummary(email: string, merchantName: string, reportData: any): Promise<boolean> {
-    return this.sendMonthlySummaryReport(email, merchantName, reportData);
+  public async sendMonthlySummary(email: string, merchantName: string, reportData: any, plan?: string): Promise<boolean> {
+    return this.sendMonthlySummaryReport(email, merchantName, reportData, plan);
   }
 
   /**

@@ -9,21 +9,30 @@ import { Router, Response } from 'express';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { realtimeService } from '../services/realtime.service';
 import { logger } from '../utils/logger';
+import { Merchant } from '../models/Merchant';
 
 const router = Router();
 
 /**
  * GET /api/realtime/stream
  * Establishes a Server-Sent Events connection for the authenticated merchant.
- * The frontend uses EventSource to connect and receive real-time updates.
+ * Growth+ feature only.
  */
 router.get(
   '/stream',
   authenticateToken,
-  (req: AuthenticatedRequest, res: Response): void => {
+  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const merchantId = req.merchant?.merchantId;
     if (!merchantId) {
       res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    // Plan gate: Growth+ only
+    const merchant = await Merchant.findById(merchantId);
+    const plan = merchant?.billing?.plan || 'starter';
+    if (plan === 'starter' || plan === 'free_trial') {
+      res.status(403).json({ error: 'Real-time dashboard requires Growth plan or above.' });
       return;
     }
 

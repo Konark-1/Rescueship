@@ -24,9 +24,57 @@ export default function LandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const PLANS = [
-    { name: 'Starter', orders: '2,000', monthly: 1599, annual: 1119, tag: '' },
-    { name: 'Growth', orders: '10,000', monthly: 3999, annual: 2799, tag: 'Most Popular' },
-    { name: 'Scale', orders: '50,000', monthly: 9999, annual: 6999, tag: '' },
+    {
+      name: 'Starter',
+      orders: '2,000',
+      monthly: 1599,
+      annual: 1119,
+      tag: '',
+      features: [
+        'Autonomous NDR rescue engine',
+        'Fake remark detection (timing analysis)',
+        'WhatsApp COD → Prepaid conversion',
+        '3-mode address correction (GPS / Text / Both)',
+        'UPI QR code payment via WhatsApp',
+        'Escalation chain (4h → 12h → 24h)',
+        'Shiprocket + Delhivery + ClickPost',
+        'Shopify & WooCommerce integration',
+        'AES-256 encrypted credentials',
+        'Emergency "Pause All" kill switch',
+        'Full audit log (90-day retention)',
+      ],
+    },
+    {
+      name: 'Growth',
+      orders: '10,000',
+      monthly: 3999,
+      annual: 2799,
+      tag: 'Most Popular',
+      features: [
+        'Everything in Starter, plus:',
+        'Real-time SSE live dashboard',
+        'Revenue Saved analytics (₹ tracking)',
+        'Carrier performance reports',
+        'Email notifications & daily summaries',
+        'Seller payment alerts (WhatsApp)',
+        'COD discount incentives (₹50 / 5% OFF)',
+        'Platform status sync (Shopify / Woo)',
+      ],
+    },
+    {
+      name: 'Scale',
+      orders: '50,000',
+      monthly: 9999,
+      annual: 6999,
+      tag: '',
+      features: [
+        'Everything in Growth, plus:',
+        'CSV / JSON data exports (4 report types)',
+        'Custom carrier API integration',
+        'Dedicated onboarding session',
+        'Priority support (24h response)',
+      ],
+    },
   ];
 
   return (
@@ -39,7 +87,7 @@ export default function LandingPage() {
         <div className="lp-grain" />
       </div>
 
-      {/* Floating Navigation (Perfect Center Alignment) */}
+      {/* Floating Navigation */}
       <motion.header
         className="lp-nav"
         initial={{ y: -80, opacity: 0 }}
@@ -50,8 +98,8 @@ export default function LandingPage() {
           <span>⚓</span> RescueShip
         </a>
         <nav className="lp-nav__links">
-          <a href="#cost">The ₹430 Problem</a>
-          <a href="#calculator">ROI</a>
+          <a href="#cost">Why ₹430?</a>
+          <a href="#calculator">ROI Calculator</a>
           <a href="#pricing">Pricing</a>
         </nav>
         <div className="lp-nav__actions">
@@ -139,6 +187,7 @@ export default function LandingPage() {
               </span>
             </div>
           </SectionReveal>
+
           <div className="lp-pricing__grid">
             {PLANS.map((pl, i) => (
               <SectionReveal key={pl.name} delay={i * 0.1}>
@@ -151,12 +200,11 @@ export default function LandingPage() {
                     <span>/mo</span>
                   </div>
                   <ul className="lp-pricing__feats">
-                    <li>Autonomous NDR rescue</li>
-                    <li>WhatsApp COD → Prepaid</li>
-                    <li>3-mode address correction</li>
-                    <li>UPI QR payment links</li>
-                    {pl.name !== 'Starter' && <li>Real-time SSE dashboard</li>}
-                    {pl.name === 'Scale' && <><li>CSV data exports</li><li>Priority SLA</li></>}
+                    {pl.features.map((f, fi) => (
+                      <li key={fi} className={f.startsWith('Everything') ? 'lp-pricing__feats--header' : ''}>
+                        {f}
+                      </li>
+                    ))}
                   </ul>
                   <Link to="/register">
                     <button className={`lp-btn ${pl.tag ? 'lp-btn--primary' : 'lp-btn--ghost'} lp-btn--full`}>
@@ -167,6 +215,7 @@ export default function LandingPage() {
               </SectionReveal>
             ))}
           </div>
+
           <SectionReveal delay={0.3}>
             <div className="lp-pricing__compare">
               <button onClick={() => setModalOpen(true)}>Compare all features →</button>
