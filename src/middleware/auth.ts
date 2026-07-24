@@ -17,12 +17,14 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { createLogger } from '../config/logger';
+import { Merchant } from '../models/Merchant';
 
 const logger = createLogger('auth-middleware');
 
 /** Decoded JWT payload attached to req.merchant after successful verification. */
 export interface MerchantTokenPayload {
   merchantId: string;
+  tokenVersion?: number;
   iat?: number;
   exp?: number;
 }
@@ -53,11 +55,11 @@ function getJwtSecret(): string {
  * On success, attaches `req.merchant` with the decoded token payload.
  * On failure, responds with 401 (missing/invalid token) or 403 (expired/tampered).
  */
-export function authenticateToken(
+export async function authenticateToken(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
 
@@ -93,6 +95,24 @@ export function authenticateToken(
       return;
     }
 
+    const merchant = await Merchant.findById(decoded.merchantId).select('tokenVersion');
+    if (!merchant) {
+      logger.warn('Authentication failed: merchant not found', { merchantId: decoded.merchantId });
+      res.status(401).json({ error: 'Merchant not found' });
+      return;
+    }
+
+    const currentTokenVersion = merchant.tokenVersion ?? 1;
+    if (decoded.tokenVersion === undefined || decoded.tokenVersion !== currentTokenVersion) {
+      logger.warn('Authentication failed: token version mismatch', {
+        merchantId: decoded.merchantId,
+        tokenVersion: decoded.tokenVersion,
+        merchantTokenVersion: currentTokenVersion,
+      });
+      res.status(401).json({ error: 'Token version mismatch. Please log in again.' });
+      return;
+    }
+
     req.merchant = decoded;
 
     logger.debug('Authentication successful', {
@@ -123,16 +143,17 @@ export function authenticateToken(
 }
 
 /**
- * Generates a signed JWT token for a given merchant ID.
+ * Generates a signed JWT token for a given merchant ID and optional tokenVersion.
  *
  * @param merchantId - The Mongoose ObjectId string of the merchant
+ * @param tokenVersion - The current tokenVersion of the merchant (defaults to 1)
  * @returns Signed JWT string
  */
-export function generateToken(merchantId: string): string {
+export function generateToken(merchantId: string, tokenVersion: number = 1): string {
   const secret = getJwtSecret();
   const expiresIn = process.env.JWT_EXPIRES_IN || '7d';
 
-  const payload: MerchantTokenPayload = { merchantId };
+  const payload: MerchantTokenPayload = { merchantId, tokenVersion };
 
   return jwt.sign(payload, secret, { expiresIn } as jwt.SignOptions);
 }

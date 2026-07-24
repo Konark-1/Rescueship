@@ -1,6 +1,7 @@
 import { Worker, Job } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { orderService } from '../services/order.service';
+import { Merchant, Order } from '../models';
 import { logger } from '../utils/logger';
 
 export const codConversionWorker = new Worker(
@@ -10,6 +11,31 @@ export const codConversionWorker = new Worker(
     logger.info(`Processing cod-conversion job: ${job.id}`, { action, merchantId });
 
     try {
+      let targetMerchantId = merchantId;
+      if (!targetMerchantId && job.data.orderId) {
+        const order = await Order.findById(job.data.orderId);
+        if (order) {
+          targetMerchantId = order.merchantId.toString();
+        }
+      } else if (!targetMerchantId && paymentLinkId) {
+        const order = await Order.findOne({ paymentLinkId });
+        if (order) {
+          targetMerchantId = order.merchantId.toString();
+        }
+      }
+
+      if (targetMerchantId) {
+        const merchant = await Merchant.findById(targetMerchantId);
+        if (merchant?.settings?.globalPause) {
+          logger.info(`Global pause active for merchant ${targetMerchantId}. Skipping job ${job.id}`, {
+            jobId: job.id,
+            action,
+            merchantId: targetMerchantId,
+          });
+          return;
+        }
+      }
+
       if (action === 'process_new_cod') {
         await orderService.processCODOrder(merchantId, orderData);
       } else if (action === 'payment_confirmed') {

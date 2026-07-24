@@ -4,6 +4,7 @@ import { redisConnection } from '../config/redis';
 import { paymentService } from '../services/payment.service';
 import { config } from '../config/env';
 import { IdempotencyGuard } from '../utils/idempotency';
+import { AuditLog, BillingEvent, Merchant } from '../models';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -33,7 +34,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
     if (event === 'payment_link.paid') {
       const paymentLinkEntity = body.payload?.payment_link?.entity;
       const paymentLinkId = paymentLinkEntity?.id;
-      
+
       if (!paymentLinkId) {
         res.status(400).json({ error: 'Missing payment_link_id in payload' });
         return;
@@ -66,6 +67,52 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
 
       await IdempotencyGuard.markProcessed(eventId);
       logger.info('Razorpay payment link paid event queued', { paymentLinkId });
+    } else if (event === 'subscription.charged' || event === 'payment.captured') {
+      const entity = body.payload?.subscription?.entity || body.payload?.payment?.entity;
+      const notes = entity?.notes || {};
+      const merchantId = notes.merchantId || notes.merchant_id;
+      const plan = notes.plan;
+      const cycle = notes.cycle;
+
+      if (merchantId && plan) {
+        const eventId = `razorpay_${event}_${entity?.id || Date.now()}`;
+        const isProcessed = await IdempotencyGuard.isProcessed(eventId);
+        if (!isProcessed) {
+          const planLimits: Record<string, number> = {
+            starter: 2000,
+            growth: 10000,
+            scale: 50000,
+          };
+          const orderLimit = planLimits[plan] || 2000;
+
+          const merchant = await Merchant.findById(merchantId);
+          if (merchant) {
+            merchant.billing.plan = plan;
+            merchant.billing.planOrderLimit = orderLimit;
+            if (cycle) {
+              merchant.billing.billingCycle = cycle;
+            }
+            await merchant.save();
+
+            await BillingEvent.create({
+              merchantId: merchant._id,
+              eventType: 'subscription_upgraded',
+              creditsCost: 0,
+            });
+
+            await AuditLog.create({
+              merchantId: merchant._id,
+              action: 'subscription_upgraded',
+              source: 'razorpay_webhook',
+              payload: { event, plan, cycle, amount: entity?.amount },
+              status: 'success',
+            });
+
+            await IdempotencyGuard.markProcessed(eventId);
+            logger.info('Subscription payment processed via Razorpay webhook', { merchantId, plan, cycle });
+          }
+        }
+      }
     }
 
     res.status(200).json({ status: 'received' });

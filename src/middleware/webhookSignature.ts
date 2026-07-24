@@ -36,7 +36,13 @@ export const verifyRazorpaySignature = (secret: string) => {
     const rawBody = (req as any).rawBody || JSON.stringify(req.body);
     const expectedSignature = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
 
-    if (signature !== expectedSignature) {
+    const signatureBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+
+    if (
+      signatureBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(signatureBuffer, expectedBuffer)
+    ) {
       logger.warn('Invalid Razorpay signature');
       res.status(401).json({ error: 'Invalid signature' });
       return;

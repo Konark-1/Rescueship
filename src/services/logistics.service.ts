@@ -177,6 +177,14 @@ export class LogisticsService {
     }
   }
 
+  public async updateAddress(
+    carrier: CarrierType,
+    params: AddressUpdateParams,
+    carrierConfig?: CarrierConfig
+  ): Promise<RescheduleResult> {
+    return this.updateDeliveryAddress(carrier, params, carrierConfig);
+  }
+
   /* ----------------- Carrier Implementations ----------------- */
 
   private async rescheduleShiprocket(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {

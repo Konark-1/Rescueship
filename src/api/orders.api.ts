@@ -1,9 +1,77 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
+import { requireFeature } from '../middleware/planGating.middleware';
 import { Order, AuditLog } from '../models';
 import { logger } from '../utils/logger';
 
 const router = Router();
+
+/**
+ * GET /api/orders/export/csv & GET /api/orders/export
+ * Export merchant orders in CSV format
+ */
+const exportOrdersCsv = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+
+  try {
+    logger.info('Exporting orders CSV', { merchantId });
+
+    const orders = await Order.find({ merchantId }).sort({ createdAt: -1 });
+
+    const headers = [
+      'Order ID',
+      'Platform',
+      'Customer Phone',
+      'Customer Name',
+      'Order Value',
+      'Payment Method',
+      'Status',
+      'AWB',
+      'Carrier',
+      'Created At',
+    ];
+
+    const escapeCsvField = (field: any): string => {
+      if (field === null || field === undefined) return '""';
+      let str = String(field);
+      if (/^[=@+\-]/.test(str)) {
+        str = `'${str}`;
+      }
+      return `"${str.replace(/"/g, '""')}"`;
+    };
+
+    const csvRows = [headers.join(',')];
+
+    for (const order of orders) {
+      const row = [
+        escapeCsvField(order.externalOrderId),
+        escapeCsvField(order.platform),
+        escapeCsvField(order.customerPhone),
+        escapeCsvField(order.customerName || ''),
+        escapeCsvField(order.orderValue),
+        escapeCsvField(order.paymentMethod),
+        escapeCsvField(order.status),
+        escapeCsvField(order.awb || ''),
+        escapeCsvField(order.carrier || ''),
+        escapeCsvField(order.createdAt ? order.createdAt.toISOString() : ''),
+      ];
+      csvRows.push(row.join(','));
+    }
+
+    const csvData = csvRows.join('\n');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=rescueship_orders.csv');
+    res.status(200).send(csvData);
+  } catch (err: any) {
+    logger.error('Failed to export orders CSV', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to export orders' });
+  }
+};
+
+router.get('/export/csv', authenticateToken, requireFeature('csv_export'), exportOrdersCsv);
+router.get('/export', authenticateToken, requireFeature('csv_export'), exportOrdersCsv);
+
 
 /**
  * GET /api/orders

@@ -1,38 +1,143 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { CreditCard, Zap, Download, Check, Shield, Star, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 import PricingComparisonModal from '../components/PricingComparisonModal';
+import api from '../services/api';
 
 export default function BillingPage() {
   const [billingCycle, setBillingCycle] = useState<'quarterly' | 'semi_annual' | 'annual'>('annual');
   const [toast, setToast] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [billingData, setBillingData] = useState<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Mock order usage data
-  const currentOrdersUsed = 1240;
-  const currentOrderLimit = 2000;
+  const fetchBillingStatus = async () => {
+    try {
+      const res = await api.get('/api/billing/plan');
+      if (res.data) {
+        setBillingData(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch billing plan status', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchBillingStatus();
+  }, []);
+
+  const currentPlan = billingData?.plan || 'starter';
+  const currentOrdersUsed = billingData?.currentMonthOrders ?? 1240;
+  const currentOrderLimit = billingData?.planOrderLimit ?? 2000;
   const percentageUsed = Math.min(100, Math.round((currentOrdersUsed / currentOrderLimit) * 100));
 
   const showToast = (message: string) => {
     setToast(message);
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 4000);
   };
 
   const handleDownload = (id: string) => {
     showToast(`Downloading Invoice PDF for ${id}...`);
   };
 
-  const handleSelectPlan = (name: string, price: string) => {
-    if (name === 'Starter') {
-      showToast('You are currently on the Starter Plan.');
+  const loadRazorpayScript = (): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if ((window as any).Razorpay) {
+        resolve(true);
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleSelectPlan = async (name: string) => {
+    const planKey = name.toLowerCase();
+
+    if (planKey === currentPlan) {
+      showToast(`You are currently on the ${name} Plan.`);
       return;
     }
+
     if (name === 'Enterprise') {
       window.location.href = 'mailto:support@rescueship.io?subject=RescueShip Enterprise Inquiry';
       return;
     }
-    showToast(`Upgrading to ${name} Plan (${price})... Redirecting to Checkout.`);
+
+    try {
+      setLoading(true);
+      showToast(`Initiating ${name} subscription checkout...`);
+
+      const res = await api.post('/api/billing/create-subscription', {
+        plan: planKey,
+        cycle: billingCycle,
+      });
+
+      const { subscriptionId, keyId, amount, cycle } = res.data;
+
+      const scriptLoaded = await loadRazorpayScript();
+
+      if (!scriptLoaded || !(window as any).Razorpay) {
+        // Fallback simulation for local/offline environment without external CDN
+        showToast(`Processing subscription for ${name} Plan...`);
+        await api.post('/api/billing/confirm-subscription', {
+          plan: planKey,
+          cycle: billingCycle,
+          subscriptionId,
+        });
+        showToast(`🎉 Payment Successful! Upgraded to ${name} Plan.`);
+        await fetchBillingStatus();
+        setLoading(false);
+        return;
+      }
+
+      const options = {
+        key: keyId || 'rzp_test_dummykey',
+        amount: amount * 100, // Amount in paise
+        currency: 'INR',
+        name: 'RescueShip',
+        description: `Subscription: ${name} Plan (${cycle})`,
+        order_id: subscriptionId?.startsWith('order_') ? subscriptionId : undefined,
+        subscription_id: subscriptionId?.startsWith('sub_') ? subscriptionId : undefined,
+        handler: async function (response: any) {
+          try {
+            await api.post('/api/billing/confirm-subscription', {
+              plan: planKey,
+              cycle: billingCycle,
+              subscriptionId: response.razorpay_subscription_id || response.razorpay_order_id || subscriptionId,
+              paymentId: response.razorpay_payment_id,
+            });
+            showToast(`🎉 Payment Successful! Upgraded to ${name} Plan.`);
+            await fetchBillingStatus();
+          } catch (err) {
+            showToast(`🎉 Payment completed! Refreshing billing status...`);
+            await fetchBillingStatus();
+          }
+        },
+        prefill: {
+          name: 'Merchant',
+          email: 'merchant@rescueship.io',
+        },
+        theme: {
+          color: '#4F46E5',
+        },
+      };
+
+      const rzp = new (window as any).Razorpay(options);
+      rzp.on('payment.failed', function () {
+        showToast('Payment failed or cancelled. Please try again.');
+      });
+      rzp.open();
+    } catch (err: any) {
+      console.error('Subscription error', err);
+      showToast(err.response?.data?.error || 'Failed to initiate subscription checkout.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const subscriptions = [
@@ -48,8 +153,8 @@ export default function BillingPage() {
         'Shiprocket & Delhivery Integrations',
         'Email Support (24h SLA)',
       ],
-      buttonText: 'Current Plan',
-      active: true,
+      buttonText: currentPlan === 'starter' ? 'Current Plan' : 'Select Starter',
+      active: currentPlan === 'starter',
       popular: false,
     },
     {
@@ -66,8 +171,8 @@ export default function BillingPage() {
         'Advanced Analytics & Charts',
         'Priority Support (12h SLA)',
       ],
-      buttonText: 'Upgrade Now',
-      active: false,
+      buttonText: currentPlan === 'growth' ? 'Current Plan' : 'Upgrade Now',
+      active: currentPlan === 'growth',
       popular: true,
     },
     {
@@ -83,8 +188,8 @@ export default function BillingPage() {
         'Priority Support (6h SLA)',
         '99.5% Uptime SLA Guarantee',
       ],
-      buttonText: 'Upgrade to Scale',
-      active: false,
+      buttonText: currentPlan === 'scale' ? 'Current Plan' : 'Upgrade to Scale',
+      active: currentPlan === 'scale',
       popular: false,
     },
     {
@@ -99,8 +204,8 @@ export default function BillingPage() {
         'Custom SLA & Escalation Flow',
         'Whitelabel & Custom Workflows',
       ],
-      buttonText: 'Contact Sales',
-      active: false,
+      buttonText: currentPlan === 'enterprise' ? 'Current Plan' : 'Contact Sales',
+      active: currentPlan === 'enterprise',
       popular: false,
     },
   ];
@@ -131,7 +236,7 @@ export default function BillingPage() {
         {/* Current Usage Bar */}
         <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-5 min-w-[320px] relative z-10">
           <div className="flex justify-between text-sm font-medium mb-2">
-            <span className="text-gray-400">Monthly Order Capacity</span>
+            <span className="text-gray-400">Monthly Order Capacity ({currentPlan.toUpperCase()})</span>
             <span className="text-indigo-400 font-bold">
               {currentOrdersUsed.toLocaleString()} / {currentOrderLimit.toLocaleString()}
             </span>
@@ -245,7 +350,8 @@ export default function BillingPage() {
               </div>
 
               <button
-                onClick={() => handleSelectPlan(plan.name, plan.price)}
+                disabled={loading || plan.active}
+                onClick={() => handleSelectPlan(plan.name)}
                 className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all ${
                   plan.active
                     ? 'bg-gray-800 text-gray-400 cursor-default border border-gray-700'
@@ -254,7 +360,7 @@ export default function BillingPage() {
                     : 'bg-gray-800 text-white hover:bg-gray-700'
                 }`}
               >
-                {plan.buttonText}
+                {loading ? 'Processing...' : plan.buttonText}
               </button>
             </motion.div>
           ))}

@@ -40,7 +40,13 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
       secret = merchant.platformConfig?.woocommerceSecret;
     }
 
-    if (secret && signature && (req as any).rawBody) {
+    if (secret) {
+      if (!signature || !(req as any).rawBody) {
+        logger.warn('WooCommerce signature verification failed: Missing signature or raw body', { merchantId: merchantIdStr });
+        res.status(401).json({ error: 'Missing WooCommerce signature' });
+        return;
+      }
+
       const computedHmac = crypto
         .createHmac('sha256', secret)
         .update((req as any).rawBody)
@@ -56,6 +62,9 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
       }
     }
 
+    const body = req.body;
+    const webhookId = req.get('X-WC-Webhook-ID') || (body?.id ? `wc_${body.id}` : `wc_${Date.now()}`);
+
     // Check Idempotency
     const isProcessed = await IdempotencyGuard.isProcessed(webhookId);
     if (isProcessed) {
@@ -64,7 +73,6 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const body = req.body;
     const isCOD = (body.payment_method || '').toLowerCase() === 'cod';
 
     if (!isCOD) {
@@ -121,7 +129,7 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
 
     res.status(200).json({ status: 'queued', message: 'WooCommerce webhook queued' });
   } catch (err: any) {
-    logger.error('Failed to handle WooCommerce webhook', { webhookId, error: err.message });
+    logger.error('Failed to handle WooCommerce webhook', { webhookId: req.get('X-WC-Webhook-ID'), error: err.message });
     res.status(500).json({ error: 'Failed to process webhook' });
   }
 });

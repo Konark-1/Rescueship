@@ -117,6 +117,10 @@ const OrderSchema = new Schema<IOrder>(
 );
 
 // Indexes
+OrderSchema.index({ merchantId: 1, status: 1, createdAt: -1 });
+OrderSchema.index({ merchantId: 1, awb: 1 }, { unique: true, sparse: true });
+OrderSchema.index({ merchantId: 1, customerPhone: 1 });
+OrderSchema.index({ customerPhone: 1, status: 1 });
 OrderSchema.index({ merchantId: 1, status: 1 });
 OrderSchema.index({ merchantId: 1, createdAt: -1 });
 OrderSchema.index({ merchantId: 1, externalOrderId: 1 }, { unique: true });

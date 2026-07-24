@@ -159,6 +159,14 @@ export class OrderService {
         throw err;
       }
 
+      // Generate UPI QR Code image Data URL for COD conversion payment link
+      try {
+        await paymentService.generateQRCode(paymentLink.shortUrl);
+        logger.info('Generated UPI QR Code for COD conversion link', { externalOrderId: orderData.externalOrderId });
+      } catch (qrErr: any) {
+        logger.warn('Failed to generate UPI QR code for payment link', { error: qrErr.message });
+      }
+
       // Update Order with payment link
       order.status = 'cod_conversion_sent';
       order.paymentLinkId = paymentLink.linkId;
@@ -304,10 +312,25 @@ export class OrderService {
       // Mark order as paid on the e-commerce platform
       await this.markOrderAsPaidOnPlatform(order);
 
-      // Update merchant billing usage
-      await Merchant.findByIdAndUpdate(order.merchantId, {
-        $inc: { 'billing.totalConversions': 1 },
-      });
+      // Update merchant billing usage & notify seller via WhatsApp alert
+      const merchant = await Merchant.findByIdAndUpdate(
+        order.merchantId,
+        { $inc: { 'billing.totalConversions': 1 } },
+        { new: true }
+      );
+
+      if (merchant) {
+        const discount = order.codConversion?.incentiveOffered || 0;
+        const paidAmount = order.orderValue - discount;
+        const merchantPhone = (merchant as any).phone || merchant.whatsappConfig?.phoneNumberId || '';
+
+        await paymentService.notifySellerPaymentReceived(
+          merchantPhone,
+          order.externalOrderId,
+          paidAmount,
+          merchant.whatsappConfig
+        );
+      }
 
       await AuditLog.create({
         merchantId: order.merchantId,

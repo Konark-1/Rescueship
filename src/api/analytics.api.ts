@@ -141,4 +141,35 @@ router.get('/ndr-reasons', authenticateToken, async (req: AuthenticatedRequest, 
   }
 });
 
+/**
+ * GET /api/analytics/queues
+ * Retrieve BullMQ queue metrics (active, completed, failed, delayed job counts)
+ */
+router.get('/queues', authenticateToken, async (_req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const { Queue } = await import('bullmq');
+    const { redisConnection } = await import('../config/redis');
+
+    const queueNames = ['cod-conversion', 'ndr-rescue', 'whatsapp-send'];
+    const metrics: Record<string, { active: number; completed: number; failed: number; delayed: number }> = {};
+
+    for (const name of queueNames) {
+      const q = new Queue(name, { connection: redisConnection as any });
+      const counts = await q.getJobCounts('active', 'completed', 'failed', 'delayed');
+      metrics[name] = {
+        active: counts.active || 0,
+        completed: counts.completed || 0,
+        failed: counts.failed || 0,
+        delayed: counts.delayed || 0,
+      };
+      await q.close();
+    }
+
+    res.status(200).json(metrics);
+  } catch (err: any) {
+    logger.error('Failed to get queue analytics', { error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve queue statistics' });
+  }
+});
+
 export default router;

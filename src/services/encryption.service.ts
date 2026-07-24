@@ -16,11 +16,11 @@
  *   - Rotate keys via re-encrypting all stored secrets when compromised.
  */
 
-import CryptoJS from 'crypto-js';
+import crypto from 'crypto';
 import logger from '../config/logger';
 
 /**
- * Singleton service that wraps CryptoJS AES for encrypting and decrypting
+ * Singleton service that wraps Node native crypto AES-256-GCM for encrypting and decrypting
  * merchant API keys and other sensitive strings.
  */
 export class EncryptionService {
@@ -53,15 +53,18 @@ export class EncryptionService {
   }
 
   /**
-   * Encrypts a plaintext string using AES-256.
+   * Derives a deterministic 32-byte key buffer from the given key string using SHA-256.
+   */
+  private getDerivedKey(keyStr: string): Buffer {
+    return crypto.createHash('sha256').update(keyStr).digest();
+  }
+
+  /**
+   * Encrypts a plaintext string using AES-256-GCM.
    *
    * @param plainText - The value to encrypt (e.g. an API key).
-   * @returns The Base64-encoded ciphertext string.
+   * @returns Formatted ciphertext string: `iv:authTag:ciphertext` (hex encoded).
    * @throws {Error} If plainText is empty or encryption fails.
-   *
-   * @example
-   *   const encrypted = encryptionService.encrypt('rzp_live_abc123');
-   *   // => "U2FsdGVkX1+..."
    */
   public encrypt(plainText: string): string {
     if (!plainText) {
@@ -69,11 +72,20 @@ export class EncryptionService {
     }
 
     try {
-      const cipherText = CryptoJS.AES.encrypt(plainText, this.encryptionKey).toString();
+      const keyBuffer = this.getDerivedKey(this.encryptionKey);
+      const iv = crypto.randomBytes(12); // 12-byte (96-bit) IV
+      const cipher = crypto.createCipheriv('aes-256-gcm', keyBuffer, iv);
+
+      let encrypted = cipher.update(plainText, 'utf8', 'hex');
+      encrypted += cipher.final('hex');
+
+      const authTag = cipher.getAuthTag(); // 16-byte (128-bit) Auth Tag
+
+      const output = `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
       logger.debug('Successfully encrypted a value', {
-        cipherLength: cipherText.length,
+        cipherLength: output.length,
       });
-      return cipherText;
+      return output;
     } catch (error) {
       logger.error('Encryption failed', { error });
       throw new Error('Encryption failed — see logs for details.');
@@ -81,14 +93,11 @@ export class EncryptionService {
   }
 
   /**
-   * Decrypts a ciphertext string that was previously encrypted with `encrypt()`.
+   * Decrypts a ciphertext string formatted as `iv:authTag:ciphertext`.
    *
-   * @param cipherText - The Base64-encoded AES ciphertext.
+   * @param cipherText - The formatted AES-256-GCM ciphertext.
    * @returns The original plaintext string.
-   * @throws {Error} If cipherText is empty, decryption fails, or the key is wrong.
-   *
-   * @example
-   *   const apiKey = encryptionService.decrypt(stored.encryptedApiKey);
+   * @throws {Error} If cipherText is empty, decryption fails, or authentication tag fails verification.
    */
   public decrypt(cipherText: string): string {
     if (!cipherText) {
@@ -96,9 +105,7 @@ export class EncryptionService {
     }
 
     try {
-      const bytes = CryptoJS.AES.decrypt(cipherText, this.encryptionKey);
-      const plainText = bytes.toString(CryptoJS.enc.Utf8);
-
+      const plainText = this.decryptWithKey(cipherText, this.encryptionKey);
       if (!plainText) {
         throw new Error(
           'Decryption produced an empty result — the ciphertext may be corrupted or ' +
@@ -108,17 +115,47 @@ export class EncryptionService {
 
       logger.debug('Successfully decrypted a value');
       return plainText;
-    } catch (error) {
-      logger.error('Decryption failed', { error });
+    } catch (error: any) {
+      logger.error('Decryption failed', { error: error.message || error });
       throw new Error('Decryption failed — the key may be wrong or the data corrupted.');
     }
+  }
+
+  /**
+   * Helper to decrypt ciphertext formatted as `iv:authTag:ciphertext` using a specified key string.
+   */
+  private decryptWithKey(cipherText: string, keyStr: string): string {
+    const parts = cipherText.split(':');
+    if (parts.length !== 3) {
+      throw new Error('Invalid ciphertext format. Expected iv:authTag:ciphertext');
+    }
+
+    const [ivHex, authTagHex, encryptedDataHex] = parts;
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+
+    if (iv.length !== 12) {
+      throw new Error('Invalid IV length. Expected 12 bytes.');
+    }
+    if (authTag.length !== 16) {
+      throw new Error('Invalid auth tag length. Expected 16 bytes.');
+    }
+
+    const keyBuffer = this.getDerivedKey(keyStr);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', keyBuffer, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encryptedDataHex, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+
+    return decrypted;
   }
 
   /**
    * Re-encrypts a value that was encrypted with a previous key.
    * Useful during key rotation.
    *
-   * @param cipherText  - Value encrypted with the OLD key.
+   * @param cipherText  - Value encrypted with the OLD key (`iv:authTag:ciphertext`).
    * @param oldKey      - The previous encryption key.
    * @returns The value re-encrypted with the CURRENT key.
    */
@@ -128,18 +165,14 @@ export class EncryptionService {
     }
 
     try {
-      // Decrypt with old key
-      const bytes = CryptoJS.AES.decrypt(cipherText, oldKey);
-      const plainText = bytes.toString(CryptoJS.enc.Utf8);
-
+      const plainText = this.decryptWithKey(cipherText, oldKey);
       if (!plainText) {
         throw new Error('Could not decrypt with the provided old key.');
       }
 
-      // Re-encrypt with current key
       return this.encrypt(plainText);
-    } catch (error) {
-      logger.error('Re-encryption failed', { error });
+    } catch (error: any) {
+      logger.error('Re-encryption failed', { error: error.message || error });
       throw new Error('Re-encryption failed — check that the old key is correct.');
     }
   }

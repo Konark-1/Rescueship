@@ -2,6 +2,8 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
+import { whatsAppService } from './whatsapp.service';
+import { encryptionService } from './encryption.service';
 
 export interface PaymentConfig {
   keyId?: string;
@@ -206,12 +208,46 @@ export class PaymentService {
     merchantPhone: string,
     orderId: string,
     amount: number,
-    whatsappServiceInstance: any
+    whatsappConfig?: any
   ): Promise<void> {
     try {
-      const message = `✅ *Payment Received!*\n\nCustomer paid ₹${amount} for Order #${orderId} via UPI. The order is now converted to Prepaid. Delivery can proceed smoothly.`;
-      logger.info('Notifying seller of converted payment', { merchantPhone, orderId, amount });
-      // In production, send via WhatsApp or SMS to seller's registered phone
+      const message = `🎉 Great news! Order #${orderId} has been converted from COD to Prepaid (₹${amount} paid via UPI).`;
+      logger.info('Notifying seller of converted payment', { merchantPhone, orderId, amount, message });
+
+      if (merchantPhone && whatsappConfig) {
+        let waToken: string | undefined;
+        try {
+          if (whatsappConfig.accessToken) {
+            waToken = encryptionService.decrypt(whatsappConfig.accessToken);
+          }
+        } catch (err) {
+          waToken = whatsappConfig.accessToken;
+        }
+
+        await whatsAppService
+          .sendTemplate(
+            merchantPhone,
+            'seller_payment_alert',
+            'en',
+            [
+              {
+                type: 'body',
+                parameters: [
+                  { type: 'text', text: orderId },
+                  { type: 'text', text: `₹${amount}` },
+                ],
+              },
+            ],
+            {
+              phoneNumberId: whatsappConfig.phoneNumberId,
+              accessToken: waToken,
+              businessAccountId: whatsappConfig.businessAccountId,
+            }
+          )
+          .catch((err: any) => {
+            logger.warn('Failed sending WhatsApp template to merchant', { error: err.message });
+          });
+      }
     } catch (err: any) {
       logger.error('Failed to notify seller of payment', { orderId, error: err.message });
     }
@@ -225,7 +261,12 @@ export class PaymentService {
       const shasum = crypto.createHmac('sha256', secret);
       shasum.update(rawBody);
       const digest = shasum.digest('hex');
-      return crypto.timingSafeEqual(Buffer.from(digest, 'hex'), Buffer.from(signature, 'hex'));
+      const digestBuf = Buffer.from(digest, 'hex');
+      const sigBuf = Buffer.from(signature, 'hex');
+      if (digestBuf.length !== sigBuf.length) {
+        return false;
+      }
+      return crypto.timingSafeEqual(digestBuf, sigBuf);
     } catch (error: any) {
       logger.error('Error verifying Razorpay webhook signature', { error: error.message });
       return false;

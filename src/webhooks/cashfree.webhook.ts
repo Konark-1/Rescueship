@@ -15,7 +15,12 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
 
   logger.info('Received Cashfree webhook payment event');
 
-  if (config.cashfree.clientSecret && signature && rawBody) {
+  if (config.cashfree.clientSecret) {
+    if (!signature || !rawBody) {
+      logger.warn('Cashfree webhook missing signature or raw body');
+      res.status(401).json({ error: 'Missing Cashfree signature header' });
+      return;
+    }
     const isValid = paymentService.verifyCashfreeWebhook(rawBody, signature, config.cashfree.clientSecret);
     if (!isValid) {
       logger.warn('Cashfree webhook signature verification failed');
@@ -27,19 +32,20 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
   try {
     const body = req.body;
     const type = body.type; // Cashfree uses type e.g., 'LINK_PAID' or 'payment.success'
-    
-    if (type === 'LINK_PAID' || type === 'payment.success' || body.event === 'LINK_PAID') {
-      const linkId = body.data?.link_id || body.link_id;
-      if (!linkId) {
-        res.status(400).json({ error: 'Missing link_id in Cashfree payload' });
-        return;
-      }
+    const linkId = body.data?.link_id || body.link_id || body.data?.order?.order_id || body.order_id;
+    const webhookId = req.get('x-webhook-id') || (linkId ? `cashfree_${linkId}` : `cashfree_${Date.now()}`);
 
-      const eventId = `cashfree_${linkId}_${body.event_time || Date.now()}`;
-      const isProcessed = await IdempotencyGuard.isProcessed(eventId);
-      if (isProcessed) {
-        logger.info('Duplicate Cashfree webhook, skipping', { linkId });
-        res.status(200).json({ status: 'ignored', reason: 'duplicate' });
+    const isProcessed = await IdempotencyGuard.isProcessed(webhookId);
+    if (isProcessed) {
+      logger.info('Duplicate Cashfree webhook, skipping', { webhookId });
+      res.status(200).json({ status: 'ignored', reason: 'duplicate' });
+      return;
+    }
+
+    if (type === 'LINK_PAID' || type === 'payment.success' || body.event === 'LINK_PAID') {
+      if (!linkId) {
+        await IdempotencyGuard.markProcessed(webhookId);
+        res.status(400).json({ error: 'Missing link_id in Cashfree payload' });
         return;
       }
 
@@ -58,10 +64,10 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
         }
       );
 
-      await IdempotencyGuard.markProcessed(eventId);
-      logger.info('Cashfree payment link paid event queued', { linkId });
+      logger.info('Cashfree payment link paid event queued', { linkId, webhookId });
     }
 
+    await IdempotencyGuard.markProcessed(webhookId);
     res.status(200).json({ status: 'received' });
   } catch (err: any) {
     logger.error('Failed to handle Cashfree webhook', { error: err.message });

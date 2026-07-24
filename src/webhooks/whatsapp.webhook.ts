@@ -58,6 +58,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     } else if (parsed.type === 'text' && parsed.text) {
       // Process text reply (could be address update)
       await ndrService.handleCustomerTextResponse(parsed.from, parsed.text);
+    } else if (parsed.type === 'location' && parsed.location) {
+      // Process location pin reply
+      await ndrService.handleCustomerLocationResponse(parsed.from, parsed.location);
     }
   } catch (err: any) {
     logger.error('Error handling incoming WhatsApp webhook event', { error: err.message });

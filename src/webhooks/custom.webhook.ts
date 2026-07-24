@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Queue } from 'bullmq';
+import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
 import { Merchant, AuditLog } from '../models';
 import { IdempotencyGuard } from '../utils/idempotency';
@@ -44,7 +45,16 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
       secret = merchant.platformConfig?.customApiSecret;
     }
 
-    if (!secret || token !== secret) {
+    if (!secret) {
+      logger.warn('Custom API secret not configured for merchant', { merchantId: merchantIdStr });
+      res.status(401).json({ error: 'Custom API token verification failed' });
+      return;
+    }
+
+    const tokenBuf = Buffer.from(token);
+    const secretBuf = Buffer.from(secret);
+
+    if (tokenBuf.length !== secretBuf.length || !crypto.timingSafeEqual(tokenBuf, secretBuf)) {
       logger.warn('Custom API token verification failed', { merchantId: merchantIdStr });
       res.status(401).json({ error: 'Invalid API token' });
       return;
@@ -58,7 +68,7 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    const webhookId = `custom_${body.order_id}_${Date.now()}`;
+    const webhookId = req.get('X-Custom-Webhook-ID') || `custom_${body.order_id}`;
 
     // Check Idempotency
     const isProcessed = await IdempotencyGuard.isProcessed(webhookId);

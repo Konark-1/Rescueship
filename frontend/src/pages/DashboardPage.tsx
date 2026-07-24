@@ -88,8 +88,35 @@ export const DashboardPage: React.FC = () => {
     const fetchAnalytics = async () => {
       try {
         const response = await api.get('/api/analytics/dashboard');
-        if (response.data && Object.keys(response.data).length > 0) {
-          setData(response.data);
+        if (response.data && typeof response.data === 'object' && Object.keys(response.data).length > 0) {
+          const apiData = response.data;
+          const formattedData: DashboardData = {
+            totalOrders: apiData.totalOrders ?? 0,
+            codToPrepaid: {
+              count: apiData.codToPrepaid?.count ?? apiData.conversionCount ?? 0,
+              conversionRate: apiData.codToPrepaid?.conversionRate ?? apiData.conversionRate ?? 0,
+            },
+            ndrRescues: {
+              count: apiData.ndrRescues?.count ?? apiData.rescuedCount ?? 0,
+              rescueRate: apiData.ndrRescues?.rescueRate ?? apiData.rescueRate ?? 0,
+            },
+            revenueSaved: apiData.revenueSaved ?? apiData.totalRevenueSaved ?? 0,
+            activeNdrCases: apiData.activeNdrCases ?? 0,
+            creditsRemaining: apiData.creditsRemaining ?? 100,
+            dailyConversions: Array.isArray(apiData.dailyConversions)
+              ? apiData.dailyConversions
+              : mockData.dailyConversions,
+            ndrReasons: Array.isArray(apiData.ndrReasons)
+              ? apiData.ndrReasons
+              : mockData.ndrReasons,
+            carrierPerformance: Array.isArray(apiData.carrierPerformance)
+              ? apiData.carrierPerformance
+              : mockData.carrierPerformance,
+            recentOrders: Array.isArray(apiData.recentOrders)
+              ? apiData.recentOrders
+              : mockData.recentOrders,
+          };
+          setData(formattedData);
         } else {
           setData(mockData);
         }
@@ -384,12 +411,22 @@ const MetricCard = ({ title, value, subtext, icon, colorVar, pulse = false, isCu
 );
 
 const getStatusBadge = (status: string) => {
+  if (!status) return 'badge-secondary';
   switch (status.toLowerCase()) {
-    case 'delivered': return 'badge-success';
-    case 'ndr initiated': return 'badge-warning';
-    case 'rto': return 'badge-danger';
-    case 'converted': return 'badge-primary';
-    default: return 'badge-secondary';
+    case 'delivered':
+      return 'badge-success';
+    case 'ndr initiated':
+    case 'ndr_detected':
+    case 'ndr_rescue_sent':
+      return 'badge-warning';
+    case 'rto':
+      return 'badge-danger';
+    case 'converted':
+    case 'converted_to_prepaid':
+    case 'ndr_rescued':
+      return 'badge-primary';
+    default:
+      return 'badge-secondary';
   }
 };
 

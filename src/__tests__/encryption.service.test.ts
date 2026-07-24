@@ -22,9 +22,15 @@ describe('EncryptionService', () => {
 
   it('should reEncrypt correctly', () => {
     const oldKey = 'this_is_the_old_encryption_key_32_chars_long';
-    // Encrypt with old key manually
-    const CryptoJS = require('crypto-js');
-    const oldCipherText = CryptoJS.AES.encrypt('secret_value', oldKey).toString();
+    // Encrypt with old key manually using aes-256-gcm format iv:authTag:ciphertext
+    const crypto = require('crypto');
+    const oldKeyBuf = crypto.createHash('sha256').update(oldKey).digest();
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv('aes-256-gcm', oldKeyBuf, iv);
+    let encrypted = cipher.update('secret_value', 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+    const authTag = cipher.getAuthTag();
+    const oldCipherText = `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
 
     const newCipherText = encryptionService.reEncrypt(oldCipherText, oldKey);
     

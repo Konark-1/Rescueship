@@ -18,4 +18,7 @@ const BillingEventSchema = new Schema<IBillingEvent>(
   }
 );
 
+BillingEventSchema.index({ merchantId: 1, eventType: 1 });
+BillingEventSchema.index({ merchantId: 1, eventType: 1, timestamp: -1 });
+
 export const BillingEvent = model<IBillingEvent>('BillingEvent', BillingEventSchema);

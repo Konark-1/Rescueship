@@ -13,6 +13,7 @@ import { startAllWorkers, stopAllWorkers } from './jobs';
 import { globalErrorHandler } from './middleware/errorHandler';
 import { webhookLimiter, apiLimiter } from './middleware/rateLimiter';
 import { logger } from './utils/logger';
+import mongoSanitize from 'express-mongo-sanitize';
 import hpp from 'hpp';
 
 // Webhook Routers
@@ -48,6 +49,7 @@ app.use(cors({
 // Capture raw body for signature verification and parse JSON
 app.use(
   express.json({
+    limit: '1mb',
     verify: (req: any, res, buf) => {
       req.rawBody = buf;
     },
@@ -56,6 +58,9 @@ app.use(
 
 // Prevent HTTP Parameter Pollution (must be after express.json)
 app.use(hpp());
+
+// NoSQL Injection Sanitizer
+app.use(mongoSanitize());
 
 // Serve Static Dashboard UI
 app.use(express.static(path.join(__dirname, 'public')));

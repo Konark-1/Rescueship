@@ -37,7 +37,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       },
     });
 
-    const token = generateToken(merchant._id.toString());
+    const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
     logger.info('New merchant registered successfully', { merchantId: merchant._id });
 
     res.status(201).json({
@@ -82,7 +82,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const token = generateToken(merchant._id.toString());
+    const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
     logger.info('Merchant logged in successfully', { merchantId: merchant._id });
 
     res.status(200).json({
@@ -150,7 +150,7 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       logger.info('Merchant logged in via Google', { merchantId: merchant._id });
     }
 
-    const token = generateToken(merchant._id.toString());
+    const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
 
     res.status(200).json({
       message: 'Login successful',
