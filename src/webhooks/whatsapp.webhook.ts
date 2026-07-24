@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { whatsAppService } from '../services/whatsapp.service';
 import { ndrService } from '../services/ndr.service';
+import { addressCorrectionService } from '../services/address-correction.service';
+import { IdempotencyGuard } from '../utils/idempotency';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
 
@@ -50,17 +52,41 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const parsed = whatsAppService.parseIncomingMessage(req.body);
     if (!parsed) return;
 
+    // ─── Idempotency: Prevent double-processing of customer replies ───
+    const messageId = parsed.messageId || `${parsed.from}:${parsed.timestamp}:${parsed.type}`;
+    const idempotencyKey = `wa_incoming:${messageId}`;
+
+    const isDuplicate = await IdempotencyGuard.isProcessed(idempotencyKey);
+    if (isDuplicate) {
+      logger.info('Duplicate WhatsApp incoming message skipped', { messageId, from: parsed.from });
+      return;
+    }
+    await IdempotencyGuard.markProcessed(idempotencyKey, 3600); // 1 hour TTL
+    // ─── END Idempotency ───
+
     logger.info('Parsed WhatsApp incoming message', { from: parsed.from, type: parsed.type });
 
     if (parsed.type === 'button' && parsed.buttonPayload) {
       // Process button action
       await ndrService.handleCustomerResponse(parsed.from, parsed.buttonPayload);
-    } else if (parsed.type === 'text' && parsed.text) {
-      // Process text reply (could be address update)
-      await ndrService.handleCustomerTextResponse(parsed.from, parsed.text);
     } else if (parsed.type === 'location' && parsed.location) {
-      // Process location pin reply
-      await ndrService.handleCustomerLocationResponse(parsed.from, parsed.location);
+      // Route to 3-Mode Address Correction Service
+      await addressCorrectionService.handleLocationResponse(parsed.from, {
+        latitude: parsed.location.latitude,
+        longitude: parsed.location.longitude,
+        name: parsed.location.name,
+        address: parsed.location.address,
+      });
+    } else if (parsed.type === 'text' && parsed.text) {
+      // Try address correction first (handles Both mode step 2 + Text mode)
+      const handled = await addressCorrectionService.handleTextAddressResponse(
+        parsed.from,
+        parsed.text
+      );
+      if (!handled) {
+        // Fallback to original NDR text handler for other text interactions
+        await ndrService.handleCustomerTextResponse(parsed.from, parsed.text);
+      }
     }
   } catch (err: any) {
     logger.error('Error handling incoming WhatsApp webhook event', { error: err.message });

@@ -8,6 +8,8 @@ import { logisticsService } from './logistics.service';
 import { encryptionService } from './encryption.service';
 import { geocodingService } from './geocoding.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
+import { getMessages, translateReason } from '../i18n/messages';
+import { realtimeService } from './realtime.service';
 import { logger } from '../utils/logger';
 
 export interface NDREventData {
@@ -138,6 +140,14 @@ export class NDRService {
         isFakeAttempt: isFake,
       };
       await order.save();
+
+      // ─── Realtime: NDR detected alert ───
+      realtimeService.emitNdrDetected(
+        order.merchantId.toString(),
+        order.externalOrderId,
+        ndrData.reason,
+        isFake
+      );
 
       // Classify reason
       const category = this.classifyNDRReason(ndrData.reason);

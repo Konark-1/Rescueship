@@ -7,6 +7,7 @@ import { whatsAppService } from './whatsapp.service';
 import { paymentService } from './payment.service';
 import { encryptionService } from './encryption.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
+import { realtimeService } from './realtime.service';
 import { logger } from '../utils/logger';
 
 export interface IncomingOrderData {
@@ -331,6 +332,19 @@ export class OrderService {
           merchant.whatsappConfig
         );
       }
+
+      // ─── Realtime: Push payment event to merchant dashboard ───
+      realtimeService.emitPaymentReceived(
+        order.merchantId.toString(),
+        order.externalOrderId,
+        order.orderValue
+      );
+      realtimeService.emitOrderUpdate(
+        order.merchantId.toString(),
+        order.externalOrderId,
+        'converted_to_prepaid',
+        { amount: order.orderValue, method: 'upi' }
+      );
 
       await AuditLog.create({
         merchantId: order.merchantId,

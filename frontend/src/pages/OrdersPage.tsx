@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { TabPill } from '../components/motion/TabPill';
+import ExportButton from '../components/ExportButton';
 
 interface OrderTimeline {
   event: string;
@@ -85,7 +86,13 @@ export const OrdersPage: React.FC = () => {
 
   return (
     <div className="glass-card fade-in-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem' }}>Orders Management</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', margin: 0 }}>Orders Management</h2>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <ExportButton exportType="orders" label="📦 Export Orders" />
+          <ExportButton exportType="ndr_report" label="🚚 NDR Report" />
+        </div>
+      </div>
       
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input 

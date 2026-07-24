@@ -1,51 +1,121 @@
 version: '3.8'
 
 services:
-  rescueship_api:
+  rescueship-api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: rescueship_prod_api
-    restart: always
+      target: runner
+    container_name: rescueship-api-prod
+    restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - MONGODB_URI=mongodb://mongo:27017/rescueship
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     env_file:
-      - .env
+      - .env.production
     depends_on:
-      - mongo
-      - redis
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1024M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     networks:
-      - rescueship_prod_network
+      - rescueship-net
+
+  rescueship-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rescueship-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - rescueship-api
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    networks:
+      - rescueship-net
 
   mongo:
-    image: mongo:6.0
-    container_name: rescueship_prod_mongo
-    restart: always
+    image: mongo:7.0
+    container_name: rescueship-mongo
+    restart: unless-stopped
     ports:
       - "27017:27017"
     volumes:
-      - mongo_prod_data:/data/db
+      - mongo-data:/data/db
+      - mongo-config:/data/configdb
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2048M
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - rescueship_prod_network
+      - rescueship-net
 
   redis:
-    image: redis:7.0-alpine
-    container_name: rescueship_prod_redis
-    restart: always
+    image: redis:7-alpine
+    container_name: rescueship-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
-      - redis_prod_data:/data
+      - redis-data:/data
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - rescueship_prod_network
+      - rescueship-net
 
 volumes:
-  mongo_prod_data:
-  redis_prod_data:
+  mongo-data:
+    driver: local
+  mongo-config:
+    driver: local
+  redis-data:
+    driver: local
 
 networks:
-  rescueship_prod_network:
+  rescueship-net:
     driver: bridge

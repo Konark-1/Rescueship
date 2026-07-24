@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, 
@@ -10,6 +10,7 @@ import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { MotionCard } from '../components/motion/MotionCard';
 import { AnimatedCounter } from '../components/motion/AnimatedCounter';
+import { useRealtime } from '../hooks/useRealtime';
 
 interface DashboardData {
   totalOrders: number;
@@ -38,14 +39,12 @@ const mockData: DashboardData = {
     { date: 'Wed', conversions: 180 },
     { date: 'Thu', conversions: 140 },
     { date: 'Fri', conversions: 210 },
-    { date: 'Sat', conversions: 190 },
-    { date: 'Sun', conversions: 250 },
   ],
   ndrReasons: [
-    { name: 'Customer Refused', value: 45 },
-    { name: 'Address Issue', value: 25 },
-    { name: 'Phone Unreachable', value: 20 },
-    { name: 'Fake Remark', value: 10 },
+    { name: 'Customer Unavailable', value: 45 },
+    { name: 'Address Incomplete', value: 25 },
+    { name: 'Refused Delivery', value: 15 },
+    { name: 'Fake Failure Remark', value: 15 },
   ],
   carrierPerformance: [
     { carrier: 'Delhivery', rto: 120, rescued: 80 },
@@ -84,8 +83,9 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const fetchAnalytics = async () => {
+  const token = localStorage.getItem('auth_token');
+
+  const fetchAnalytics = useCallback(async () => {
       try {
         const response = await api.get('/api/analytics/dashboard');
         if (response.data && typeof response.data === 'object' && Object.keys(response.data).length > 0) {
@@ -126,10 +126,18 @@ export const DashboardPage: React.FC = () => {
       } finally {
         setLoading(false);
       }
-    };
+    }, []);
 
+  const { isConnected } = useRealtime(token, {
+    onOrderUpdate: () => fetchAnalytics(),
+    onNdrDetected: () => fetchAnalytics(),
+    onPaymentReceived: () => fetchAnalytics(),
+    onStatsRefresh: () => fetchAnalytics(),
+  });
+
+  useEffect(() => {
     fetchAnalytics();
-  }, []);
+  }, [fetchAnalytics]);
 
   if (loading || !data) {
     return (
@@ -146,6 +154,12 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', paddingBottom: '2rem' }}>
+      
+      {/* Live SSE Feed Status Header */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+        <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: isConnected ? '#10b981' : '#ef4444', display: 'inline-block' }} />
+        <span style={{ color: 'var(--text-secondary)' }}>{isConnected ? 'Realtime Live Feed' : 'Reconnecting Feed...'}</span>
+      </div>
       
       {/* 80% Limit Warning Banner */}
       {usagePercentage >= 80 && (

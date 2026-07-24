@@ -85,25 +85,41 @@ app.use('/webhooks/razorpay', webhookLimiter, razorpayRouter);
 app.use('/webhooks/cashfree', webhookLimiter, cashfreeRouter);
 app.use('/webhooks/custom', webhookLimiter, customRouter);
 
-// Mount API Routes (apply apiLimiter)
+import exportRouter from './api/export.api';
+import realtimeRouter from './api/realtime.api';
+import { realtimeService } from './services/realtime.service';
+import { standardMerchantLimiter, exportMerchantLimiter } from './middleware/merchant-rate-limiter';
+
+// Mount API Routes (apply apiLimiter & per-merchant limiter)
 app.use('/api/auth', apiLimiter, authRouter);
-app.use('/api/orders', apiLimiter, ordersRouter);
-app.use('/api/analytics', apiLimiter, analyticsRouter);
-app.use('/api/settings', apiLimiter, settingsRouter);
-app.use('/api/templates', apiLimiter, templatesRouter);
-app.use('/api/billing', apiLimiter, billingRouter);
-app.use('/api/audit-logs', apiLimiter, auditLogsRouter);
+app.use('/api/orders', apiLimiter, standardMerchantLimiter, ordersRouter);
+app.use('/api/analytics', apiLimiter, standardMerchantLimiter, analyticsRouter);
+app.use('/api/settings', apiLimiter, standardMerchantLimiter, settingsRouter);
+app.use('/api/templates', apiLimiter, standardMerchantLimiter, templatesRouter);
+app.use('/api/billing', apiLimiter, standardMerchantLimiter, billingRouter);
+app.use('/api/audit-logs', apiLimiter, standardMerchantLimiter, auditLogsRouter);
+app.use('/api/realtime', apiLimiter, standardMerchantLimiter, realtimeRouter);
+
+// Export API — stricter per-merchant limit (5 req/min)
+app.use('/api/export', apiLimiter, exportMerchantLimiter, exportRouter);
 
 // Global Error Handler
 app.use(globalErrorHandler);
+
+import { validateEnvironment } from './config/startup-validator';
+import { ensureIndexes } from './models/indexes';
 
 /**
  * Bootstrap connections, start workers and listen to port
  */
 async function bootstrap() {
   try {
+    // 0. Validate Environment
+    validateEnvironment();
+
     // 1. Connect MongoDB
     await connectDatabase();
+    await ensureIndexes();
 
     // 2. Connect Redis
     await connectRedis();
@@ -127,6 +143,9 @@ async function bootstrap() {
 
       // Stop workers
       await stopAllWorkers();
+
+      // Shutdown SSE Realtime Service
+      realtimeService.shutdown();
 
       // Disconnect connections
       await disconnectRedis();

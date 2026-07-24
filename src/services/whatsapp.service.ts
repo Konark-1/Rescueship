@@ -26,6 +26,8 @@ export interface ParsedMessage {
   type: 'text' | 'button' | 'location' | 'other';
   text?: string;
   buttonPayload?: string;
+  messageId?: string;
+  timestamp?: string;
   location?: {
     latitude: number;
     longitude: number;
@@ -211,12 +213,16 @@ export class WhatsAppService {
 
       const from = message.from;
       const type = message.type;
+      const messageId = message.id;
+      const timestamp = message.timestamp;
 
       if (type === 'text') {
         return {
           from,
           type: 'text',
           text: message.text?.body,
+          messageId,
+          timestamp,
         };
       } else if (type === 'button') {
         return {
@@ -224,6 +230,8 @@ export class WhatsAppService {
           type: 'button',
           buttonPayload: message.button?.payload,
           text: message.button?.text,
+          messageId,
+          timestamp,
         };
       } else if (type === 'interactive' && message.interactive?.type === 'button_reply') {
         return {
@@ -231,11 +239,15 @@ export class WhatsAppService {
           type: 'button',
           buttonPayload: message.interactive.button_reply?.id,
           text: message.interactive.button_reply?.title,
+          messageId,
+          timestamp,
         };
       } else if (type === 'location') {
         return {
           from,
           type: 'location',
+          messageId,
+          timestamp,
           location: {
             latitude: message.location?.latitude,
             longitude: message.location?.longitude,
@@ -248,6 +260,8 @@ export class WhatsAppService {
       return {
         from,
         type: 'other',
+        messageId,
+        timestamp,
       };
     } catch (error: any) {
       logger.error('Error parsing incoming WhatsApp message', { error: error.message });
