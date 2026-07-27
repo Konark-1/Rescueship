@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { whatsAppService } from '../services/whatsapp.service';
 import { ndrService } from '../services/ndr.service';
 import { addressCorrectionService } from '../services/address-correction.service';
-import { rescueMatchingService } from '../services/rescue-matching.service';
+import { rescueMatchingService, MatchCandidate } from '../services/rescue-matching.service';
 import { IdempotencyGuard } from '../utils/idempotency';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
@@ -75,7 +75,6 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const phoneNumberId = value?.metadata?.phone_number_id;
     let merchant = phoneNumberId ? await Merchant.findOne({ 'whatsappConfig.phoneNumberId': phoneNumberId }) : null;
     
-    // Fallback if single merchant or development
     if (!merchant) {
       const merchants = await Merchant.find().limit(2);
       if (merchants.length === 1) {
@@ -98,10 +97,11 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     if (!result.matched) {
-      // maybe a disambiguation reply (a number) — try reference resolve
+      // R3 Fix: Read frozen candidates from Redis window snapshot
       const pending = await redisConnection.get(`wa_disambig:${merchantId}:${normalizeIndianPhone(parsed.from)}`);
       if (pending && /^\d+$/.test((parsed.text || '').trim())) {
-        const r2 = await rescueMatchingService.resolveByReference(merchantId, parsed.from, parsed.text!.trim());
+        const frozen = JSON.parse(pending) as MatchCandidate[];
+        const r2 = await rescueMatchingService.resolveByReference(merchantId, parsed.from, parsed.text!.trim(), frozen);
         if (r2.matched) {
           await dispatchOrder(r2.order, parsed);
           return;

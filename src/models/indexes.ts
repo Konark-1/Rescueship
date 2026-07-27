@@ -1,6 +1,6 @@
 /**
  * indexes.ts
- * All MongoDB compound indexes for production performance.
+ * All MongoDB compound indexes for production performance & safety.
  * Call ensureIndexes() during server startup AFTER mongoose connects.
  */
 
@@ -46,9 +46,18 @@ export async function ensureIndexes(): Promise<void> {
       { 'billing.plan': 1, 'billing.currentMonthOrders': 1 },
       { name: 'idx_plan_usage', background: true }
     );
+
+    // R1 Fix: Loud fatal check on safety index
     await Merchant.collection.createIndex(
       { 'whatsappConfig.phoneNumberId': 1 },
-      { name: 'idx_merchant_wa_phone_number_id', unique: true, sparse: true, background: true }
+      {
+        name: 'idx_waba_phonenumber_unique',
+        unique: true,
+        partialFilterExpression: {
+          'whatsappConfig.phoneNumberId': { $type: 'string', $ne: '' },
+        },
+        background: true,
+      }
     );
 
     // ─── AuditLog Indexes ───
@@ -78,7 +87,11 @@ export async function ensureIndexes(): Promise<void> {
 
     logger.info('✅ All MongoDB indexes ensured successfully');
   } catch (err: any) {
-    logger.error('Failed to create indexes', { error: err.message });
-    // Don't crash — indexes are performance optimization
+    const onSafety = /idx_waba_phonenumber_unique|E11000/.test(err.message);
+    logger.error('Index build failed', { error: err.message, onSafety });
+    if (onSafety) {
+      console.error('🚨 FATAL: WABA unique index failed — cross-tenant safety is OFF. Fix duplicate/empty phoneNumberId docs, then restart.');
+      process.exit(1);
+    }
   }
 }

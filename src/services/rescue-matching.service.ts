@@ -11,7 +11,8 @@
  *   3. if >1 still tie → DO NOT GUESS → return ambiguous + candidates,
  *      so the caller asks the customer to pick by reference.
  *
- * This supersedes the earlier cross-merchant recency heuristic.
+ * R3 Fix: resolveByReference accepts frozen candidate snapshot to
+ * prevent candidate index sliding races.
  */
 import { Order } from '../models';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
@@ -50,12 +51,20 @@ class RescueMatchingService {
     return `You have more than one active order. Please reply with the number:\n${list}`;
   }
 
-  async resolveByReference(merchantId: string, rawPhone: string, ref: string): Promise<MatchResult> {
+  /**
+   * R3 Fix: Resolve by reference against frozen candidate list customer saw.
+   */
+  async resolveByReference(merchantId: string, rawPhone: string, ref: string, frozenCandidates?: MatchCandidate[]): Promise<MatchResult> {
     const idx = parseInt(ref, 10) - 1;
-    const cands = (await this.resolveInbound(merchantId, rawPhone)).candidates || [];
+    const cands = frozenCandidates || (await this.resolveInbound(merchantId, rawPhone)).candidates || [];
     const pick = cands[idx];
     if (!pick) return { matched: false, ambiguous: false };
-    const order = await Order.findOne({ _id: pick.orderId, merchantId, customerPhone: normalizeIndianPhone(rawPhone) });
+    const order = await Order.findOne({
+      _id: pick.orderId,
+      merchantId,
+      customerPhone: normalizeIndianPhone(rawPhone),
+      status: { $in: ACTIVE_STATUSES } as any,
+    });
     return order ? { matched: true, ambiguous: false, order } : { matched: false, ambiguous: false };
   }
 

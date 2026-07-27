@@ -52,11 +52,11 @@ export function defaultRescuePolicy(): RescuePolicy {
   };
 }
 
-/** Merge a merchant's stored (partial) policy over the defaults. */
+/** Merge a merchant's stored (partial) policy over the defaults + repair invalid state (R5). */
 export function getPolicy(stored: Partial<RescuePolicy> | undefined | null): RescuePolicy {
   const base = defaultRescuePolicy();
   if (!stored) return base;
-  return {
+  const merged: RescuePolicy = {
     ...base,
     ...stored,
     engage: { ...base.engage, ...(stored.engage || {}) },
@@ -71,16 +71,26 @@ export function getPolicy(stored: Partial<RescuePolicy> | undefined | null): Res
       pilotId: stored.pilot?.pilotId,
     },
   };
+
+  // R5 Repair: Prevent unvalidated values from breaking copy formatting
+  if (merged.incentive.type === 'flat' && !(merged.incentive.flatInr! > 0)) {
+    merged.incentive = { type: 'none', metaCategoryIntended: 'utility' };
+  }
+  if (merged.incentive.type === 'percent' && !(merged.incentive.percent! > 0)) {
+    merged.incentive = { type: 'none', metaCategoryIntended: 'utility' };
+  }
+
+  return merged;
 }
 
 export function validatePolicy(p: RescuePolicy): string[] {
   const e: string[] = [];
-  if (p.fakeRemark.useForCustomerGate) e.push('fakeRemark.useForCustomerGate must be false');
-  if (p.tone.accusatory) e.push('tone.accusatory must be false');
-  if (p.incentive.type === 'flat' && (p.incentive.flatInr ?? 0) <= 0) e.push('flat incentive needs flatInr > 0');
-  if (p.incentive.type === 'percent' && (p.incentive.percent ?? 0) <= 0) e.push('percent incentive needs percent > 0');
+  if (p.fakeRemark?.useForCustomerGate) e.push('fakeRemark.useForCustomerGate must be false');
+  if (p.tone?.accusatory) e.push('tone.accusatory must be false');
+  if (p.incentive?.type === 'flat' && (p.incentive.flatInr ?? 0) <= 0) e.push('flat incentive needs flatInr > 0');
+  if (p.incentive?.type === 'percent' && (p.incentive.percent ?? 0) <= 0) e.push('percent incentive needs percent > 0');
   if ((p.pilot?.holdoutRate ?? 0) < 0 || (p.pilot?.holdoutRate ?? 0) > 0.5) e.push('holdoutRate must be 0..0.5');
-  if (p.incentive.type !== 'none' && p.incentive.metaCategoryIntended !== 'marketing')
+  if (p.incentive?.type !== 'none' && p.incentive?.metaCategoryIntended !== 'marketing')
     e.push('any incentive forces marketing category — set metaCategoryIntended accordingly');
   return e;
 }

@@ -28,9 +28,7 @@ export class NDRService {
   private static instance: NDRService;
   private escalationQueue: Queue | null = null;
 
-  private constructor() {
-    // Initialized lazily to avoid circular dependencies during boot
-  }
+  private constructor() {}
 
   public static getInstance(): NDRService {
     if (!NDRService.instance) {
@@ -81,7 +79,6 @@ export class NDRService {
 
       const normalizedPhone = normalizeIndianPhone(ndrData.phone);
 
-      // Find or create order record
       let order = await Order.findOne({ merchantId: merchant._id, awb: ndrData.awb });
       if (!order) {
         order = await Order.findOne({ merchantId: merchant._id, externalOrderId: ndrData.externalOrderId });
@@ -136,7 +133,6 @@ export class NDRService {
       };
       await order.save();
 
-      // Realtime alert
       realtimeService.emitNdrDetected(
         order.merchantId.toString(),
         order.externalOrderId,
@@ -144,7 +140,6 @@ export class NDRService {
         isFake
       );
 
-      // Execute Policy Decision Layer (Engage-all, Accuse-none)
       await this.decideAndAct(order, merchant);
 
     } catch (err: any) {
@@ -162,9 +157,22 @@ export class NDRService {
   }
 
   /**
-   * Policy Decision Layer (P4)
+   * Policy Decision Layer (P4 & R6 Fix: Atomic claim to prevent double-sends on retried webhooks)
    */
   private async decideAndAct(order: any, merchant: any): Promise<void> {
+    // R6 Fix: Atomic claim sentinel check
+    if (Order && typeof Order.findOneAndUpdate === 'function') {
+      const claimed = await Order.findOneAndUpdate(
+        { _id: order._id, 'ndr.decisionMode': { $exists: false } },
+        { $set: { 'ndr.decisionMode': 'deciding' } },
+        { new: true }
+      );
+      if (!claimed && order.ndr?.decisionMode && order.ndr.decisionMode !== 'deciding') {
+        logger.info('decideAndAct already ran for this order — skip (idempotent)', { id: order._id });
+        return;
+      }
+    }
+
     const policy = getPolicy(merchant.rescuePolicy);
     const score = this.fakeRemarkScore(order);
     order.ndr.fakeRemarkScore = score;
@@ -459,17 +467,11 @@ export class NDRService {
     }
   }
 
-  /**
-   * Handle customer location response alias for test suite & legacy calls
-   */
   public async handleCustomerLocationResponse(phone: string, location: any, resolvedOrder?: any): Promise<void> {
     const { addressCorrectionService } = require('./address-correction.service');
     await addressCorrectionService.handleLocationResponse(phone, location, resolvedOrder);
   }
 
-  /**
-   * Handle text responses
-   */
   public async handleCustomerTextResponse(phone: string, text: string, resolvedOrder?: any): Promise<void> {
     const normalizedPhone = normalizeIndianPhone(phone);
     
@@ -494,13 +496,9 @@ export class NDRService {
     );
   }
 
-  /**
-   * Process escalation reminders (S-9 atomic status guard)
-   */
   public async escalate(orderId: string, level: number): Promise<void> {
     logger.info('Checking NDR escalation status', { orderId, level });
 
-    // Atomic guard: escalate ONLY if status is still ndr_rescue_sent
     const order = await Order.findOne({ _id: orderId, status: 'ndr_rescue_sent' });
     if (!order) {
       logger.info('Order no longer in ndr_rescue_sent status — escalation aborted', { orderId });

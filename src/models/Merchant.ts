@@ -43,7 +43,7 @@ export interface IMerchant extends Document {
     };
     ndrRescue: {
       enabled: boolean;
-      escalationChain: number[]; // e.g. [4, 12, 24] hours
+      escalationChain: number[];
       messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
       fakeAttemptDetection: boolean;
     };
@@ -117,23 +117,36 @@ const MerchantSchema = new Schema<IMerchant>(
       },
     },
     billing: {
-      plan: {
-        type: String,
-        enum: ['free_trial', 'starter', 'growth', 'scale', 'enterprise'],
-        default: 'free_trial',
+      type: {
+        plan: {
+          type: String,
+          enum: ['free_trial', 'starter', 'growth', 'scale', 'enterprise'],
+          default: 'free_trial',
+        },
+        billingCycle: {
+          type: String,
+          enum: ['quarterly', 'semi_annual', 'annual'],
+          default: 'annual',
+        },
+        planOrderLimit: { type: Number, default: 500 },
+        currentMonthOrders: { type: Number, default: 0 },
+        cycleStartDate: { type: Date, default: Date.now },
+        rescueCredits: { type: Number, default: 100 },
+        totalRescues: { type: Number, default: 0 },
+        totalConversions: { type: Number, default: 0 },
+        estimatedMetaSpendMonth: { type: Number, default: 0 },
       },
-      billingCycle: {
-        type: String,
-        enum: ['quarterly', 'semi_annual', 'annual'],
-        default: 'annual',
-      },
-      planOrderLimit: { type: Number, default: 500 },
-      currentMonthOrders: { type: Number, default: 0 },
-      cycleStartDate: { type: Date, default: Date.now },
-      rescueCredits: { type: Number, default: 100 },
-      totalRescues: { type: Number, default: 0 },
-      totalConversions: { type: Number, default: 0 },
-      estimatedMetaSpendMonth: { type: Number, default: 0 },
+      default: () => ({
+        plan: 'free_trial',
+        billingCycle: 'annual',
+        planOrderLimit: 500,
+        currentMonthOrders: 0,
+        cycleStartDate: new Date(),
+        rescueCredits: 100,
+        totalRescues: 0,
+        totalConversions: 0,
+        estimatedMetaSpendMonth: 0,
+      }),
     },
   },
   {
@@ -141,7 +154,16 @@ const MerchantSchema = new Schema<IMerchant>(
   }
 );
 
-MerchantSchema.index({ 'whatsappConfig.phoneNumberId': 1 }, { unique: true, sparse: true });
+MerchantSchema.index(
+  { 'whatsappConfig.phoneNumberId': 1 },
+  {
+    name: 'idx_waba_phonenumber_unique',
+    unique: true,
+    partialFilterExpression: {
+      'whatsappConfig.phoneNumberId': { $type: 'string', $ne: '' },
+    },
+  }
+);
 
 // Pre-save hook to hash password
 MerchantSchema.pre<IMerchant>('save', async function () {

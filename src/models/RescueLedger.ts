@@ -6,9 +6,9 @@
  * for dispute/performance-pricing settlement (L-1, L-5).
  */
 import { Schema, model, Model, Types } from 'mongoose';
+import { terminalOutcome, NaturalOutcome } from '../config/order-status';
 
 export type DecisionMode = 'engaged' | 'holdout' | 'review' | 'manual_skip';
-export type NaturalOutcome = 'delivered' | 'rto' | 'cancelled' | 'converted_prepaid' | null;
 
 export interface IRescueLedger {
   merchantId: Types.ObjectId;
@@ -46,20 +46,25 @@ schema.index({ merchantId: 1, pilotId: 1, flaggedAt: -1 });
 
 schema.statics.recordDecision = function (d: Partial<IRescueLedger>) { return this.create(d); };
 
-/** Fill natural outcomes for holdout/engaged rows still missing one (run daily). */
+/** Fill natural outcomes using batched query and terminalOutcome map (R2 & R11 fixes). */
 schema.statics.reconcileOutcomes = async function (merchantId?: string) {
   const Order = require('./Order').Order;
   const q: any = { naturalOutcome: null };
   if (merchantId) q.merchantId = merchantId;
   const rows = await this.find(q).limit(5000).lean();
-  const map: Record<string, NaturalOutcome> = {
-    delivered: 'delivered', ndr_rescued: 'delivered', converted_to_prepaid: 'converted_prepaid',
-    rto: 'rto', cancelled: 'cancelled',
-  };
+  if (rows.length === 0) return 0;
+
+  const orderIds = rows.map((r: any) => r.orderId);
+  const orders = await Order.find({ _id: { $in: orderIds } }).select('_id status').lean();
+  const orderMap = new Map<string, string>();
+  for (const o of orders) {
+    orderMap.set(o._id.toString(), o.status);
+  }
+
   for (const r of rows as any[]) {
-    const o = await Order.findById(r.orderId).lean();
-    if (!o) continue;
-    const outcome = map[o.status] ?? null;
+    const currentStatus = orderMap.get(r.orderId.toString());
+    if (!currentStatus) continue;
+    const outcome = terminalOutcome(currentStatus);
     const rescued = r.decisionMode === 'engaged' && (outcome === 'delivered' || outcome === 'converted_prepaid');
     await this.updateOne({ _id: r._id }, { $set: { naturalOutcome: outcome, rescued } });
   }

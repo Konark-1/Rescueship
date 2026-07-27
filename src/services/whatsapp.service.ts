@@ -2,6 +2,7 @@ import axios from 'axios';
 import crypto from 'crypto';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
+import { assertSafeCopy } from '../utils/customer-copy-guard';
 
 export interface WhatsAppConfig {
   phoneNumberId?: string;
@@ -63,6 +64,7 @@ export class WhatsAppService {
     text: string,
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
+    assertSafeCopy(text); // R4 Boundary Guard
     return this.sendInteractiveButtons(to, text, [], merchantConfig);
   }
 
@@ -123,6 +125,8 @@ export class WhatsAppService {
     buttons: ButtonConfig[],
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
+    assertSafeCopy(bodyText); // R4 Boundary Guard
+
     const phoneNumberId = merchantConfig?.phoneNumberId || this.defaultPhoneNumberId;
     const accessToken = merchantConfig?.accessToken || this.defaultAccessToken;
     const version = this.defaultApiVersion;
