@@ -46,6 +46,10 @@ export async function ensureIndexes(): Promise<void> {
       { 'billing.plan': 1, 'billing.currentMonthOrders': 1 },
       { name: 'idx_plan_usage', background: true }
     );
+    await Merchant.collection.createIndex(
+      { 'whatsappConfig.phoneNumberId': 1 },
+      { name: 'idx_merchant_wa_phone_number_id', unique: true, sparse: true, background: true }
+    );
 
     // ─── AuditLog Indexes ───
     await AuditLog.collection.createIndex(

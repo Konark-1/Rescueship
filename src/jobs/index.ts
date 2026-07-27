@@ -4,6 +4,7 @@ import { whatsappSendWorker } from './whatsappSend.job';
 import { escalationWorker } from './escalation.job';
 import { deadLetterWorker } from './deadLetter.job';
 import { setupMonthlyResetWorker, scheduleMonthlyReset } from './monthlyReset.job';
+import { setupReconciliationWorker, scheduleReconciliation } from './reconciliation.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -12,8 +13,10 @@ export * from './whatsappSend.job';
 export * from './escalation.job';
 export * from './deadLetter.job';
 export * from './monthlyReset.job';
+export * from './reconciliation.job';
 
 const monthlyResetWorker = setupMonthlyResetWorker();
+const reconciliationWorker = setupReconciliationWorker();
 
 /**
  * Start all BullMQ workers.
@@ -28,9 +31,14 @@ export function startAllWorkers(): void {
   escalationWorker.run();
   deadLetterWorker.run();
   monthlyResetWorker.run();
+  reconciliationWorker.run();
 
   scheduleMonthlyReset().catch((err) => {
     logger.error('Failed to schedule monthly reset cron job', { error: err.message });
+  });
+
+  scheduleReconciliation().catch((err) => {
+    logger.error('Failed to schedule daily outcome reconciliation cron job', { error: err.message });
   });
 
   logger.info('✅  All BullMQ workers running');
@@ -50,6 +58,7 @@ export async function stopAllWorkers(): Promise<void> {
     escalationWorker.close(),
     deadLetterWorker.close(),
     monthlyResetWorker.close(),
+    reconciliationWorker.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

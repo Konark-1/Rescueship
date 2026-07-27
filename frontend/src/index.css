@@ -83,3 +83,27 @@ img { max-width: 100%; display: block; }
 .toast-notification { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.5rem; color: var(--text-1); display: flex; align-items: center; gap: 0.75rem; animation: toast-in 0.4s var(--ease-out) forwards; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 768px) { .glass-card { padding: 1rem; } .toast-notification { bottom: 1rem; right: 1rem; left: 1rem; } }
+
+/* ═══ Pricing Comparison Modal ═══ */
+.pcm-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: rgba(5,5,8,0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.pcm-card { width: min(980px, 100%); max-height: 88vh; background: var(--bg-deep); border: 1px solid var(--border); border-radius: 20px; display: flex; flex-direction: column; overflow: hidden; }
+.pcm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding: 1.5rem 1.75rem; border-bottom: 1px solid var(--border); }
+.pcm-head h3 { font-size: 1.35rem; }
+.pcm-head p { font-size: 0.9rem; color: var(--text-2); margin-top: 0.25rem; }
+.pcm-close { width: 36px; height: 36px; border-radius: 10px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-2); font-size: 1.1rem; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; cursor: pointer; }
+.pcm-close:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.pcm-body { overflow: auto; padding: 0 1.75rem 1.75rem; }
+.pcm-table { width: 100%; border-collapse: collapse; min-width: 640px; font-size: 0.9rem; }
+.pcm-table th, .pcm-table td { padding: 0.85rem 0.75rem; text-align: center; border-bottom: 1px solid var(--border); }
+.pcm-table thead th { position: sticky; top: 0; background: var(--bg-deep); z-index: 2; vertical-align: bottom; }
+.pcm-col-feat { text-align: left !important; width: 34%; }
+.pcm-plan { font-family: var(--font-display); font-weight: 700; font-size: 1rem; display: block; }
+.pcm-price { display: block; font-size: 0.78rem; color: var(--text-3); font-weight: 500; margin-top: 0.2rem; }
+.pcm-pop { background: rgba(99,102,241,0.06); }
+.pcm-pill { display: inline-block; font-size: 0.6rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #fff; background: var(--indigo); padding: 0.15rem 0.55rem; border-radius: 100px; margin-bottom: 0.4rem; }
+.pcm-cat td { text-align: left !important; font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--indigo-soft); padding-top: 1.4rem; background: rgba(255,255,255,0.015); }
+.pcm-table tbody td:first-child { text-align: left; color: var(--text-2); }
+.pcm-check { color: var(--emerald); font-weight: 700; }
+.pcm-dash { color: var(--text-3); }
+.pcm-val { color: var(--text-1); font-weight: 600; font-size: 0.82rem; }
+@media (max-width: 640px) { .pcm-head { padding: 1.25rem; } .pcm-body { padding: 0 1rem 1.25rem; } }

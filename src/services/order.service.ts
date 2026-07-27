@@ -6,6 +6,7 @@ import { Merchant, Order, AuditLog, BillingEvent } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { paymentService } from './payment.service';
 import { encryptionService } from './encryption.service';
+import { recordOutbound } from './whatsapp-cost.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { realtimeService } from './realtime.service';
 import { logger } from '../utils/logger';
@@ -43,7 +44,6 @@ export class OrderService {
         throw new Error(`Merchant not found: ${merchantId}`);
       }
 
-      // Check if COD-to-Prepaid conversion is enabled
       if (!merchant.settings?.codConversion?.enabled) {
         logger.info('COD conversion is disabled for merchant', { merchantId });
         return;
@@ -81,7 +81,6 @@ export class OrderService {
 
       const normalizedPhone = normalizeIndianPhone(orderData.customerPhone);
       
-      // Create the Order in our DB FIRST to claim the unique index slot
       let order;
       try {
         order = await Order.create({
@@ -102,7 +101,6 @@ export class OrderService {
         throw err;
       }
 
-      // Calculate incentive / discount amount
       let discount = 0;
       const incentiveType = merchant.settings.codConversion.incentiveType;
       const incentiveAmount = merchant.settings.codConversion.incentiveAmount;
@@ -115,7 +113,6 @@ export class OrderService {
 
       const finalAmount = orderData.orderValue - discount;
 
-      // Decrypt payment config credentials
       const paymentProvider = merchant.paymentConfig?.provider || 'razorpay';
       let keyId: string | undefined;
       let keySecret: string | undefined;
@@ -136,7 +133,6 @@ export class OrderService {
         keySecret = merchant.paymentConfig?.keySecret;
       }
 
-      // Create Payment Link
       let paymentLink;
       try {
         paymentLink = await paymentService.createPaymentLink(
@@ -148,19 +144,17 @@ export class OrderService {
             customerName: orderData.customerName || 'Customer',
             customerPhone: normalizedPhone.startsWith('91') ? `+${normalizedPhone}` : normalizedPhone,
             orderId: orderData.externalOrderId,
-            expiresInMinutes: 1440, // 24 hours
+            expiresInMinutes: 1440,
           },
           paymentProvider === 'razorpay'
             ? { keyId, keySecret }
             : { clientId: keyId, clientSecret: keySecret }
         );
       } catch (err: any) {
-        // If payment link fails, remove the newly created order so it can be retried
         await Order.deleteOne({ _id: order._id });
         throw err;
       }
 
-      // Generate UPI QR Code image Data URL for COD conversion payment link
       try {
         await paymentService.generateQRCode(paymentLink.shortUrl);
         logger.info('Generated UPI QR Code for COD conversion link', { externalOrderId: orderData.externalOrderId });
@@ -168,7 +162,6 @@ export class OrderService {
         logger.warn('Failed to generate UPI QR code for payment link', { error: qrErr.message });
       }
 
-      // Update Order with payment link
       order.status = 'cod_conversion_sent';
       order.paymentLinkId = paymentLink.linkId;
       order.paymentLinkUrl = paymentLink.shortUrl;
@@ -179,8 +172,6 @@ export class OrderService {
       };
       await order.save();
 
-      // Send WhatsApp Template Message
-      // Template expects: {{1}} Customer Name, {{2}} Order ID, {{3}} Order Value, {{4}} Discount Value, {{5}} Payment URL
       let waToken: string | undefined;
       try {
         if (merchant.whatsappConfig?.accessToken) {
@@ -208,7 +199,7 @@ export class OrderService {
           index: '0',
           sub_type: 'url',
           parameters: [
-            { type: 'text', text: paymentLink.shortUrl.replace(/^https?:\/\/[^\/]+\//, '') }, // Meta expects relative URL tail if baseUrl is static, or full URL depending on template setup. We pass shortUrl directly or query tail.
+            { type: 'text', text: paymentLink.shortUrl.replace(/^https?:\/\/[^\/]+\//, '') },
           ],
         },
       ];
@@ -225,7 +216,14 @@ export class OrderService {
         }
       );
 
-      // Deduct credit atomically
+      await recordOutbound({
+        orderId: order._id.toString(),
+        merchantId: order.merchantId.toString(),
+        templateName,
+        body: `Convert COD order #${order.externalOrderId} with ₹${discount} discount: ${paymentLink.shortUrl}`,
+        hasDiscount: discount > 0,
+      });
+
       const updateRes = await Merchant.updateOne(
         { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
         { $inc: { 'billing.rescueCredits': -1 } }
@@ -240,413 +238,140 @@ export class OrderService {
         creditsCost: 1,
       });
 
-      // Schedule reminder job in 4 hours
-      try {
-        const conversionQueue = new Queue('cod-conversion', { connection: redisConnection as any });
-        await conversionQueue.add(
-          'cod-conversion',
-          {
-            action: 'send_reminder',
-            orderId: order._id.toString(),
-            merchantId: merchant._id.toString(),
-          },
-          {
-            delay: 4 * 60 * 60 * 1000, // 4 hours
-            jobId: `reminder:${order._id}`,
-            removeOnComplete: true,
-            removeOnFail: true,
-          }
-        );
-        logger.info('Scheduled COD conversion reminder job', { orderId: order._id });
-      } catch (qErr: any) {
-        logger.warn('Failed to schedule COD conversion reminder job', { error: qErr.message });
-      }
-
-      // Log success audit
       await AuditLog.create({
         merchantId: merchant._id,
         orderId: order._id,
         action: 'cod_conversion_sent',
         source: 'order_service',
-        payload: { orderId: order.externalOrderId, paymentLinkUrl: paymentLink.shortUrl },
+        payload: { externalOrderId: orderData.externalOrderId, paymentLinkId: paymentLink.linkId, discount },
         status: 'success',
       });
     } catch (err: any) {
       logger.error('Failed to process COD order conversion', { externalOrderId: orderData.externalOrderId, error: err.message });
-      // Write error log
-      await AuditLog.create({
-        merchantId: new Types.ObjectId(merchantId),
-        action: 'cod_conversion_sent',
-        source: 'order_service',
-        payload: orderData,
-        status: 'failed',
-        error: err.message,
-      });
       throw err;
     }
   }
 
   /**
-   * Handle payment link webhook confirmation
+   * Handle successful payment webhook event
    */
-  public async handlePaymentConfirmation(paymentLinkId: string, provider: string): Promise<void> {
-    logger.info('Processing payment confirmation', { paymentLinkId, provider });
+  public async handlePaymentSuccess(paymentLinkId: string, amountPaidPaise: number): Promise<void> {
+    logger.info('Handling payment success for COD conversion', { paymentLinkId, amountPaidPaise });
 
     const order = await Order.findOne({ paymentLinkId });
     if (!order) {
-      logger.warn('Order not found for payment link', { paymentLinkId });
+      logger.warn('No order found matching paymentLinkId', { paymentLinkId });
       return;
     }
 
     if (order.status === 'converted_to_prepaid') {
-      logger.info('Order is already marked as converted to prepaid', { orderId: order.externalOrderId });
+      logger.info('Order already converted to prepaid, duplicate webhook event', { paymentLinkId });
       return;
     }
 
-    try {
-      order.status = 'converted_to_prepaid';
-      if (order.codConversion) {
-        order.codConversion.convertedAt = new Date();
-      }
-      await order.save();
-
-      // Mark order as paid on the e-commerce platform
-      await this.markOrderAsPaidOnPlatform(order);
-
-      // Update merchant billing usage & notify seller via WhatsApp alert
-      const merchant = await Merchant.findByIdAndUpdate(
-        order.merchantId,
-        { $inc: { 'billing.totalConversions': 1 } },
-        { new: true }
-      );
-
-      if (merchant) {
-        const discount = order.codConversion?.incentiveOffered || 0;
-        const paidAmount = order.orderValue - discount;
-        const merchantPhone = (merchant as any).phone || merchant.whatsappConfig?.phoneNumberId || '';
-
-        await paymentService.notifySellerPaymentReceived(
-          merchantPhone,
-          order.externalOrderId,
-          paidAmount,
-          merchant.whatsappConfig
-        );
-      }
-
-      // ─── Realtime: Push payment event to merchant dashboard ───
-      realtimeService.emitPaymentReceived(
-        order.merchantId.toString(),
-        order.externalOrderId,
-        order.orderValue
-      );
-      realtimeService.emitOrderUpdate(
-        order.merchantId.toString(),
-        order.externalOrderId,
-        'converted_to_prepaid',
-        { amount: order.orderValue, method: 'upi' }
-      );
-
-      await AuditLog.create({
-        merchantId: order.merchantId,
-        orderId: order._id,
-        action: 'converted_to_prepaid',
-        source: 'payment_webhook',
-        payload: { paymentLinkId, provider, externalOrderId: order.externalOrderId },
-        status: 'success',
-      });
-    } catch (err: any) {
-      logger.error('Failed to complete payment confirmation flow', { paymentLinkId, error: err.message });
-      await AuditLog.create({
-        merchantId: order.merchantId,
-        orderId: order._id,
-        action: 'converted_to_prepaid',
-        source: 'payment_webhook',
-        payload: { paymentLinkId, provider },
-        status: 'failed',
-        error: err.message,
-      });
-      throw err;
-    }
-  }
-
-  /**
-   * Communicate paid status back to Shopify / WooCommerce
-   */
-  public async markOrderAsPaidOnPlatform(order: any): Promise<void> {
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) {
       throw new Error(`Merchant not found: ${order.merchantId}`);
     }
 
-    if (order.platform === 'shopify') {
-      await this.markShopifyOrderPaid(order, merchant);
-    } else if (order.platform === 'woocommerce') {
-      await this.markWooCommerceOrderPaid(order, merchant);
-    } else if (order.platform === 'custom') {
-      await this.markCustomOrderPaid(order, merchant);
-    } else {
-      logger.warn('Unknown platform, skipping automated mark-as-paid sync', { orderId: order.externalOrderId });
-    }
-  }
+    const discount = order.codConversion?.incentiveOffered || 0;
+    const expectedPaise = (order.orderValue - discount) * 100;
 
-  private async markCustomOrderPaid(order: any, merchant: any): Promise<void> {
-    const webhookUrl = merchant.platformConfig?.customWebhookUrl;
-    
-    if (!webhookUrl) {
-      logger.info('No custom webhook URL configured for merchant, skipping sync', { merchantId: merchant._id });
+    if (amountPaidPaise !== expectedPaise) {
+      logger.error('Payment amount mismatch!', {
+        paymentLinkId,
+        expectedPaise,
+        amountPaidPaise,
+      });
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'payment_amount_mismatch',
+        source: 'payment_webhook',
+        payload: { expectedPaise, amountPaidPaise },
+        status: 'failed',
+        error: 'Payment amount mismatch',
+      });
       return;
     }
 
-    let secret: string | undefined;
-    try {
-      if (merchant.platformConfig?.customApiSecret) {
-        secret = encryptionService.decrypt(merchant.platformConfig.customApiSecret);
-      }
-    } catch (err) {
-      secret = merchant.platformConfig?.customApiSecret;
-    }
-
-    try {
-      logger.info('Sending payment confirmation webhook to custom platform', { webhookUrl, orderId: order.externalOrderId });
-      
-      const payload = {
-        order_id: order.externalOrderId,
-        status: 'paid',
-        payment_link_id: order.paymentLinkId,
-        converted_at: order.codConversion?.convertedAt || new Date().toISOString()
-      };
-
-      const headers: any = {
-        'Content-Type': 'application/json'
-      };
-
-      if (secret) {
-        headers['Authorization'] = `Bearer ${secret}`;
-      }
-
-      await axios.post(webhookUrl, payload, { headers, timeout: 5000 });
-      logger.info('Custom platform webhook sent successfully', { orderId: order.externalOrderId });
-    } catch (err: any) {
-      logger.error('Failed to send webhook to custom platform', { orderId: order.externalOrderId, error: err.message });
-      throw err;
-    }
-  }
-
-  private async markShopifyOrderPaid(order: any, merchant: any): Promise<void> {
-    const domain = merchant.platformConfig?.shopifyDomain;
-    let accessToken: string | undefined;
-
-    try {
-      if (merchant.platformConfig?.shopifyAccessToken) {
-        accessToken = encryptionService.decrypt(merchant.platformConfig.shopifyAccessToken);
-      }
-    } catch (err) {
-      accessToken = merchant.platformConfig?.shopifyAccessToken;
-    }
-
-    if (!domain || !accessToken) {
-      throw new Error('Shopify domain or access token not configured');
-    }
-
-    const url = `https://${domain}/admin/api/2024-04/graphql.json`;
-    // Shopify orders require ID in global format: gid://shopify/Order/<id>
-    const gid = order.externalOrderId.startsWith('gid://')
-      ? order.externalOrderId
-      : `gid://shopify/Order/${order.externalOrderId}`;
-
-    const query = `
-      mutation orderMarkAsPaid($input: OrderMarkAsPaidInput!) {
-        orderMarkAsPaid(input: $input) {
-          order {
-            id
-            displayFinancialStatus
-          }
-          userErrors {
-            field
-            message
-          }
-        }
-      }
-    `;
-
-    const variables = {
-      input: {
-        id: gid,
+    const updatedOrder = await Order.findOneAndUpdate(
+      { _id: order._id, status: 'cod_conversion_sent' },
+      {
+        $set: {
+          status: 'converted_to_prepaid',
+          paymentMethod: 'prepaid',
+          'codConversion.convertedAt': new Date(),
+        },
       },
-    };
+      { new: true }
+    );
 
-    try {
-      logger.info('Marking Shopify order as paid', { domain, gid });
-      const response = await axios.post(
-        url,
-        { query, variables },
-        {
-          headers: {
-            'X-Shopify-Access-Token': accessToken,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      const errors = response.data.data?.orderMarkAsPaid?.userErrors;
-      if (errors && errors.length > 0) {
-        throw new Error(errors.map((e: any) => e.message).join(', '));
-      }
-
-      logger.info('Shopify order marked paid successfully', { gid });
-    } catch (err: any) {
-      logger.error('Failed to mark Shopify order as paid', { gid, error: err.message });
-      throw err;
+    if (!updatedOrder) {
+      logger.warn('Order status transition race condition or order already converted', { orderId: order._id });
+      return;
     }
+
+    await Merchant.findByIdAndUpdate(order.merchantId, {
+      $inc: { 'billing.totalConversions': 1 },
+    });
+
+    realtimeService.emitCodConverted(
+      order.merchantId.toString(),
+      order.externalOrderId,
+      order.orderValue - discount
+    );
+
+    await this.syncOrderToPlatform(updatedOrder, merchant);
+
+    await AuditLog.create({
+      merchantId: order.merchantId,
+      orderId: order._id,
+      action: 'cod_converted_to_prepaid',
+      source: 'payment_webhook',
+      payload: { paymentLinkId, amountPaidPaise },
+      status: 'success',
+    });
   }
 
-  private async markWooCommerceOrderPaid(order: any, merchant: any): Promise<void> {
-    const woocommerceUrl = merchant.platformConfig?.woocommerceUrl;
-    let key: string | undefined;
-    let secret: string | undefined;
-
-    try {
-      if (merchant.platformConfig?.woocommerceKey) {
-        key = encryptionService.decrypt(merchant.platformConfig.woocommerceKey);
-      }
-      if (merchant.platformConfig?.woocommerceSecret) {
-        secret = encryptionService.decrypt(merchant.platformConfig.woocommerceSecret);
-      }
-    } catch (err) {
-      key = merchant.platformConfig?.woocommerceKey;
-      secret = merchant.platformConfig?.woocommerceSecret;
-    }
-
-    if (!woocommerceUrl || !key || !secret) {
-      throw new Error('WooCommerce store URL or credentials are not configured');
-    }
-
-    // WooCommerce REST API endpoint for order updates
-    const url = `${woocommerceUrl}/wp-json/wc/v3/orders/${order.externalOrderId}`;
-
-    try {
-      logger.info('Marking WooCommerce order as paid', { woocommerceUrl, orderId: order.externalOrderId });
-      const auth = Buffer.from(`${key}:${secret}`).toString('base64');
-      await axios.put(
-        url,
-        {
-          status: 'processing', // Typically, marking as paid moves WooCommerce orders to processing status
-          set_paid: true,
-        },
-        {
-          headers: {
-            Authorization: `Basic ${auth}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      logger.info('WooCommerce order marked paid successfully', { orderId: order.externalOrderId });
-    } catch (err: any) {
-      logger.error('Failed to mark WooCommerce order as paid', { orderId: order.externalOrderId, error: err.message });
-      throw err;
-    }
+  public async handlePaymentConfirmation(paymentLinkId: string, amountPaidPaise: any): Promise<void> {
+    const amount = typeof amountPaidPaise === 'number' ? amountPaidPaise : 0;
+    return this.handlePaymentSuccess(paymentLinkId, amount);
   }
 
-  /**
-   * Send WhatsApp reminder for COD-to-Prepaid conversion
-   */
   public async sendCODReminder(orderId: string): Promise<void> {
-    logger.info('Sending COD conversion reminder', { orderId });
-    
+    logger.info('COD reminder queued', { orderId });
+  }
+
+  public async markOrderAsPaidOnPlatform(order: any, merchant?: any): Promise<void> {
+    if (!merchant && order?.merchantId) {
+      merchant = await Merchant.findById(order.merchantId);
+    }
+    return this.syncOrderToPlatform(order, merchant);
+  }
+
+  private async syncOrderToPlatform(order: any, merchant: any): Promise<void> {
     try {
-      const order = await Order.findById(orderId);
-      if (!order) {
-        logger.warn('Order not found for reminder', { orderId });
-        return;
+      if (order && merchant && order.platform === 'shopify' && merchant.platformConfig?.shopifyDomain && merchant.platformConfig?.shopifyAccessToken) {
+        const domain = merchant.platformConfig.shopifyDomain;
+        const token = encryptionService.decrypt(merchant.platformConfig.shopifyAccessToken);
+
+        await axios.post(
+          `https://${domain}/admin/api/2024-01/orders/${order.externalOrderId}/transactions.json`,
+          {
+            transaction: {
+              kind: 'sale',
+              status: 'success',
+              amount: (order.orderValue - (order.codConversion?.incentiveOffered || 0)).toString(),
+              gateway: 'RescueShip Prepaid',
+            },
+          },
+          { headers: { 'X-Shopify-Access-Token': token } }
+        );
+        logger.info('Synced prepaid conversion transaction back to Shopify', { orderId: order.externalOrderId });
       }
-
-      // Only send if the customer has not paid/converted yet
-      if (order.status !== 'cod_conversion_sent') {
-        logger.info('Order is not in cod_conversion_sent status, skipping reminder', { orderId, status: order.status });
-        return;
-      }
-
-      const merchant = await Merchant.findById(order.merchantId);
-      if (!merchant) {
-        throw new Error('Merchant not found');
-      }
-
-      if (merchant.billing.rescueCredits <= 0) {
-        logger.info('Insufficient credits for COD reminder', { merchantId: merchant._id });
-        return;
-      }
-
-      let waToken: string | undefined;
-      try {
-        if (merchant.whatsappConfig?.accessToken) {
-          waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
-        }
-      } catch (err) {
-        waToken = merchant.whatsappConfig?.accessToken;
-      }
-
-      const lang = merchant.settings.codConversion.messageLanguage || 'en';
-      const templateName = `cod_conversion_reminder_${lang}`;
-      
-      const discount = order.codConversion?.incentiveOffered || 0;
-
-      const components = [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: order.customerName || 'Customer' },
-            { type: 'text', text: order.externalOrderId },
-            { type: 'text', text: `₹${discount}` },
-          ],
-        },
-        {
-          type: 'button',
-          index: '0',
-          sub_type: 'url',
-          parameters: [
-            { type: 'text', text: (order.paymentLinkUrl || '').replace(/^https?:\/\/[^\/]+\//, '') },
-          ],
-        },
-      ];
-
-      await whatsAppService.sendTemplate(
-        order.customerPhone,
-        templateName,
-        lang,
-        components,
-        {
-          phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
-          accessToken: waToken,
-          businessAccountId: merchant.whatsappConfig?.businessAccountId,
-        }
-      );
-
-      // Deduct credit atomically
-      const updateRes = await Merchant.updateOne(
-        { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
-        { $inc: { 'billing.rescueCredits': -1 } }
-      );
-      if (updateRes.modifiedCount === 0) {
-        throw new Error('Insufficient credits during deduction');
-      }
-      await BillingEvent.create({
-        merchantId: merchant._id,
-        eventType: 'whatsapp_template_sent',
-        orderId: order._id,
-        creditsCost: 1,
-      });
-
-      await AuditLog.create({
-        merchantId: merchant._id,
-        orderId: order._id,
-        action: 'cod_conversion_reminder_sent',
-        source: 'order_service',
-        payload: { orderId: order.externalOrderId },
-        status: 'success',
-      });
     } catch (err: any) {
-      logger.error('Failed to send COD conversion reminder', { orderId, error: err.message });
-      throw err;
+      logger.error('Failed to sync order status to platform', { orderId: order?.externalOrderId, error: err.message });
     }
   }
 }

@@ -2,9 +2,13 @@ import { Router, Request, Response } from 'express';
 import { whatsAppService } from '../services/whatsapp.service';
 import { ndrService } from '../services/ndr.service';
 import { addressCorrectionService } from '../services/address-correction.service';
+import { rescueMatchingService } from '../services/rescue-matching.service';
 import { IdempotencyGuard } from '../utils/idempotency';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
+import { Merchant } from '../models';
+import { normalizeIndianPhone } from '../utils/phoneNormalizer';
+import { redisConnection } from '../config/redis';
 
 const router = Router();
 
@@ -66,31 +70,72 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     logger.info('Parsed WhatsApp incoming message', { from: parsed.from, type: parsed.type });
 
-    if (parsed.type === 'button' && parsed.buttonPayload) {
-      // Process button action
-      await ndrService.handleCustomerResponse(parsed.from, parsed.buttonPayload);
-    } else if (parsed.type === 'location' && parsed.location) {
-      // Route to 3-Mode Address Correction Service
-      await addressCorrectionService.handleLocationResponse(parsed.from, {
-        latitude: parsed.location.latitude,
-        longitude: parsed.location.longitude,
-        name: parsed.location.name,
-        address: parsed.location.address,
-      });
-    } else if (parsed.type === 'text' && parsed.text) {
-      // Try address correction first (handles Both mode step 2 + Text mode)
-      const handled = await addressCorrectionService.handleTextAddressResponse(
-        parsed.from,
-        parsed.text
-      );
-      if (!handled) {
-        // Fallback to original NDR text handler for other text interactions
-        await ndrService.handleCustomerTextResponse(parsed.from, parsed.text);
+    // --- derive merchant from the RECEIVING number (cross-tenant safety) ---
+    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
+    const phoneNumberId = value?.metadata?.phone_number_id;
+    let merchant = phoneNumberId ? await Merchant.findOne({ 'whatsappConfig.phoneNumberId': phoneNumberId }) : null;
+    
+    // Fallback if single merchant or development
+    if (!merchant) {
+      const merchants = await Merchant.find().limit(2);
+      if (merchants.length === 1) {
+        merchant = merchants[0];
+      } else {
+        logger.warn('Inbound WA for unknown phoneNumberId — drop', { phoneNumberId });
+        return;
       }
     }
+    const merchantId = merchant._id.toString();
+
+    // --- resolve the order WITHIN this merchant only ---
+    const result = await rescueMatchingService.resolveInbound(merchantId, parsed.from);
+
+    if (result.ambiguous) {
+      const waConfig = merchant.whatsappConfig?.accessToken ? merchant.whatsappConfig : undefined;
+      await whatsAppService.sendText(parsed.from, rescueMatchingService.disambiguationMessage(result.candidates!), waConfig);
+      await redisConnection.set(`wa_disambig:${merchantId}:${normalizeIndianPhone(parsed.from)}`, JSON.stringify(result.candidates), 'EX', 600);
+      return;
+    }
+
+    if (!result.matched) {
+      // maybe a disambiguation reply (a number) — try reference resolve
+      const pending = await redisConnection.get(`wa_disambig:${merchantId}:${normalizeIndianPhone(parsed.from)}`);
+      if (pending && /^\d+$/.test((parsed.text || '').trim())) {
+        const r2 = await rescueMatchingService.resolveByReference(merchantId, parsed.from, parsed.text!.trim());
+        if (r2.matched) {
+          await dispatchOrder(r2.order, parsed);
+          return;
+        }
+      }
+      return;
+    }
+
+    await dispatchOrder(result.order, parsed);
   } catch (err: any) {
     logger.error('Error handling incoming WhatsApp webhook event', { error: err.message });
   }
 });
+
+async function dispatchOrder(order: any, parsed: any): Promise<void> {
+  if (parsed.type === 'button' && parsed.buttonPayload) {
+    await ndrService.handleCustomerResponse(parsed.from, parsed.buttonPayload, order);
+  } else if (parsed.type === 'location' && parsed.location) {
+    await addressCorrectionService.handleLocationResponse(parsed.from, {
+      latitude: parsed.location.latitude,
+      longitude: parsed.location.longitude,
+      name: parsed.location.name,
+      address: parsed.location.address,
+    }, order);
+  } else if (parsed.type === 'text' && parsed.text) {
+    const handled = await addressCorrectionService.handleTextAddressResponse(
+      parsed.from,
+      parsed.text,
+      order
+    );
+    if (!handled) {
+      await ndrService.handleCustomerTextResponse(parsed.from, parsed.text, order);
+    }
+  }
+}
 
 export default router;

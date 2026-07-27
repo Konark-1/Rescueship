@@ -1,10 +1,3 @@
-/**
- * useRealtime.ts
- * ─────────────────────────────────────────────────────────────
- * React hook for consuming SSE real-time events from the backend.
- * Usage: const { lastEvent, isConnected } = useRealtime(token);
- */
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export interface RealtimeEvent {
@@ -14,85 +7,63 @@ export interface RealtimeEvent {
   timestamp: string;
 }
 
-interface UseRealtimeOptions {
-  onOrderUpdate?: (payload: any) => void;
-  onNdrDetected?: (payload: any) => void;
-  onPaymentReceived?: (payload: any) => void;
-  onCapacityWarning?: (payload: any) => void;
+interface Options {
+  onOrderUpdate?: (p: any) => void;
+  onNdrDetected?: (p: any) => void;
+  onPaymentReceived?: (p: any) => void;
+  onCapacityWarning?: (p: any) => void;
   onStatsRefresh?: () => void;
 }
 
-export function useRealtime(token: string | null, options?: UseRealtimeOptions) {
+const MAX_RETRIES = 5;
+
+export function useRealtime(token: string | null, options?: Options, enabled = true) {
   const [isConnected, setIsConnected] = useState(false);
   const [lastEvent, setLastEvent] = useState<RealtimeEvent | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attemptsRef = useRef(0);
+  const stoppedRef = useRef(false);
 
   const connect = useCallback(() => {
-    if (!token) return;
+    if (!token || !enabled || stoppedRef.current) return;
 
-    // EventSource doesn't support custom headers, so we pass token as query param
     const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/realtime/stream?token=${token}`;
-
     const es = new EventSource(url);
-    eventSourceRef.current = es;
+    esRef.current = es;
 
-    es.onopen = () => {
-      setIsConnected(true);
-      console.log('[SSE] Connected to real-time feed');
-    };
-
+    es.onopen = () => { setIsConnected(true); attemptsRef.current = 0; };
     es.onerror = () => {
       setIsConnected(false);
       es.close();
-      // Reconnect after 5 seconds
-      reconnectTimeoutRef.current = setTimeout(connect, 5000);
+      attemptsRef.current += 1;
+      if (stoppedRef.current || attemptsRef.current > MAX_RETRIES) return; // stop runaway loops (e.g. 403)
+      retryRef.current = setTimeout(connect, 5000);
     };
 
-    // Listen for specific event types
-    const eventTypes = ['order_update', 'ndr_detected', 'ndr_rescued', 'payment_received', 'capacity_warning', 'stats_refresh'];
-
-    eventTypes.forEach((type) => {
+    (['order_update', 'ndr_detected', 'ndr_rescued', 'payment_received', 'capacity_warning', 'stats_refresh'] as const).forEach((type) => {
       es.addEventListener(type, (e: MessageEvent) => {
         try {
-          const event: RealtimeEvent = JSON.parse(e.data);
-          setLastEvent(event);
-
-          // Dispatch to specific handlers
-          switch (event.type) {
-            case 'order_update':
-              options?.onOrderUpdate?.(event.payload);
-              break;
-            case 'ndr_detected':
-              options?.onNdrDetected?.(event.payload);
-              break;
-            case 'payment_received':
-              options?.onPaymentReceived?.(event.payload);
-              break;
-            case 'capacity_warning':
-              options?.onCapacityWarning?.(event.payload);
-              break;
-            case 'stats_refresh':
-              options?.onStatsRefresh?.();
-              break;
-          }
-        } catch (err) {
-          console.warn('[SSE] Failed to parse event:', err);
-        }
+          const ev: RealtimeEvent = JSON.parse(e.data);
+          setLastEvent(ev);
+          if (type === 'order_update') options?.onOrderUpdate?.(ev.payload);
+          if (type === 'ndr_detected') options?.onNdrDetected?.(ev.payload);
+          if (type === 'payment_received') options?.onPaymentReceived?.(ev.payload);
+          if (type === 'capacity_warning') options?.onCapacityWarning?.(ev.payload);
+          if (type === 'stats_refresh') options?.onStatsRefresh?.();
+        } catch { /* ignore parse errors */ }
       });
     });
-  }, [token, options]);
+  }, [token, enabled, options]);
 
   useEffect(() => {
+    stoppedRef.current = false;
+    attemptsRef.current = 0;
     connect();
-
     return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      stoppedRef.current = true;
+      esRef.current?.close();
+      if (retryRef.current) clearTimeout(retryRef.current);
     };
   }, [connect]);
 

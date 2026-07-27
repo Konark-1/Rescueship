@@ -11,7 +11,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger';
 
 export interface RealtimeEvent {
-  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh';
+  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted';
   merchantId: string;
   payload: Record<string, any>;
   timestamp: string;
@@ -126,6 +126,18 @@ class RealtimeService extends EventEmitter {
   public emitPaymentReceived(merchantId: string, orderId: string, amount: number): void {
     this.broadcast({
       type: 'payment_received',
+      merchantId,
+      payload: { orderId, amount },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Convenience: Emit COD converted event.
+   */
+  public emitCodConverted(merchantId: string, orderId: string, amount: number): void {
+    this.broadcast({
+      type: 'cod_converted',
       merchantId,
       payload: { orderId, amount },
       timestamp: new Date().toISOString(),

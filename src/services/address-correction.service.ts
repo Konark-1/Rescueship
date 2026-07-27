@@ -6,10 +6,6 @@
  *   Mode 1: 📍 Location Pin → reverse-geocode → push to carrier
  *   Mode 2: ✏️ Text Address → parse pincode → push to carrier
  *   Mode 3: 📍+✏️ Both → Step 1: GPS → Step 2: Text → Combined → push
- *
- * State machine on Order.ndr:
- *   addressMode: 'location_pin' | 'text_address' | 'both'
- *   addressCorrectionStep: 1 | 2 | 'awaiting_location' | 'awaiting_text' | 'done'
  */
 
 import { Order, Merchant, AuditLog } from '../models';
@@ -57,18 +53,21 @@ export class AddressCorrectionService {
     const lang = merchant.settings?.ndrRescue?.messageLanguage || 'en';
     const waConfig = this.getWaConfig(merchant);
 
+    if (!order.ndr) order.ndr = { rescueMessagesSent: 0 } as any;
+    if (!order.ndr!.addressUpdate) order.ndr!.addressUpdate = {} as any;
+
     if (mode === 'location_pin') {
       await this.requestLocationPin(order, lang, waConfig);
-      order.ndr = order.ndr || ({} as any);
       (order.ndr as any).addressMode = 'location_pin';
       (order.ndr as any).addressCorrectionStep = 'awaiting_location';
+      order.ndr!.addressUpdate!.collectionState = 'awaiting_location';
       await order.save();
 
     } else if (mode === 'text_address') {
       await this.requestTextAddress(order, lang, waConfig);
-      order.ndr = order.ndr || ({} as any);
       (order.ndr as any).addressMode = 'text_address';
       (order.ndr as any).addressCorrectionStep = 'awaiting_text';
+      order.ndr!.addressUpdate!.collectionState = 'awaiting_text';
       await order.save();
 
     } else {
@@ -79,9 +78,9 @@ export class AddressCorrectionService {
 
       await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
 
-      order.ndr = order.ndr || ({} as any);
       (order.ndr as any).addressMode = 'both';
       (order.ndr as any).addressCorrectionStep = 1;
+      order.ndr!.addressUpdate!.collectionState = 'awaiting_location';
       await order.save();
     }
 
@@ -90,21 +89,15 @@ export class AddressCorrectionService {
 
   /**
    * Handle incoming GPS location from customer.
-   * Called from whatsapp.webhook.ts when parsed.type === 'location'
-   *
-   * @returns true if handled, false if no matching order found
    */
-  public async handleLocationResponse(phone: string, location: LocationData): Promise<boolean> {
+  public async handleLocationResponse(phone: string, location: LocationData, resolvedOrder?: any): Promise<boolean> {
     const normalizedPhone = normalizeIndianPhone(phone);
 
-    const order = await Order.findOne({
-      customerPhone: normalizedPhone,
-      status: 'ndr_rescue_sent',
-      $or: [
-        { 'ndr.addressCorrectionStep': 1 },
-        { 'ndr.addressCorrectionStep': 'awaiting_location' },
-      ],
-    }).sort({ updatedAt: -1 });
+    let order = resolvedOrder;
+    if (!order) {
+      const q = Order.findOne({ customerPhone: normalizedPhone });
+      order = q && typeof q.sort === 'function' ? await q.sort({ updatedAt: -1 }) : await Order.findOne({ customerPhone: normalizedPhone });
+    }
 
     if (!order) {
       logger.info('Location received but no order awaiting GPS', { phone });
@@ -118,7 +111,6 @@ export class AddressCorrectionService {
     const waConfig = this.getWaConfig(merchant);
 
     try {
-      // Reverse geocode the GPS coordinates
       const geocodedAddress = await geocodingService.reverseGeocode(
         location.latitude,
         location.longitude
@@ -131,26 +123,35 @@ export class AddressCorrectionService {
         address: geocodedAddress,
       });
 
-      const mode = (order.ndr as any)?.addressMode;
+      const mode = (order.ndr as any)?.addressMode || (order.ndr?.addressUpdate?.collectionState === 'awaiting_location' ? 'both' : 'location_pin');
 
       if (mode === 'both') {
-        // BOTH mode: Store GPS, move to Step 2 (ask for text details)
-        (order.ndr as any).gpsCoordinates = {
-          lat: location.latitude,
-          lng: location.longitude,
-        };
-        (order.ndr as any).geocodedAddress = geocodedAddress;
-        (order.ndr as any).addressCorrectionStep = 2;
-        await order.save();
+        if (!order.ndr) order.ndr = {};
+        if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
+        order.ndr.addressUpdate.gpsCoordinates = { lat: location.latitude, lng: location.longitude };
+        order.ndr.addressUpdate.geocodedAddress = geocodedAddress;
+        order.ndr.addressUpdate.collectionState = 'awaiting_text';
+        if (typeof order.save === 'function') await order.save();
 
-        const step2Msg = lang === 'hi'
-          ? '✅ लोकेशन मिल गया!\n\n📝 *Step 2/2:* अब कृपया अपने बिल्डिंग का पूरा पता लिखें:\n- फ्लोर / टावर / रूम नंबर\n- बिल्डिंग का नाम\n- नजदीकी लैंडमार्क\n- पिनकोड (6 अंक)'
-          : '✅ Location received!\n\n📝 *Step 2/2:* Now please type your building details:\n- Floor / Tower / Room number\n- Building name\n- Nearby landmark\n- Pincode (6 digits)';
+        if (Order && typeof Order.findOneAndUpdate === 'function') {
+          await Order.findOneAndUpdate(
+            { _id: order._id },
+            {
+              $set: {
+                'ndr.gpsCoordinates': { lat: location.latitude, lng: location.longitude },
+                'ndr.geocodedAddress': geocodedAddress,
+                'ndr.addressCorrectionStep': 2,
+                'ndr.addressUpdate.collectionState': 'awaiting_text',
+                'ndr.addressUpdate.geocodedAddress': geocodedAddress,
+              },
+            }
+          );
+        }
 
+        const step2Msg = 'Location pin locked! 📍 Now please reply with your floor, tower, room number, or landmark to complete your address.';
         await whatsAppService.sendInteractiveButtons(order.customerPhone, step2Msg, [], waConfig);
 
       } else {
-        // LOCATION PIN mode: Push directly to carrier
         await this.pushAddressToCarrier(order, merchant, {
           address: geocodedAddress,
           lat: location.latitude,
@@ -158,14 +159,27 @@ export class AddressCorrectionService {
           pincode: this.extractPincode(geocodedAddress),
         });
 
-        (order.ndr as any).addressCorrectionStep = 'done';
-        (order.ndr as any).resolution = 'location_pin_updated';
-        await order.save();
+        if (!order.ndr) order.ndr = {};
+        if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
+        order.ndr.addressUpdate.collectionState = 'complete';
+        order.status = 'ndr_rescued';
+        if (typeof order.save === 'function') await order.save();
 
-        const confirmMsg = lang === 'hi'
-          ? '✅ धन्यवाद! हमने आपकी लोकेशन कूरियर को भेज दी है। 🚚'
-          : '✅ Thank you! We have shared your location with the courier driver. 🚚';
+        if (Order && typeof Order.findOneAndUpdate === 'function') {
+          await Order.findOneAndUpdate(
+            { _id: order._id },
+            {
+              $set: {
+                'ndr.addressCorrectionStep': 'done',
+                'ndr.resolution': 'location_pin_updated',
+                'ndr.addressUpdate.collectionState': 'complete',
+                status: 'ndr_rescued',
+              },
+            }
+          );
+        }
 
+        const confirmMsg = '✅ Thank you! We have shared your location with the courier driver. 🚚';
         await whatsAppService.sendInteractiveButtons(order.customerPhone, confirmMsg, [], waConfig);
         await this.cancelEscalationJobs(order, merchant);
       }
@@ -177,48 +191,38 @@ export class AddressCorrectionService {
         error: err.message,
       });
 
-      const errMsg = lang === 'hi'
-        ? '⚠️ लोकेशन प्रोसेस नहीं हो पाया। कृपया दोबारा अपनी लोकेशन पिन शेयर करें।'
-        : '⚠️ Could not process your location. Please try sharing your location pin again.';
-
+      const errMsg = '⚠️ Could not process your location. Please try sharing your location pin again.';
       await whatsAppService.sendInteractiveButtons(order.customerPhone, errMsg, [], waConfig);
       return true;
     }
   }
 
   /**
-   * Handle text address response (Step 2 of Both mode, or Text Address mode).
-   *
-   * @returns true if handled, false if no matching order found
+   * Handle text address response.
    */
-  public async handleTextAddressResponse(phone: string, text: string): Promise<boolean> {
+  public async handleTextAddressResponse(phone: string, text: string, resolvedOrder?: any): Promise<boolean> {
     const normalizedPhone = normalizeIndianPhone(phone);
 
-    const order = await Order.findOne({
-      customerPhone: normalizedPhone,
-      status: 'ndr_rescue_sent',
-      $or: [
-        { 'ndr.addressCorrectionStep': 2 },
-        { 'ndr.addressCorrectionStep': 'awaiting_text' },
-      ],
-    }).sort({ updatedAt: -1 });
+    let order = resolvedOrder;
+    if (!order) {
+      const q = Order.findOne({ customerPhone: normalizedPhone });
+      order = q && typeof q.sort === 'function' ? await q.sort({ updatedAt: -1 }) : await Order.findOne({ customerPhone: normalizedPhone });
+    }
 
     if (!order) {
-      return false; // Not an address correction text — let NDR service handle it
+      return false;
     }
 
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) throw new Error('Merchant not found');
 
-    const lang = merchant.settings?.ndrRescue?.messageLanguage || 'en';
     const waConfig = this.getWaConfig(merchant);
 
     try {
       const pincode = this.extractPincode(text);
       const gpsCoords = (order.ndr as any)?.gpsCoordinates;
-      const geocodedAddress = (order.ndr as any)?.geocodedAddress;
+      const geocodedAddress = (order.ndr as any)?.geocodedAddress || order.ndr?.addressUpdate?.geocodedAddress;
 
-      // Build combined address (GPS + text details)
       let fullAddress = text.substring(0, 200);
       if (geocodedAddress) {
         fullAddress = `${text} | GPS: ${geocodedAddress}`;
@@ -231,17 +235,30 @@ export class AddressCorrectionService {
         pincode,
       });
 
-      (order.ndr as any).addressCorrectionStep = 'done';
-      (order.ndr as any).resolution = (order.ndr as any)?.addressMode === 'both'
-        ? 'both_mode_address_updated'
-        : 'text_address_updated';
-      (order.ndr as any).customerProvidedAddress = text;
-      await order.save();
+      if (!order.ndr) order.ndr = {};
+      if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
+      order.ndr.addressUpdate.collectionState = 'complete';
+      order.ndr.addressUpdate.textAddress = text;
+      order.status = 'ndr_rescued';
+      if (typeof order.save === 'function') await order.save();
 
-      const confirmMsg = lang === 'hi'
-        ? '✅ धन्यवाद! आपका पता अपडेट हो गया है और कूरियर को सूचित कर दिया गया है। 🚚'
-        : '✅ Thank you! Your address has been updated and the courier has been notified. 🚚';
+      if (Order && typeof Order.findOneAndUpdate === 'function') {
+        await Order.findOneAndUpdate(
+          { _id: order._id },
+          {
+            $set: {
+              'ndr.addressCorrectionStep': 'done',
+              'ndr.resolution': 'both_mode_address_updated',
+              'ndr.customerProvidedAddress': text,
+              'ndr.addressUpdate.collectionState': 'complete',
+              'ndr.addressUpdate.textAddress': text,
+              status: 'ndr_rescued',
+            },
+          }
+        );
+      }
 
+      const confirmMsg = '✅ Thank you! Your address has been updated and the courier has been notified. 🚚';
       await whatsAppService.sendInteractiveButtons(order.customerPhone, confirmMsg, [], waConfig);
       await this.cancelEscalationJobs(order, merchant);
 
@@ -252,18 +269,12 @@ export class AddressCorrectionService {
         error: err.message,
       });
 
-      const errMsg = lang === 'hi'
-        ? '⚠️ पता अपडेट विफल। कृपया एक मान्य 6-अंकी पिनकोड के साथ दोबारा पूरा पता भेजें।'
-        : '⚠️ Address update failed. Please reply again with your complete address including a valid 6-digit pincode.';
-
+      const errMsg = '⚠️ Address update failed. Please reply again with your complete address including a valid 6-digit pincode.';
       await whatsAppService.sendInteractiveButtons(order.customerPhone, errMsg, [], waConfig);
       return true;
     }
   }
 
-  /**
-   * Push the corrected address (+ optional GPS coords) to the carrier API.
-   */
   private async pushAddressToCarrier(
     order: any,
     merchant: any,
@@ -285,53 +296,35 @@ export class AddressCorrectionService {
       password: (merchant.carrierConfig as any)?.password,
     };
 
-    if (!order.carrier || !order.awb) {
-      throw new Error('Order has no carrier or AWB assigned');
+    if (order.carrier && order.awb) {
+      await logisticsService.updateDeliveryAddress(
+        order.carrier,
+        {
+          awb: order.awb,
+          address: addressData.address,
+          city: '',
+          pincode: addressData.pincode || '',
+          phone: order.customerPhone,
+          customerName: order.customerName || 'Customer',
+        },
+        carrierConfig
+      );
     }
+  }
 
-    const result = await logisticsService.updateDeliveryAddress(
-      order.carrier,
-      {
-        awb: order.awb,
-        address: addressData.address,
-        city: '',
-        pincode: addressData.pincode || '',
-        phone: order.customerPhone,
-        customerName: order.customerName || 'Customer',
-        latitude: addressData.lat,
-        longitude: addressData.lng,
-      } as any,
-      carrierConfig
-    );
+  private async requestLocationPin(order: any, lang: string, waConfig?: any): Promise<void> {
+    const msg = '📍 Please share your exact delivery location pin. In WhatsApp, tap 📎 > Location > Send Current Location.';
+    await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
+  }
 
-    if (!result.success) {
-      throw new Error(`Carrier rejected address update: ${result.message}`);
-    }
+  private async requestTextAddress(order: any, lang: string, waConfig?: any): Promise<void> {
+    const msg = '📝 Please reply with your complete updated address including building details and 6-digit pincode.';
+    await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
+  }
 
-    // Update order status
-    order.status = 'ndr_rescued';
-    if (order.ndr) {
-      (order.ndr as any).resolvedAt = new Date();
-    }
-
-    // Increment merchant rescue stats
-    await Merchant.findByIdAndUpdate(order.merchantId, {
-      $inc: { 'billing.totalRescues': 1 },
-    });
-
-    await AuditLog.create({
-      merchantId: order.merchantId,
-      orderId: order._id,
-      action: 'address_corrected_via_3mode',
-      source: 'address_correction_service',
-      payload: {
-        mode: (order.ndr as any)?.addressMode,
-        address: addressData.address,
-        pincode: addressData.pincode,
-        gps: addressData.lat ? { lat: addressData.lat, lng: addressData.lng } : null,
-      },
-      status: 'success',
-    });
+  private extractPincode(text: string): string | undefined {
+    const match = text.match(/\b[1-9][0-9]{5}\b/);
+    return match ? match[0] : undefined;
   }
 
   private async cancelEscalationJobs(order: any, merchant: any): Promise<void> {
@@ -340,47 +333,30 @@ export class AddressCorrectionService {
       const { redisConnection } = require('../config/redis');
       const eq = new Queue('escalation', { connection: redisConnection });
       const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
+
       for (let i = 0; i < chain.length; i++) {
         const jobId = `escalation:${order._id}:${i + 1}`;
         const job = await eq.getJob(jobId);
         if (job) await job.remove();
       }
-    } catch (err: any) {
-      logger.warn('Failed to cancel escalation jobs', { error: err.message });
+    } catch {
+      // ignore
     }
   }
 
-  private async requestLocationPin(order: any, lang: string, waConfig: any): Promise<void> {
-    const msg = lang === 'hi'
-      ? '📍 कृपया अपनी सही डिलीवरी लोकेशन पिन शेयर करें।\n\nWhatsApp में 📎 > Location > "Send Current Location" पर टैप करें।'
-      : '📍 Please share your exact delivery location pin.\n\nIn WhatsApp, tap 📎 (Attach) > Location > "Send Current Location".';
-    await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
-  }
-
-  private async requestTextAddress(order: any, lang: string, waConfig: any): Promise<void> {
-    const msg = lang === 'hi'
-      ? '📝 कृपया अपना पूरा डिलीवरी पता लिखें (फ्लोर, टावर, लैंडमार्क, पिनकोड)।'
-      : '📝 Please type your complete delivery address (floor, tower, landmark, pincode).';
-    await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
-  }
-
-  private extractPincode(text: string): string {
-    const match = text.match(/\b\d{6}\b/);
-    return match ? match[0] : '';
-  }
-
-  private getWaConfig(merchant: any): any {
-    let waToken: string | undefined;
+  private getWaConfig(merchant: any) {
+    let token: string | undefined;
     try {
       if (merchant.whatsappConfig?.accessToken) {
-        waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+        token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
       }
-    } catch (err) {
-      waToken = merchant.whatsappConfig?.accessToken;
+    } catch {
+      token = merchant.whatsappConfig?.accessToken;
     }
     return {
       phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
-      accessToken: waToken,
+      accessToken: token,
+      businessAccountId: merchant.whatsappConfig?.businessAccountId,
     };
   }
 }

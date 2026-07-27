@@ -33,6 +33,7 @@ export interface IMerchant extends Document {
   };
   settings: {
     globalPause?: boolean;
+    rescuePolicy?: any;
     codConversion: {
       enabled: boolean;
       incentiveType: 'flat' | 'percentage';
@@ -56,7 +57,9 @@ export interface IMerchant extends Document {
     rescueCredits: number;
     totalRescues: number;
     totalConversions: number;
+    estimatedMetaSpendMonth?: number;
   };
+  rescuePolicy?: any;
   tokenVersion?: number;
   comparePassword(candidate: string): Promise<boolean>;
   createdAt: Date;
@@ -95,8 +98,10 @@ const MerchantSchema = new Schema<IMerchant>(
       keyId: { type: String },
       keySecret: { type: String },
     },
+    rescuePolicy: { type: Schema.Types.Mixed, default: () => require('../config/rescue-policy').defaultRescuePolicy() },
     settings: {
       globalPause: { type: Boolean, default: false },
+      rescuePolicy: { type: Schema.Types.Mixed, default: () => require('../config/rescue-policy').defaultRescuePolicy() },
       codConversion: {
         enabled: { type: Boolean, default: false },
         incentiveType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
@@ -128,12 +133,15 @@ const MerchantSchema = new Schema<IMerchant>(
       rescueCredits: { type: Number, default: 100 },
       totalRescues: { type: Number, default: 0 },
       totalConversions: { type: Number, default: 0 },
+      estimatedMetaSpendMonth: { type: Number, default: 0 },
     },
   },
   {
     timestamps: true,
   }
 );
+
+MerchantSchema.index({ 'whatsappConfig.phoneNumberId': 1 }, { unique: true, sparse: true });
 
 // Pre-save hook to hash password
 MerchantSchema.pre<IMerchant>('save', async function () {

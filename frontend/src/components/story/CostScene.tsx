@@ -1,4 +1,4 @@
-import { motion } from 'motion/react';
+import { motion, MotionValue } from 'motion/react';
 import AnimatedNumber from '../motion/AnimatedNumber';
 
 const COSTS = [
@@ -8,10 +8,10 @@ const COSTS = [
   { label: 'Repackaging + quality check', amount: 40, pct: 9, color: '#a78bfa', note: 'Warehouse labor' },
 ];
 
-export default function CostScene() {
+export default function CostScene(_props?: { progress?: MotionValue<number> }) {
   return (
-    <section className="lp-cost-section" id="cost">
-      <div className="container cost-layout">
+    <motion.div className="scene scene--cost" id="cost">
+      <div className="cost-layout">
         {/* Header */}
         <motion.div
           className="cost-title"
@@ -112,6 +112,6 @@ export default function CostScene() {
           </p>
         </motion.div>
       </div>
-    </section>
+    </motion.div>
   );
 }

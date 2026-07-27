@@ -37,6 +37,13 @@ export interface IOrder extends Document {
     resolvedAt?: Date | null;
     resolution?: 'rescheduled' | 'address_updated' | 'cancelled' | 'unresolved' | null;
     isFakeAttempt?: boolean;
+    holdout?: boolean;
+    holdoutReason?: string;
+    fakeRemarkScore?: number;
+    decisionMode?: 'engaged' | 'holdout' | 'review' | 'manual_skip';
+    lastOutboundAt?: Date;
+    lastOutboundMerchantId?: Types.ObjectId;
+    addressCorrectionStep?: any;
     addressUpdate?: {
       method?: 'location' | 'text' | 'both';
       latitude?: number;
@@ -97,6 +104,13 @@ const OrderSchema = new Schema<IOrder>(
         default: null,
       },
       isFakeAttempt: { type: Boolean, default: false },
+      holdout: { type: Boolean, default: false },
+      holdoutReason: { type: String },
+      fakeRemarkScore: { type: Number, default: 0 },
+      decisionMode: { type: String, enum: ['engaged', 'holdout', 'review', 'manual_skip'] },
+      lastOutboundAt: { type: Date },
+      lastOutboundMerchantId: { type: Schema.Types.ObjectId, ref: 'Merchant' },
+      addressCorrectionStep: { type: Schema.Types.Mixed },
       addressUpdate: {
         method: { type: String, enum: ['location', 'text', 'both', null], default: null },
         latitude: { type: Number, default: null },
