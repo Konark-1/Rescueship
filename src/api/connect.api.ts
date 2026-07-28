@@ -11,8 +11,10 @@ import { shopifyOAuthService } from '../services/shopify-oauth.service';
 import { carrierConnectService } from '../services/carrier-connect.service';
 import { paymentConnectService } from '../services/payment-connect.service';
 import { whatsAppService } from '../services/whatsapp.service';
+import { sandboxService } from '../services/sandbox.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
+import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
 
 const router = Router();
 
@@ -73,8 +75,9 @@ router.get('/whatsapp/templates/status', authenticateToken, async (req: Authenti
   try { res.json(await metaTemplateService.pollStatus(req.merchant!.merchantId)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
+
 // Self-serve proof: send a real rescue to the merchant's own number.
-router.post('/whatsapp/test-pulse', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
   const m = await Merchant.findById(req.merchant!.merchantId);
   if (!m) return res.status(404).json({ error: 'not found' });
   const phone = (m as any).ownerPhone;
@@ -120,7 +123,22 @@ router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, re
   if (!paid)
     return res.status(400).json({ error: 'Subscribe to a plan to go live.', next: '/billing' });
 
-  await Merchant.findByIdAndUpdate(m!._id, { $set: { 'onboarding.completedAt': new Date(), 'onboarding.currentStep': 'done' } });
+  // Phase 3: Sandbox graduation check
+  const sandboxEligible = sandboxService.isLiveEligible(m as any);
+  if (!sandboxEligible) {
+    return res.status(400).json({
+      error: 'Sandbox not graduated. Complete 3 successful test rescues or manually graduate from the Sandbox page.',
+      code: 'SANDBOX_NOT_GRADUATED',
+    });
+  }
+
+  await Merchant.findByIdAndUpdate(m!._id, {
+    $set: {
+      'onboarding.completedAt': new Date(),
+      'onboarding.currentStep': 'done',
+      'sandbox.enabled': false, // auto-disable sandbox on go-live
+    },
+  });
   res.json({ ok: true });
 });
 

@@ -1,0 +1,111 @@
+.setup-guide {
+  position: relative;
+  display: inline-block;
+}
+
+.guide-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 6px;
+  color: #38bdf8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.guide-trigger:hover {
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.guide-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.2);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.guide-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  max-height: 420px;
+  overflow-y: auto;
+  background: #1e293b;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  padding: 1rem;
+}
+
+.guide-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  color: #f1f5f9;
+}
+
+.guide-close {
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.guide-steps {
+  padding-left: 1.25rem;
+  margin: 0;
+}
+
+.guide-step {
+  margin-bottom: 1rem;
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+.guide-step strong {
+  color: #f1f5f9;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.guide-step p {
+  margin: 0.25rem 0;
+  color: #94a3b8;
+}
+
+.guide-errors {
+  margin-top: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.guide-errors summary {
+  color: #fb923c;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.guide-errors ul {
+  margin: 0.4rem 0 0 1rem;
+  padding: 0;
+  color: #94a3b8;
+}
+
+.guide-errors li {
+  margin-bottom: 0.3rem;
+}

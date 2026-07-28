@@ -45,35 +45,35 @@ export class SubscriptionService {
     if (!BASE[tier]) throw new Error('Invalid tier');
     const p = priceFor(tier, cycle);
 
-    let orderId = `order_${merchantId.slice(-6)}_${Date.now()}`;
-    let subscriptionId = `sub_${merchantId.slice(-6)}_${Date.now()}`;
+    let orderId: string;
+    let subscriptionId: string;
 
-    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-      try {
-        // (1) upfront intro order — one-time, charged now
-        const order = await rz.post('/orders', {
-          amount: p.introUpfront * 100, currency: 'INR', receipt: `rs_${merchantId.slice(-6)}_${Date.now()}`,
-          notes: { merchantId, tier, cycle, kind: 'intro_quarter' },
-        });
-        orderId = order.data.id;
+    try {
+      // (1) upfront intro order — one-time, charged now
+      const order = await rz.post('/orders', {
+        amount: p.introUpfront * 100, currency: 'INR', receipt: `rs_${merchantId.slice(-6)}_${Date.now()}`,
+        notes: { merchantId, tier, cycle, kind: 'intro_quarter' },
+      });
+      orderId = order.data.id;
 
-        // (2) renewal subscription — first charge at the renewal date
-        const planId = await this.ensurePlan(tier, cycle, p.renewMonthly);
-        const startAt = Math.floor(Date.now() / 1000) + 90 * 24 * 3600; // ~1 quarter from now
-        const subscription = await rz.post('/subscriptions', {
-          plan_id: planId, total_count: 12, quantity: 1, start_at: startAt,
-          notes: { merchantId, tier, cycle, kind: 'renewal' },
-        });
-        subscriptionId = subscription.data.id;
-      } catch (e: any) {
-        logger.warn('Razorpay API error in subscription checkout, using local fallback IDs', { error: e.message });
-      }
+      // (2) renewal subscription — first charge at the renewal date
+      const planId = await this.ensurePlan(tier, cycle, p.renewMonthly);
+      const startAt = Math.floor(Date.now() / 1000) + 90 * 24 * 3600; // ~1 quarter from now
+      const subscription = await rz.post('/subscriptions', {
+        plan_id: planId, total_count: 12, quantity: 1, start_at: startAt,
+        notes: { merchantId, tier, cycle, kind: 'renewal' },
+      });
+      subscriptionId = subscription.data.id;
+    } catch (e: any) {
+      logger.error('Razorpay API subscription checkout failed', { error: e.response?.data || e.message });
+      throw new Error('Payment gateway error. Please verify Razorpay keys or try again shortly.');
     }
 
     await Merchant.findByIdAndUpdate(merchantId, { $set: {
       'billing.pendingTier': tier, 'billing.pendingCycle': cycle,
       'billing.introOrderId': orderId, 'billing.razorpaySubscriptionId': subscriptionId,
       'billing.renewMonthly': p.renewMonthly,
+      'billing.status': 'pending_payment',
     }});
 
     return { orderId, subscriptionId, amountInr: p.introUpfront * 100, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy' };
@@ -99,6 +99,7 @@ export class SubscriptionService {
       'billing.nextInvoiceDate': renewal,
       'billing.renewMonthly': p.renewMonthly,
       'billing.activatedAt': now,
+      'billing.status': 'active',
       'billing.currentMonthOrders': 0,
       'onboarding.completedAt': now,
     }});
@@ -108,7 +109,30 @@ export class SubscriptionService {
 
   /** Called from the subscription.charged webhook — roll the cycle forward. */
   async onRenewalCharged(merchantId: string) {
-    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.cycleStartDate': new Date() } });
+    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.cycleStartDate': new Date(), 'billing.status': 'active' } });
+    logger.info('Subscription renewal charged', { merchantId });
+  }
+
+  /** Called from subscription.paused webhook */
+  async onSubscriptionPaused(merchantId: string) {
+    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.status': 'paused' } });
+    logger.warn('Subscription paused', { merchantId });
+  }
+
+  /** Called from subscription.cancelled or subscription.expired webhook */
+  async onSubscriptionCancelledOrExpired(merchantId: string, status: 'cancelled' | 'expired') {
+    await Merchant.findByIdAndUpdate(merchantId, { $set: {
+      'billing.plan': 'free_trial',
+      'billing.planOrderLimit': 500,
+      'billing.status': status,
+    }});
+    logger.warn(`Subscription ${status}`, { merchantId });
+  }
+
+  /** Called from payment.failed webhook */
+  async onPaymentFailed(merchantId: string, errorReason?: string) {
+    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.status': 'past_due', 'billing.lastPaymentError': errorReason || 'Payment failed' } });
+    logger.error('Subscription payment failed', { merchantId, errorReason });
   }
 
   async status(merchantId: string) {
@@ -124,8 +148,13 @@ export class SubscriptionService {
   /** Create-or-find a Razorpay plan keyed by (tier+cycle) at the renewal monthly amount. */
   private async ensurePlan(tier: Tier, cycle: Cycle, monthly: number): Promise<string> {
     const key = `rs_plan_${tier}_${cycle}_${monthly}`;
-    const cached = await Merchant.findOne({ [`billing.razorpayPlanIds.${key}`]: { $exists: true } }).lean();
-    if (cached) return (cached as any).billing.razorpayPlanIds[key];
+    const { default: mongoose } = await import('mongoose');
+    const db = mongoose.connection.db;
+    if (db) {
+      const col = db.collection('rs_plans');
+      const doc = await col.findOne({ _id: key as any });
+      if (doc?.planId) return doc.planId;
+    }
     const { data } = await rz.post('/plans', { period: PERIOD[cycle], interval: 1, amount: monthly * 100, currency: 'INR', notes: { key } });
     await this.rememberPlan(key, data.id);
     return data.id;

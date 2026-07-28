@@ -91,9 +91,19 @@ import connectRouter from './api/connect.api';
 import { realtimeService } from './services/realtime.service';
 import { standardMerchantLimiter, exportMerchantLimiter } from './middleware/merchant-rate-limiter';
 
+import sandboxRouter from './api/sandbox.api';
+import metricsRouter from './api/metrics.api';
+import plgRouter from './api/plg.api';
+import { featureFlags } from './services/feature-flags.service';
+import { startQualityMonitorWorker } from './jobs/quality-monitor.job';
+import { startTemplatePollerWorker } from './jobs/template-poller.job';
+
 // Mount API Routes (apply apiLimiter & per-merchant limiter)
 app.use('/api/auth', apiLimiter, authRouter);
 app.use('/api/connect', apiLimiter, connectRouter);
+app.use('/api/sandbox', apiLimiter, sandboxRouter);
+app.use('/api/metrics', apiLimiter, metricsRouter);
+app.use('/api/plg', apiLimiter, plgRouter);
 app.use('/api/orders', apiLimiter, standardMerchantLimiter, ordersRouter);
 app.use('/api/analytics', apiLimiter, standardMerchantLimiter, analyticsRouter);
 app.use('/api/settings', apiLimiter, standardMerchantLimiter, settingsRouter);
@@ -128,6 +138,8 @@ async function bootstrap() {
 
     // 3. Start BullMQ Workers
     startAllWorkers();
+    startQualityMonitorWorker();
+    startTemplatePollerWorker();
 
     // 4. Start Server
     const server = app.listen(PORT, () => {

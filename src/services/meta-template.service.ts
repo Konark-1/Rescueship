@@ -13,6 +13,7 @@
 import axios from 'axios';
 import { encryptionService } from './encryption.service';
 import { Merchant } from '../models';
+import { enqueueTemplatePolls } from '../jobs/template-poller.job';
 import { logger } from '../utils/logger';
 
 const G = 'https://graph.facebook.com/v22.0';
@@ -82,6 +83,20 @@ export class MetaTemplateService {
     (merchant as any).whatsappConfig.templates = results;
     (merchant as any).connections = { ...((merchant as any).connections || {}), whatsapp: { ...((merchant as any).connections?.whatsapp || {}), status: 'templates_pending' } };
     await merchant.save();
+
+    // Enqueue status polling for submitted templates
+    const createdTemplates = results
+      .filter((r) => r.status === 'PENDING')
+      .map((r) => ({ id: r.name, name: r.name }));
+    if (createdTemplates.length > 0) {
+      await enqueueTemplatePolls(
+        merchantId,
+        wabaId,
+        token,
+        createdTemplates
+      );
+    }
+
     return results;
   }
 

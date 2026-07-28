@@ -86,7 +86,7 @@ export class MetaEmbeddedSignupService {
 
   /** 4. permanent system-user token + assign the WABA to it */
   private async provisionSystemUser(businessId: string, wabaId: string, userToken: string) {
-    const su = await post(`/${businessId}/system_users`, { name: 'RescueShip', role: 'ADMIN' }, userToken);
+    const su = await post(`/${businessId}/system_users`, { name: 'RescueShip Engine', role: 'EMPLOYEE' }, userToken);
     const tok = await post(`/${su.id}/access_tokens`, {
       business_app: cfg().appId, scope: SCOPES, expires_in: 'NEVER',
     }, userToken);

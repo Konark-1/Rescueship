@@ -76,6 +76,52 @@ export interface IMerchant extends Document {
   ownerPhone?: string;
   storeName?: string;
   onboarding?: { completedAt?: Date; currentStep?: string; testRescueSentAt?: Date };
+  sandbox?: {
+    enabled?: boolean;
+    activatedAt?: Date;
+    testRescuesSent?: number;
+    testRescuesSucceeded?: number;
+    graduationThreshold?: number;
+    graduated?: boolean;
+    graduatedAt?: Date;
+  };
+  quality?: {
+    lastCheckedAt?: Date;
+    rating?: 'GREEN' | 'YELLOW' | 'RED' | 'UNKNOWN';
+    messagingTier?: string;
+    rejectedTemplates?: string[];
+    pausedAt?: Date;
+    pauseReason?: string;
+  };
+  alerts?: Array<{
+    id: string;
+    type: string;
+    severity: 'info' | 'warning' | 'critical';
+    title: string;
+    body: string;
+    createdAt?: Date;
+    read?: boolean;
+    actionUrl?: string;
+  }>;
+  metrics?: {
+    ndrReceived?: number;
+    ndrReceived7d?: number;
+    rescuesAttempted?: number;
+    rescuesSucceeded?: number;
+    rescuesFailed?: number;
+    templatesSent?: number;
+    templatesFailed?: number;
+    revenueSaved?: number;
+    rescueTimes?: number[];
+    recentEvents?: Array<{
+      type?: string;
+      orderId?: string;
+      template?: string;
+      rescueTimeMin?: number;
+      orderValue?: number;
+      at?: Date;
+    }>;
+  };
   rescuePolicy?: any;
   tokenVersion?: number;
   comparePassword(candidate: string): Promise<boolean>;
@@ -211,5 +257,65 @@ MerchantSchema.methods.comparePassword = async function (candidate: string): Pro
   if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
 };
+
+const SandboxSchema = new Schema({
+  enabled: { type: Boolean, default: false },
+  activatedAt: { type: Date },
+  testRescuesSent: { type: Number, default: 0 },
+  testRescuesSucceeded: { type: Number, default: 0 },
+  graduationThreshold: { type: Number, default: 3 },
+  graduated: { type: Boolean, default: false },
+  graduatedAt: { type: Date },
+}, { _id: false });
+
+const QualitySchema = new Schema({
+  lastCheckedAt: { type: Date },
+  rating: { type: String, enum: ['GREEN', 'YELLOW', 'RED', 'UNKNOWN'], default: 'UNKNOWN' },
+  messagingTier: { type: String, default: 'UNKNOWN' },
+  rejectedTemplates: { type: [String], default: [] },
+  pausedAt: { type: Date },
+  pauseReason: { type: String },
+}, { _id: false });
+
+const AlertSchema = new Schema({
+  id: { type: String, required: true },
+  type: { type: String, required: true },
+  severity: { type: String, enum: ['info', 'warning', 'critical'], required: true },
+  title: { type: String, required: true },
+  body: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now },
+  read: { type: Boolean, default: false },
+  actionUrl: { type: String },
+}, { _id: false });
+
+const MetricsSchema = new Schema({
+  ndrReceived: { type: Number, default: 0 },
+  ndrReceived7d: { type: Number, default: 0 },
+  rescuesAttempted: { type: Number, default: 0 },
+  rescuesSucceeded: { type: Number, default: 0 },
+  rescuesFailed: { type: Number, default: 0 },
+  templatesSent: { type: Number, default: 0 },
+  templatesFailed: { type: Number, default: 0 },
+  revenueSaved: { type: Number, default: 0 },
+  rescueTimes: { type: [Number], default: [] },
+  recentEvents: {
+    type: [{
+      type: { type: String },
+      orderId: String,
+      template: String,
+      rescueTimeMin: Number,
+      orderValue: Number,
+      at: Date,
+    }],
+    default: [],
+  },
+}, { _id: false });
+
+MerchantSchema.add({
+  sandbox: { type: SandboxSchema, default: () => ({}) },
+  quality: { type: QualitySchema, default: () => ({}) },
+  alerts: { type: [AlertSchema], default: [] },
+  metrics: { type: MetricsSchema, default: () => ({}) },
+});
 
 export const Merchant = model<IMerchant>('Merchant', MerchantSchema);

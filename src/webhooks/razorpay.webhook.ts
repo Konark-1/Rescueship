@@ -5,6 +5,7 @@ import { paymentService } from '../services/payment.service';
 import { config } from '../config/env';
 import { IdempotencyGuard } from '../utils/idempotency';
 import { AuditLog, BillingEvent, Merchant } from '../models';
+import { subscriptionService } from '../services/subscription.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -74,45 +75,42 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
       const plan = notes.plan;
       const cycle = notes.cycle;
 
-      if (merchantId && plan) {
+      if (merchantId) {
         const eventId = `razorpay_${event}_${entity?.id || Date.now()}`;
         const isProcessed = await IdempotencyGuard.isProcessed(eventId);
         if (!isProcessed) {
-          const planLimits: Record<string, number> = {
-            starter: 2000,
-            growth: 10000,
-            scale: 50000,
-          };
-          const orderLimit = planLimits[plan] || 2000;
-
-          const merchant = await Merchant.findById(merchantId);
-          if (merchant) {
-            merchant.billing.plan = plan;
-            merchant.billing.planOrderLimit = orderLimit;
-            if (cycle) {
-              merchant.billing.billingCycle = cycle;
+          if (plan) {
+            const planLimits: Record<string, number> = { starter: 2000, growth: 10000, scale: 50000 };
+            const merchant = await Merchant.findById(merchantId);
+            if (merchant) {
+              merchant.billing.plan = plan;
+              merchant.billing.planOrderLimit = planLimits[plan] || 2000;
+              (merchant as any).billing.status = 'active';
+              if (cycle) merchant.billing.billingCycle = cycle;
+              await merchant.save();
             }
-            await merchant.save();
-
-            await BillingEvent.create({
-              merchantId: merchant._id,
-              eventType: 'subscription_upgraded',
-              creditsCost: 0,
-            });
-
-            await AuditLog.create({
-              merchantId: merchant._id,
-              action: 'subscription_upgraded',
-              source: 'razorpay_webhook',
-              payload: { event, plan, cycle, amount: entity?.amount },
-              status: 'success',
-            });
-
-            await IdempotencyGuard.markProcessed(eventId);
-            logger.info('Subscription payment processed via Razorpay webhook', { merchantId, plan, cycle });
           }
+          await subscriptionService.onRenewalCharged(merchantId);
+          await IdempotencyGuard.markProcessed(eventId);
+          logger.info('Subscription payment processed via Razorpay webhook', { merchantId, plan, cycle });
         }
       }
+    } else if (event === 'subscription.paused') {
+      const sub = body.payload?.subscription?.entity;
+      const merchantId = sub?.notes?.merchantId;
+      if (merchantId) await subscriptionService.onSubscriptionPaused(merchantId);
+    } else if (event === 'subscription.cancelled') {
+      const sub = body.payload?.subscription?.entity;
+      const merchantId = sub?.notes?.merchantId;
+      if (merchantId) await subscriptionService.onSubscriptionCancelledOrExpired(merchantId, 'cancelled');
+    } else if (event === 'subscription.expired') {
+      const sub = body.payload?.subscription?.entity;
+      const merchantId = sub?.notes?.merchantId;
+      if (merchantId) await subscriptionService.onSubscriptionCancelledOrExpired(merchantId, 'expired');
+    } else if (event === 'payment.failed') {
+      const pay = body.payload?.payment?.entity;
+      const merchantId = pay?.notes?.merchantId;
+      if (merchantId) await subscriptionService.onPaymentFailed(merchantId, pay?.error_description);
     }
 
     res.status(200).json({ status: 'received' });
