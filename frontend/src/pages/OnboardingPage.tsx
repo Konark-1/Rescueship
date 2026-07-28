@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
+import SetupGuide from '../components/SetupGuide';
 import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
@@ -131,7 +132,10 @@ export default function OnboardingPage() {
         <main className="ob-stage">
           <AnimatePresence mode="wait">
             <motion.section key={active} className="ob-card" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-              <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
+                <SetupGuide station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : active === 'payment' ? 'payments' : 'whatsapp'} />
+              </div>
               <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
 
               {active === 'shopify' && <ShopifyForm onConnect={connectShopify} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} />}

@@ -14,6 +14,7 @@ import BillingPage from './pages/BillingPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import DocsPage from './pages/DocsPage';
 import OnboardingPage from './pages/OnboardingPage';
+import SandboxPage from './pages/SandboxPage';
 
 import LandingPage from './pages/LandingPage';
 
@@ -119,6 +120,13 @@ export const App: React.FC = () => {
             <ProtectedRoute>
               <DashboardLayoutWrapper>
                 <DocsPage />
+              </DashboardLayoutWrapper>
+            </ProtectedRoute>
+          } />
+          <Route path="/sandbox" element={
+            <ProtectedRoute>
+              <DashboardLayoutWrapper>
+                <SandboxPage />
               </DashboardLayoutWrapper>
             </ProtectedRoute>
           } />

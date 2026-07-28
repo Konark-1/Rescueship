@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import { MotionCard } from '../components/motion/MotionCard';
 import { AnimatedCounter } from '../components/motion/AnimatedCounter';
 import { useRealtime } from '../hooks/useRealtime';
+import { RescueMetrics } from '../components/RescueMetrics';
 
 interface DashboardData {
   totalOrders: number;
@@ -212,6 +213,11 @@ export const DashboardPage: React.FC = () => {
             </p>
           </div>
         </div>
+      </div>
+
+      {/* Pilot Rescue Metrics Widget */}
+      <div className="fade-in-up">
+        <RescueMetrics />
       </div>
 
       {/* Metric Cards Grid */}
