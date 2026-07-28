@@ -32,6 +32,7 @@ const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 export const SandboxPage: React.FC = () => {
   const [sandbox, setSandbox] = useState<SandboxState | null>(null);
+  const [quality, setQuality] = useState<any>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [simulating, setSimulating] = useState(false);
@@ -56,6 +57,14 @@ export const SandboxPage: React.FC = () => {
     }
   }, [token]);
 
+  const fetchQuality = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/api/sandbox/quality`, { headers });
+      const data = await res.json();
+      if (data.success) setQuality(data.quality);
+    } catch {}
+  }, [token]);
+
   const fetchAlerts = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/sandbox/alerts`, { headers });
@@ -70,7 +79,8 @@ export const SandboxPage: React.FC = () => {
   useEffect(() => {
     fetchStatus();
     fetchAlerts();
-  }, [fetchStatus, fetchAlerts]);
+    fetchQuality();
+  }, [fetchStatus, fetchAlerts, fetchQuality]);
 
   const toggleSandbox = async (enabled: boolean) => {
     log(enabled ? 'enabling sandbox mode…' : 'disabling sandbox mode…');
@@ -149,8 +159,8 @@ export const SandboxPage: React.FC = () => {
 
   if (!sandbox) return <div className="sandbox-loading">Loading sandbox…</div>;
 
-  const progressPct = sandbox.graduationThreshold > 0
-    ? (sandbox.testRescuesSucceeded / sandbox.graduationThreshold) * 100
+  const progressPct = sandbox && sandbox.graduationThreshold > 0
+    ? Math.min(100, (sandbox.testRescuesSucceeded / sandbox.graduationThreshold) * 100)
     : 0;
 
   return (
@@ -165,11 +175,11 @@ export const SandboxPage: React.FC = () => {
       {/* Status Banner */}
       <div className={`sandbox-banner ${sandbox.enabled ? 'active' : 'inactive'} ${sandbox.graduated ? 'graduated' : ''}`}>
         {sandbox.graduated ? (
-          <span>✅ Graduated — Live Mode</span>
+          <span>✅ Graduated — Live Mode {quality?.rating ? `(Meta Quality: ${quality.rating})` : ''}</span>
         ) : sandbox.enabled ? (
           <span>🧪 Sandbox Active — messages redirect to your phone</span>
         ) : (
-          <span>⚪ Sandbox Inactive</span>
+          <span>⚪ Sandbox Inactive {quality?.rating ? `(Meta Quality: ${quality.rating})` : ''}</span>
         )}
       </div>
 

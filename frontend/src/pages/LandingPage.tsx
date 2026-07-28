@@ -27,12 +27,14 @@ const FEED_SCRIPT: { t: string; msg: string; cls?: string }[] = [
   { t: '14:55:18', msg: 'ORDER RESCUED · ₹2,100 recovered', cls: 'rescued' },
 ];
 
-const ORDER_BOARD = [
-  { id: '#89421', awb: '4023118876', amount: 1240, status: 'failed' as const },
-  { id: '#89435', awb: '7719004523', amount: 890, status: 'failed' as const },
-  { id: '#89448', awb: '5582317790', amount: 2100, status: 'failed' as const },
-  { id: '#89452', awb: '3301998871', amount: 1560, status: 'pending' as const },
-  { id: '#89460', awb: '9917234456', amount: 730, status: 'pending' as const },
+type OrderStatus = 'failed' | 'pending' | 'rescued';
+
+const ORDER_BOARD: { id: string; awb: string; amount: number; status: OrderStatus }[] = [
+  { id: '#89421', awb: '4023118876', amount: 1240, status: 'failed' },
+  { id: '#89435', awb: '7719004523', amount: 890, status: 'failed' },
+  { id: '#89448', awb: '5582317790', amount: 2100, status: 'failed' },
+  { id: '#89452', awb: '3301998871', amount: 1560, status: 'pending' },
+  { id: '#89460', awb: '9917234456', amount: 730, status: 'pending' },
 ];
 
 const LOSS_PARTS = [
@@ -82,7 +84,7 @@ export default function LandingPage() {
           const idx = prev.findIndex((o) => o.status === 'failed');
           if (idx === -1) return prev;
           const next = [...prev];
-          next[idx] = { ...next[idx], status: 'rescued' as any };
+          next[idx] = { ...next[idx], status: 'rescued' };
           return next;
         });
       }
@@ -123,7 +125,7 @@ export default function LandingPage() {
   };
 
   const failedOrders = orders.filter((o) => o.status === 'failed' || o.status === 'pending');
-  const rescuedOrders = orders.filter((o) => (o as any).status === 'rescued');
+  const rescuedOrders = orders.filter((o) => o.status === 'rescued');
 
   return (
     <div className="lp">
