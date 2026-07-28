@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence, useInView } from 'motion/react';
+import { motion, AnimatePresence, useInView, useScroll, useTransform } from 'motion/react';
 import { Link } from 'react-router-dom';
 import './landing.css';
 
@@ -72,6 +72,16 @@ const WA_STEPS: { role: 'bot' | 'user' | 'buttons' | 'sync'; text?: string; opti
   { role: 'sync', text: 'customer confirmed · carrier synced ✓' },
 ];
 const WA_BTN_IDX = 1;
+
+/* ═══ Scroll reel — the same order, told in motion (desktop only) ═══ */
+const REEL_BEATS = [
+  { tag: '11:43', role: 'move',   t: 'Out for delivery.',            d: 'The parcel leaves the warehouse. So far, so normal.' },
+  { tag: '11:47', role: 'wound',  t: '“Door locked.” No knock.',     d: 'Logged four minutes after the scan. No call, no doorbell.' },
+  { tag: '11:47', role: 'engine', t: 'RescueShip intercepts.',       d: 'The NDR is caught before the return journey begins.' },
+  { tag: '11:48', role: 'engine', t: 'WhatsApp: “are you home?”',    d: 'Verification, never accusation. The customer taps Yes.' },
+  { tag: '11:49', role: 'engine', t: 'Driver re‑routed.',            d: 'Corrected intent synced straight to the carrier.' },
+  { tag: '15:20', role: 'rescue', t: 'Delivered. ₹1,240 kept.',      d: 'No reverse freight. No repack. No wasted ad spend.' },
+];
 
 /* ═══ Helpers ═══ */
 function SpawnWords({ text, booted, baseDelay = 0, className = '' }: {
@@ -272,6 +282,40 @@ export default function LandingPage() {
     const iv = setInterval(() => setRecovered((r) => r + Math.floor(Math.random() * 80 + 20)), 5000);
     return () => clearInterval(iv);
   }, [booted]);
+
+  /* ── Scroll reel: desktop gate + scroll‑scrubbed parcel (no state on scroll) ── */
+  const trackRef = useRef<HTMLDivElement>(null);
+  const routeRef = useRef<HTMLDivElement>(null);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const [routeH, setRouteH] = useState(0);
+
+  const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
+  const reelY = useTransform(scrollYProgress, [0, 1], [0, Math.max(routeH, 1)]);
+  // one transform per beat (unrolled → rules‑of‑hooks safe, lint‑safe)
+  const o0 = useTransform(scrollYProgress, [0.00, 0.05], [0, 1]);
+  const o1 = useTransform(scrollYProgress, [0.20, 0.30], [0, 1]);
+  const o2 = useTransform(scrollYProgress, [0.40, 0.50], [0, 1]);
+  const o3 = useTransform(scrollYProgress, [0.60, 0.70], [0, 1]);
+  const o4 = useTransform(scrollYProgress, [0.80, 0.90], [0, 1]);
+  const o5 = useTransform(scrollYProgress, [0.92, 1.00], [0, 1]);
+  const beatOpacity = [o0, o1, o2, o3, o4, o5];
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 961px)');
+    const upd = () => setIsDesktop(mq.matches);
+    upd();
+    mq.addEventListener('change', upd);
+    return () => mq.removeEventListener('change', upd);
+  }, []);
+
+  useEffect(() => {
+    const el = routeRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setRouteH(el.clientHeight));
+    ro.observe(el);
+    setRouteH(el.clientHeight);
+    return () => ro.disconnect();
+  }, [isDesktop]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -595,6 +639,48 @@ export default function LandingPage() {
           Stats are modelled projections — pilot data replaces them when available.
         </motion.p>
       </section>
+
+      {/* ═══ SCROLL REEL — the story in motion (desktop only) ═══ */}
+      {isDesktop && (
+        <section className={`lp-reel${reduced ? ' lp-reel--static' : ''}`} aria-label="How a single rescue plays out">
+          <div className="lp-reel__track" ref={trackRef}>
+            <div className="lp-reel__stage">
+              <p className="lp-section__kicker lp-reel__kicker">The same order, in motion</p>
+              <div className="lp-reel__grid">
+                <div className="lp-reel__route" ref={routeRef} aria-hidden="true">
+                  <span className="lp-reel__line" />
+                  {REEL_BEATS.map((b, i) => (
+                    <span
+                      key={i}
+                      className={`lp-reel__dot lp-reel__dot--${b.role}`}
+                      style={{ top: `${(i / (REEL_BEATS.length - 1)) * 100}%` }}
+                    />
+                  ))}
+                  <motion.span
+                    className="lp-reel__parcel"
+                    style={reduced ? undefined : { x: '-50%', y: reelY }}
+                  >📦</motion.span>
+                </div>
+                <ol className="lp-reel__beats">
+                  {REEL_BEATS.map((b, i) => (
+                    <motion.li
+                      key={i}
+                      className={`lp-reel__beat lp-reel__beat--${b.role}`}
+                      style={reduced ? undefined : { opacity: beatOpacity[i] }}
+                    >
+                      <span className="lp-reel__beat-tag">{b.tag}</span>
+                      <span className="lp-reel__beat-txt">
+                        <span className="lp-reel__beat-t">{b.t}</span>
+                        <span className="lp-reel__beat-d">{b.d}</span>
+                      </span>
+                    </motion.li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* FINAL CTA — framed boarding gate */}
       <section className="lp-final">
