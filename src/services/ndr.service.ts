@@ -157,14 +157,13 @@ export class NDRService {
   }
 
   /**
-   * Policy Decision Layer (P4 & R6 Fix: Atomic claim to prevent double-sends on retried webhooks)
+   * Policy Decision Layer (P4, R3 & R6 Fix)
    */
-  private async decideAndAct(order: any, merchant: any): Promise<void> {
-    // R6 Fix: Atomic claim sentinel check
+  public async decideAndAct(order: any, merchant: any): Promise<void> {
     if (Order && typeof Order.findOneAndUpdate === 'function') {
       const claimed = await Order.findOneAndUpdate(
         { _id: order._id, 'ndr.decisionMode': { $exists: false } },
-        { $set: { 'ndr.decisionMode': 'deciding' } },
+        { $set: { 'ndr.decisionMode': 'deciding', 'ndr.decisionClaimedAt': new Date() } },
         { new: true }
       );
       if (!claimed && order.ndr?.decisionMode && order.ndr.decisionMode !== 'deciding') {
@@ -177,7 +176,6 @@ export class NDRService {
     const score = this.fakeRemarkScore(order);
     order.ndr.fakeRemarkScore = score;
 
-    // (1) Brand already handled it → don't double-message
     if (policy.engage.respectMerchantManualResolve && this.merchantAlreadyResolved(order)) {
       order.ndr.decisionMode = 'manual_skip';
       await order.save();
@@ -192,7 +190,6 @@ export class NDRService {
       return;
     }
 
-    // (2) Pilot control group → holdout natural outcome measurement (L-1)
     if ((policy.pilot?.holdoutRate ?? 0) > 0 && Math.random() < policy.pilot!.holdoutRate) {
       order.ndr.holdout = true;
       order.ndr.holdoutReason = 'pilot_control_group';
@@ -210,7 +207,6 @@ export class NDRService {
       return;
     }
 
-    // (3) OPTIONAL review policy (NOT a score gate)
     if (policy.reviewMode.enabled && this.shouldHoldForReview(order, policy)) {
       order.ndr.decisionMode = 'review';
       order.status = 'ndr_pending_review';
@@ -232,7 +228,6 @@ export class NDRService {
       return;
     }
 
-    // (4) DEFAULT: engage customer on EVERY failure — verification framing, no accusation
     order.ndr.decisionMode = 'engaged';
     order.status = 'ndr_rescue_sent';
     await order.save();
@@ -247,7 +242,6 @@ export class NDRService {
       fakeRemarkScore: score,
     });
 
-    // Schedule escalation reminders
     const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
     const eq = this.getEscalationQueue();
     for (let i = 0; i < chain.length; i++) {
@@ -319,9 +313,6 @@ export class NDRService {
     });
   }
 
-  /**
-   * Handle customer response button click
-   */
   public async handleCustomerResponse(phone: string, buttonPayload: string, resolvedOrder?: any): Promise<void> {
     logger.info('Handling customer response', { phone, buttonPayload });
 
@@ -473,27 +464,27 @@ export class NDRService {
   }
 
   public async handleCustomerTextResponse(phone: string, text: string, resolvedOrder?: any): Promise<void> {
-    const normalizedPhone = normalizeIndianPhone(phone);
-    
-    const order = resolvedOrder || await Order.findOne({
-      customerPhone: normalizedPhone,
-      status: 'ndr_rescue_sent',
-    }).sort({ updatedAt: -1 });
+    const { addressCorrectionService } = require('./address-correction.service');
+    const handled = await addressCorrectionService.handleTextAddressResponse(phone, text, resolvedOrder);
+    if (!handled) {
+      const normalizedPhone = normalizeIndianPhone(phone);
+      const order = resolvedOrder || await Order.findOne({
+        customerPhone: normalizedPhone,
+        status: 'ndr_rescue_sent',
+      }).sort({ updatedAt: -1 });
 
-    if (!order) {
-      logger.info('Received WhatsApp text message, but no order is waiting for address update', { phone, text });
-      return;
+      if (!order) return;
+
+      const merchant = await Merchant.findById(order.merchantId);
+      if (!merchant) return;
+
+      await whatsAppService.sendInteractiveButtons(
+        order.customerPhone,
+        COPY.addressConfirmed(),
+        [],
+        this.getWaConfig(merchant)
+      );
     }
-
-    const merchant = await Merchant.findById(order.merchantId);
-    if (!merchant) return;
-
-    await whatsAppService.sendInteractiveButtons(
-      order.customerPhone,
-      COPY.addressConfirmed(),
-      [],
-      this.getWaConfig(merchant)
-    );
   }
 
   public async escalate(orderId: string, level: number): Promise<void> {

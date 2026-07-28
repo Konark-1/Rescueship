@@ -5,6 +5,8 @@
  * Used by Order model, RescueLedger, and Analytics service.
  */
 
+import { logger } from '../utils/logger';
+
 export const ORDER_STATUS = {
   PENDING: 'pending',
   NEW: 'new',
@@ -23,9 +25,19 @@ export const ORDER_STATUS = {
 
 export type NaturalOutcome = 'delivered' | 'rto' | 'cancelled' | 'converted_prepaid' | null;
 
+const KNOWN_NON_TERMINAL = new Set([
+  'pending',
+  'new',
+  'shipped',
+  'ndr_rescue_sent',
+  'cod_conversion_sent',
+  'ndr_pending_review',
+  'ndr_detected',
+]);
+
 /**
  * Map ANY terminal/observed status to a ledger outcome (R2 fix).
- * Single source of truth — add new platform/courier statuses here.
+ * Emits a warning if an unknown status is encountered (R4 fix).
  */
 export function terminalOutcome(status: string): NaturalOutcome {
   switch (status) {
@@ -40,6 +52,9 @@ export function terminalOutcome(status: string): NaturalOutcome {
     case ORDER_STATUS.CANCELLED:
       return 'cancelled';
     default:
+      if (status && !KNOWN_NON_TERMINAL.has(status)) {
+        logger.warn('terminalOutcome: unrecognized status — add it to order-status.ts if terminal', { status });
+      }
       return null; // not yet terminal → reconcile later
   }
 }

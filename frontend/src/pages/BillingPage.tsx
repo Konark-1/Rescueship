@@ -1,428 +1,254 @@
-import { useState, useRef, useEffect } from 'react';
-import { CreditCard, Zap, Download, Check, Shield, Star, HelpCircle } from 'lucide-react';
-import { motion } from 'motion/react';
-import PricingComparisonModal from '../components/PricingComparisonModal';
-import api from '../services/api';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence, useInView } from 'motion/react';
+import { useAuth } from '../context/AuthContext';
+import { useMagnetic } from '../hooks/useMagnetic';
+import type { Tier, Cycle } from '../lib/billing';
+import { TIERS, CYCLES, priceFor, lossFor, recommendedTier, inr, billingApi, loadRazorpay } from '../lib/billing';
+import './billing.css';
 
 export default function BillingPage() {
-  const [billingCycle, setBillingCycle] = useState<'quarterly' | 'semi_annual' | 'annual'>('annual');
-  const [toast, setToast] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [billingData, setBillingData] = useState<any>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const { token, user } = useAuth();
+  const nav = useNavigate();
+  const mag = useMagnetic(0.22);
 
-  const fetchBillingStatus = async () => {
+  const [volume, setVolume] = useState<number>(() => {
+    const q = new URLSearchParams(location.search).get('v');
+    const stored = localStorage.getItem('rs_volume');
+    return Number(q || stored || 5000);
+  });
+  const [tier, setTier] = useState<Tier>(() => recommendedTier(volume));
+  const [cycle, setCycle] = useState<Cycle>('annual');
+  const [drawer, setDrawer] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [active, setActive] = useState<any>(null); // set after success / if already subscribed
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => { localStorage.setItem('rs_volume', String(volume)); setTier(recommendedTier(volume)); }, [volume]);
+  useEffect(() => { billingApi.status(token!).then((s) => { if (s.active) setActive(s); }).catch(() => {}); }, [token]);
+
+  const loss = useMemo(() => lossFor(volume), [volume]);
+  const price = useMemo(() => priceFor(tier, cycle), [tier, cycle]);
+  const cycleMeta = CYCLES.find((c) => c.key === cycle)!;
+  const tierMeta = TIERS.find((t) => t.key === tier)!;
+  // the argument, drawn as geometry: how thin the price slice is vs the loss
+  const pricePct = loss.loss > 0 ? Math.max(2, Math.min(100, (price.renewMonthly / loss.loss) * 100)) : 100;
+
+  const barRef = useRef<HTMLDivElement>(null);
+  const barIn = useInView(barRef, { once: true, margin: '-60px' });
+
+  const pay = async () => {
+    setPaying(true); setErr(null);
     try {
-      const res = await api.get('/api/billing/plan');
-      if (res.data) {
-        setBillingData(res.data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch billing plan status', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchBillingStatus();
-  }, []);
-
-  const currentPlan = billingData?.plan || 'starter';
-  const currentOrdersUsed = billingData?.currentMonthOrders ?? 1240;
-  const currentOrderLimit = billingData?.planOrderLimit ?? 2000;
-  const percentageUsed = Math.min(100, Math.round((currentOrdersUsed / currentOrderLimit) * 100));
-
-  const showToast = (message: string) => {
-    setToast(message);
-    setTimeout(() => setToast(null), 4000);
-  };
-
-  const handleDownload = (id: string) => {
-    showToast(`Downloading Invoice PDF for ${id}...`);
-  };
-
-  const loadRazorpayScript = (): Promise<boolean> => {
-    return new Promise((resolve) => {
-      if ((window as any).Razorpay) {
-        resolve(true);
-        return;
-      }
-      const script = document.createElement('script');
-      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.body.appendChild(script);
-    });
-  };
-
-  const handleSelectPlan = async (name: string) => {
-    const planKey = name.toLowerCase();
-
-    if (planKey === currentPlan) {
-      showToast(`You are currently on the ${name} Plan.`);
-      return;
-    }
-
-    if (name === 'Enterprise') {
-      window.location.href = 'mailto:support@rescueship.io?subject=RescueShip Enterprise Inquiry';
-      return;
-    }
-
-    try {
-      setLoading(true);
-      showToast(`Initiating ${name} subscription checkout...`);
-
-      const res = await api.post('/api/billing/create-subscription', {
-        plan: planKey,
-        cycle: billingCycle,
-      });
-
-      const { subscriptionId, keyId, amount, cycle } = res.data;
-
-      const scriptLoaded = await loadRazorpayScript();
-
-      if (!scriptLoaded || !(window as any).Razorpay) {
-        // Fallback simulation for local/offline environment without external CDN
-        showToast(`Processing subscription for ${name} Plan...`);
-        await api.post('/api/billing/confirm-subscription', {
-          plan: planKey,
-          cycle: billingCycle,
-          subscriptionId,
-        });
-        showToast(`🎉 Payment Successful! Upgraded to ${name} Plan.`);
-        await fetchBillingStatus();
-        setLoading(false);
-        return;
-      }
-
-      const options = {
-        key: keyId || 'rzp_test_dummykey',
-        amount: amount * 100, // Amount in paise
-        currency: 'INR',
+      const ok = await loadRazorpay();
+      if (!ok) throw new Error('Payment SDK failed to load. Check your connection.');
+      const order = await billingApi.checkout(token!, tier, cycle);
+      const rz = new (window as any).Razorpay({
+        key: order.keyId,
+        subscription_id: order.subscriptionId,     // recurring renewal
+        order_id: order.orderId,                   // upfront intro quarter
         name: 'RescueShip',
-        description: `Subscription: ${name} Plan (${cycle})`,
-        order_id: subscriptionId?.startsWith('order_') ? subscriptionId : undefined,
-        subscription_id: subscriptionId?.startsWith('sub_') ? subscriptionId : undefined,
-        handler: async function (response: any) {
+        description: `${tierMeta.name} · ${cycleMeta.label} · first quarter ${inr(price.introMonthly)}/mo`,
+        amount: order.amountInr, currency: order.currency || 'INR',
+        prefill: { email: user?.email, contact: (user as any)?.phone },
+        theme: { color: '#6366f1' },
+        handler: async (resp: any) => {
           try {
-            await api.post('/api/billing/confirm-subscription', {
-              plan: planKey,
-              cycle: billingCycle,
-              subscriptionId: response.razorpay_subscription_id || response.razorpay_order_id || subscriptionId,
-              paymentId: response.razorpay_payment_id,
-            });
-            showToast(`🎉 Payment Successful! Upgraded to ${name} Plan.`);
-            await fetchBillingStatus();
-          } catch (err) {
-            showToast(`🎉 Payment completed! Refreshing billing status...`);
-            await fetchBillingStatus();
-          }
+            const verified = await billingApi.verify(token!, { ...resp, tier, cycle });
+            setActive(verified); setDrawer(false);
+          } catch (e: any) { setErr(e.message); }
+          setPaying(false);
         },
-        prefill: {
-          name: 'Merchant',
-          email: 'merchant@rescueship.io',
-        },
-        theme: {
-          color: '#4F46E5',
-        },
-      };
-
-      const rzp = new (window as any).Razorpay(options);
-      rzp.on('payment.failed', function () {
-        showToast('Payment failed or cancelled. Please try again.');
+        modal: { ondismiss: () => setPaying(false) },
       });
-      rzp.open();
-    } catch (err: any) {
-      console.error('Subscription error', err);
-      showToast(err.response?.data?.error || 'Failed to initiate subscription checkout.');
-    } finally {
-      setLoading(false);
-    }
+      rz.open();
+    } catch (e: any) { setErr(e.message); setPaying(false); }
   };
 
-  const subscriptions = [
-    {
-      name: 'Starter',
-      price: billingCycle === 'quarterly' ? '₹1,599' : billingCycle === 'semi_annual' ? '₹1,359' : '₹1,119',
-      period: '/mo',
-      orderLimit: '2,000 orders/mo',
-      features: [
-        'Up to 2,000 orders/mo',
-        'Smart Address Correction (Text, Pin, Both)',
-        'Fake Remark Detection',
-        'Shiprocket & Delhivery Integrations',
-        'Email Support (24h SLA)',
-      ],
-      buttonText: currentPlan === 'starter' ? 'Current Plan' : 'Select Starter',
-      active: currentPlan === 'starter',
-      popular: false,
-    },
-    {
-      name: 'Growth',
-      price: billingCycle === 'quarterly' ? '₹3,999' : billingCycle === 'semi_annual' ? '₹3,399' : '₹2,799',
-      period: '/mo',
-      orderLimit: '10,000 orders/mo',
-      features: [
-        'Up to 10,000 orders/mo',
-        'Everything in Starter',
-        'UPI QR Payment Link Generation',
-        'Seller Payment WhatsApp Alerts',
-        'ClickPost Integration',
-        'Advanced Analytics & Charts',
-        'Priority Support (12h SLA)',
-      ],
-      buttonText: currentPlan === 'growth' ? 'Current Plan' : 'Upgrade Now',
-      active: currentPlan === 'growth',
-      popular: true,
-    },
-    {
-      name: 'Scale',
-      price: billingCycle === 'quarterly' ? '₹9,999' : billingCycle === 'semi_annual' ? '₹8,499' : '₹6,999',
-      period: '/mo',
-      orderLimit: '50,000 orders/mo',
-      features: [
-        'Up to 50,000 orders/mo',
-        'Everything in Growth',
-        'Custom Carrier Integration',
-        'CSV Data Exports',
-        'Priority Support (6h SLA)',
-        '99.5% Uptime SLA Guarantee',
-      ],
-      buttonText: currentPlan === 'scale' ? 'Current Plan' : 'Upgrade to Scale',
-      active: currentPlan === 'scale',
-      popular: false,
-    },
-    {
-      name: 'Enterprise',
-      price: 'Custom',
-      period: '',
-      orderLimit: 'Unlimited orders',
-      features: [
-        'Unlimited orders & volume',
-        'Everything in Scale',
-        'Dedicated Account Manager',
-        'Custom SLA & Escalation Flow',
-        'Whitelabel & Custom Workflows',
-      ],
-      buttonText: currentPlan === 'enterprise' ? 'Current Plan' : 'Contact Sales',
-      active: currentPlan === 'enterprise',
-      popular: false,
-    },
-  ];
-
-  const invoices = [
-    { id: 'INV-2026-001', date: 'Oct 1, 2026', amount: '₹1,599', status: 'Paid' },
-    { id: 'INV-2026-002', date: 'Sep 1, 2026', amount: '₹1,599', status: 'Paid' },
-    { id: 'INV-2026-003', date: 'Aug 1, 2026', amount: '₹1,599', status: 'Paid' },
-  ];
+  /* ── already active: the manifest collapses to a single receipt ── */
+  if (active) {
+    return (
+      <div className="bl">
+        <div className="bl-paper" aria-hidden="true" /><div className="bl-grain" aria-hidden="true" />
+        <Topbar onExit={() => nav('/dashboard')} />
+        <motion.div className="bl-receipt" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}>
+          <svg viewBox="0 0 24 24" className="bl-receipt__check"><path d="M5 13l4 4L19 7" /></svg>
+          <p className="bl-receipt__kicker">RescueShip is live</p>
+          <h1>{active.plan} <em>· active</em></h1>
+          <div className="bl-receipt__rows">
+            <Row k="Plan" v={`${active.plan} · up to ${Number(active.limit).toLocaleString('en-IN')} orders/mo`} />
+            <Row k="Billing" v={`${active.cycle} · ${inr(active.renewMonthly)}/mo`} />
+            <Row k="Next invoice" v={active.nextInvoice ? new Date(active.nextInvoice).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
+            <Row k="Activated" v={new Date(active.activatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />
+          </div>
+          <div className="bl-receipt__foot">
+            <button className="bl-link" onClick={() => nav('/dashboard')}>Open dashboard →</button>
+            <button className="bl-link bl-link--mute" onClick={() => nav('/settings')}>Manage billing</button>
+          </div>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
-    <div className="fade-in-up p-6 max-w-7xl mx-auto space-y-10">
-      {/* Toast Notification */}
-      {toast && (
-        <div className="fixed bottom-6 right-6 bg-indigo-600 text-white px-5 py-3 rounded-xl shadow-xl z-50 text-sm font-semibold flex items-center gap-2">
-          <span>{toast}</span>
-        </div>
-      )}
+    <div className="bl">
+      <div className="bl-paper" aria-hidden="true" /><div className="bl-grain" aria-hidden="true" /><div className="bl-col-sweep" aria-hidden="true" />
+      <Topbar onExit={() => nav('/onboarding')} />
 
-      {/* Header & Order Limit Usage */}
-      <div className="glass-card p-6 md:p-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20 z-0"></div>
-        <div className="relative z-10">
-          <h1 className="text-3xl font-bold text-white mb-2 font-display">Billing & Subscription</h1>
-          <p className="text-gray-400">Manage your subscription plan, order capacity, and billing history.</p>
-        </div>
+      <div className="bl-shell">
+        {/* ── LEFT: your position — the loss, and the price as a slice of it ── */}
+        <aside className="bl-position">
+          <p className="bl-kicker">Your position this month</p>
+          <div className="bl-vol">
+            <label>Monthly orders</label>
+            <input type="range" min={500} max={50000} step={500} value={volume} onChange={(e) => setVolume(+e.target.value)} />
+            <span className="bl-vol__n">{volume.toLocaleString('en-IN')}</span>
+          </div>
 
-        {/* Current Usage Bar */}
-        <div className="bg-gray-900/60 border border-gray-800 rounded-xl p-5 min-w-[320px] relative z-10">
-          <div className="flex justify-between text-sm font-medium mb-2">
-            <span className="text-gray-400">Monthly Order Capacity ({currentPlan.toUpperCase()})</span>
-            <span className="text-indigo-400 font-bold">
-              {currentOrdersUsed.toLocaleString()} / {currentOrderLimit.toLocaleString()}
-            </span>
+          <div className="bl-loss">
+            <span className="bl-loss__cur">₹</span>
+            <span className="bl-loss__n">{Math.round(loss.loss).toLocaleString('en-IN')}</span>
+            <span className="bl-loss__lbl">at risk · failed deliveries</span>
           </div>
-          <div className="w-full bg-gray-800 rounded-full h-3 mb-2 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${
-                percentageUsed > 80 ? 'bg-rose-500' : 'bg-indigo-500'
-              }`}
-              style={{ width: `${percentageUsed}%` }}
-            ></div>
+
+          {/* the proportional rule — the whole argument, as geometry */}
+          <div className="bl-rule" ref={barRef}>
+            <div className="bl-rule__track">
+              <motion.div className="bl-rule__loss" initial={{ width: 0 }} animate={barIn ? { width: '100%' } : {}} transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }} />
+              <motion.div className="bl-rule__price" initial={{ width: 0 }} animate={barIn ? { width: `${pricePct}%` } : { width: `${pricePct}%` }} key={`${tier}-${cycle}`} transition={{ type: 'spring', stiffness: 120, damping: 18 }} />
+            </div>
+            <div className="bl-rule__legend">
+              <span><i className="dot dot--loss" /> your monthly loss</span>
+              <span><i className="dot dot--price" /> {tierMeta.name} · {inr(price.renewMonthly)}/mo</span>
+            </div>
+            <LossTooltip />
           </div>
-          <div className="flex justify-between items-center text-xs text-gray-400 mt-2">
-            <span>{percentageUsed}% Used this cycle</span>
-            {percentageUsed >= 80 && (
-              <span className="text-rose-400 font-semibold flex items-center gap-1">
-                <Zap size={12} /> Near Limit
-              </span>
-            )}
+
+          <p className="bl-pace">
+            At this volume, RescueShip runs at roughly
+            <motion.span className="bl-pace__n" key={loss.rescuesPerWeek} initial={{ opacity: 0.3 }} animate={{ opacity: 1 }}>
+              {' '}{loss.rescuesPerWeek}{' '}
+            </motion.span>
+            rescues a week — your projected pace, not a promise.
+          </p>
+        </aside>
+
+        {/* ── RIGHT: the manifest of tiers (rows, not equal cards) ── */}
+        <main className="bl-manifest">
+          <header className="bl-manifest__head">
+            <h1>Pick the line<br /><em>you stop losing.</em></h1>
+            <CycleSwitch value={cycle} onChange={setCycle} />
+          </header>
+
+          <div className="bl-rows">
+            {TIERS.map((t, i) => {
+              const p = priceFor(t.key, cycle);
+              const chosen = t.key === tier;
+              const rec = t.key === recommendedTier(volume);
+              return (
+                <motion.button
+                  key={t.key}
+                  className={`bl-row ${chosen ? 'is-chosen' : ''} ${rec ? 'is-rec' : ''}`}
+                  onClick={() => setTier(t.key)}
+                  initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: '-40px' }}
+                  transition={{ duration: 0.5, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <span className="bl-row__rail" aria-hidden="true">{rec && <span className="bl-row__anchor">⚓</span>}</span>
+                  <span className="bl-row__main">
+                    <span className="bl-row__name">{t.name}{rec && <em className="bl-row__rec">recommended for you</em>}</span>
+                    <span className="bl-row__cap">up to {t.orders.toLocaleString('en-IN')} orders/mo · {t.blurb}</span>
+                  </span>
+                  <span className="bl-row__price">
+                    <span className="bl-row__intro">{inr(p.introMonthly)}<small>/mo</small></span>
+                    <span className="bl-row__renew">first quarter · then {inr(p.renewMonthly)}/mo {cycleMeta.tag && <b>{cycleMeta.tag}</b>}</span>
+                  </span>
+                  <span className="bl-row__pick" aria-hidden="true">
+                    {chosen ? <svg viewBox="0 0 24 24" className="bl-row__check"><path d="M5 13l4 4L19 7" /></svg> : <span className="bl-row__radio" />}
+                  </span>
+                </motion.button>
+              );
+            })}
           </div>
-        </div>
+
+          <p className="bl-manifest__note">
+            No per-rescue tax. No setup fee. Cancel before your renewal date and the next cycle isn't charged.
+            Enterprise volume or a custom SLA? <button className="bl-link" onClick={() => nav('/register')}>Talk to sales</button>
+          </p>
+
+          <div className="bl-manifest__cta">
+            <div className="bl-manifest__total">
+              <span>Due today <small>(first quarter, intro)</small></span>
+              <strong>{inr(price.introUpfront)}</strong>
+            </div>
+            <button className="bl-subscribe" ref={mag.ref as any} onMouseMove={mag.onMouseMove} onMouseLeave={mag.onMouseLeave} onClick={() => setDrawer(true)}>
+              Subscribe & go live <span className="bl-subscribe__arrow">→</span>
+            </button>
+          </div>
+          {err && <p className="bl-err">⚠ {err}</p>}
+        </main>
       </div>
 
-      {/* Subscription Plans Section */}
-      <div ref={containerRef} className="relative">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-          <div>
-            <h2 className="text-xl font-bold text-white flex items-center gap-2 font-display">
-              <Shield size={22} className="text-emerald-400" />
-              Select Your Plan
-            </h2>
-            <p className="text-sm text-gray-400">Scale your COD recovery & NDR management seamlessly.</p>
-          </div>
-
-          {/* Billing Cycle Toggle */}
-          <div className="flex items-center bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
-            <button
-              onClick={() => setBillingCycle('quarterly')}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
-                billingCycle === 'quarterly'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              Quarterly
-            </button>
-            <button
-              onClick={() => setBillingCycle('semi_annual')}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                billingCycle === 'semi_annual'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              Semi-Annual
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
-                15% OFF
-              </span>
-            </button>
-            <button
-              onClick={() => setBillingCycle('annual')}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-                billingCycle === 'annual'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-gray-400 hover:text-gray-200'
-              }`}
-            >
-              Annual
-              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded">
-                30% OFF
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Plan Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {subscriptions.map((plan, i) => (
-            <motion.div
-              key={i}
-              whileHover={{ y: -6 }}
-              className={`glass-card p-6 flex flex-col justify-between border relative overflow-hidden transition-all ${
-                plan.popular
-                  ? 'bg-gradient-to-b from-indigo-950/60 to-gray-900/90 border-indigo-500 shadow-xl shadow-indigo-950/40'
-                  : 'border-gray-800 hover:border-gray-700'
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute top-0 right-4 transform -translate-y-1/2 bg-gradient-to-r from-amber-400 to-orange-500 text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-md">
-                  <Star size={12} className="fill-white" /> Popular
-                </div>
-              )}
-
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">{plan.name}</h3>
-                <p className="text-xs text-indigo-400 font-semibold mb-4">{plan.orderLimit}</p>
-
-                <div className="mb-6 flex items-baseline gap-1">
-                  <span className="text-3xl font-extrabold text-white">{plan.price}</span>
-                  <span className="text-xs text-gray-400">{plan.period}</span>
-                </div>
-
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feat, idx) => (
-                    <li key={idx} className="flex items-start gap-2.5 text-xs text-gray-300">
-                      <Check size={16} className="text-emerald-400 shrink-0 mt-0.5" />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
-                </ul>
+      {/* ── checkout drawer ── */}
+      <AnimatePresence>
+        {drawer && (
+          <motion.div className="bl-drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => !paying && setDrawer(false)}>
+            <motion.aside className="bl-drawer" initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', stiffness: 220, damping: 26 }} onClick={(e) => e.stopPropagation()}>
+              <button className="bl-drawer__x" onClick={() => !paying && setDrawer(false)} aria-label="Close">✕</button>
+              <p className="bl-kicker">Checkout</p>
+              <h2>{tierMeta.name} · {cycleMeta.label}</h2>
+              <div className="bl-drawer__ledger">
+                <Row k={`${tierMeta.name} · first quarter`} v={`${inr(price.introMonthly)}/mo × 3`} />
+                <Row k="Intro offer" v={`−40% · first quarter only`} accent />
+                <div className="bl-drawer__due"><span>Due today</span><strong>{inr(price.introUpfront)}</strong></div>
+                <Row k="Then, from your renewal date" v={`${inr(price.renewMonthly)}/mo · ${cycleMeta.label} ${cycleMeta.tag}`} mute />
               </div>
-
-              <button
-                disabled={loading || plan.active}
-                onClick={() => handleSelectPlan(plan.name)}
-                className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all ${
-                  plan.active
-                    ? 'bg-gray-800 text-gray-400 cursor-default border border-gray-700'
-                    : plan.popular
-                    ? 'bg-indigo-600 text-white hover:bg-indigo-500 shadow-lg shadow-indigo-600/30'
-                    : 'bg-gray-800 text-white hover:bg-gray-700'
-                }`}
-              >
-                {loading ? 'Processing...' : plan.buttonText}
+              <p className="bl-drawer__fine">
+                You're charged the intro quarter now via Razorpay. The recurring {cycleMeta.label.toLowerCase()} subscription at {inr(price.renewMonthly)}/mo begins on your renewal date. Secured by Razorpay · encrypted at rest.
+              </p>
+              <button className="bl-subscribe bl-subscribe--full" disabled={paying} onClick={pay} ref={mag.ref as any} onMouseMove={mag.onMouseMove} onMouseLeave={mag.onMouseLeave}>
+                {paying ? 'Opening secure checkout…' : <>Pay {inr(price.introUpfront)} & activate <span className="bl-subscribe__arrow">→</span></>}
               </button>
-            </motion.div>
-          ))}
-        </div>
+              {err && <p className="bl-err">⚠ {err}</p>}
+            </motion.aside>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
-        {/* Feature Comparison Link */}
-        <div className="mt-8 text-center">
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-950/40 border border-indigo-800/50 px-5 py-2.5 rounded-xl"
-          >
-            <HelpCircle size={18} />
-            Compare All Features in Detail →
-          </button>
-        </div>
-      </div>
-
-      {/* Invoice History Table */}
-      <div className="glass-card overflow-hidden">
-        <div className="p-6 border-b border-gray-800 flex justify-between items-center bg-gray-900/40">
-          <h2 className="text-lg font-bold text-white font-display">Invoice History</h2>
-          <CreditCard className="w-5 h-5 text-gray-400" />
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-gray-300">
-            <thead className="bg-gray-900/60 border-b border-gray-800 text-gray-400 uppercase text-xs font-semibold">
-              <tr>
-                <th className="px-6 py-4">Invoice ID</th>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Receipt</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800/40">
-              {invoices.map((inv, i) => (
-                <tr key={i} className="hover:bg-gray-800/20 transition-colors">
-                  <td className="px-6 py-4 font-medium text-white">{inv.id}</td>
-                  <td className="px-6 py-4">{inv.date}</td>
-                  <td className="px-6 py-4 font-medium">{inv.amount}</td>
-                  <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      {inv.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => handleDownload(inv.id)}
-                      className="text-indigo-400 hover:text-indigo-300 inline-flex items-center gap-1 font-medium text-xs transition-colors p-2 hover:bg-gray-800 rounded-lg"
-                    >
-                      <Download className="w-4 h-4" /> PDF
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Comparison Modal */}
-      <PricingComparisonModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+/* ── small pieces ── */
+function Topbar({ onExit }: { onExit: () => void }) {
+  return (
+    <header className="bl-top">
+      <a href="/" className="bl-brand"><span>⚓</span> RescueShip</a>
+      <span className="bl-top__crumb">Onboarding <i>/</i> <strong>Billing</strong></span>
+      <button className="bl-top__exit" onClick={onExit}>← back</button>
+    </header>
+  );
+}
+function Row({ k, v, accent, mute }: { k: string; v: string; accent?: boolean; mute?: boolean }) {
+  return <div className={`bl-ledger-row ${accent ? 'accent' : ''} ${mute ? 'mute' : ''}`}><span>{k}</span><span>{v}</span></div>;
+}
+function CycleSwitch({ value, onChange }: { value: Cycle; onChange: (c: Cycle) => void }) {
+  const idx = CYCLES.findIndex((c) => c.key === value);
+  return (
+    <div className="bl-cycle" role="tablist">
+      <motion.span className="bl-cycle__knob" layout transition={{ type: 'spring', stiffness: 380, damping: 30 }} style={{ left: `calc(${idx} * (100% / 3))`, width: `calc(100% / 3)` }} />
+      {CYCLES.map((c) => (
+        <button key={c.key} className={value === c.key ? 'on' : ''} onClick={() => onChange(c.key)}>
+          {c.label}{c.tag && <em>{c.tag}</em>}
+        </button>
+      ))}
+    </div>
+  );
+}
+function LossTooltip() {
+  const parts = [ ['Ad spend to acquire the customer', 230], ['Forward shipping', 80], ['Reverse shipping (RTO)', 80], ['Repackaging + QC', 40] ] as const;
+  return (
+    <div className="bl-tip" role="note">
+      <span className="bl-tip__h">Where each lost order goes</span>
+      {parts.map(([l, a]) => <span key={l} className="bl-tip__r"><i>{l}</i><b>₹{a}</b></span>)}
     </div>
   );
 }

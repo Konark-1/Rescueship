@@ -157,4 +157,24 @@ router.post('/confirm-subscription', authenticateToken, async (req: Authenticate
   }
 });
 
+import { subscriptionService } from '../services/subscription.service';
+
+// POST /api/billing/checkout  { tier, cycle } → { orderId, subscriptionId, amountInr, currency, keyId }
+router.post('/checkout', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await subscriptionService.createCheckout(req.merchant!.merchantId, req.body.tier, req.body.cycle)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+// POST /api/billing/checkout/verify  { razorpay_* , tier, cycle } → active status
+router.post('/checkout/verify', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await subscriptionService.verifyAndProvision(req.merchant!.merchantId, req.body)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+// GET /api/billing/status → { active, plan, cycle, limit, renewMonthly, activatedAt, nextInvoice }
+router.get('/status', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await subscriptionService.status(req.merchant!.merchantId)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
 export default router;

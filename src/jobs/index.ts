@@ -19,19 +19,27 @@ const monthlyResetWorker = setupMonthlyResetWorker();
 const reconciliationWorker = setupReconciliationWorker();
 
 /**
- * Start all BullMQ workers.
+ * Start all BullMQ workers safely without re-running active workers.
  * Called during Express app bootstrap.
  */
 export function startAllWorkers(): void {
   logger.info('🚀  Starting all BullMQ workers…');
   
-  codConversionWorker.run();
-  ndrRescueWorker.run();
-  whatsappSendWorker.run();
-  escalationWorker.run();
-  deadLetterWorker.run();
-  monthlyResetWorker.run();
-  reconciliationWorker.run();
+  const workers = [
+    codConversionWorker,
+    ndrRescueWorker,
+    whatsappSendWorker,
+    escalationWorker,
+    deadLetterWorker,
+    monthlyResetWorker,
+    reconciliationWorker,
+  ];
+
+  for (const worker of workers) {
+    if (!worker.isRunning()) {
+      worker.run();
+    }
+  }
 
   scheduleMonthlyReset().catch((err) => {
     logger.error('Failed to schedule monthly reset cron job', { error: err.message });

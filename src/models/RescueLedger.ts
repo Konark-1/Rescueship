@@ -71,7 +71,7 @@ schema.statics.reconcileOutcomes = async function (merchantId?: string) {
   return rows.length;
 };
 
-/** Causal lift by segment: RTO_rate(holdout) − RTO_rate(engaged). Defensible attribution. */
+/** Causal lift by segment: RTO_rate(holdout) − RTO_rate(engaged). Minimum n confidence gate included (R6 fix). */
 schema.statics.liftReport = async function (merchantId: string, pilotId?: string) {
   const match: any = { merchantId: new Types.ObjectId(merchantId), naturalOutcome: { $ne: null } };
   if (pilotId) match.pilotId = pilotId;
@@ -82,10 +82,14 @@ schema.statics.liftReport = async function (merchantId: string, pilotId?: string
   const by = (m: string) => rows.find((r: any) => r._id.mode === m) || { n: 0, rto: 0 };
   const eng = by('engaged'), hol = by('holdout');
   const rtoRate = (g: any) => (g.n ? g.rto / g.n : 0);
+  const MIN_N = 30;
+
   return {
     engaged: { n: eng.n, rtoRate: +rtoRate(eng).toFixed(3) },
     holdout: { n: hol.n, rtoRate: +rtoRate(hol).toFixed(3) },
     lift: +(rtoRate(hol) - rtoRate(eng)).toFixed(3),
+    confident: eng.n >= MIN_N && hol.n >= MIN_N,
+    minN: MIN_N,
   };
 };
 

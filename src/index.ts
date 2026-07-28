@@ -87,11 +87,13 @@ app.use('/webhooks/custom', webhookLimiter, customRouter);
 
 import exportRouter from './api/export.api';
 import realtimeRouter from './api/realtime.api';
+import connectRouter from './api/connect.api';
 import { realtimeService } from './services/realtime.service';
 import { standardMerchantLimiter, exportMerchantLimiter } from './middleware/merchant-rate-limiter';
 
 // Mount API Routes (apply apiLimiter & per-merchant limiter)
 app.use('/api/auth', apiLimiter, authRouter);
+app.use('/api/connect', apiLimiter, connectRouter);
 app.use('/api/orders', apiLimiter, standardMerchantLimiter, ordersRouter);
 app.use('/api/analytics', apiLimiter, standardMerchantLimiter, analyticsRouter);
 app.use('/api/settings', apiLimiter, standardMerchantLimiter, settingsRouter);

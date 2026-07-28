@@ -1,6 +1,8 @@
 import { Queue, Worker } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { RescueLedger } from '../models/RescueLedger';
+import { Order, Merchant } from '../models';
+import { ndrService } from '../services/ndr.service';
 import { logger } from '../utils/logger';
 
 export const reconciliationQueue = new Queue('reconciliation', {
@@ -18,6 +20,25 @@ export function setupReconciliationWorker(): Worker {
       logger.info('Running daily outcome reconciliation job...');
       const count = await RescueLedger.reconcileOutcomes();
       logger.info('Daily outcome reconciliation completed', { reconciledCount: count });
+
+      // R3 Fix: Sweep stuck claims older than 5 minutes and re-decide them
+      try {
+        const stuck = await Order.find({
+          'ndr.decisionMode': 'deciding' as any,
+          'ndr.decisionClaimedAt': { $lt: new Date(Date.now() - 5 * 60 * 1000) } as any,
+        }).limit(500);
+
+        for (const o of stuck) {
+          logger.warn('Recovering stuck decision claim', { orderId: o._id });
+          await Order.updateOne({ _id: o._id }, { $unset: { 'ndr.decisionMode': 1, 'ndr.decisionClaimedAt': 1 } });
+          const merchant = await Merchant.findById(o.merchantId);
+          if (merchant) {
+            await ndrService.decideAndAct(o, merchant);
+          }
+        }
+      } catch (err: any) {
+        logger.error('Error sweeping stuck decision claims', { error: err.message });
+      }
     },
     { connection: redisConnection as any, autorun: false }
   );

@@ -78,6 +78,8 @@ export class WhatsAppService {
     components: any[],
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
+    const map = (merchantConfig as any)?.templateMap || {};
+    const registeredName = map[templateName] || templateName;
     const phoneNumberId = merchantConfig?.phoneNumberId || this.defaultPhoneNumberId;
     const accessToken = merchantConfig?.accessToken || this.defaultAccessToken;
     const version = this.defaultApiVersion;
@@ -89,7 +91,7 @@ export class WhatsAppService {
       to,
       type: 'template',
       template: {
-        name: templateName,
+        name: registeredName,
         language: {
           code: language,
         },

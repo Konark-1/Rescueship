@@ -58,7 +58,24 @@ export interface IMerchant extends Document {
     totalRescues: number;
     totalConversions: number;
     estimatedMetaSpendMonth?: number;
+    pendingTier?: string;
+    pendingCycle?: string;
+    introOrderId?: string;
+    razorpaySubscriptionId?: string;
+    renewMonthly?: number;
+    activatedAt?: Date;
+    nextInvoiceDate?: Date;
   };
+  connections?: {
+    shopify?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; shopDomain?: string; lastError?: string };
+    whatsapp?: { status: 'disconnected' | 'connecting' | 'connected' | 'templates_pending' | 'templates_rejected' | 'error'; connectedAt?: Date; lastError?: string };
+    carrier?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; provider?: string; lastError?: string };
+    payment?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; gateway?: string; lastError?: string };
+  };
+  shopify?: { shopDomain?: string; accessToken?: string; scope?: string; webhooksRegistered?: boolean };
+  ownerPhone?: string;
+  storeName?: string;
+  onboarding?: { completedAt?: Date; currentStep?: string; testRescueSentAt?: Date };
   rescuePolicy?: any;
   tokenVersion?: number;
   comparePassword(candidate: string): Promise<boolean>;
@@ -135,6 +152,13 @@ const MerchantSchema = new Schema<IMerchant>(
         totalRescues: { type: Number, default: 0 },
         totalConversions: { type: Number, default: 0 },
         estimatedMetaSpendMonth: { type: Number, default: 0 },
+        pendingTier: String,
+        pendingCycle: String,
+        introOrderId: String,
+        razorpaySubscriptionId: String,
+        renewMonthly: Number,
+        activatedAt: Date,
+        nextInvoiceDate: Date,
       },
       default: () => ({
         plan: 'free_trial',
@@ -148,6 +172,16 @@ const MerchantSchema = new Schema<IMerchant>(
         estimatedMetaSpendMonth: 0,
       }),
     },
+    connections: {
+      shopify:  { status: { type: String, enum: ['disconnected','connecting','connected','error'], default: 'disconnected' }, connectedAt: Date, shopDomain: String, lastError: String },
+      whatsapp: { status: { type: String, enum: ['disconnected','connecting','connected','templates_pending','templates_rejected','error'], default: 'disconnected' }, connectedAt: Date, lastError: String },
+      carrier:  { status: { type: String, enum: ['disconnected','connecting','connected','error'], default: 'disconnected' }, connectedAt: Date, provider: String, lastError: String },
+      payment:  { status: { type: String, enum: ['disconnected','connecting','connected','error'], default: 'disconnected' }, connectedAt: Date, gateway: String, lastError: String },
+    },
+    shopify: { shopDomain: String, accessToken: String, scope: String, webhooksRegistered: Boolean },
+    ownerPhone: String,
+    storeName: String,
+    onboarding: { completedAt: Date, currentStep: String, testRescueSentAt: Date },
   },
   {
     timestamps: true,

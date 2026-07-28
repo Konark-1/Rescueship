@@ -2,6 +2,7 @@ import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { Merchant } from '../models';
 import { encryptionService } from '../services/encryption.service';
+import { validatePolicy } from '../config/rescue-policy';
 import { logger } from '../utils/logger';
 import axios from 'axios';
 import { config } from '../config/env';
@@ -67,6 +68,15 @@ router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     if (!merchant) {
       res.status(404).json({ error: 'Merchant not found' });
       return;
+    }
+
+    if (updates.rescuePolicy) {
+      const errs = validatePolicy(updates.rescuePolicy);
+      if (errs.length > 0) {
+        res.status(400).json({ error: 'Invalid rescue policy', details: errs });
+        return;
+      }
+      merchant.rescuePolicy = updates.rescuePolicy;
     }
 
     if (updates.platform) {

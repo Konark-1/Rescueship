@@ -33,6 +33,14 @@ const OPTIONAL_VARS: EnvRequirement[] = [
   { key: 'SMTP_PORT', required: false, description: 'Email SMTP port' },
   { key: 'SMTP_USER', required: false, description: 'Email SMTP user' },
   { key: 'SMTP_PASS', required: false, description: 'Email SMTP password' },
+  { key: 'META_APP_ID', required: false, description: 'Meta app id (Embedded Signup)' },
+  { key: 'META_APP_SECRET', required: false, description: 'Meta app secret' },
+  { key: 'META_CONFIG_ID', required: false, description: 'Meta Embedded Signup config_id' },
+  { key: 'META_REDIRECT_URI', required: false, description: 'Must equal the page that loads the FB SDK (e.g. FRONTEND_URL/onboarding)' },
+  { key: 'SHOPIFY_API_KEY', required: false, description: 'Shopify app API key' },
+  { key: 'SHOPIFY_API_SECRET', required: false, description: 'Shopify app secret' },
+  { key: 'SHOPIFY_SCOPES', required: false, description: 'OAuth scopes (default read/write orders+fulfillments)' },
+  { key: 'API_PUBLIC_URL', required: false, description: 'Public backend URL Shopify/Meta callbacks hit (e.g. https://api.rescueship.io)' },
 ];
 
 export function validateEnvironment(): void {

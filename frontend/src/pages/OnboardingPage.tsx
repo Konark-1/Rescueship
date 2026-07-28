@@ -1,638 +1,232 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
-import api from '../services/api';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../context/AuthContext';
+import { connectApi } from '../lib/connect';
 import './onboarding.css';
 
-interface SettingsData {
-  platform: string;
-  platformConfig: {
-    shopifyDomain?: string;
-    shopifyAccessToken?: string;
-    woocommerceUrl?: string;
-    woocommerceKey?: string;
-    woocommerceSecret?: string;
-    customApiSecret?: string;
-    customWebhookUrl?: string;
-  };
-  carrierConfig: {
-    provider?: string;
-    apiToken?: string;
-  };
-  whatsappConfig: {
-    phoneNumberId?: string;
-    businessAccountId?: string;
-    accessToken?: string;
-  };
-  paymentConfig: {
-    gateway?: string;
-    keyId?: string;
-    keySecret?: string;
-  };
-  generalSettings?: string;
-}
+type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
+const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
+  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify or WooCommerce — read-only order access.' },
+  { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your own Business number. Customers message the brand, not us.' },
+  { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — your existing API key.' },
+  { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — for COD → prepaid links.' },
+];
 
-const OnboardingPage: React.FC = () => {
-  const [step, setStep] = useState(() => {
-    const saved = localStorage.getItem('onboardingStep');
-    return saved ? parseInt(saved, 10) : 1;
-  });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { user, token, login } = useAuth();
-  const navigate = useNavigate();
+declare global { interface Window { FB: any; fbAsyncInit?: () => void; } }
+const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '';
 
-  const [testingConnection, setTestingConnection] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<Record<number, 'success' | 'error' | null>>({});
-  const [showParticles, setShowParticles] = useState(false);
+export default function OnboardingPage() {
+  const { token } = useAuth();
+  const nav = useNavigate();
+  const [params] = useSearchParams();
+  const [state, setState] = useState<any>(null);
+  const [active, setActive] = useState<Key>('shopify');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [log, setLog] = useState<string[]>([]);
+  const [err, setErr] = useState<string | null>(null);
+  const pollRef = useRef<any>(null);
 
-  const [formData, setFormData] = useState<SettingsData>(() => {
-    const saved = localStorage.getItem('onboardingData');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        console.error('Failed to parse saved onboarding data');
-      }
-    }
-    return {
-      platform: 'shopify',
-      platformConfig: {},
-      carrierConfig: { provider: 'shiprocket' },
-      whatsappConfig: {},
-      paymentConfig: { gateway: 'cashfree' },
-    };
-  });
+  const push = (line: string) => setLog((l) => [...l.slice(-5), line]);
+  const refresh = async () => { const s = await connectApi.state(token!); setState(s); return s; };
 
+  useEffect(() => { refresh(); return () => clearInterval(pollRef.current); }, [token]);
+  useEffect(() => { if (params.get('connected') === 'shopify') { push('✓ store connected · webhooks registered'); refresh(); } if (params.get('error')) setErr('Store connection was cancelled or failed.'); }, [params]);
+
+  // poll template approval while pending
   useEffect(() => {
-    localStorage.setItem('onboardingStep', step.toString());
-  }, [step]);
-
-  useEffect(() => {
-    localStorage.setItem('onboardingData', JSON.stringify(formData));
-  }, [formData]);
-
-  const totalSteps = 6;
-  const progressPercentage = ((step - 1) / (totalSteps - 1)) * 100;
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (name.includes('.')) {
-      const [parent, child] = name.split('.');
-      setFormData((prev: any) => ({
-        ...prev,
-        [parent]: {
-          ...prev[parent],
-          [child]: value
-        }
-      }));
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+    if (state?.connections?.whatsapp?.status === 'templates_pending') {
+      push('› templates submitted · awaiting Meta approval');
+      pollRef.current = setInterval(async () => { const s = await connectApi.whatsappTemplates(token!); if (s.status === 'connected') { push('✓ all templates approved'); clearInterval(pollRef.current); refresh(); } else if (s.status === 'templates_rejected') { push('⚠ a template was rejected — see reasons below'); clearInterval(pollRef.current); refresh(); } }, 4000);
     }
+  }, [state?.connections?.whatsapp?.status]);
+
+  const done = (k: Key) => state?.connections?.[k]?.status === 'connected';
+  const statusOf = (k: Key) => state?.connections?.[k]?.status || 'disconnected';
+  const currentIndex = STATIONS.findIndex((s) => s.key === active);
+  const allGreen = !!state?.ready;
+
+  // ── actions ──
+  const connectShopify = async (shop: string) => {
+    setBusy('shopify'); setErr(null); push(`› building install link for ${shop}…`);
+    try { const { url } = await connectApi.shopifyUrl(token!, shop); push('› redirecting to Shopify…'); window.location.href = url; }
+    catch (e: any) { setErr(e.message); setBusy(null); }
   };
-
-  const setPlatform = (platform: string) => {
-    setFormData(prev => ({ ...prev, platform }));
-  };
-
-  const setCarrier = (provider: string) => {
-    setFormData(prev => ({
-      ...prev,
-      carrierConfig: { ...prev.carrierConfig, provider }
-    }));
-  };
-
-  const setPaymentGateway = (gateway: string) => {
-    setFormData(prev => ({
-      ...prev,
-      paymentConfig: { ...prev.paymentConfig, gateway }
-    }));
-  };
-
-  const handleTestConnection = async (currentStep: number) => {
-    setTestingConnection(true);
-    setError('');
-    // Simulate API Validation call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setTestingConnection(false);
-    
-    // Check basic validation before showing success
-    if (!validateStep(currentStep)) {
-      setConnectionStatus(prev => ({ ...prev, [currentStep]: 'error' }));
-      return;
-    }
-    
-    setConnectionStatus(prev => ({ ...prev, [currentStep]: 'success' }));
-  };
-
-  const validateStep = (currentStep: number, skip: boolean = false) => {
-    if (skip) return true;
-    if (currentStep === 2) {
-      if (formData.platform === 'shopify') {
-        const domain = formData.platformConfig?.shopifyDomain;
-        const token = formData.platformConfig?.shopifyAccessToken;
-        if (!domain || !domain.includes('myshopify.com')) {
-          setError('Please enter a valid Shopify domain (e.g., your-store.myshopify.com)');
-          return false;
-        }
-        if (!token || token.length < 5) {
-          setError('Please enter a valid Shopify Access Token');
-          return false;
-        }
-      } else if (formData.platform === 'woocommerce') {
-        const url = formData.platformConfig?.woocommerceUrl;
-        const key = formData.platformConfig?.woocommerceKey;
-        const secret = formData.platformConfig?.woocommerceSecret;
-        if (!url || !url.startsWith('http')) {
-          setError('Please enter a valid WooCommerce Store URL (must start with http:// or https://)');
-          return false;
-        }
-        if (!key || !secret) {
-          setError('Please enter both Consumer Key and Consumer Secret');
-          return false;
-        }
-      }
-    } else if (currentStep === 3) {
-      const provider = formData.carrierConfig?.provider;
-      if (!provider || provider.trim().length === 0) {
-        setError('Please select a shipping carrier');
-        return false;
-      }
-    } else if (currentStep === 4) {
-      const phoneId = formData.whatsappConfig?.phoneNumberId;
-      const accountId = formData.whatsappConfig?.businessAccountId;
-      const token = formData.whatsappConfig?.accessToken;
-      if (!phoneId || !/^\d{14,16}$/.test(phoneId)) {
-        setError('Invalid Phone Number ID. It must be exactly 14-16 digits.');
-        return false;
-      }
-      if (!accountId || !/^\d{14,16}$/.test(accountId)) {
-        setError('Invalid Business Account ID. It must be exactly 14-16 digits.');
-        return false;
-      }
-      if (!token || !token.startsWith('EAAG')) {
-        setError('Please enter a valid Access Token (must start with EAAG...)');
-        return false;
-      }
-    } else if (currentStep === 5) {
-      const keyId = formData.paymentConfig?.keyId;
-      const keySecret = formData.paymentConfig?.keySecret;
-      if (!keyId || !keySecret) {
-        setError('Please enter both Payment Key ID and Key Secret');
-        return false;
-      }
-    }
-    return true;
-  };
-
-  const handleNext = (skip: boolean = false) => {
-    setError('');
-    if (!validateStep(step, skip)) {
-      return;
-    }
-    if (step < totalSteps) setStep(step + 1);
-  };
-
-  const handlePrev = () => {
-    if (step > 1) setStep(step - 1);
-  };
-
-  const handleFinish = async () => {
-    setShowParticles(true);
-    await new Promise(resolve => setTimeout(resolve, 800));
-
-    setLoading(true);
-    setError('');
+  const loadFbSdk = () => new Promise<void>((res) => {
+    if (window.FB) return res();
+    window.fbAsyncInit = () => res();
+    const id = 'facebook-jssdk'; if (document.getElementById(id)) return;
+    const s = document.createElement('script'); s.id = id; s.src = 'https://connect.facebook.net/en_US/sdk.js'; s.async = true; s.defer = true; document.body.appendChild(s);
+  });
+  const connectWhatsApp = async () => {
+    setBusy('whatsapp'); setErr(null); push('› opening Meta Embedded Signup…');
     try {
-      await api.put('/api/settings', { ...formData, onboardingStatus: 'completed' });
-      if (user && token) {
-        login(token, { ...user, onboardingStatus: 'completed' });
-      }
-      localStorage.removeItem('onboardingStep');
-      localStorage.removeItem('onboardingData');
-      navigate('/dashboard');
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || 'Failed to save settings');
-      } else {
-        setError('An unexpected error occurred');
-      }
-      setShowParticles(false);
-    } finally {
-      setLoading(false);
-    }
+      await loadFbSdk();
+      window.FB.init({ appId: import.meta.env.VITE_META_APP_ID, version: 'v22.0' });
+      window.FB.login((resp: any) => {
+        const code = resp?.authResponse?.code || resp?.code;
+        if (!code) { setErr('Signup was cancelled.'); setBusy(null); return; }
+        push('› exchanging signup code for a permanent token…');
+        connectApi.whatsappSignup(token!, code, resp?.authResponse?.business_id).then(() => { push('✓ WhatsApp connected · submitting templates'); refresh(); setBusy(null); }).catch((e: any) => { setErr(e.message); setBusy(null); });
+      }, { config_id: META_CONFIG_ID, response_type: 'code', override_default_response_type: true });
+    } catch (e: any) { setErr(e.message); setBusy(null); }
   };
-
-  const renderStepContent = () => {
-    const stepContentMap: Record<number, React.ReactNode> = {
-      1: (
-        <div key="step1">
-          <h3>RescueShip: Choose Platform</h3>
-          <p style={{ color: '#cbd5e1', marginBottom: '24px' }}>Select your primary e-commerce platform for enterprise logistics setup.</p>
-          <div className="card-grid">
-            <div 
-              className={`selection-card ${formData.platform === 'shopify' ? 'active' : ''}`}
-              onClick={() => setPlatform('shopify')}
-            >
-              <div className="card-icon">🛍️</div>
-              <div className="card-label">Shopify</div>
-            </div>
-            <div 
-              className={`selection-card ${formData.platform === 'woocommerce' ? 'active' : ''}`}
-              onClick={() => setPlatform('woocommerce')}
-            >
-              <div className="card-icon">🛒</div>
-              <div className="card-label">WooCommerce</div>
-            </div>
-            <div 
-              className={`selection-card ${formData.platform === 'magento' ? 'active' : ''}`}
-              onClick={() => setPlatform('magento')}
-            >
-              <div className="card-icon">Ⓜ️</div>
-              <div className="card-label">Magento</div>
-            </div>
-            <div 
-              className={`selection-card ${formData.platform === 'custom' ? 'active' : ''}`}
-              onClick={() => setPlatform('custom')}
-            >
-              <div className="card-icon">⚙️</div>
-              <div className="card-label">Custom API</div>
-            </div>
-          </div>
-        </div>
-      ),
-      2: (
-        <div key="step2">
-          <h3>RescueShip: Configure API Keys</h3>
-          {formData.platform === 'shopify' && (
-            <>
-              <div className="info-box">
-                <h4>💡 How to get Shopify API Keys</h4>
-                <ul>
-                  <li>Go to your Shopify Admin &gt; <strong>Settings</strong> &gt; <strong>Apps and sales channels</strong></li>
-                  <li>Click <strong>Develop apps</strong> and create a new app for RescueShip</li>
-                  <li>Configure <strong>Admin API integration</strong> with Order (Read/Write) scopes</li>
-                  <li>Install the app and copy the <strong>Admin API access token</strong></li>
-                </ul>
-              </div>
-              <div className="form-group">
-                <label>Shopify Domain</label>
-                <input
-                  type="text"
-                  name="platformConfig.shopifyDomain"
-                  value={formData.platformConfig?.shopifyDomain || ''}
-                  onChange={handleChange}
-                  placeholder="your-store.myshopify.com"
-                />
-              </div>
-              <div className="form-group">
-                <label>Shopify Access Token</label>
-                <input
-                  type="password"
-                  name="platformConfig.shopifyAccessToken"
-                  value={formData.platformConfig?.shopifyAccessToken || ''}
-                  onChange={handleChange}
-                  placeholder="shpat_..."
-                />
-              </div>
-            </>
-          )}
-          {formData.platform === 'woocommerce' && (
-            <>
-              <div className="info-box">
-                <h4>💡 How to get WooCommerce API Keys</h4>
-                <ul>
-                  <li>Go to your WordPress Admin &gt; <strong>WooCommerce</strong> &gt; <strong>Settings</strong></li>
-                  <li>Click the <strong>Advanced</strong> tab, then <strong>REST API</strong></li>
-                  <li>Click <strong>Add Key</strong>, and ensure Permissions are set to <strong>Read/Write</strong> for RescueShip</li>
-                  <li>Generate the key and copy the Consumer Key and Secret</li>
-                </ul>
-              </div>
-              <div className="form-group">
-                <label>WooCommerce Store URL</label>
-                <input
-                  type="text"
-                  name="platformConfig.woocommerceUrl"
-                  value={formData.platformConfig?.woocommerceUrl || ''}
-                  onChange={handleChange}
-                  placeholder="https://your-store.com"
-                />
-              </div>
-              <div className="form-group">
-                <label>Consumer Key</label>
-                <input
-                  type="text"
-                  name="platformConfig.woocommerceKey"
-                  value={formData.platformConfig?.woocommerceKey || ''}
-                  onChange={handleChange}
-                  placeholder="ck_..."
-                />
-              </div>
-              <div className="form-group">
-                <label>Consumer Secret</label>
-                <input
-                  type="password"
-                  name="platformConfig.woocommerceSecret"
-                  value={formData.platformConfig?.woocommerceSecret || ''}
-                  onChange={handleChange}
-                  placeholder="cs_..."
-                />
-              </div>
-            </>
-          )}
-          {(formData.platform === 'magento' || formData.platform === 'custom') && (
-            <p style={{ color: '#cbd5e1' }}>For custom setups or Magento, use the API token generated in your RescueShip Dashboard after onboarding.</p>
-          )}
-          <div className="test-connection-wrapper">
-            <button type="button" className="btn-test" onClick={() => handleTestConnection(2)} disabled={testingConnection}>
-              {testingConnection ? 'Testing...' : 'Test Connection'}
-            </button>
-            {connectionStatus[2] === 'success' && <div className="connection-status status-success">✓ Connection Successful</div>}
-            {connectionStatus[2] === 'error' && <div className="connection-status status-error">✗ Connection Failed</div>}
-          </div>
-        </div>
-      ),
-      3: (
-        <div key="step3">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ marginBottom: 0 }}>RescueShip: Carrier Configuration</h3>
-            <button type="button" className="btn-skip" onClick={() => handleNext(true)}>Skip for now</button>
-          </div>
-          <div className="info-box">
-            <h4>💡 How to get your Carrier API Token for Enterprise Logistics</h4>
-            <ul>
-              <li><strong>Shiprocket:</strong> Go to Settings &gt; API &gt; Generate API Credential for RescueShip.</li>
-              <li><strong>Delhivery:</strong> Go to Settings &gt; API Settings and generate a new token.</li>
-            </ul>
-          </div>
-          
-          <div className="card-grid">
-            <div 
-              className={`selection-card ${formData.carrierConfig?.provider === 'shiprocket' ? 'active' : ''}`}
-              onClick={() => setCarrier('shiprocket')}
-            >
-              <div className="card-icon">🚀</div>
-              <div className="card-label">Shiprocket</div>
-            </div>
-            <div 
-              className={`selection-card ${formData.carrierConfig?.provider === 'delhivery' ? 'active' : ''}`}
-              onClick={() => setCarrier('delhivery')}
-            >
-              <div className="card-icon">🚚</div>
-              <div className="card-label">Delhivery</div>
-            </div>
-            <div 
-              className={`selection-card ${formData.carrierConfig?.provider === 'clickpost' ? 'active' : ''}`}
-              onClick={() => setCarrier('clickpost')}
-            >
-              <div className="card-icon">📦</div>
-              <div className="card-label">Clickpost</div>
-            </div>
-          </div>
-
-          <div className="form-group">
-            <label>API Token (optional)</label>
-            <input
-              type="password"
-              name="carrierConfig.apiToken"
-              value={formData.carrierConfig?.apiToken || ''}
-              onChange={handleChange}
-              placeholder="Enter carrier API token..."
-            />
-          </div>
-          <div className="test-connection-wrapper">
-            <button type="button" className="btn-test" onClick={() => handleTestConnection(3)} disabled={testingConnection}>
-              {testingConnection ? 'Testing...' : 'Test Connection'}
-            </button>
-            {connectionStatus[3] === 'success' && <div className="connection-status status-success">✓ Connection Successful</div>}
-            {connectionStatus[3] === 'error' && <div className="connection-status status-error">✗ Connection Failed</div>}
-          </div>
-        </div>
-      ),
-      4: (
-        <div key="step4">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ marginBottom: 0 }}>RescueShip: WhatsApp Integration</h3>
-            <button type="button" className="btn-skip" onClick={() => handleNext(true)}>Skip for now</button>
-          </div>
-          <div className="info-box">
-            <h4>💡 WhatsApp Cloud API Setup for RescueShip</h4>
-            <ul>
-              <li>Go to <strong>Meta for Developers</strong> (developers.facebook.com)</li>
-              <li>Select your App &gt; WhatsApp &gt; API Setup</li>
-              <li>Copy your <strong>Phone Number ID</strong> and <strong>Business Account ID</strong></li>
-              <li>Generate a permanent <strong>Access Token</strong> in the System Users section</li>
-            </ul>
-          </div>
-          <div className="form-group">
-            <label>Meta Phone Number ID</label>
-            <input
-              type="text"
-              name="whatsappConfig.phoneNumberId"
-              value={formData.whatsappConfig?.phoneNumberId || ''}
-              onChange={handleChange}
-              placeholder="e.g. 102033001234567 (15 digits)"
-            />
-          </div>
-          <div className="form-group">
-            <label>Meta Business Account ID</label>
-            <input
-              type="text"
-              name="whatsappConfig.businessAccountId"
-              value={formData.whatsappConfig?.businessAccountId || ''}
-              onChange={handleChange}
-              placeholder="e.g. 112033001234567 (15 digits)"
-            />
-          </div>
-          <div className="form-group">
-            <label>Access Token</label>
-            <input
-              type="password"
-              name="whatsappConfig.accessToken"
-              value={formData.whatsappConfig?.accessToken || ''}
-              onChange={handleChange}
-              placeholder="EAAG..."
-            />
-          </div>
-          <div className="test-connection-wrapper">
-            <button type="button" className="btn-test" onClick={() => handleTestConnection(4)} disabled={testingConnection}>
-              {testingConnection ? 'Testing...' : 'Test Connection'}
-            </button>
-            {connectionStatus[4] === 'success' && <div className="connection-status status-success">✓ Connection Successful</div>}
-            {connectionStatus[4] === 'error' && <div className="connection-status status-error">✗ Connection Failed</div>}
-          </div>
-        </div>
-      ),
-      5: (
-        <div key="step5">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <h3 style={{ marginBottom: 0 }}>RescueShip: Payments Setup</h3>
-            <button type="button" className="btn-skip" onClick={() => handleNext(true)}>Skip for now</button>
-          </div>
-          <div className="card-grid">
-            <div 
-              className={`selection-card ${formData.paymentConfig?.gateway === 'cashfree' ? 'active' : ''}`}
-              onClick={() => setPaymentGateway('cashfree')}
-            >
-              <div className="card-icon">💸</div>
-              <div className="card-label">Cashfree</div>
-            </div>
-            <div 
-              className={`selection-card ${formData.paymentConfig?.gateway === 'razorpay' ? 'active' : ''}`}
-              onClick={() => setPaymentGateway('razorpay')}
-            >
-              <div className="card-icon">💳</div>
-              <div className="card-label">Razorpay</div>
-            </div>
-          </div>
-          
-          <div className="form-group">
-            <label>Key ID</label>
-            <input
-              type="text"
-              name="paymentConfig.keyId"
-              value={formData.paymentConfig?.keyId || ''}
-              onChange={handleChange}
-              placeholder="Key ID"
-            />
-          </div>
-          <div className="form-group">
-            <label>Key Secret</label>
-            <input
-              type="password"
-              name="paymentConfig.keySecret"
-              value={formData.paymentConfig?.keySecret || ''}
-              onChange={handleChange}
-              placeholder="Key Secret"
-            />
-          </div>
-          <div className="test-connection-wrapper">
-            <button type="button" className="btn-test" onClick={() => handleTestConnection(5)} disabled={testingConnection}>
-              {testingConnection ? 'Testing...' : 'Test Connection'}
-            </button>
-            {connectionStatus[5] === 'success' && <div className="connection-status status-success">✓ Connection Successful</div>}
-            {connectionStatus[5] === 'error' && <div className="connection-status status-error">✗ Connection Failed</div>}
-          </div>
-        </div>
-      ),
-      6: (
-        <div key="step6">
-          <div className="confetti-container">
-            <div className="confetti-icon">🎉</div>
-            <h3>RescueShip: You're All Set!</h3>
-            <p style={{ color: '#cbd5e1', marginBottom: '24px' }}>
-              Your configurations look good. Complete the setup to enter your new enterprise rescue dashboard.
-            </p>
-            
-            <div className="form-group" style={{ textAlign: 'left' }}>
-              <label>Default Currency (Optional)</label>
-              <input
-                type="text"
-                name="generalSettings"
-                value={formData.generalSettings || ''}
-                onChange={handleChange}
-                placeholder="e.g. INR or USD"
-              />
-            </div>
-          </div>
-        </div>
-      )
-    };
-
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={step}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
-          transition={{ duration: 0.3 }}
-          className="step-content"
-        >
-          {stepContentMap[step]}
-        </motion.div>
-      </AnimatePresence>
-    );
+  const connectCarrier = async (provider: string, email: string, password: string, apiToken: string, apiKey: string) => {
+    setBusy('carrier'); setErr(null); push(`› validating ${provider} credentials…`);
+    try { await connectApi.carrier(token!, { provider, email, password, apiToken, apiKey }); push(`✓ ${provider} validated`); refresh(); setBusy(null); }
+    catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
   };
+  const connectPayment = async (gateway: string, keyId: string, keySecret: string) => {
+    setBusy('payment'); setErr(null); push(`› validating ${gateway} keys…`);
+    try { await connectApi.payment(token!, gateway, keyId, keySecret); push(`✓ ${gateway} validated`); refresh(); setBusy(null); }
+    catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
+  };
+  const pulse = async () => { setBusy('pulse'); setErr(null); push('› sending test rescue to your number…'); try { await connectApi.testPulse(token!); push('✓ test rescue sent — check your phone'); refresh(); setBusy(null); } catch (e: any) { setErr(e.message); setBusy(null); } };
+  const goLive = async () => { setBusy('finalize'); try { await connectApi.finalize(token!); nav('/dashboard'); } catch (e: any) { setErr(e.message); setBusy(null); } };
 
   return (
-    <div className="onboarding-container">
-      <div className="wizard-card">
-        <div className="progress-container">
-          <motion.div 
-            className="progress-bar" 
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercentage}%` }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-          />
-          {Array.from({ length: totalSteps }).map((_, idx) => {
-            const stepNum = idx + 1;
-            let className = 'step-indicator';
-            if (stepNum === step) className += ' active';
-            else if (stepNum < step) className += ' completed';
-            return (
-              <div key={idx} className={className}>
-                {stepNum}
-              </div>
-            );
-          })}
-        </div>
+    <div className="ob">
+      <div className="ob-grid-bg" aria-hidden="true" />
+      <div className="ob-scan" aria-hidden="true" />
 
-        {error && <div className="error-message">{error}</div>}
+      <header className="ob-top">
+        <a href="/" className="ob-brand"><span>⚓</span> RescueShip</a>
+        <div className="ob-topbar"><motion.div className="ob-topbar__fill" style={{ width: `${(STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100}%` }} /></div>
+        <span className="ob-topbar__pct">{Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}% ready</span>
+      </header>
 
-        {renderStepContent()}
+      <div className="ob-shell">
+        {/* ── the route / spine ── */}
+        <aside className="ob-spine">
+          <p className="ob-spine__kicker">Setup route</p>
+          <div className="ob-spine__track">
+            {STATIONS.map((s, i) => {
+              const st = statusOf(s.key);
+              const isDone = st === 'connected';
+              const isActive = s.key === active;
+              const pending = st === 'templates_pending' || st === 'connecting';
+              return (
+                <button key={s.key} className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => setActive(s.key)} style={{ ['--i' as any]: i }}>
+                  <span className="ob-node__line" data-fill={i < currentIndex || isDone ? '1' : '0'} />
+                  <span className="ob-node__dot">
+                    {isDone ? <svg viewBox="0 0 24 24" className="ob-check"><path d="M5 13l4 4L19 7" /></svg>
+                      : pending ? <span className="ob-spin" /> : <span className="ob-node__n">{i + 1}</span>}
+                    {isActive && <span className="ob-marker" aria-hidden="true">🛵</span>}
+                  </span>
+                  <span className="ob-node__text">
+                    <strong>{s.label}</strong>
+                    <em>{isDone ? 'connected' : pending ? 'in progress' : 'awaiting'}</em>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="ob-feed" aria-live="polite">
+            {log.map((l, i) => <span key={i} className="ob-feed__line">{l}</span>)}
+            {log.length === 0 && <span className="ob-feed__line ob-feed__idle">› idle · pick a station to begin</span>}
+          </div>
+        </aside>
 
-        <div className="wizard-actions">
-          <button
-            type="button"
-            className="btn-prev"
-            onClick={handlePrev}
-            style={{ visibility: step === 1 ? 'hidden' : 'visible' }}
-          >
-            Back
-          </button>
-          
-          {step < totalSteps ? (
-            <button type="button" className="btn-next" onClick={() => handleNext(false)}>
-              Continue
+        {/* ── active station card ── */}
+        <main className="ob-stage">
+          <AnimatePresence mode="wait">
+            <motion.section key={active} className="ob-card" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+              <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
+              <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
+
+              {active === 'shopify' && <ShopifyForm onConnect={connectShopify} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} />}
+              {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
+              {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
+              {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
+
+              {err && <p className="ob-err">⚠ {err}</p>}
+            </motion.section>
+          </AnimatePresence>
+
+          <footer className="ob-foot">
+            <button className="ob-foot__skip" onClick={() => setActive(STATIONS[Math.min(currentIndex + 1, 3)].key)}>Skip for now</button>
+            <button className="ob-foot__go" disabled={!allGreen || busy === 'finalize'} onClick={() => allGreen && !state?.paid ? nav('/billing') : goLive()}>
+              {allGreen ? (!state?.paid ? 'Subscribe to go live →' : 'Go live →') : `${STATIONS.filter((s) => !done(s.key)).length} station${STATIONS.filter((s) => !done(s.key)).length === 1 ? '' : 's'} to go`}
             </button>
-          ) : (
-            <motion.button 
-              type="button" 
-              className="btn-finish" 
-              onClick={handleFinish} 
-              disabled={loading}
-              whileTap={{ scale: 0.95 }}
-              style={{ position: 'relative' }}
-            >
-              {loading ? 'Finalizing...' : 'Launch Dashboard'}
-              
-              {showParticles && (
-                <div className="particles-wrapper">
-                  {Array.from({ length: 15 }).map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="burst-particle"
-                      initial={{ x: 0, y: 0, scale: 0 }}
-                      animate={{
-                        x: (Math.random() - 0.5) * 150,
-                        y: (Math.random() - 0.5) * 150,
-                        scale: Math.random() * 1.5,
-                        opacity: 0
-                      }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                    />
-                  ))}
-                </div>
-              )}
-            </motion.button>
-          )}
-        </div>
+          </footer>
+        </main>
       </div>
     </div>
   );
-};
+}
 
-export default OnboardingPage;
+/* ── station forms (compact, real) ── */
+function Field({ label, children }: any) { return <label className="ob-field"><span>{label}</span>{children}</label>; }
+
+function ShopifyForm({ onConnect, busy, done, shop }: any) {
+  const [v, setV] = useState('');
+  return done ? <Done provider={`Connected · ${shop}`} /> : (
+    <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(v.trim()); }}>
+      <Field label="Store address"><input className="ob-input" placeholder="your-brand.myshopify.com" value={v} onChange={(e) => setV(e.target.value)} required /></Field>
+      <p className="ob-note">We request read-only order + fulfillment access. You can revoke anytime from your Shopify admin.</p>
+      <button className="ob-btn" disabled={busy || !v.includes('.myshopify.com')}>{busy ? 'Redirecting…' : 'Connect Shopify'}</button>
+    </form>
+  );
+}
+
+function WhatsAppPanel({ onConnect, onPulse, busy, status, templates, ownerPhone, onSetPhone }: any) {
+  const [phone, setPhone] = useState(ownerPhone || '');
+  const [name, setName] = useState('');
+  const connected = status === 'connected' || status === 'templates_pending' || status === 'templates_rejected';
+  return (
+    <div className="ob-form">
+      {!connected ? (
+        <>
+          <p className="ob-note">Opens Meta's signup in a popup. Log into <strong>your</strong> Business account, pick the WhatsApp number customers will message, and grant access. We receive a permanent token — you never share a password.</p>
+          <button className="ob-btn" disabled={busy === 'whatsapp'} onClick={onConnect}>{busy === 'whatsapp' ? 'Connecting…' : 'Connect WhatsApp number'}</button>
+        </>
+      ) : (
+        <>
+          <div className="ob-wa-status">
+            <span className={`ob-pill ${status === 'connected' ? 'ok' : status === 'templates_rejected' ? 'bad' : 'wait'}`}>{status === 'connected' ? '● live' : status === 'templates_rejected' ? '● template issue' : '◌ templates pending'}</span>
+            {templates?.length > 0 && <ul className="ob-tpl">{templates.map((t: any) => <li key={t.name}><code>{t.name}</code><span className={`ob-tpl__s ${t.status === 'APPROVED' ? 'ok' : t.status === 'REJECTED' ? 'bad' : 'wait'}`}>{t.status}</span>{t.rejectedReason && <em>{t.rejectedReason}</em>}</li>)}</ul>}
+          </div>
+          <div className="ob-pulse">
+            <Field label="Your mobile (for the test)"><input className="ob-input" placeholder="+91 9XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+            <Field label="Store name (optional)"><input className="ob-input" placeholder="Mamaearth" value={name} onChange={(e) => setName(e.target.value)} /></Field>
+            <button className="ob-btn ob-btn--ghost" disabled={!phone || busy === 'pulse'} onClick={() => { onSetPhone(phone, name); onPulse(); }}>{busy === 'pulse' ? 'Sending…' : '📲 Send me a test rescue'}</button>
+            <p className="ob-note">Fires a real message to your number — the proof that recovery works, before any customer order depends on it.</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function CarrierForm({ onConnect, busy, done, provider }: any) {
+  const [p, setP] = useState<'shiprocket' | 'delhivery' | 'clickpost'>('shiprocket');
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [apiToken, setApiToken] = useState(''); const [apiKey, setApiKey] = useState('');
+  return done ? <Done provider={`Connected · ${provider}`} /> : (
+    <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(p, email, password, apiToken, apiKey); }}>
+      <div className="ob-seg">{(['shiprocket', 'delhivery', 'clickpost'] as const).map((x) => <button type="button" key={x} className={p === x ? 'on' : ''} onClick={() => setP(x)}>{x}</button>)}</div>
+      {p === 'shiprocket' ? (<><Field label="Email"><input className="ob-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field><Field label="Password"><input className="ob-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field></>)
+        : p === 'delhivery' ? <Field label="API token"><input className="ob-input" value={apiToken} onChange={(e) => setApiToken(e.target.value)} required /></Field>
+        : <Field label="API key"><input className="ob-input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} required /></Field>}
+      <p className="ob-note">We validate these against the carrier before saving — dead keys are rejected, never stored.</p>
+      <button className="ob-btn" disabled={busy}>Validate & connect</button>
+    </form>
+  );
+}
+
+function PaymentForm({ onConnect, busy, done, gateway }: any) {
+  const [g, setG] = useState<'razorpay' | 'cashfree'>('razorpay');
+  const [id, setId] = useState(''); const [sec, setSec] = useState('');
+  return done ? <Done provider={`Connected · ${gateway}`} /> : (
+    <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(g, id, sec); }}>
+      <div className="ob-seg">{(['razorpay', 'cashfree'] as const).map((x) => <button type="button" key={x} className={g === x ? 'on' : ''} onClick={() => setG(x)}>{x}</button>)}</div>
+      <Field label="Key / Client ID"><input className="ob-input" value={id} onChange={(e) => setId(e.target.value)} required /></Field>
+      <Field label="Secret"><input className="ob-input" type="password" value={sec} onChange={(e) => setSec(e.target.value)} required /></Field>
+      <p className="ob-note">Validated with a live read call, then encrypted at rest (AES-256-GCM).</p>
+      <button className="ob-btn" disabled={busy}>Validate & connect</button>
+    </form>
+  );
+}
+
+function Done({ provider }: { provider: string }) {
+  return <div className="ob-done"><svg viewBox="0 0 24 24" className="ob-done__check"><path d="M5 13l4 4L19 7" /></svg><p>{provider}</p></div>;
+}
