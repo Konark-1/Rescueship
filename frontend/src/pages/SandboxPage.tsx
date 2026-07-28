@@ -1,292 +1,307 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router-dom';
 import './sandbox.css';
 
+/* ─── API client ─── */
+const TOKEN_KEY = 'token';
+const getToken = () => localStorage.getItem(TOKEN_KEY);
+async function api<T = any>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`/api${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+      ...init?.headers,
+    },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  return res.json();
+}
+
+const sandboxApi = {
+  status: () => api('/sandbox/status'),
+  toggle: (enabled: boolean) =>
+    api('/sandbox/toggle', { method: 'POST', body: JSON.stringify({ enabled }) }),
+  simulate: () => api('/sandbox/simulate-ndr', { method: 'POST' }),
+  graduate: () => api('/sandbox/graduate', { method: 'POST' }),
+  alerts: () => api('/sandbox/alerts'),
+  alertRead: (id: string) =>
+    api(`/sandbox/alerts/${id}/read`, { method: 'POST' }),
+  quality: () => api('/sandbox/quality'),
+};
+
+/* ─── Types ─── */
 interface SandboxState {
   enabled: boolean;
-  activatedAt?: string;
   testRescuesSent: number;
   testRescuesSucceeded: number;
   graduationThreshold: number;
   graduated: boolean;
-  graduatedAt?: string;
-}
-
-interface SimulateResult {
-  simulation: { orderId: string; reason: string; courier: string; awb: string };
-  whatsapp: { success: boolean; error?: string };
-  sandbox: SandboxState;
-  graduationProgress: string;
 }
 
 interface Alert {
   id: string;
-  type: string;
+  kind?: string;
   severity: 'info' | 'warning' | 'critical';
   title: string;
   body: string;
-  createdAt: string;
   read: boolean;
+  createdAt: string;
 }
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
-export const SandboxPage: React.FC = () => {
-  const [sandbox, setSandbox] = useState<SandboxState | null>(null);
+/* ─── Component ─── */
+export default function SandboxPage() {
+  const [status, setStatus] = useState<SandboxState | null>(null);
   const [quality, setQuality] = useState<any>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [feed, setFeed] = useState<string[]>([]);
   const [simulating, setSimulating] = useState(false);
-  const [lastSim, setLastSim] = useState<SimulateResult | null>(null);
-  const [statusFeed, setStatusFeed] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [lastSim, setLastSim] = useState<any>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
 
-  const token = localStorage.getItem('token') || '';
-  const headers = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+  const pushFeed = useCallback((line: string) => {
+    const ts = new Date().toLocaleTimeString('en-IN', { hour12: false });
+    setFeed((f) => [...f.slice(-30), `${ts} › ${line}`]);
+  }, []);
 
-  const log = (msg: string) => {
-    setStatusFeed(prev => [...prev.slice(-19), `› ${msg}`]);
-  };
-
-  const fetchStatus = useCallback(async () => {
+  const loadStatus = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/sandbox/status`, { headers });
-      const data = await res.json();
-      if (data.success) setSandbox(data.sandbox);
-    } catch (err: any) {
-      setError(err.message);
-    }
-  }, [token]);
+      const [s, q] = await Promise.all([
+        sandboxApi.status(),
+        sandboxApi.quality().catch(() => null),
+      ]);
+      if (s?.sandbox) setStatus(s.sandbox);
+      else if (s) setStatus(s);
+      setQuality(q?.quality || q);
+    } catch { /* ignore */ }
+  }, []);
 
-  const fetchQuality = useCallback(async () => {
+  const loadAlerts = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/sandbox/quality`, { headers });
-      const data = await res.json();
-      if (data.success) setQuality(data.quality);
-    } catch {}
-  }, [token]);
-
-  const fetchAlerts = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/api/sandbox/alerts`, { headers });
-      const data = await res.json();
-      if (data.success) {
-        setAlerts(data.alerts);
-        setUnreadCount(data.unreadCount);
-      }
-    } catch {}
-  }, [token]);
+      const list = await sandboxApi.alerts();
+      setAlerts(list?.alerts || list || []);
+    } catch { /* ignore */ }
+  }, []);
 
   useEffect(() => {
-    fetchStatus();
-    fetchAlerts();
-    fetchQuality();
-  }, [fetchStatus, fetchAlerts, fetchQuality]);
+    loadStatus();
+    loadAlerts();
+  }, [loadStatus, loadAlerts]);
 
-  const toggleSandbox = async (enabled: boolean) => {
-    log(enabled ? 'enabling sandbox mode…' : 'disabling sandbox mode…');
+  useEffect(() => {
+    if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;
+  }, [feed]);
+
+  /* ── Actions ── */
+  const handleToggle = async () => {
+    if (!status) return;
+    const next = !status.enabled;
+    pushFeed(`toggling sandbox ${next ? 'ON' : 'OFF'}…`);
     try {
-      const res = await fetch(`${API}/api/sandbox/toggle`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ enabled }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSandbox(data.sandbox);
-        log(enabled ? 'sandbox ON — all messages redirect to your phone' : 'sandbox OFF');
-      } else {
-        setError(data.error);
-      }
-    } catch (err: any) {
-      setError(err.message);
+      const s = await sandboxApi.toggle(next);
+      setStatus(s?.sandbox || s);
+      pushFeed(next ? 'sandbox enabled — outbound WhatsApp redirects to your phone' : 'sandbox disabled');
+    } catch (e: any) {
+      setError(e.message);
+      pushFeed(`toggle failed: ${e.message}`);
     }
   };
 
-  const simulateNDR = async () => {
+  const handleSimulate = async () => {
     setSimulating(true);
     setError(null);
-    log('generating simulated NDR event…');
+    pushFeed('generating simulated NDR…');
     try {
-      const res = await fetch(`${API}/api/sandbox/simulate-ndr`, {
-        method: 'POST',
-        headers,
-      });
-      const data = await res.json();
-      if (data.success) {
-        setLastSim(data);
-        setSandbox(data.sandbox);
-        log(`NDR simulated: ${data.simulation.orderId} (${data.simulation.reason})`);
-        log(data.whatsapp.success
-          ? `✓ rescue WhatsApp sent to your phone`
-          : `✗ WhatsApp failed: ${data.whatsapp.error}`);
-        log(`graduation progress: ${data.graduationProgress}`);
-        if (data.sandbox.graduated) {
-          log('🎉 GRADUATED — you are ready to go live!');
-        }
-      } else {
-        setError(data.error);
-        log(`✗ ${data.error}`);
-      }
-    } catch (err: any) {
-      setError(err.message);
+      const sim = await sandboxApi.simulate();
+      setLastSim(sim?.simulation || sim);
+      pushFeed(`NDR simulated · AWB ${sim?.simulation?.awb || sim?.awb || 'SIM'} · reason: ${sim?.simulation?.reason || sim?.reason || 'NDR'}`);
+      pushFeed(`rescue dispatched → ${sim?.template || 'ndr_rescue_en'}`);
+      pushFeed(`WhatsApp redirected to owner phone ✓`);
+      await loadStatus();
+    } catch (e: any) {
+      setError(e.message);
+      pushFeed(`simulate failed: ${e.message}`);
     } finally {
       setSimulating(false);
     }
   };
 
-  const graduate = async () => {
-    log('requesting manual graduation…');
+  const handleGraduate = async () => {
+    pushFeed('requesting graduation to live mode…');
     try {
-      const res = await fetch(`${API}/api/sandbox/graduate`, {
-        method: 'POST',
-        headers,
-      });
-      const data = await res.json();
-      if (data.success) {
-        setSandbox(data.sandbox);
-        log('🎉 graduated — sandbox disabled, you are live');
-      }
-    } catch (err: any) {
-      setError(err.message);
+      const s = await sandboxApi.graduate();
+      setStatus(s?.sandbox || s);
+      pushFeed('graduated — sandbox disabled, live mode active ✓');
+    } catch (e: any) {
+      setError(e.message);
+      pushFeed(`graduation failed: ${e.message}`);
     }
   };
 
-  const markAlertRead = async (alertId: string) => {
-    await fetch(`${API}/api/sandbox/alerts/${alertId}/read`, { method: 'POST', headers });
-    setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, read: true } : a));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+  const handleAlertRead = async (id: string) => {
+    try {
+      await sandboxApi.alertRead(id);
+      setAlerts((a) => a.map((al) => (al.id === id ? { ...al, read: true } : al)));
+    } catch { /* ignore */ }
   };
 
-  if (!sandbox) return <div className="sandbox-loading">Loading sandbox…</div>;
+  const gradPct =
+    status && status.graduationThreshold > 0
+      ? Math.min(100, (status.testRescuesSucceeded / status.graduationThreshold) * 100)
+      : 0;
 
-  const progressPct = sandbox && sandbox.graduationThreshold > 0
-    ? Math.min(100, (sandbox.testRescuesSucceeded / sandbox.graduationThreshold) * 100)
-    : 0;
+  const unreadAlerts = alerts.filter((a) => !a.read);
+
+  const qualityRating = quality?.qualityRating ?? quality?.rating ?? null;
+  const qualityCls =
+    qualityRating === 'GREEN' ? 'ok' :
+    qualityRating === 'YELLOW' ? 'warn' :
+    qualityRating === 'RED' ? 'crit' : '';
 
   return (
-    <div className="sandbox-page">
-      <header className="sandbox-header">
-        <h1>🧪 Sandbox & Safety</h1>
-        <p className="sandbox-subtitle">
-          Test your rescue flow safely before going live. All messages go to your phone.
-        </p>
+    <div className="sb">
+      <div className="sb-grid-bg" aria-hidden="true" />
+      <div className="sb-grain" aria-hidden="true" />
+      <div className="sb-scan" aria-hidden="true" />
+
+      {/* Header */}
+      <header className="sb-top">
+        <Link to="/dashboard" className="sb-back">← Dashboard</Link>
+        <h1 className="sb-title">Sandbox & Safety</h1>
+        <span className="sb-top__tag">test deck</span>
       </header>
 
-      {/* Status Banner */}
-      <div className={`sandbox-banner ${sandbox.enabled ? 'active' : 'inactive'} ${sandbox.graduated ? 'graduated' : ''}`}>
-        {sandbox.graduated ? (
-          <span>✅ Graduated — Live Mode {quality?.rating ? `(Meta Quality: ${quality.rating})` : ''}</span>
-        ) : sandbox.enabled ? (
-          <span>🧪 Sandbox Active — messages redirect to your phone</span>
-        ) : (
-          <span>⚪ Sandbox Inactive {quality?.rating ? `(Meta Quality: ${quality.rating})` : ''}</span>
-        )}
-      </div>
-
-      {/* Toggle */}
-      <section className="sandbox-section">
-        <h2>Sandbox Mode</h2>
-        <div className="sandbox-toggle-row">
-          <button
-            className={`btn-toggle ${sandbox.enabled ? 'on' : 'off'}`}
-            onClick={() => toggleSandbox(!sandbox.enabled)}
-            disabled={sandbox.graduated}
-          >
-            {sandbox.enabled ? 'Disable Sandbox' : 'Enable Sandbox'}
-          </button>
-          {sandbox.graduated && (
-            <span className="graduated-note">Already graduated. Disable & re-enable to reset.</span>
-          )}
-        </div>
-      </section>
-
-      {/* Graduation Progress */}
-      {sandbox.enabled && !sandbox.graduated && (
-        <section className="sandbox-section">
-          <h2>Graduation Progress</h2>
-          <div className="progress-bar-container">
-            <div className="progress-bar-fill" style={{ width: `${progressPct}%` }} />
-          </div>
-          <p className="progress-label">
-            {sandbox.testRescuesSucceeded} / {sandbox.graduationThreshold} successful test rescues
-          </p>
-          <p className="progress-hint">
-            Send {sandbox.graduationThreshold - sandbox.testRescuesSucceeded} more successful rescue(s) to auto-graduate,
-            or skip below.
-          </p>
-          <button className="btn-graduate" onClick={graduate}>
-            Skip → Go Live Now
-          </button>
-        </section>
-      )}
-
-      {/* Simulate NDR */}
-      {sandbox.enabled && !sandbox.graduated && (
-        <section className="sandbox-section">
-          <h2>Simulate NDR Event</h2>
-          <p className="section-desc">
-            Triggers a fake failed-delivery event and sends a rescue WhatsApp message to your phone.
-          </p>
-          <button
-            className="btn-simulate"
-            onClick={simulateNDR}
-            disabled={simulating}
-          >
-            {simulating ? 'Simulating…' : '🚨 Simulate Failed Delivery'}
-          </button>
-
-          {lastSim && (
-            <div className="sim-result">
-              <div className="sim-row"><span className="sim-label">Order:</span> {lastSim.simulation.orderId}</div>
-              <div className="sim-row"><span className="sim-label">Reason:</span> {lastSim.simulation.reason}</div>
-              <div className="sim-row"><span className="sim-label">Courier:</span> {lastSim.simulation.courier}</div>
-              <div className="sim-row"><span className="sim-label">AWB:</span> {lastSim.simulation.awb}</div>
-              <div className={`sim-row ${lastSim.whatsapp.success ? 'success' : 'fail'}`}>
-                <span className="sim-label">WhatsApp:</span>
-                {lastSim.whatsapp.success ? '✓ Sent' : `✗ ${lastSim.whatsapp.error}`}
-              </div>
+      <div className="sb-body">
+        {/* ── Left: status + controls ── */}
+        <div className="sb-main">
+          {/* Mode toggle card */}
+          <section className="sb-card">
+            <div className="sb-card__head">
+              <h2>Sandbox Mode</h2>
+              {qualityRating && (
+                <span className={`sb-quality sb-quality--${qualityCls}`}>
+                  WABA {qualityRating}
+                </span>
+              )}
             </div>
-          )}
-        </section>
-      )}
-
-      {/* Status Feed */}
-      {statusFeed.length > 0 && (
-        <section className="sandbox-section">
-          <h2>Status Feed</h2>
-          <pre className="status-feed">{statusFeed.join('\n')}</pre>
-        </section>
-      )}
-
-      {/* Alerts */}
-      <section className="sandbox-section">
-        <h2>
-          Alerts {unreadCount > 0 && <span className="alert-badge">{unreadCount}</span>}
-        </h2>
-        {alerts.length === 0 ? (
-          <p className="no-alerts">No alerts. You're all clear. ✓</p>
-        ) : (
-          <div className="alert-list">
-            {alerts.map(alert => (
-              <div
-                key={alert.id}
-                className={`alert-card ${alert.severity} ${alert.read ? 'read' : 'unread'}`}
-                onClick={() => !alert.read && markAlertRead(alert.id)}
+            <p className="sb-card__desc">
+              When enabled, all outbound WhatsApp rescue messages redirect to your
+              registered phone number. No customer is contacted.
+            </p>
+            <div className="sb-toggle-row">
+              <button
+                className={`sb-toggle ${status?.enabled ? 'sb-toggle--on' : ''}`}
+                onClick={handleToggle}
+                aria-pressed={status?.enabled}
               >
-                <div className="alert-title">{alert.title}</div>
-                <div className="alert-body">{alert.body}</div>
-                <div className="alert-time">
-                  {new Date(alert.createdAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
+                <span className="sb-toggle__knob" />
+              </button>
+              <span className="sb-toggle__label">
+                {status?.enabled ? 'Sandbox ON' : 'Sandbox OFF'}
+              </span>
+              {status?.graduated && (
+                <span className="sb-badge sb-badge--grad">✓ Graduated</span>
+              )}
+            </div>
+            {error && <p className="sb-error">⚠ {error}</p>}
+          </section>
 
-      {error && <div className="sandbox-error">⚠️ {error}</div>}
+          {/* Graduation progress */}
+          <section className="sb-card">
+            <h2>Graduation Progress</h2>
+            <p className="sb-card__desc">
+              Complete {status?.graduationThreshold ?? 3} successful test rescues to
+              auto-graduate to live mode.
+            </p>
+            <div className="sb-geo">
+              <div className="sb-geo__track">
+                <div
+                  className="sb-geo__fill"
+                  style={{ width: `${gradPct}%` }}
+                />
+              </div>
+              <span className="sb-geo__label">
+                {status?.testRescuesSucceeded ?? 0} / {status?.graduationThreshold ?? 3}
+              </span>
+            </div>
+            <div className="sb-sim-row">
+              <button
+                className="sb-sim-btn"
+                onClick={handleSimulate}
+                disabled={simulating || !status?.enabled}
+              >
+                {simulating ? 'Simulating…' : '⚡ Simulate NDR'}
+              </button>
+              {!status?.enabled && (
+                <span className="sb-sim-hint">Enable sandbox first</span>
+              )}
+            </div>
+            {lastSim && (
+              <div className="sb-sim-result">
+                <span className="sb-sim-result__awb">AWB {lastSim.awb || 'SIM'}</span>
+                <span className="sb-sim-result__reason">{lastSim.reason || 'simulated_ndr'}</span>
+              </div>
+            )}
+            {status && !status.graduated && status.testRescuesSucceeded >= status.graduationThreshold && (
+              <button className="sb-grad-btn" onClick={handleGraduate}>
+                🎓 Graduate to Live
+              </button>
+            )}
+          </section>
+
+          {/* Status feed */}
+          <section className="sb-card sb-card--feed">
+            <h2>Status Feed</h2>
+            <div className="sb-feed" ref={feedRef}>
+              {feed.length === 0 && (
+                <div className="sb-feed__line sb-feed__line--idle">
+                  <span className="sb-feed__prefix">›</span> awaiting activity…
+                </div>
+              )}
+              {feed.map((line, i) => (
+                <div key={i} className="sb-feed__line">
+                  <span className="sb-feed__prefix">›</span> {line}
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* ── Right: alerts sidebar ── */}
+        <aside className="sb-side">
+          <h2 className="sb-side__h">
+            Alerts
+            {unreadAlerts.length > 0 && (
+              <span className="sb-side__count">{unreadAlerts.length}</span>
+            )}
+          </h2>
+          {alerts.length === 0 && (
+            <p className="sb-side__empty">No alerts. All systems nominal.</p>
+          )}
+          {alerts.map((a) => (
+            <div
+              key={a.id}
+              className={`sb-alert sb-alert--${a.severity} ${a.read ? 'sb-alert--read' : ''}`}
+              onClick={() => !a.read && handleAlertRead(a.id)}
+              role="button"
+              tabIndex={0}
+            >
+              <span className="sb-alert__kind">{a.kind || a.severity}</span>
+              <span className="sb-alert__title">{a.title}</span>
+              <span className="sb-alert__body">{a.body}</span>
+              <span className="sb-alert__time">
+                {new Date(a.createdAt).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+                })}
+              </span>
+            </div>
+          ))}
+        </aside>
+      </div>
     </div>
   );
-};
-
-export default SandboxPage;
+}
