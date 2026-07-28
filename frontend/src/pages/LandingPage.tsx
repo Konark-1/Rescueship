@@ -65,11 +65,12 @@ export default function LandingPage() {
     if (feedIdx >= FEED_SCRIPT.length) {
       const resetTimer = setTimeout(() => {
         setFeedLines([]);
+        setOrders(ORDER_BOARD);
         setFeedIdx(0);
-      }, 4000);
+      }, 1200);
       return () => clearTimeout(resetTimer);
     }
-    const delay = FEED_SCRIPT[feedIdx].cls === 'rescued' ? 2200 : 900;
+    const delay = FEED_SCRIPT[feedIdx].cls === 'rescued' ? 800 : 350;
     const timer = setTimeout(() => {
       setFeedLines((prev) => [...prev.slice(-7), FEED_SCRIPT[feedIdx]]);
       setFeedIdx((i) => i + 1);
@@ -267,7 +268,7 @@ export default function LandingPage() {
                   className="lp-order lp-order--fail"
                   layout
                   exit={{ opacity: 0, x: 60, scale: 0.95 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <span className="lp-order__id">{o.id}</span>
                   <span className="lp-order__awb">AWB {o.awb}</span>
@@ -287,7 +288,7 @@ export default function LandingPage() {
                   layout
                   initial={{ opacity: 0, x: -60, scale: 0.95 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
-                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <span className="lp-order__id">{o.id}</span>
                   <span className="lp-order__awb">AWB {o.awb}</span>
