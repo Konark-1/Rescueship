@@ -418,15 +418,10 @@ export default function LandingPage() {
 
   /* ── Scroll reel: desktop gate + scroll‑scrubbed parcel (no state on scroll) ── */
   const trackRef = useRef<HTMLDivElement>(null);
-  const routeRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
-  const routeHRef = useRef(0);
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
-  const reelY = useTransform(scrollYProgress, (p) => {
-    const h = routeHRef.current;
-    return h / 12 + p * (10 * h / 12);
-  });
+  const reelTop = useTransform(scrollYProgress, [0, 1], ['8.333%', '91.667%']);
 
   /* Beat reveal — array-based useTransform (clamped by construction).
      Parcel reaches dot i at scrollYProgress = i/5.
@@ -453,15 +448,6 @@ export default function LandingPage() {
     mq.addEventListener('change', upd);
     return () => mq.removeEventListener('change', upd);
   }, []);
-
-  useEffect(() => {
-    const el = routeRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => { routeHRef.current = el.clientHeight; });
-    ro.observe(el);
-    routeHRef.current = el.clientHeight;
-    return () => ro.disconnect();
-  }, [isDesktop]);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -793,14 +779,14 @@ export default function LandingPage() {
             <div className="lp-reel__stage">
               <p className="lp-section__kicker lp-reel__kicker">The same order, in motion</p>
               <div className="lp-reel__grid">
-                <div className="lp-reel__route" ref={routeRef} aria-hidden="true">
+                <div className="lp-reel__route" aria-hidden="true">
                   <span className="lp-reel__line" />
                   {REEL_BEATS.map((b, i) => (
                     <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
                   ))}
                   <motion.span
                     className="lp-reel__parcel"
-                    style={reduced ? undefined : { x: '-50%', y: reelY }}
+                    style={reduced ? undefined : { top: reelTop }}
                   >📦</motion.span>
                 </div>
                 <ol className="lp-reel__beats">
