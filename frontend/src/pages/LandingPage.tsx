@@ -420,10 +420,13 @@ export default function LandingPage() {
   const trackRef = useRef<HTMLDivElement>(null);
   const routeRef = useRef<HTMLDivElement>(null);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [routeH, setRouteH] = useState(0);
+  const routeHRef = useRef(0);
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
-  const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
+  const reelY = useTransform(scrollYProgress, (p) => {
+    const h = routeHRef.current;
+    return h / 12 + p * (10 * h / 12);
+  });
 
   /* Beat reveal — array-based useTransform (clamped by construction).
      Parcel reaches dot i at scrollYProgress = i/5.
@@ -454,9 +457,9 @@ export default function LandingPage() {
   useEffect(() => {
     const el = routeRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setRouteH(el.clientHeight));
+    const ro = new ResizeObserver(() => { routeHRef.current = el.clientHeight; });
     ro.observe(el);
-    setRouteH(el.clientHeight);
+    routeHRef.current = el.clientHeight;
     return () => ro.disconnect();
   }, [isDesktop]);
 
