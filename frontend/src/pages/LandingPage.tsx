@@ -424,15 +424,6 @@ export default function LandingPage() {
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
   const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
-  // function form → ramps from floor→1 over [a,b]; never fully invisible
-  const ramp = (p: number, a: number, b: number, floor = 0.15) => (p <= a ? floor : p >= b ? 1 : floor + (1 - floor) * ((p - a) / (b - a)));
-  const o0 = useTransform(scrollYProgress, () => 1);
-  const o1 = useTransform(scrollYProgress, (p) => ramp(p, 0.04, 0.10));
-  const o2 = useTransform(scrollYProgress, (p) => ramp(p, 0.12, 0.18));
-  const o3 = useTransform(scrollYProgress, (p) => ramp(p, 0.22, 0.28));
-  const o4 = useTransform(scrollYProgress, (p) => ramp(p, 0.32, 0.38));
-  const o5 = useTransform(scrollYProgress, (p) => ramp(p, 0.42, 0.48));
-  const beatOpacity = [o0, o1, o2, o3, o4, o5];
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 961px)');
@@ -793,10 +784,9 @@ export default function LandingPage() {
                 </div>
                 <ol className="lp-reel__beats">
                   {REEL_BEATS.map((b, i) => (
-                    <motion.li
+                    <li
                       key={i}
                       className={`lp-reel__beat lp-reel__beat--${b.role}`}
-                      style={reduced ? undefined : { opacity: beatOpacity[i] }}
                     >
                       <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
                         {REEL_ICONS[i]}
@@ -806,7 +796,7 @@ export default function LandingPage() {
                         <span className="lp-reel__beat-t">{b.t}</span>
                         <span className="lp-reel__beat-d">{b.d}</span>
                       </span>
-                    </motion.li>
+                    </li>
                   ))}
                 </ol>
               </div>
