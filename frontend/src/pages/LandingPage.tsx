@@ -63,16 +63,6 @@ const SPINE_STEPS = [
   { n: '04', t: 'Revenue recovered', d: 'Order delivered. COD optionally converted to prepaid via payment link. You keep the money.' },
 ];
 
-/* ═══ WhatsApp rescue conversation (the proof) ═══ */
-const WA_STEPS: { role: 'bot' | 'user' | 'buttons' | 'sync'; text?: string; options?: string[]; pick?: number }[] = [
-  { role: 'bot', text: 'Hi Priya 👋 Order #89421 (₹1,240) was marked “door locked”. We couldn’t confirm a delivery attempt — are you home right now?' },
-  { role: 'buttons', options: ['Yes, I’m home', 'Reschedule', 'Share my pin', 'Cancel'], pick: 0 },
-  { role: 'user', text: 'Yes, I’m home' },
-  { role: 'bot', text: 'Brilliant — the driver is alerted and en route. Window today, 4–6 PM. 📦' },
-  { role: 'sync', text: 'customer confirmed · carrier synced ✓' },
-];
-const WA_BTN_IDX = 1;
-
 /* ═══ Scroll reel — the same order, told in motion (desktop only) ═══ */
 const REEL_BEATS = [
   { tag: '11:43', role: 'move',   t: 'Out for delivery.',            d: 'The parcel leaves the warehouse. So far, so normal.' },
@@ -135,31 +125,176 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
   return <>{prefix}{val.toLocaleString('en-IN')}{suffix}</>;
 }
 
+/* ═══ WhatsApp rescue chat — interactive decision tree (tap‑driven, all devices) ═══ */
+type MsgKind = 'bot' | 'user' | 'sys' | 'status';
+interface Msg { id: number; kind: MsgKind; text: string; tone?: 'ok' | 'warn' | 'cancel' | 'engine'; }
+interface Choice { id: string; label: string; tone?: 'danger'; run: () => void; }
+
 function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
-  const [shown, setShown] = useState(0);
+  const idRef = useRef(0);
+  const nid = () => ++idRef.current;
+  const [log, setLog] = useState<Msg[]>([]);
+  const [choices, setChoices] = useState<Choice[]>([]);
   const [typing, setTyping] = useState(false);
+  const [phase, setPhase] = useState('8:00 PM · NDR intercepted');
+  const [banner, setBanner] = useState<{ text: string; tone: string } | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const timer = useRef<number | null>(null);
+  const started = useRef(false);
 
+  /* ── handlers (declarations → hoisted, safe to reference in topChoices) ── */
+  function finish(bText: string, bTone: string, sText: string, sTone: Msg['tone']) {
+    setLog((l) => [...l, { id: nid(), kind: 'status', text: sText, tone: sTone }]);
+    setBanner({ text: bText, tone: bTone });
+    setChoices([]);
+  }
+  function say(
+    user: string | null, sys: string | null, bot: string,
+    after: () => void, sysTone: Msg['tone'] = 'engine',
+  ) {
+    const add: Msg[] = [];
+    if (user) add.push({ id: nid(), kind: 'user', text: user });
+    if (sys) add.push({ id: nid(), kind: 'sys', text: sys, tone: sysTone });
+    setLog((l) => [...l, ...add]);
+    setChoices([]);
+    setTyping(true);
+    timer.current = window.setTimeout(() => {
+      setLog((l) => [...l, { id: nid(), kind: 'bot', text: bot }]);
+      setTyping(false);
+      after();
+    }, reduced ? 0 : 750);
+  }
+
+  function topChoices(): Choice[] {
+    return [
+      { id: 'home', label: 'Yes, I’m home', run: doHome },
+      { id: 'resched', label: 'Reschedule', run: doReschedule },
+      { id: 'pin', label: 'Share my pin', run: doPin },
+      { id: 'cancel', label: 'Cancel', tone: 'danger', run: doCancel },
+    ];
+  }
+  function seed() {
+    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
+    setBanner(null); setTyping(false); setPhase('8:00 PM · NDR intercepted');
+    setLog([{ id: nid(), kind: 'bot', text: 'Hi Priya 👋 Order #89421 (₹1,240) was marked “door locked” at 7:58 PM. We couldn’t confirm a delivery attempt — are you home right now?' }]);
+    setChoices(topChoices());
+  }
+
+  function doHome() {
+    setPhase('8:02 PM · evening exception scan');
+    say('Yes I’m home! Nobody came to my door! 😤',
+      '⚡ attempt flagged for review · Agent #4471 audit logged · Hub Supervisor',
+      'Thanks for confirming, Priya! Evening hub dispatches close at 8 PM, so a same‑day re‑visit isn’t possible tonight — we’ve flagged this attempt for review and reserved First‑Slot Priority Delivery for you tomorrow, 9 AM–12 PM. 🚚',
+      () => finish('✅ ORDER RESCUED · RTO prevented', 'ok', 'Order rescued · priority slot reserved · trust restored', 'ok'),
+      'warn');
+  }
+  function doReschedule() {
+    say('Can we reschedule this?', null,
+      'Of course — pick a window that works and we’ll lock it with the carrier so the same remark can’t happen twice.',
+      () => setChoices([
+        { id: 'r1', label: 'Tomorrow 9–12', run: () => pickResched('Tomorrow, 9 AM–12 PM') },
+        { id: 'r2', label: 'Tomorrow 2–6', run: () => pickResched('Tomorrow, 2 PM–6 PM') },
+        { id: 'r3', label: 'Weekend', run: () => pickResched('This weekend') },
+      ]));
+  }
+  function pickResched(w: string) {
+    say(`Reschedule for ${w}, please.`, 'reschedule synced to carrier · slot locked',
+      `Locked in — your re‑attempt is set for ${w} and the carrier is updated. We’ll message you an hour before the driver arrives. 📅`,
+      () => finish('✅ RESCHEDULED · slot locked', 'ok', `Rescheduled · ${w} · reminder set`, 'ok'));
+  }
+  function doPin() {
+    say('Here’s my exact location 📍', 'GPS pin received · address corrected · synced to carrier',
+      'Got it — your pin is shared with the driver and the address is corrected on our side. No more “wrong address” remarks on this order. 📍',
+      () => finish('✅ ADDRESS SYNCED · rescue in progress', 'ok', 'Address corrected · pin shared with driver', 'ok'));
+  }
+  function doCancel() {
+    say(null, null,
+      'We’d hate to lose you on this one, Priya. Mind telling us why, so we can try to make it right?',
+      () => setChoices([
+        { id: 'c1', label: '🏷️ Found it cheaper', run: reasonCheaper },
+        { id: 'c2', label: '⏱️ Taking too long', run: reasonDelay },
+        { id: 'c3', label: '🤔 Changed my mind', run: reasonMistake },
+      ]));
+  }
+  function reasonCheaper() {
+    setPhase('8:03 PM · price-match engine');
+    say('I found this exact serum on another app for ₹1,299.', '🏷️ price-match engine · competitor rate verified',
+      'Appreciate the honesty! We’ll match that price AND take an extra ₹75 off — pay ₹1,224 via 1‑click UPI now and delivery is guaranteed tomorrow morning.',
+      () => { setBanner({ text: '⚡ Price Match Active', tone: 'engine' }); setChoices([
+        { id: 'pay', label: '💳 Pay ₹1,224 via UPI', run: payUpi },
+        { id: 'no', label: '❌ Still cancel', tone: 'danger', run: finalCancel },
+      ]); });
+  }
+  function payUpi() {
+    say('Paid via UPI ✅', 'COD → prepaid converted · ₹1,224 captured',
+      'Payment confirmed — your order is locked in and out for delivery tomorrow morning. Thank you for giving us another shot! 💜',
+      () => finish('✅ RESCUED · converted to prepaid', 'ok', 'Rescued · COD → prepaid · ₹200 saved for customer', 'ok'));
+  }
+  function reasonDelay() {
+    setPhase('8:03 PM · SLA compensator');
+    say('It’s taking too many days. I don’t need it anymore.', '⚡ SLA compensator · air priority applied',
+      'So sorry for the wait! We’ve upgraded you to Priority Air Express at zero extra charge and added ₹100 credit to your account — give us one more day?',
+      () => { setBanner({ text: '✈️ Priority Air Applied', tone: 'engine' }); setChoices([
+        { id: 'keep', label: '✈️ Keep + Air Upgrade', run: keepAir },
+        { id: 'no', label: '❌ No, cancel', tone: 'danger', run: finalCancel },
+      ]); });
+  }
+  function keepAir() {
+    say('Okay, the air upgrade works ✈️', 'express upgrade applied · ₹100 credit issued',
+      'You’re on Priority Air Express now at no extra charge, and the ₹100 is in your account. It’ll be with you tomorrow. ✈️',
+      () => finish('✅ RESCUED · express upgrade', 'ok', 'Rescued · air upgrade + ₹100 credit', 'ok'));
+  }
+  function reasonMistake() {
+    say('Ordered by mistake, don’t need it now.', null,
+      'Totally understand! Before this heads back to the warehouse, would an instant ₹100 off (new total ₹1,324) make it worth keeping?',
+      () => setChoices([
+        { id: 'keepd', label: '💰 Apply ₹100 off', run: keepDiscount },
+        { id: 'no', label: '❌ No thanks, cancel', tone: 'danger', run: finalCancel },
+      ]));
+  }
+  function keepDiscount() {
+    say('Sure, apply the ₹100 💰', 'retention discount applied · order reactivated at ₹1,324',
+      'Done — your total is now ₹1,324 and the order is back on. Glad you’re keeping it! 💜',
+      () => finish('✅ RESCUED · retention discount', 'ok', 'Rescued · ₹100 retention applied', 'ok'));
+  }
+  function finalCancel() {
+    say(null, 'order cancelled · return to warehouse initiated',
+      'Understood — your order is cancelled and the return is on its way. Here’s ₹150 off whenever you’re ready to try us again: COMEBACK150. 💜',
+      () => finish('❌ CANCELLED · win-back issued', 'cancel', 'Order cancelled · coupon COMEBACK150 issued', 'cancel'),
+      'cancel');
+  }
+
+  /* ── lifecycle ── */
+  useEffect(() => { if (active && !started.current) { started.current = true; seed(); } }, [active]);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   useEffect(() => {
-    if (!active) return;
-    if (reduced) { setShown(WA_STEPS.length); setTyping(false); return; }
-    if (shown >= WA_STEPS.length) {
-      const t = setTimeout(() => setShown(0), 4200);
-      return () => clearTimeout(t);
-    }
-    const step = WA_STEPS[shown];
-    const needs = step.role === 'bot' || step.role === 'sync';
-    if (needs) {
-      setTyping(true);
-      const t = setTimeout(() => { setTyping(false); setShown((s) => s + 1); }, step.role === 'sync' ? 700 : 1050);
-      return () => clearTimeout(t);
-    }
-    setTyping(false);
-    const t = setTimeout(() => setShown((s) => s + 1), step.role === 'buttons' ? 1500 : 650);
-    return () => clearTimeout(t);
-  }, [active, shown, reduced]);
+    const el = bodyRef.current; if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: reduced ? 'auto' : 'smooth' });
+  }, [log, typing, choices, reduced]);
 
-  const messages = WA_STEPS.slice(0, shown);
-  const picked = shown > WA_BTN_IDX + 1;
+  const renderItem = (m: Msg) => {
+    if (m.kind === 'sys')
+      return (
+        <motion.div key={m.id} className="lp-wa__row lp-wa__row--sync"
+          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.35, ease: [0.34, 1.56, 0.64, 1] }}>
+          <span className={`lp-wa__sys ${m.tone ? `lp-wa__sys--${m.tone}` : ''}`}>{m.text}</span>
+        </motion.div>
+      );
+    if (m.kind === 'status')
+      return (
+        <motion.div key={m.id} className={`lp-wa__status ${m.tone ? `lp-wa__status--${m.tone}` : ''}`}
+          initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>{m.text}</motion.div>
+      );
+    return (
+      <motion.div key={m.id} className={`lp-wa__row lp-wa__row--${m.kind}`}
+        initial={{ opacity: 0, y: 8, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+        <div className={`lp-wa__bubble lp-wa__bubble--${m.kind}`}>{m.text}</div>
+      </motion.div>
+    );
+  };
 
   return (
     <div className="lp-wa">
@@ -168,53 +303,35 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
         <span className="lp-wa__av">⚓</span>
         <div className="lp-wa__who">
           <span className="lp-wa__name">RescueShip · your brand</span>
-          <span className="lp-wa__meta"><i /> automated · verified sender</span>
+          <span className="lp-wa__meta"><i />{phase}</span>
         </div>
+        {active && (
+          <button type="button" className="lp-wa__reset" onClick={seed} aria-label="Reset conversation" title="Reset">↻</button>
+        )}
       </div>
 
-      <div className="lp-wa__body">
+      {active && banner && (
+        <div className={`lp-wa__banner lp-wa__banner--${banner.tone}`}>{banner.text}</div>
+      )}
+
+      <div className="lp-wa__body" ref={bodyRef}>
+        <div className="lp-wa__spacer" aria-hidden="true" />
         {!active && (
-          <div className="lp-wa__idle">
-            <span>⚓</span>
-            <p>rescue engine arming…</p>
-          </div>
+          <div className="lp-wa__idle"><span>⚓</span><p>rescue engine arming…</p></div>
         )}
-        {active && messages.map((m, idx) => {
-          if (m.role === 'buttons') {
-            return (
-              <div key={idx} className="lp-wa__row lp-wa__row--btns">
-                <div className="lp-wa__chips">
-                  {m.options!.map((o, oi) => (
-                    <span key={o} className={`lp-wa__chip ${picked && oi === m.pick ? 'lp-wa__chip--picked' : ''}`}>
-                      {picked && oi === m.pick ? '✓ ' : ''}{o}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            );
-          }
-          if (m.role === 'sync') {
-            return (
-              <motion.div key={idx} className="lp-wa__row lp-wa__row--sync"
-                initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.4, ease: [0.34, 1.56, 0.64, 1] }}>
-                <span className="lp-wa__sync">{m.text}</span>
-              </motion.div>
-            );
-          }
-          return (
-            <motion.div key={idx} className={`lp-wa__row lp-wa__row--${m.role}`}
-              initial={{ opacity: 0, y: 10, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-              <div className={`lp-wa__bubble lp-wa__bubble--${m.role}`}>{m.text}</div>
-            </motion.div>
-          );
-        })}
+        {active && log.map(renderItem)}
         {active && typing && (
           <div className="lp-wa__row lp-wa__row--bot">
-            <div className="lp-wa__bubble lp-wa__bubble--bot lp-wa__typing">
-              <i /><i /><i />
-            </div>
+            <div className="lp-wa__bubble lp-wa__bubble--bot lp-wa__typing"><i /><i /><i /></div>
+          </div>
+        )}
+        {active && choices.length > 0 && (
+          <div className="lp-wa__choices" aria-disabled={typing || undefined}>
+            {choices.map((c) => (
+              <button key={c.id} type="button"
+                className={`lp-wa__chip ${c.tone === 'danger' ? 'lp-wa__chip--danger' : ''}`}
+                disabled={typing} onClick={c.run}>{c.label}</button>
+            ))}
           </div>
         )}
       </div>
@@ -301,13 +418,14 @@ export default function LandingPage() {
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
   const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
-  // one transform per beat (unrolled → rules‑of‑hooks safe, lint‑safe)
-  const o0 = useTransform(scrollYProgress, [0.00, 0.05], [1, 1]);   // lit from the pin start
-  const o1 = useTransform(scrollYProgress, [0.12, 0.20], [0, 1]);   // fully lit at 0.20 = dot 1
-  const o2 = useTransform(scrollYProgress, [0.32, 0.40], [0, 1]);
-  const o3 = useTransform(scrollYProgress, [0.52, 0.60], [0, 1]);
-  const o4 = useTransform(scrollYProgress, [0.72, 0.80], [0, 1]);
-  const o5 = useTransform(scrollYProgress, [0.92, 1.00], [0, 1]);
+  // function form → explicit 0/1, clamped by construction (no library clamp reliance)
+  const ramp = (p: number, a: number, b: number) => (p <= a ? 0 : p >= b ? 1 : (p - a) / (b - a));
+  const o0 = useTransform(scrollYProgress, () => 1);                 // lit from the pin start
+  const o1 = useTransform(scrollYProgress, (p) => ramp(p, 0.12, 0.20));
+  const o2 = useTransform(scrollYProgress, (p) => ramp(p, 0.32, 0.40));
+  const o3 = useTransform(scrollYProgress, (p) => ramp(p, 0.52, 0.60));
+  const o4 = useTransform(scrollYProgress, (p) => ramp(p, 0.72, 0.80));
+  const o5 = useTransform(scrollYProgress, (p) => ramp(p, 0.92, 1.00));
   const beatOpacity = [o0, o1, o2, o3, o4, o5];
 
   useEffect(() => {

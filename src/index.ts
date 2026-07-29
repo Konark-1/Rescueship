@@ -59,8 +59,12 @@ app.use(
 // Prevent HTTP Parameter Pollution (must be after express.json)
 app.use(hpp());
 
-// NoSQL Injection Sanitizer
-app.use(mongoSanitize());
+// NoSQL Injection Sanitizer (Express 5 compatible)
+app.use((req: any, _res: any, next: any) => {
+  if (req.body) mongoSanitize.sanitize(req.body);
+  if (req.params) mongoSanitize.sanitize(req.params);
+  next();
+});
 
 // Serve Static Dashboard UI
 app.use(express.static(path.join(__dirname, 'public')));
