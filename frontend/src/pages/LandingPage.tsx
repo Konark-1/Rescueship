@@ -424,14 +424,14 @@ export default function LandingPage() {
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
   const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
-  // function form → explicit 0/1, monotonic & clamped by construction (no ghost middle)
-  const ramp = (p: number, a: number, b: number) => (p <= a ? 0 : p >= b ? 1 : (p - a) / (b - a));
+  // function form → ramps from floor→1 over [a,b]; never fully invisible
+  const ramp = (p: number, a: number, b: number, floor = 0.15) => (p <= a ? floor : p >= b ? 1 : floor + (1 - floor) * ((p - a) / (b - a)));
   const o0 = useTransform(scrollYProgress, () => 1);
-  const o1 = useTransform(scrollYProgress, (p) => ramp(p, 0.12, 0.20));
-  const o2 = useTransform(scrollYProgress, (p) => ramp(p, 0.32, 0.40));
-  const o3 = useTransform(scrollYProgress, (p) => ramp(p, 0.52, 0.60));
-  const o4 = useTransform(scrollYProgress, (p) => ramp(p, 0.72, 0.80));
-  const o5 = useTransform(scrollYProgress, (p) => ramp(p, 0.92, 1.00));
+  const o1 = useTransform(scrollYProgress, (p) => ramp(p, 0.04, 0.10));
+  const o2 = useTransform(scrollYProgress, (p) => ramp(p, 0.12, 0.18));
+  const o3 = useTransform(scrollYProgress, (p) => ramp(p, 0.22, 0.28));
+  const o4 = useTransform(scrollYProgress, (p) => ramp(p, 0.32, 0.38));
+  const o5 = useTransform(scrollYProgress, (p) => ramp(p, 0.42, 0.48));
   const beatOpacity = [o0, o1, o2, o3, o4, o5];
 
   useEffect(() => {
