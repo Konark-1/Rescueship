@@ -647,6 +647,7 @@
 .lp-reel--static .lp-reel__stage { position: static; height: auto; overflow: visible; padding-top: 2rem; padding-bottom: 2rem; }
 .lp-reel--static .lp-reel__grid { min-height: 460px; }
 .lp-reel--static .lp-reel__parcel { top: 100%; margin-top: 0; transform: translate(-50%, -100%); }
+.lp-reel--static .lp-reel__beat { opacity: 1 !important; transform: none !important; }
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 960px) {

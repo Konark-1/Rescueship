@@ -425,6 +425,24 @@ export default function LandingPage() {
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
   const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
 
+  /* Beat reveal — array-based useTransform (clamped by construction).
+     Parcel reaches dot i at scrollYProgress = i/5.
+     Each beat fades 0→1 + slides 24px→0 just before the parcel arrives. */
+  const bo0 = useTransform(scrollYProgress, [0, 1], [1, 1]);
+  const bo1 = useTransform(scrollYProgress, [0, 0.08, 0.18, 1], [0, 0, 1, 1]);
+  const bo2 = useTransform(scrollYProgress, [0, 0.28, 0.38, 1], [0, 0, 1, 1]);
+  const bo3 = useTransform(scrollYProgress, [0, 0.48, 0.58, 1], [0, 0, 1, 1]);
+  const bo4 = useTransform(scrollYProgress, [0, 0.68, 0.78, 1], [0, 0, 1, 1]);
+  const bo5 = useTransform(scrollYProgress, [0, 0.88, 0.98, 1], [0, 0, 1, 1]);
+  const beatO = [bo0, bo1, bo2, bo3, bo4, bo5];
+  const by0 = useTransform(scrollYProgress, [0, 1], [0, 0]);
+  const by1 = useTransform(scrollYProgress, [0, 0.08, 0.18, 1], [24, 24, 0, 0]);
+  const by2 = useTransform(scrollYProgress, [0, 0.28, 0.38, 1], [24, 24, 0, 0]);
+  const by3 = useTransform(scrollYProgress, [0, 0.48, 0.58, 1], [24, 24, 0, 0]);
+  const by4 = useTransform(scrollYProgress, [0, 0.68, 0.78, 1], [24, 24, 0, 0]);
+  const by5 = useTransform(scrollYProgress, [0, 0.88, 0.98, 1], [24, 24, 0, 0]);
+  const beatY = [by0, by1, by2, by3, by4, by5];
+
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 961px)');
     const upd = () => setIsDesktop(mq.matches);
@@ -784,9 +802,10 @@ export default function LandingPage() {
                 </div>
                 <ol className="lp-reel__beats">
                   {REEL_BEATS.map((b, i) => (
-                    <li
+                    <motion.li
                       key={i}
                       className={`lp-reel__beat lp-reel__beat--${b.role}`}
+                      style={reduced ? { opacity: 1 } : { opacity: beatO[i], y: beatY[i] }}
                     >
                       <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
                         {REEL_ICONS[i]}
@@ -796,7 +815,7 @@ export default function LandingPage() {
                         <span className="lp-reel__beat-t">{b.t}</span>
                         <span className="lp-reel__beat-d">{b.d}</span>
                       </span>
-                    </li>
+                    </motion.li>
                   ))}
                 </ol>
               </div>
