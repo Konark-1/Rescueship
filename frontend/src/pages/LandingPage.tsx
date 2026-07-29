@@ -418,7 +418,6 @@ export default function LandingPage() {
 
   /* ── Scroll reel: desktop gate + scroll‑scrubbed parcel (no state on scroll) ── */
   const trackRef = useRef<HTMLDivElement>(null);
-  const [isDesktop, setIsDesktop] = useState(false);
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
   const reelTop = useTransform(scrollYProgress, [0, 1], ['8.333%', '91.667%']);
@@ -440,14 +439,6 @@ export default function LandingPage() {
   const by4 = useTransform(scrollYProgress, [0, 0.68, 0.78, 1], [24, 24, 0, 0]);
   const by5 = useTransform(scrollYProgress, [0, 0.88, 0.98, 1], [24, 24, 0, 0]);
   const beatY = [by0, by1, by2, by3, by4, by5];
-
-  useEffect(() => {
-    const mq = window.matchMedia('(min-width: 961px)');
-    const upd = () => setIsDesktop(mq.matches);
-    upd();
-    mq.addEventListener('change', upd);
-    return () => mq.removeEventListener('change', upd);
-  }, []);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -773,45 +764,43 @@ export default function LandingPage() {
       </section>
 
       {/* ═══ SCROLL REEL — the story in motion (desktop only) ═══ */}
-      {isDesktop && (
-        <section className={`lp-reel${reduced ? ' lp-reel--static' : ''}`} aria-label="How a single rescue plays out">
-          <div className="lp-reel__track" ref={trackRef}>
-            <div className="lp-reel__stage">
-              <p className="lp-section__kicker lp-reel__kicker">The same order, in motion</p>
-              <div className="lp-reel__grid">
-                <div className="lp-reel__route" aria-hidden="true">
-                  <span className="lp-reel__line" />
-                  {REEL_BEATS.map((b, i) => (
-                    <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
-                  ))}
-                  <motion.span
-                    className="lp-reel__parcel"
-                    style={reduced ? undefined : { top: reelTop }}
-                  >📦</motion.span>
-                </div>
-                <ol className="lp-reel__beats">
-                  {REEL_BEATS.map((b, i) => (
-                    <motion.li
-                      key={i}
-                      className={`lp-reel__beat lp-reel__beat--${b.role}`}
-                      style={reduced ? { opacity: 1 } : { opacity: beatO[i], y: beatY[i] }}
-                    >
-                      <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
-                        {REEL_ICONS[i]}
-                      </span>
-                      <span className="lp-reel__beat-txt">
-                        <span className="lp-reel__beat-tag">{b.tag}</span>
-                        <span className="lp-reel__beat-t">{b.t}</span>
-                        <span className="lp-reel__beat-d">{b.d}</span>
-                      </span>
-                    </motion.li>
-                  ))}
-                </ol>
+      <section className={`lp-reel${reduced ? ' lp-reel--static' : ''}`} aria-label="How a single rescue plays out">
+        <div className="lp-reel__track" ref={trackRef}>
+          <div className="lp-reel__stage">
+            <p className="lp-section__kicker lp-reel__kicker">The same order, in motion</p>
+            <div className="lp-reel__grid">
+              <div className="lp-reel__route" aria-hidden="true">
+                <span className="lp-reel__line" />
+                {REEL_BEATS.map((b, i) => (
+                  <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
+                ))}
+                <motion.span
+                  className="lp-reel__parcel"
+                  style={reduced ? undefined : { top: reelTop }}
+                >📦</motion.span>
               </div>
+              <ol className="lp-reel__beats">
+                {REEL_BEATS.map((b, i) => (
+                  <motion.li
+                    key={i}
+                    className={`lp-reel__beat lp-reel__beat--${b.role}`}
+                    style={reduced ? { opacity: 1 } : { opacity: beatO[i], y: beatY[i] }}
+                  >
+                    <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
+                      {REEL_ICONS[i]}
+                    </span>
+                    <span className="lp-reel__beat-txt">
+                      <span className="lp-reel__beat-tag">{b.tag}</span>
+                      <span className="lp-reel__beat-t">{b.t}</span>
+                      <span className="lp-reel__beat-d">{b.d}</span>
+                    </span>
+                  </motion.li>
+                ))}
+              </ol>
             </div>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
 
       {/* FINAL CTA — framed boarding gate */}
       <section className="lp-final">
