@@ -107,14 +107,21 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
   target: number; booted: boolean; prefix?: string; suffix?: string; duration?: number; delay?: number;
 }) {
   const [val, setVal] = useState(0);
+  const prevTargetRef = useRef(0);
+
   useEffect(() => {
     if (!booted) return;
     let raf = 0, start = 0;
+    const startVal = prevTargetRef.current;
+    const diff = target - startVal;
+    prevTargetRef.current = target;
+
     const timer = setTimeout(() => {
       const step = (ts: number) => {
         if (!start) start = ts;
         const p = Math.min((ts - start) / (duration * 1000), 1);
-        setVal(Math.floor((1 - Math.pow(1 - p, 3)) * target));
+        const easeP = 1 - Math.pow(1 - p, 3);
+        setVal(Math.floor(startVal + easeP * diff));
         if (p < 1) raf = requestAnimationFrame(step);
       };
       raf = requestAnimationFrame(step);
@@ -342,7 +349,8 @@ export default function LandingPage() {
   const [showOverlay, setShowOverlay] = useState(true);
   const [reduced, setReduced] = useState(false);
 
-  const [feedLines, setFeedLines] = useState<typeof FEED_SCRIPT>([]);
+  const feedCounterRef = useRef(0);
+  const [feedLines, setFeedLines] = useState<{ id: string; t: string; msg: string; cls?: string }[]>([]);
   const [feedIdx, setFeedIdx] = useState(0);
   const [recovered, setRecovered] = useState(4_83_750);
   const [rescuedCount, setRescuedCount] = useState(387);
@@ -382,7 +390,8 @@ export default function LandingPage() {
     }
     const delay = FEED_SCRIPT[feedIdx].cls === 'rescued' ? 800 : 350;
     const timer = setTimeout(() => {
-      setFeedLines((prev) => [...prev.slice(-8), FEED_SCRIPT[feedIdx]]);
+      const lineObj = { ...FEED_SCRIPT[feedIdx], id: `feed-${++feedCounterRef.current}` };
+      setFeedLines((prev) => [...prev.slice(-8), lineObj]);
       setFeedIdx((i) => i + 1);
       if (FEED_SCRIPT[feedIdx].cls === 'rescued') {
         const m = FEED_SCRIPT[feedIdx].msg.match(/[\d,.]+/);
@@ -532,8 +541,8 @@ export default function LandingPage() {
             </div>
             <div className="lp-console__scroll">
               <AnimatePresence mode="popLayout">
-                {feedLines.map((line, i) => (
-                  <motion.div key={`${feedIdx}-${i}`}
+                {feedLines.map((line) => (
+                  <motion.div key={line.id}
                     className={`lp-feed__line ${line.cls ? `lp-feed__line--${line.cls}` : ''}`}
                     initial={{ opacity: 0, x: -14 }} animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}>
@@ -613,7 +622,7 @@ export default function LandingPage() {
               </div>
               <div className="lp-pass__row">
                 <label className="lp-pass__label">Store URL</label>
-                <input className="lp-pass__input" type="url" placeholder="yourbrand.myshopify.com"
+                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com"
                   value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
               </div>
               <button className="lp-pass__btn" type="submit" disabled={submitting}>
