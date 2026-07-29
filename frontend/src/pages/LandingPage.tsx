@@ -83,6 +83,16 @@ const REEL_BEATS = [
   { tag: '15:20', role: 'rescue', t: 'Delivered. ₹1,240 kept.',      d: 'No reverse freight. No repack. No wasted ad spend.' },
 ];
 
+/* inline-SVG pictograms — one framed "image" per beat, tinted by role colour */
+const REEL_ICONS = [
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7h11v8H2z"/><path d="M13 10h4l3 3v2h-7z"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="3" width="12" height="18" rx="1.2"/><rect x="9.5" y="11" width="5" height="4.6" rx="0.8"/><path d="M10.5 11V9.6a1.5 1.5 0 0 1 3 0V11"/></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/><path d="M12 12 17.5 7.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16.4" cy="8.6" r="0.9" fill="currentColor" stroke="none"/></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 8.5h8"/><path d="M8 11.5h5"/></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10z"/><circle cx="12" cy="11" r="2"/><path d="M3 21h5" strokeDasharray="2 2"/></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="1.2"/><path d="M4 9.5 6 5h12l2 4.5"/><path d="M9 14.5l2 2 4-4"/></svg>),
+];
+
 /* ═══ Helpers ═══ */
 function SpawnWords({ text, booted, baseDelay = 0, className = '' }: {
   text: string; booted: boolean; baseDelay?: number; className?: string;
@@ -290,13 +300,13 @@ export default function LandingPage() {
   const [routeH, setRouteH] = useState(0);
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
-  const reelY = useTransform(scrollYProgress, [0, 1], [0, Math.max(routeH, 1)]);
+  const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
   // one transform per beat (unrolled → rules‑of‑hooks safe, lint‑safe)
-  const o0 = useTransform(scrollYProgress, [0.00, 0.05], [0, 1]);
-  const o1 = useTransform(scrollYProgress, [0.20, 0.30], [0, 1]);
-  const o2 = useTransform(scrollYProgress, [0.40, 0.50], [0, 1]);
-  const o3 = useTransform(scrollYProgress, [0.60, 0.70], [0, 1]);
-  const o4 = useTransform(scrollYProgress, [0.80, 0.90], [0, 1]);
+  const o0 = useTransform(scrollYProgress, [0.00, 0.05], [1, 1]);   // lit from the pin start
+  const o1 = useTransform(scrollYProgress, [0.12, 0.20], [0, 1]);   // fully lit at 0.20 = dot 1
+  const o2 = useTransform(scrollYProgress, [0.32, 0.40], [0, 1]);
+  const o3 = useTransform(scrollYProgress, [0.52, 0.60], [0, 1]);
+  const o4 = useTransform(scrollYProgress, [0.72, 0.80], [0, 1]);
   const o5 = useTransform(scrollYProgress, [0.92, 1.00], [0, 1]);
   const beatOpacity = [o0, o1, o2, o3, o4, o5];
 
@@ -650,11 +660,7 @@ export default function LandingPage() {
                 <div className="lp-reel__route" ref={routeRef} aria-hidden="true">
                   <span className="lp-reel__line" />
                   {REEL_BEATS.map((b, i) => (
-                    <span
-                      key={i}
-                      className={`lp-reel__dot lp-reel__dot--${b.role}`}
-                      style={{ top: `${(i / (REEL_BEATS.length - 1)) * 100}%` }}
-                    />
+                    <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
                   ))}
                   <motion.span
                     className="lp-reel__parcel"
@@ -668,8 +674,11 @@ export default function LandingPage() {
                       className={`lp-reel__beat lp-reel__beat--${b.role}`}
                       style={reduced ? undefined : { opacity: beatOpacity[i] }}
                     >
-                      <span className="lp-reel__beat-tag">{b.tag}</span>
+                      <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
+                        {REEL_ICONS[i]}
+                      </span>
                       <span className="lp-reel__beat-txt">
+                        <span className="lp-reel__beat-tag">{b.tag}</span>
                         <span className="lp-reel__beat-t">{b.t}</span>
                         <span className="lp-reel__beat-d">{b.d}</span>
                       </span>
