@@ -33,7 +33,7 @@ body {
   color: var(--text-1);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: clip;
+  overflow-x: hidden;
   line-height: 1.6;
 }
 ::selection { background: rgba(99,102,241,0.3); color: #fff; }

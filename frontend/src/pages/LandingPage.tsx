@@ -65,22 +65,21 @@ const SPINE_STEPS = [
 
 /* ═══ Scroll reel — the same order, told in motion (desktop only) ═══ */
 const REEL_BEATS = [
-  { tag: '11:43', role: 'move',   t: 'Out for delivery.',            d: 'The parcel leaves the warehouse. So far, so normal.' },
-  { tag: '11:47', role: 'wound',  t: '“Door locked.” No knock.',     d: 'Logged four minutes after the scan. No call, no doorbell.' },
-  { tag: '11:47', role: 'engine', t: 'RescueShip intercepts.',       d: 'The NDR is caught before the return journey begins.' },
-  { tag: '11:48', role: 'engine', t: 'WhatsApp: “are you home?”',    d: 'Verification, never accusation. The customer taps Yes.' },
-  { tag: '11:49', role: 'engine', t: 'Driver re‑routed.',            d: 'Corrected intent synced straight to the carrier.' },
-  { tag: '15:20', role: 'rescue', t: 'Delivered. ₹1,240 kept.',      d: 'No reverse freight. No repack. No wasted ad spend.' },
+  { tag: '11:43', role: 'move', t: 'Out for delivery.', d: 'The parcel leaves the warehouse. So far, so normal.' },
+  { tag: '11:47', role: 'wound', t: '“Door locked.” No knock.', d: 'Logged four minutes after the scan. No call, no doorbell.' },
+  { tag: '11:47', role: 'engine', t: 'RescueShip intercepts.', d: 'The NDR is caught before the return journey begins.' },
+  { tag: '11:48', role: 'engine', t: 'WhatsApp: “are you home?”', d: 'Verification, never accusation. The customer taps Yes.' },
+  { tag: '11:49', role: 'engine', t: 'Driver re‑routed.', d: 'Corrected intent synced straight to the carrier.' },
+  { tag: '15:20', role: 'rescue', t: 'Delivered. ₹1,240 kept.', d: 'No reverse freight. No repack. No wasted ad spend.' },
 ];
 
-/* inline-SVG pictograms — one framed "image" per beat, tinted by role colour */
 const REEL_ICONS = [
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7h11v8H2z"/><path d="M13 10h4l3 3v2h-7z"/><circle cx="6.5" cy="17.5" r="1.7"/><circle cx="17" cy="17.5" r="1.7"/></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="3" width="12" height="18" rx="1.2"/><rect x="9.5" y="11" width="5" height="4.6" rx="0.8"/><path d="M10.5 11V9.6a1.5 1.5 0 0 1 3 0V11"/></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.4"/><path d="M12 12 17.5 7.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="16.4" cy="8.6" r="0.9" fill="currentColor" stroke="none"/></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/><path d="M8 8.5h8"/><path d="M8 11.5h5"/></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10z"/><circle cx="12" cy="11" r="2"/><path d="M3 21h5" strokeDasharray="2 2"/></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="1.2"/><path d="M4 9.5 6 5h12l2 4.5"/><path d="M9 14.5l2 2 4-4"/></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7h11v8H2z" /><path d="M13 10h4l3 3v2h-7z" /><circle cx="6.5" cy="17.5" r="1.7" /><circle cx="17" cy="17.5" r="1.7" /></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="3" width="12" height="18" rx="1.2" /><rect x="9.5" y="11" width="5" height="4.6" rx="0.8" /><path d="M10.5 11V9.6a1.5 1.5 0 0 1 3 0V11" /></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /><path d="M12 12 17.5 7.5" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="16.4" cy="8.6" r="0.9" fill="currentColor" stroke="none" /></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" /><path d="M8 8.5h8" /><path d="M8 11.5h5" /></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10z" /><circle cx="12" cy="11" r="2" /><path d="M3 21h5" strokeDasharray="2 2" /></svg>),
+  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="1.2" /><path d="M4 9.5 6 5h12l2 4.5" /><path d="M9 14.5l2 2 4-4" /></svg>),
 ];
 
 /* ═══ Helpers ═══ */
@@ -125,12 +124,10 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
   return <>{prefix}{val.toLocaleString('en-IN')}{suffix}</>;
 }
 
-
-
 /* ═══ WhatsApp rescue chat — interactive decision tree (tap‑driven, all devices) ═══ */
-type MsgKind = 'bot' | 'user' | 'sys' | 'status';
-interface Msg { id: number; kind: MsgKind; text: string; tone?: 'ok' | 'warn' | 'cancel' | 'engine'; }
-interface Choice { id: string; label: string; tone?: 'danger'; run: () => void; }
+type MsgTone = 'ok' | 'warn' | 'cancel' | 'engine';
+interface Msg { id: number; kind: 'bot' | 'user' | 'sys' | 'status'; text: string; tone?: MsgTone; }
+interface Choice { id: string; label: string; danger?: boolean; run: () => void; }
 
 function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
   const idRef = useRef(0);
@@ -144,15 +141,14 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
   const timer = useRef<number | null>(null);
   const started = useRef(false);
 
-  /* ── handlers (declarations → hoisted, safe to reference in topChoices) ── */
-  function finish(bText: string, bTone: string, sText: string, sTone: Msg['tone']) {
+  function finish(bText: string, bTone: string, sText: string, sTone: MsgTone) {
     setLog((l) => [...l, { id: nid(), kind: 'status', text: sText, tone: sTone }]);
     setBanner({ text: bText, tone: bTone });
     setChoices([]);
   }
   function say(
     user: string | null, sys: string | null, bot: string,
-    after: () => void, sysTone: Msg['tone'] = 'engine',
+    after: () => void, sysTone: MsgTone = 'engine',
   ) {
     const add: Msg[] = [];
     if (user) add.push({ id: nid(), kind: 'user', text: user });
@@ -172,7 +168,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       { id: 'home', label: 'Yes, I’m home', run: doHome },
       { id: 'resched', label: 'Reschedule', run: doReschedule },
       { id: 'pin', label: 'Share my pin', run: doPin },
-      { id: 'cancel', label: 'Cancel', tone: 'danger', run: doCancel },
+      { id: 'cancel', label: 'Cancel', danger: true, run: doCancel },
     ];
   }
   function seed() {
@@ -224,7 +220,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       'Appreciate the honesty! We’ll match that price AND take an extra ₹75 off — pay ₹1,224 via 1‑click UPI now and delivery is guaranteed tomorrow morning.',
       () => { setBanner({ text: '⚡ Price Match Active', tone: 'engine' }); setChoices([
         { id: 'pay', label: '💳 Pay ₹1,224 via UPI', run: payUpi },
-        { id: 'no', label: '❌ Still cancel', tone: 'danger', run: finalCancel },
+        { id: 'no', label: '❌ Still cancel', danger: true, run: finalCancel },
       ]); });
   }
   function payUpi() {
@@ -238,7 +234,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       'So sorry for the wait! We’ve upgraded you to Priority Air Express at zero extra charge and added ₹100 credit to your account — give us one more day?',
       () => { setBanner({ text: '✈️ Priority Air Applied', tone: 'engine' }); setChoices([
         { id: 'keep', label: '✈️ Keep + Air Upgrade', run: keepAir },
-        { id: 'no', label: '❌ No, cancel', tone: 'danger', run: finalCancel },
+        { id: 'no', label: '❌ No, cancel', danger: true, run: finalCancel },
       ]); });
   }
   function keepAir() {
@@ -251,7 +247,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       'Totally understand! Before this heads back to the warehouse, would an instant ₹100 off (new total ₹1,324) make it worth keeping?',
       () => setChoices([
         { id: 'keepd', label: '💰 Apply ₹100 off', run: keepDiscount },
-        { id: 'no', label: '❌ No thanks, cancel', tone: 'danger', run: finalCancel },
+        { id: 'no', label: '❌ No thanks, cancel', danger: true, run: finalCancel },
       ]));
   }
   function keepDiscount() {
@@ -266,7 +262,6 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       'cancel');
   }
 
-  /* ── lifecycle ── */
   useEffect(() => { if (active && !started.current) { started.current = true; seed(); } }, [active]);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   useEffect(() => {
@@ -328,10 +323,10 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
           </div>
         )}
         {active && choices.length > 0 && (
-          <div className="lp-wa__choices" aria-disabled={typing || undefined}>
+          <div className={`lp-wa__choices ${typing ? 'lp-wa__choices--locked' : ''}`}>
             {choices.map((c) => (
               <button key={c.id} type="button"
-                className={`lp-wa__chip ${c.tone === 'danger' ? 'lp-wa__chip--danger' : ''}`}
+                className={`lp-wa__chip ${c.danger ? 'lp-wa__chip--danger' : ''}`}
                 disabled={typing} onClick={c.run}>{c.label}</button>
             ))}
           </div>
@@ -420,9 +415,9 @@ export default function LandingPage() {
 
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
   const reelY = useTransform(scrollYProgress, [0, 1], [routeH / 12, (11 * routeH) / 12]);
-  // function form → explicit 0/1, clamped by construction (no library clamp reliance)
+  // function form → explicit 0/1, monotonic & clamped by construction (no ghost middle)
   const ramp = (p: number, a: number, b: number) => (p <= a ? 0 : p >= b ? 1 : (p - a) / (b - a));
-  const o0 = useTransform(scrollYProgress, () => 1);                 // lit from the pin start
+  const o0 = useTransform(scrollYProgress, () => 1);
   const o1 = useTransform(scrollYProgress, (p) => ramp(p, 0.12, 0.20));
   const o2 = useTransform(scrollYProgress, (p) => ramp(p, 0.32, 0.40));
   const o3 = useTransform(scrollYProgress, (p) => ramp(p, 0.52, 0.60));
@@ -642,7 +637,7 @@ export default function LandingPage() {
               {failedOrders.map((o) => (
                 <motion.div key={o.id} className="lp-order lp-order--fail" layout
                   exit={{ opacity: 0, x: 70, scale: 0.92 }}
-                  transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}>
+                  transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}>
                   <span className="lp-order__id">{o.id}</span>
                   <span className="lp-order__awb">AWB {o.awb}</span>
                   <span className="lp-order__amt">{o.amount}</span>
@@ -657,7 +652,7 @@ export default function LandingPage() {
               {rescuedOrders.map((o) => (
                 <motion.div key={o.id} className="lp-order lp-order--ok" layout
                   initial={{ opacity: 0, x: -70, scale: 0.92 }} animate={{ opacity: 1, x: 0, scale: 1 }}
-                  transition={{ duration: 0.25, ease: [0.34, 1.56, 0.64, 1] }}>
+                  transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}>
                   <span className="lp-order__id">{o.id}</span>
                   <span className="lp-order__awb">AWB {o.awb}</span>
                   <span className="lp-order__amt">{o.amount} ✓</span>
@@ -707,7 +702,7 @@ export default function LandingPage() {
         </motion.p>
       </section>
 
-      {/* RESCUE LOOP — spine + live WhatsApp proof */}
+      {/* RESCUE LOOP — spine + interactive WhatsApp proof */}
       <section className="lp-how">
         <div className="lp-how__main">
           <motion.p className="lp-section__kicker" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
@@ -739,7 +734,7 @@ export default function LandingPage() {
           initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: '-80px' }}
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}>
-          <span className="lp-how__aside-tag">live rescue · 90s</span>
+          <span className="lp-how__aside-tag">live rescue · tap to play</span>
           <WaPhone active={booted} reduced={reduced} />
           <p className="lp-how__aside-note">The customer taps. The carrier syncs. No one on your team lifts a finger.</p>
         </motion.div>
