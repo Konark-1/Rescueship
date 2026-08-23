@@ -54,6 +54,10 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
         return;
       }
     }
+  } else {
+    logger.warn('Delhivery webhook secret not configured — rejecting webhook. Set DELHIVERY_WEBHOOK_SECRET.');
+    res.status(401).json({ error: 'Delhivery webhook secret not configured' });
+    return;
   }
 
   const webhookId = req.get('x-delhivery-event-id') || req.get('x-event-id') || `delhivery_${awb}_${status || 'ndr'}`;

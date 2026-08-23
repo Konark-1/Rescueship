@@ -265,13 +265,14 @@ async function runCompleteSimulation() {
 
   await recordSim('3. NDR & Logistics', '3.2 Delhivery NDR Webhook Ingestion', async () => {
     const delAwb = `AWB_DEL_${Date.now()}`;
+    const secret = process.env.DELHIVERY_WEBHOOK_SECRET || 'delhivery_webhook_secret_key_32chars';
     const res = await axios.post(`${BASE_URL}/webhooks/delhivery/ndr?merchant_id=${merchantId}`, {
       waybill: delAwb,
       order_id: `ORD_DEL_${Date.now()}`,
       status: 'undelivered',
       remarks: 'Incomplete Address / Door Closed',
       phone: '+919876543210',
-    }, { headers: { 'x-api-key': 'dummy-signature-for-local-test' } });
+    }, { headers: { 'x-api-key': secret } });
     if (res.data.status !== 'queued') throw new Error('Expected queued');
     return `Delhivery NDR for AWB ${delAwb} registered`;
   });
@@ -504,10 +505,14 @@ async function runCompleteSimulation() {
 
   console.log('\n================================================================================');
   const passed = simResults.filter(r => r.verdict === 'PASS').length;
-  console.log(`🏁 SIMULATION EXECUTION SUMMARY: ${passed}/${simResults.length} SCENARIOS VERIFIED (100% SUCCESS)`);
+  console.log(`🏁 SIMULATION EXECUTION SUMMARY: ${passed}/${simResults.length} SCENARIOS VERIFIED (${passed === simResults.length ? '100% SUCCESS' : 'FAILURES DETECTED'})`);
   console.log('================================================================================\n');
 
   await mongoose.disconnect();
+  process.exit(passed === simResults.length ? 0 : 1);
 }
 
-runCompleteSimulation().catch(console.error);
+runCompleteSimulation().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
