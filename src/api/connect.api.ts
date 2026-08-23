@@ -109,6 +109,10 @@ router.post('/payment', authenticateToken, async (req: AuthenticatedRequest, res
 // ── Owner phone (for the test pulse) + finalize ──
 router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const { ownerPhone, storeName } = req.body;
+  // MED-1 fix: Validate phone format (E.164: +countrycode followed by 7-14 digits)
+  if (ownerPhone && !/^\+\d{7,15}$/.test(ownerPhone)) {
+    return res.status(400).json({ error: 'Invalid phone number format. Use E.164 format, e.g. +919876543210' });
+  }
   await Merchant.findByIdAndUpdate(req.merchant!.merchantId, { $set: { ownerPhone, ...(storeName ? { storeName } : {}) } });
   res.json({ ok: true });
 });

@@ -87,6 +87,7 @@ describe('NDRService - 3-Mode Address Correction', () => {
         settings: { ndrRescue: { messageLanguage: 'en' } },
       });
       (Merchant.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+      (logisticsService.updateDeliveryAddress as jest.Mock).mockResolvedValue({ success: true });
       (logisticsService.updateAddress as jest.Mock).mockResolvedValue({ success: true });
       (whatsAppService.sendInteractiveButtons as jest.Mock).mockResolvedValue({});
       (AuditLog.create as jest.Mock).mockResolvedValue({});
@@ -98,10 +99,10 @@ describe('NDRService - 3-Mode Address Correction', () => {
 
       expect(mockOrder.ndr.addressUpdate.collectionState).toBe('complete');
       expect(mockOrder.status).toBe('ndr_rescued');
-      expect(logisticsService.updateAddress).toHaveBeenCalled();
+      expect(logisticsService.updateDeliveryAddress).toHaveBeenCalled();
       expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
         '919876543210',
-        expect.stringContaining('Thank you! We have updated your address'),
+        expect.stringContaining('Thank you! We have shared your location with the courier driver.'),
         [],
         expect.any(Object)
       );
@@ -137,15 +138,15 @@ describe('NDRService - 3-Mode Address Correction', () => {
         settings: { ndrRescue: { messageLanguage: 'en' } },
       });
       (Merchant.findByIdAndUpdate as jest.Mock).mockResolvedValue({});
+      (logisticsService.updateDeliveryAddress as jest.Mock).mockResolvedValue({ success: true });
       (logisticsService.updateAddress as jest.Mock).mockResolvedValue({ success: true });
       (whatsAppService.sendInteractiveButtons as jest.Mock).mockResolvedValue({});
 
-      await ndrService.handleCustomerTextResponse('9876543210', 'Flat 402, Building B');
+      await ndrService.handleCustomerTextResponse('9876543210', 'Flat 402, Building B 110001');
 
       expect(mockOrder.ndr.addressUpdate.collectionState).toBe('complete');
-      expect(mockOrder.ndr.addressUpdate.textAddress).toBe('Flat 402, Building B');
       expect(mockOrder.status).toBe('ndr_rescued');
-      expect(logisticsService.updateAddress).toHaveBeenCalledWith(
+      expect(logisticsService.updateDeliveryAddress).toHaveBeenCalledWith(
         'shiprocket',
         expect.objectContaining({
           address: expect.stringContaining('Flat 402, Building B'),

@@ -17,14 +17,21 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
 
   logger.info('Received Razorpay webhook payment event');
 
-  // Verify Signature
-  if (config.razorpay.webhookSecret && signature && rawBody) {
+  // Verify Signature — MANDATORY when webhookSecret is configured
+  if (config.razorpay.webhookSecret) {
+    if (!signature || !rawBody) {
+      logger.warn('Razorpay webhook rejected: missing signature header or body', { hasSignature: !!signature, hasBody: !!rawBody });
+      res.status(401).json({ error: 'Missing X-Razorpay-Signature header' });
+      return;
+    }
     const isValid = paymentService.verifyRazorpayWebhook(rawBody, signature, config.razorpay.webhookSecret);
     if (!isValid) {
       logger.warn('Razorpay webhook signature verification failed');
       res.status(401).json({ error: 'Invalid Razorpay signature' });
       return;
     }
+  } else {
+    logger.warn('Razorpay webhookSecret not configured — signature verification skipped. Set RAZORPAY_WEBHOOK_SECRET for production.');
   }
 
   try {
@@ -50,6 +57,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
         return;
       }
 
+      const amountPaid = paymentLinkEntity?.amount_paid || paymentLinkEntity?.amount || body.payload?.payment?.entity?.amount;
       // Add payment confirmation job to queue
       await codConversionQueue.add(
         'confirm-payment',
@@ -57,6 +65,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
           action: 'payment_confirmed',
           paymentLinkId,
           provider: 'razorpay',
+          amountPaidPaise: amountPaid,
         },
         {
           attempts: 3,

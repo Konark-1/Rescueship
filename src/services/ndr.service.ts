@@ -15,6 +15,7 @@ import { getPolicy, RescuePolicy } from '../config/rescue-policy';
 import { RescueLedger } from '../models/RescueLedger';
 import { recordOutbound } from './whatsapp-cost.service';
 import { COPY } from '../i18n/customer-copy';
+import { addressCorrectionService, LocationData } from './address-correction.service';
 
 export interface NDREventData {
   awb: string;
@@ -113,15 +114,12 @@ export class NDRService {
             throw err;
           }
         }
-      } else {
-        order.awb = ndrData.awb;
-        order.carrier = ndrData.carrier;
       }
 
-      order.status = 'ndr_detected';
       const isFake = this.detectFakeAttempt(order, ndrData);
 
-      order.ndr = {
+      // HIGH-4 fix: Atomic status transition — prevents duplicate rescue messages
+      const ndrPayload = {
         reason: ndrData.reason,
         detectedAt: new Date(),
         rescueMessagesSent: 1,
@@ -131,7 +129,20 @@ export class NDRService {
         resolution: null,
         isFakeAttempt: isFake,
       };
-      await order.save();
+
+      const updated = await Order.findOneAndUpdate(
+        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'ndr_rescued'] } },
+        { $set: { status: 'ndr_detected', awb: ndrData.awb, carrier: ndrData.carrier, ndr: ndrPayload } },
+        { new: true }
+      );
+
+      if (!updated) {
+        logger.info('Order already in NDR flow, skipping duplicate webhook', { orderId: order._id, awb: ndrData.awb });
+        return;
+      }
+
+      // Refresh order reference for downstream use
+      order = updated;
 
       realtimeService.emitNdrDetected(
         order.merchantId.toString(),
@@ -290,27 +301,42 @@ export class NDRService {
       { id: `cancel:${order._id}`, title: 'Cancel Order' },
     ];
 
-    const waConfig = this.getWaConfig(merchant);
-    await whatsAppService.sendInteractiveButtons(order.customerPhone, body, buttons, waConfig);
-
-    await recordOutbound({
-      orderId: order._id.toString(),
-      merchantId: order.merchantId.toString(),
-      templateName: 'ndr_verify_en',
-      body,
-      hasDiscount: policy.incentive.type !== 'none',
-    });
-
-    await Merchant.updateOne(
+    // MED-6 fix: Deduct credit before sending. Refund if message delivery fails.
+    const creditDeducted = await Merchant.updateOne(
       { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
       { $inc: { 'billing.rescueCredits': -1 } }
     );
-    await BillingEvent.create({
-      merchantId: merchant._id,
-      eventType: 'whatsapp_template_sent',
-      orderId: order._id,
-      creditsCost: 1,
-    });
+    if (creditDeducted.modifiedCount === 0) {
+      logger.warn('Insufficient rescue credits to send verify rescue', { merchantId: merchant._id });
+      return;
+    }
+
+    try {
+      const waConfig = this.getWaConfig(merchant);
+      await whatsAppService.sendInteractiveButtons(order.customerPhone, body, buttons, waConfig);
+
+      await recordOutbound({
+        orderId: order._id.toString(),
+        merchantId: order.merchantId.toString(),
+        templateName: 'ndr_verify_en',
+        body,
+        hasDiscount: policy.incentive.type !== 'none',
+      });
+
+      await BillingEvent.create({
+        merchantId: merchant._id,
+        eventType: 'whatsapp_template_sent',
+        orderId: order._id,
+        creditsCost: 1,
+      });
+    } catch (err: any) {
+      // Refund credit on send failure
+      await Merchant.updateOne(
+        { _id: merchant._id },
+        { $inc: { 'billing.rescueCredits': 1 } }
+      );
+      throw err;
+    }
   }
 
   public async handleCustomerResponse(phone: string, buttonPayload: string, resolvedOrder?: any): Promise<void> {
@@ -435,7 +461,8 @@ export class NDRService {
           if (job) await job.remove();
         }
 
-        const cancelMsg = COPY.cancelled({ orderId: order.externalOrderId, coupon: 'COMEBACK150' });
+        const coupon = (merchant as any).settings?.ndrRescue?.returnCoupon || 'COMEBACK150';
+        const cancelMsg = COPY.cancelled({ orderId: order.externalOrderId, coupon });
         await whatsAppService.sendInteractiveButtons(
           order.customerPhone,
           cancelMsg,
@@ -478,12 +505,18 @@ export class NDRService {
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
 
-      await whatsAppService.sendInteractiveButtons(
-        order.customerPhone,
-        COPY.addressConfirmed(),
-        [],
-        this.getWaConfig(merchant)
-      );
+      // MED-7 fix: Only confirm address if in active address collection state.
+      const isInAddressFlow = order.ndr?.customerResponse === 'address_update_started';
+      if (isInAddressFlow) {
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          COPY.addressConfirmed(),
+          [],
+          this.getWaConfig(merchant)
+        );
+      } else {
+        logger.info('Received text outside address update flow, skipping false confirmation', { phone, text });
+      }
     }
   }
 

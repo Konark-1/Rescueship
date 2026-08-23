@@ -43,7 +43,13 @@ export class CarrierConnectService {
     if (creds.password) store.password = encryptionService.encrypt(creds.password);
     if (shiprocketToken) store.shiprocketToken = encryptionService.encrypt(shiprocketToken);
     (merchant as any).carrierConfig = store;
-    (merchant as any).connections = { ...((merchant as any).connections || {}), carrier: { status: 'connected', connectedAt: new Date(), provider: creds.provider, lastError: null } };
+    const currentConn = (merchant as any).connections || {};
+    (merchant as any).connections = {
+      shopify: currentConn.shopify || { status: 'disconnected' },
+      whatsapp: currentConn.whatsapp || { status: 'disconnected' },
+      payment: currentConn.payment || { status: 'disconnected' },
+      carrier: { status: 'connected', connectedAt: new Date(), provider: creds.provider, lastError: null },
+    };
     await merchant.save();
     logger.info('Carrier connected', { merchantId, provider: creds.provider });
     return { status: 'connected', provider: creds.provider };

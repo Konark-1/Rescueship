@@ -102,7 +102,7 @@ export class LogisticsService {
     }
 
     const fetchPromise = (async () => {
-      const url = 'https://api.shiprocket.in/v1/external/auth/login';
+      const url = 'https://apiv2.shiprocket.in/v1/external/auth/login';
       try {
         logger.info('Requesting new Shiprocket auth token', { email: srEmail });
         const response = await axios.post(url, {

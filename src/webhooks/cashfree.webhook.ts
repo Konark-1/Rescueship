@@ -15,6 +15,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
 
   logger.info('Received Cashfree webhook payment event');
 
+  // Verify Signature — MANDATORY when clientSecret is configured
   if (config.cashfree.clientSecret) {
     if (!signature || !rawBody) {
       logger.warn('Cashfree webhook missing signature or raw body');
@@ -27,6 +28,10 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Invalid Cashfree signature' });
       return;
     }
+  } else {
+    logger.warn('Cashfree clientSecret not configured — rejecting webhook. Set CASHFREE_CLIENT_SECRET.');
+    res.status(401).json({ error: 'Cashfree webhook secret not configured' });
+    return;
   }
 
   try {
@@ -49,12 +54,16 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
         return;
       }
 
+      const rawAmount = body.data?.payment?.payment_amount || body.data?.order?.order_amount || body.link_amount || body.data?.link_amount;
+      const amountPaidPaise = rawAmount ? Math.round(rawAmount * 100) : undefined;
+
       await codConversionQueue.add(
         'confirm-payment',
         {
           action: 'payment_confirmed',
           paymentLinkId: linkId,
           provider: 'cashfree',
+          amountPaidPaise,
         },
         {
           attempts: 3,

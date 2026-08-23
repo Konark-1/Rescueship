@@ -35,8 +35,14 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     if (cleanMerchant.platformConfig?.woocommerceSecret) {
       cleanMerchant.platformConfig.woocommerceSecret = '********';
     }
-    if (cleanMerchant.carrierConfig?.apiToken) {
-      cleanMerchant.carrierConfig.apiToken = '********';
+    if ((cleanMerchant.carrierConfig as any)?.apiToken) {
+      (cleanMerchant.carrierConfig as any).apiToken = '********';
+    }
+    if ((cleanMerchant.carrierConfig as any)?.apiKey) {
+      (cleanMerchant.carrierConfig as any).apiKey = '********';
+    }
+    if ((cleanMerchant.carrierConfig as any)?.password) {
+      (cleanMerchant.carrierConfig as any).password = '********';
     }
     if (cleanMerchant.whatsappConfig?.accessToken) {
       cleanMerchant.whatsappConfig.accessToken = '********';
@@ -118,13 +124,29 @@ router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     // Apply carrierConfig updates
     if (updates.carrierConfig) {
       merchant.carrierConfig = merchant.carrierConfig || {};
+      const carrierConf = merchant.carrierConfig as any;
       if (updates.carrierConfig.provider) {
-        merchant.carrierConfig.provider = updates.carrierConfig.provider;
+        carrierConf.provider = updates.carrierConfig.provider;
       }
       
       const carrierToken = updates.carrierConfig.apiToken;
       if (carrierToken && carrierToken !== '********') {
-        merchant.carrierConfig.apiToken = encryptionService.encrypt(carrierToken);
+        carrierConf.apiToken = encryptionService.encrypt(carrierToken);
+      }
+
+      const carrierApiKey = updates.carrierConfig.apiKey;
+      if (carrierApiKey && carrierApiKey !== '********') {
+        carrierConf.apiKey = encryptionService.encrypt(carrierApiKey);
+      }
+
+      const carrierPass = updates.carrierConfig.password;
+      if (carrierPass && carrierPass !== '********') {
+        carrierConf.password = encryptionService.encrypt(carrierPass);
+      }
+
+      const carrierEmail = updates.carrierConfig.email;
+      if (carrierEmail && carrierEmail !== '********') {
+        carrierConf.email = encryptionService.encrypt(carrierEmail);
       }
     }
 
@@ -199,16 +221,28 @@ router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
 
     // Apply general settings updates
     if (updates.settings) {
+      // MED-3 fix: Whitelist allowed setting fields to prevent arbitrary injection
+      const allowedCodFields = ['enabled', 'incentiveType', 'incentiveAmount', 'minOrderValue', 'maxOrderValue', 'messageTemplate', 'expiryMinutes'];
+      const allowedNdrFields = ['enabled', 'escalationChain', 'maxAttempts', 'autoReschedule', 'returnCoupon', 'addressCorrectionMode'];
+
       if (updates.settings.codConversion) {
+        const filtered: Record<string, any> = {};
+        for (const key of allowedCodFields) {
+          if (key in updates.settings.codConversion) filtered[key] = updates.settings.codConversion[key];
+        }
         merchant.settings.codConversion = {
           ...merchant.settings.codConversion,
-          ...updates.settings.codConversion,
+          ...filtered,
         };
       }
       if (updates.settings.ndrRescue) {
+        const filtered: Record<string, any> = {};
+        for (const key of allowedNdrFields) {
+          if (key in updates.settings.ndrRescue) filtered[key] = updates.settings.ndrRescue[key];
+        }
         merchant.settings.ndrRescue = {
           ...merchant.settings.ndrRescue,
-          ...updates.settings.ndrRescue,
+          ...filtered,
         };
       }
     }

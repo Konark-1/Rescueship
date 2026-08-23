@@ -38,6 +38,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@ngrok/ngrok": "^1.7.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/crypto-js": "^4.2.2",
@@ -50,6 +51,7 @@
     "@types/supertest": "^7.2.1",
     "@types/uuid": "^10.0.0",
     "jest": "^30.4.2",
+    "localtunnel": "^2.0.2",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.11",

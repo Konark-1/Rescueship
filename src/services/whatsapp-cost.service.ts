@@ -6,8 +6,7 @@
  * leads with a discount is MARKETING in Meta's eyes regardless of
  * intent, ~6x the utility rate in India.
  */
-import { Merchant } from '../models/Merchant';
-import { Order } from '../models/Order';
+import { Merchant, Order } from '../models';
 
 export type MetaCategory = 'utility' | 'marketing' | 'service' | 'auth';
 const RATE_INR: Record<MetaCategory, number> = { utility: 0.14, marketing: 0.88, service: 0, auth: 0.20 };

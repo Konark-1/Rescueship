@@ -258,6 +258,11 @@ export class PaymentService {
    */
   public verifyRazorpayWebhook(rawBody: string, signature: string, secret: string): boolean {
     try {
+      if (!secret) {
+        logger.error('Razorpay webhook secret is empty — cannot verify signature');
+        return false;
+      }
+
       const shasum = crypto.createHmac('sha256', secret);
       shasum.update(rawBody);
       const digest = shasum.digest('hex');

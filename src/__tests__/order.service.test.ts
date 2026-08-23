@@ -3,6 +3,7 @@ import { Order, Merchant, AuditLog, BillingEvent } from '../models';
 import { whatsAppService } from '../services/whatsapp.service';
 import { paymentService } from '../services/payment.service';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockOrderInstance: any = {
   _id: '507f1f77bcf86cd799439011',
   merchantId: '507f1f77bcf86cd799439011',
@@ -17,20 +18,20 @@ jest.mock('../models', () => {
   return {
     Order: {
       create: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
-      findOne: jest.fn(),
+      findOne: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
       findOneAndUpdate: jest.fn().mockImplementation((_query: any, update: any) => {
         if (update?.$set?.status) {
           mockOrderInstance.status = update.$set.status;
         }
         return Promise.resolve(mockOrderInstance);
       }),
-      findByIdAndUpdate: jest.fn().mockResolvedValue(mockOrderInstance),
-      findById: jest.fn().mockResolvedValue(mockOrderInstance),
+      findByIdAndUpdate: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
+      findById: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
       deleteOne: jest.fn(),
     },
     Merchant: {
       findById: jest.fn(),
-      updateOne: jest.fn(),
+      updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
       findByIdAndUpdate: jest.fn(),
     },
     AuditLog: {
@@ -212,6 +213,10 @@ describe('OrderService - Unit Tests', () => {
       };
 
       (Order.findOne as jest.Mock).mockResolvedValue(mockOrder);
+      (Order.findOneAndUpdate as jest.Mock).mockImplementation((_q: any, update: any) => {
+        if (update?.$set?.status) mockOrder.status = update.$set.status;
+        return Promise.resolve(mockOrder);
+      });
       jest.spyOn(orderService, 'markOrderAsPaidOnPlatform').mockResolvedValue();
       (Merchant.findById as jest.Mock).mockResolvedValue({
         _id: '507f1f77bcf86cd799439011',
@@ -226,7 +231,7 @@ describe('OrderService - Unit Tests', () => {
 
       await orderService.handlePaymentConfirmation('plink_123', 90000);
 
-      expect(mockOrderInstance.status).toBe('converted_to_prepaid');
+      expect(mockOrder.status).toBe('converted_to_prepaid');
       expect(orderService.markOrderAsPaidOnPlatform).toHaveBeenCalled();
     });
   });

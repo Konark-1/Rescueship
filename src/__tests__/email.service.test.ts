@@ -22,7 +22,7 @@ describe('EmailService - Unit Tests', () => {
       rescueRate: 40,
       totalRevenueSaved: 50000,
     };
-    const result = await emailService.sendMonthlySummaryReport('test@merchant.com', 'Test Merchant', reportData);
+    const result = await emailService.sendMonthlySummaryReport('test@merchant.com', 'Test Merchant', reportData, 'growth');
     expect(result).toBe(true);
   });
 });

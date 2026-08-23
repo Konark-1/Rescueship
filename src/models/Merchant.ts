@@ -148,18 +148,13 @@ const MerchantSchema = new Schema<IMerchant>(
       customWebhookUrl: { type: String },
     },
     carrierConfig: {
-      provider: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery'] },
-      apiToken: { type: String },
+      type: Schema.Types.Mixed,
     },
     whatsappConfig: {
-      phoneNumberId: { type: String },
-      accessToken: { type: String },
-      businessAccountId: { type: String },
+      type: Schema.Types.Mixed,
     },
     paymentConfig: {
-      provider: { type: String, enum: ['razorpay', 'cashfree'] },
-      keyId: { type: String },
-      keySecret: { type: String },
+      type: Schema.Types.Mixed,
     },
     rescuePolicy: { type: Schema.Types.Mixed, default: () => require('../config/rescue-policy').defaultRescuePolicy() },
     settings: {
@@ -219,10 +214,13 @@ const MerchantSchema = new Schema<IMerchant>(
       }),
     },
     connections: {
-      shopify:  { status: { type: String, enum: ['disconnected','connecting','connected','error'], default: 'disconnected' }, connectedAt: Date, shopDomain: String, lastError: String },
-      whatsapp: { status: { type: String, enum: ['disconnected','connecting','connected','templates_pending','templates_rejected','error'], default: 'disconnected' }, connectedAt: Date, lastError: String },
-      carrier:  { status: { type: String, enum: ['disconnected','connecting','connected','error'], default: 'disconnected' }, connectedAt: Date, provider: String, lastError: String },
-      payment:  { status: { type: String, enum: ['disconnected','connecting','connected','error'], default: 'disconnected' }, connectedAt: Date, gateway: String, lastError: String },
+      type: Schema.Types.Mixed,
+      default: () => ({
+        shopify: { status: 'disconnected' },
+        whatsapp: { status: 'disconnected' },
+        carrier: { status: 'disconnected' },
+        payment: { status: 'disconnected' },
+      }),
     },
     shopify: { shopDomain: String, accessToken: String, scope: String, webhooksRegistered: Boolean },
     ownerPhone: String,

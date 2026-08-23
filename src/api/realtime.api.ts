@@ -46,6 +46,18 @@ router.get(
     // Register client
     realtimeService.addClient(merchantId, res);
 
+    // LOW-4 fix: 10-minute connection ceiling to prevent resource leak from hanging sockets
+    const maxTimeout = setTimeout(() => {
+      try {
+        res.write(`event: session_timeout\ndata: {"message":"SSE session reached 10m limit. Reconnecting."}\n\n`);
+        res.end();
+      } catch {}
+    }, 10 * 60 * 1000);
+
+    res.on('close', () => {
+      clearTimeout(maxTimeout);
+    });
+
     logger.info('SSE stream established', { merchantId });
   }
 );

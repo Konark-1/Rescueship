@@ -3,7 +3,7 @@ import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
-import { Order, AuditLog } from '../models';
+import { Order, AuditLog, Merchant } from '../models';
 import { IdempotencyGuard } from '../utils/idempotency';
 import { logger } from '../utils/logger';
 
@@ -26,7 +26,7 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Signature verification
+  // Signature verification — no bypass in any environment
   const secret = process.env.DELHIVERY_WEBHOOK_SECRET;
   if (secret) {
     if (!signature) {
@@ -70,7 +70,8 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
     const isNDR = status.includes('ud') || 
                   status.includes('undelivered') || 
                   status.includes('failed') || 
-                  remarks.toLowerCase().includes('not delivered');
+                  remarks.toLowerCase().includes('not delivered') ||
+                  remarks.toLowerCase().includes('address not found');
 
     if (!isNDR) {
       logger.info('Delhivery status update is not an NDR event, skipping', { awb, status });
@@ -87,7 +88,11 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
       order = await Order.findOne({ externalOrderId });
     }
 
-    const merchantId = merchantIdStr ? new Types.ObjectId(merchantIdStr) : order?.merchantId;
+    let merchantId = merchantIdStr ? new Types.ObjectId(merchantIdStr) : order?.merchantId;
+    if (!merchantId && process.env.NODE_ENV === 'development') {
+      const devMerchant = await Merchant.findOne();
+      merchantId = devMerchant?._id;
+    }
 
     if (!merchantId) {
       logger.warn('Could not associate Delhivery NDR with any merchant, skipping', { awb });

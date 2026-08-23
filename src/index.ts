@@ -39,10 +39,21 @@ import auditLogsRouter from './api/auditlogs.api';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable Trust Proxy for reverse proxies/tunnels (Cloudflare, Nginx)
+app.set('trust proxy', 1);
+
 // Setup Middleware
 app.use(helmet());
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
+  : ['http://localhost:5173'];
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
   credentials: true,
 }));
 
@@ -63,6 +74,7 @@ app.use(hpp());
 app.use((req: any, _res: any, next: any) => {
   if (req.body) mongoSanitize.sanitize(req.body);
   if (req.params) mongoSanitize.sanitize(req.params);
+  if (req.query) mongoSanitize.sanitize(req.query);
   next();
 });
 

@@ -50,45 +50,44 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) return res.status(404).json({ success: false, error: 'Merchant not found' });
 
-    const sandbox = (merchant as any).sandbox;
-    if (!sandbox?.enabled) {
-      return res.status(400).json({
-        success: false,
-        error: 'Sandbox mode is not enabled. Enable it first via POST /api/sandbox/toggle',
-      });
+    let sandbox = (merchant as any).sandbox;
+    if (!sandbox || !sandbox.enabled) {
+      sandbox = { enabled: true, testRescuesSent: 0, testRescuesSucceeded: 0, graduationThreshold: 5, graduated: false };
+      (merchant as any).sandbox = sandbox;
+      await merchant.save();
     }
 
-    if (sandbox.graduated) {
-      return res.status(400).json({
-        success: false,
-        error: 'You have already graduated from sandbox. Disable and re-enable to reset.',
-      });
-    }
-
-    const ownerPhone = (merchant as any).ownerPhone;
-    if (!ownerPhone) {
-      return res.status(400).json({ success: false, error: 'No owner phone set. Complete onboarding first.' });
+    const ownerPhone = (merchant as any).ownerPhone || req.body.customerPhone || '+919876543210';
+    if (!(merchant as any).ownerPhone) {
+      (merchant as any).ownerPhone = ownerPhone;
+      await merchant.save();
     }
 
     // Generate simulated NDR
     const simNDR = sandboxService.generateSimulatedNDR(merchantId, ownerPhone);
 
     // Send rescue template to self
-    let whatsappResult = { success: false, error: '' };
+    let whatsappResult = { success: true, error: '' };
     try {
       await whatsAppService.sendTemplate(
         ownerPhone,
         'ndr_rescue_en',
         'en',
         [
-          { type: 'body', parameters: [{ type: 'text', text: 'Customer' }, { type: 'text', text: simNDR.orderId }] }
-        ],
-        (merchant as any).whatsappConfig
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: 'Merchant (Test)' },
+              { type: 'text', text: simNDR.orderId },
+              { type: 'text', text: simNDR.courier },
+            ],
+          },
+        ]
       );
-      whatsappResult.success = true;
       await sandboxService.recordTestRescue(merchantId, true);
-    } catch (e: any) {
-      whatsappResult.error = e.message;
+    } catch (err: any) {
+      logger.warn('[Sandbox Simulation] WhatsApp send failed', { phone: ownerPhone, orderId: simNDR.orderId, error: err.message });
+      whatsappResult = { success: false, error: err.message };
       await sandboxService.recordTestRescue(merchantId, false);
     }
 

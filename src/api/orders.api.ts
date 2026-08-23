@@ -80,7 +80,7 @@ router.get('/export', authenticateToken, requireFeature('csv_export'), exportOrd
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const page = parseInt(req.query.page as string, 10) || 1;
-  const limit = parseInt(req.query.limit as string, 10) || 10;
+  const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 200);
   const skip = (page - 1) * limit;
 
   // Filters

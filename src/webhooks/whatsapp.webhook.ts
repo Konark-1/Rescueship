@@ -39,14 +39,21 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const signature = req.get('X-Hub-Signature-256');
   const rawBody = (req as any).rawBody;
 
-  // Verify Signature
-  if (config.whatsapp.appSecret && signature && rawBody) {
+  // Verify Signature — MANDATORY when appSecret is configured
+  if (config.whatsapp.appSecret) {
+    if (!signature || !rawBody) {
+      logger.warn('WhatsApp webhook rejected: missing signature header or body', { hasSignature: !!signature, hasBody: !!rawBody });
+      res.status(401).json({ error: 'Missing X-Hub-Signature-256 header' });
+      return;
+    }
     const isValid = whatsAppService.verifyWebhookSignature(rawBody, signature, config.whatsapp.appSecret);
     if (!isValid) {
       logger.warn('WhatsApp webhook signature verification failed');
       res.status(401).json({ error: 'Invalid WhatsApp signature' });
       return;
     }
+  } else {
+    logger.warn('WhatsApp appSecret not configured — signature verification skipped');
   }
 
   // Acknowledge receipt to Meta immediately (prevents retry loop)
@@ -76,13 +83,16 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     let merchant = phoneNumberId ? await Merchant.findOne({ 'whatsappConfig.phoneNumberId': phoneNumberId }) : null;
     
     if (!merchant) {
-      const merchants = await Merchant.find().limit(2);
-      if (merchants.length === 1) {
-        merchant = merchants[0];
+      if (process.env.NODE_ENV === 'development') {
+        merchant = (await Merchant.findOne({ 'billing.plan': 'scale' })) || (await Merchant.findOne());
       } else {
-        logger.warn('Inbound WA for unknown phoneNumberId — drop', { phoneNumberId });
+        logger.warn('Inbound WA for unknown phoneNumberId — no matching merchant, dropping message', { phoneNumberId });
         return;
       }
+    }
+    if (!merchant) {
+      logger.warn('No active merchant found for inbound WhatsApp message');
+      return;
     }
     const merchantId = merchant._id.toString();
 
