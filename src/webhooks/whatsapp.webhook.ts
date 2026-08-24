@@ -39,7 +39,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const signature = req.get('X-Hub-Signature-256');
   const rawBody = (req as any).rawBody;
 
-  // Verify Signature — MANDATORY when appSecret is configured
+  // Verify Signature — MANDATORY
   if (config.whatsapp.appSecret) {
     if (!signature || !rawBody) {
       logger.warn('WhatsApp webhook rejected: missing signature header or body', { hasSignature: !!signature, hasBody: !!rawBody });
@@ -53,7 +53,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       return;
     }
   } else {
-    logger.warn('WhatsApp appSecret not configured — signature verification skipped');
+    logger.warn('WhatsApp appSecret not configured — rejecting webhook. Set WHATSAPP_APP_SECRET.');
+    res.status(401).json({ error: 'WhatsApp webhook secret not configured' });
+    return;
   }
 
   // Acknowledge receipt to Meta immediately (prevents retry loop)
@@ -82,16 +84,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const phoneNumberId = value?.metadata?.phone_number_id;
     let merchant = phoneNumberId ? await Merchant.findOne({ 'whatsappConfig.phoneNumberId': phoneNumberId }) : null;
     
-    if (!merchant) {
-      if (process.env.NODE_ENV === 'development') {
-        merchant = (await Merchant.findOne({ 'billing.plan': 'scale' })) || (await Merchant.findOne());
-      } else {
-        logger.warn('Inbound WA for unknown phoneNumberId — no matching merchant, dropping message', { phoneNumberId });
-        return;
-      }
+    if (!merchant && phoneNumberId && config.whatsapp.phoneNumberId && phoneNumberId === config.whatsapp.phoneNumberId) {
+      merchant = await Merchant.findOne({ 'whatsappConfig.phoneNumberId': config.whatsapp.phoneNumberId });
     }
+
     if (!merchant) {
-      logger.warn('No active merchant found for inbound WhatsApp message');
+      logger.warn('Inbound WA for unknown phoneNumberId — no matching merchant, dropping message', { phoneNumberId });
       return;
     }
     const merchantId = merchant._id.toString();

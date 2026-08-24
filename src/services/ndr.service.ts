@@ -349,11 +349,24 @@ export class NDRService {
     }
 
     const [action, orderId] = parts;
+    const normalizedPhone = normalizeIndianPhone(phone);
 
     try {
-      const order = resolvedOrder || await Order.findById(orderId);
+      let order = resolvedOrder;
+      if (order) {
+        if (normalizeIndianPhone(order.customerPhone) !== normalizedPhone) {
+          logger.warn('Security alert: Phone number mismatch on resolved order button action', { phone, orderPhone: order.customerPhone });
+          return;
+        }
+      } else {
+        order = await Order.findOne({ _id: orderId, customerPhone: normalizedPhone });
+        if (!order) {
+          order = await Order.findOne({ externalOrderId: orderId, customerPhone: normalizedPhone });
+        }
+      }
+
       if (!order) {
-        logger.warn('Order not found for customer response', { orderId });
+        logger.warn('Order not found or phone mismatch for customer response', { orderId, phone });
         return;
       }
 
@@ -365,6 +378,11 @@ export class NDRService {
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) {
         throw new Error(`Merchant not found: ${order.merchantId}`);
+      }
+
+      if (order.merchantId.toString() !== merchant._id.toString()) {
+        logger.warn('Security alert: Cross-tenant button action attempt rejected', { orderId: order._id, merchantId: merchant._id });
+        return;
       }
 
       let apiToken: string | undefined;

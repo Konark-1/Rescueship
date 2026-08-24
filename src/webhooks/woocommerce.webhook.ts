@@ -18,11 +18,6 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
 
   logger.info('Received WooCommerce order-created webhook', { webhookId, merchantId: merchantIdStr });
 
-  if (!merchantIdStr && process.env.NODE_ENV === 'development') {
-    const devMerchant = await Merchant.findOne();
-    merchantIdStr = devMerchant?._id.toString() || '';
-  }
-
   if (!merchantIdStr) {
     res.status(400).json({ error: 'Missing merchant_id in query parameters' });
     return;
@@ -35,7 +30,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
       return;
     }
 
-    // Dynamic signature verification
+    // Dynamic signature verification — MANDATORY
     let secret: string | undefined;
     try {
       if (merchant.platformConfig?.woocommerceSecret) {
@@ -45,7 +40,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
       secret = merchant.platformConfig?.woocommerceSecret;
     }
 
-    if (secret && process.env.NODE_ENV !== 'development' && signature !== 'dummy-signature-for-local-test') {
+    if (secret) {
       if (!signature || !(req as any).rawBody) {
         logger.warn('WooCommerce signature verification failed: Missing signature or raw body', { merchantId: merchantIdStr });
         res.status(401).json({ error: 'Missing WooCommerce signature' });
@@ -65,6 +60,10 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
         res.status(401).json({ error: 'Invalid WooCommerce signature' });
         return;
       }
+    } else {
+      logger.warn('WooCommerce webhook secret not configured for merchant — rejecting webhook', { merchantId: merchantIdStr });
+      res.status(401).json({ error: 'WooCommerce webhook secret not configured' });
+      return;
     }
 
     const body = req.body;

@@ -228,7 +228,8 @@ export class ExportService {
           const val = row[h];
           if (val === null || val === undefined) return '""';
           let str = String(val);
-          if (/^[=@+\-]/.test(str)) {
+          // Prevent CSV / DDE injection (matches formula triggers even if preceded by whitespace, tabs, or zero-width chars)
+          if (/^[\s\u0000-\u001f\u007f-\u009f\u200B-\u200D\uFEFF]*[=@+\-\t\r|%]/.test(str)) {
             str = `'${str}`;
           }
           return `"${str.replace(/"/g, '""')}"`;

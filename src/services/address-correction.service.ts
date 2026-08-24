@@ -95,9 +95,24 @@ export class AddressCorrectionService {
     const normalizedPhone = normalizeIndianPhone(phone);
 
     let order = resolvedOrder;
-    if (!order) {
-      const q = Order.findOne({ customerPhone: normalizedPhone });
-      order = q && typeof q.sort === 'function' ? await q.sort({ updatedAt: -1 }) : await Order.findOne({ customerPhone: normalizedPhone });
+    if (order) {
+      if (normalizeIndianPhone(order.customerPhone) !== normalizedPhone) {
+        logger.warn('Location response rejected: phone mismatch with resolved order', { phone, orderPhone: order.customerPhone });
+        return false;
+      }
+    } else {
+      order = await Order.findOne({
+        customerPhone: normalizedPhone,
+        status: 'ndr_rescue_sent',
+        'ndr.addressUpdate.collectionState': { $in: ['awaiting_location', 'idle', 'address_update_started'] },
+      }).sort({ updatedAt: -1 });
+
+      if (!order) {
+        order = await Order.findOne({
+          customerPhone: normalizedPhone,
+          status: 'ndr_rescue_sent',
+        }).sort({ updatedAt: -1 });
+      }
     }
 
     if (!order) {
@@ -107,6 +122,11 @@ export class AddressCorrectionService {
 
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) throw new Error('Merchant not found');
+
+    if (order.merchantId.toString() !== merchant._id.toString()) {
+      logger.warn('Tenant mismatch in location response', { orderMerchantId: order.merchantId, merchantId: merchant._id });
+      return false;
+    }
 
     const lang = merchant.settings?.ndrRescue?.messageLanguage || 'en';
     const waConfig = this.getWaConfig(merchant);
@@ -205,9 +225,25 @@ export class AddressCorrectionService {
     const normalizedPhone = normalizeIndianPhone(phone);
 
     let order = resolvedOrder;
-    if (!order) {
-      const q = Order.findOne({ customerPhone: normalizedPhone });
-      order = q && typeof q.sort === 'function' ? await q.sort({ updatedAt: -1 }) : await Order.findOne({ customerPhone: normalizedPhone });
+    if (order) {
+      if (normalizeIndianPhone(order.customerPhone) !== normalizedPhone) {
+        logger.warn('Text address response rejected: phone mismatch with resolved order', { phone, orderPhone: order.customerPhone });
+        return false;
+      }
+    } else {
+      order = await Order.findOne({
+        customerPhone: normalizedPhone,
+        status: 'ndr_rescue_sent',
+        'ndr.addressUpdate.collectionState': 'awaiting_text',
+      }).sort({ updatedAt: -1 });
+
+      if (!order) {
+        order = await Order.findOne({
+          customerPhone: normalizedPhone,
+          status: 'ndr_rescue_sent',
+          'ndr.customerResponse': 'address_update_started',
+        }).sort({ updatedAt: -1 });
+      }
     }
 
     if (!order) {
@@ -216,6 +252,11 @@ export class AddressCorrectionService {
 
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) throw new Error('Merchant not found');
+
+    if (order.merchantId.toString() !== merchant._id.toString()) {
+      logger.warn('Tenant mismatch in text address response', { orderMerchantId: order.merchantId, merchantId: merchant._id });
+      return false;
+    }
 
     const waConfig = this.getWaConfig(merchant);
 
@@ -281,6 +322,10 @@ export class AddressCorrectionService {
     merchant: any,
     addressData: { address: string; lat?: number; lng?: number; pincode?: string }
   ): Promise<void> {
+    if (order.merchantId.toString() !== merchant._id.toString()) {
+      throw new Error('Tenant mismatch: order does not belong to merchant');
+    }
+
     let apiToken: string | undefined;
     try {
       if (merchant.carrierConfig?.apiToken) {

@@ -148,6 +148,8 @@ async function runCompleteSimulation() {
 
   await recordSim('1. Order Ingestion', '1.4 WooCommerce Channel COD Ingestion', async () => {
     const wcId = `WC_${Date.now()}`;
+    const wcSecret = 'wc_secret_simulation_key_32chars';
+    await Merchant.findByIdAndUpdate(merchant._id, { 'platformConfig.woocommerceSecret': wcSecret });
     const payload = {
       id: wcId,
       total: '3200.00',
@@ -155,9 +157,11 @@ async function runCompleteSimulation() {
       payment_method_title: 'Cash on Delivery',
       billing: { first_name: 'Deepak', last_name: 'Gupta', phone: '+919876543210' },
     };
+    const bodyStr = JSON.stringify(payload);
+    const wcSig = crypto.createHmac('sha256', wcSecret).update(bodyStr).digest('base64');
     const res = await axios.post(`${BASE_URL}/webhooks/woocommerce?merchant_id=${merchantId}`, payload, {
       headers: {
-        'X-WC-Webhook-Signature': 'dummy-signature-for-local-test',
+        'X-WC-Webhook-Signature': wcSig,
         'X-WC-Webhook-ID': `wc_${wcId}`,
         'Content-Type': 'application/json',
       },
@@ -253,12 +257,13 @@ async function runCompleteSimulation() {
 
   const ndrAwb = `AWB_SR_${Date.now()}`;
   await recordSim('3. NDR & Logistics', '3.1 Shiprocket NDR Webhook Ingestion', async () => {
+    const srSecret = process.env.SHIPROCKET_WEBHOOK_SECRET || config.shiprocket.password;
     const res = await axios.post(`${BASE_URL}/webhooks/shiprocket/ndr?merchant_id=${merchantId}`, {
       awb: ndrAwb,
       order_id: `ORD_NDR_${Date.now()}`,
       reason: 'Customer Unavailable - House Locked',
       phone: '+919876543210',
-    }, { headers: { 'x-api-key': 'dummy-signature-for-local-test' } });
+    }, { headers: { 'x-api-key': srSecret } });
     if (res.data.status !== 'queued') throw new Error('Expected queued');
     return `Shiprocket NDR for AWB ${ndrAwb} received and queued for customer rescue`;
   });

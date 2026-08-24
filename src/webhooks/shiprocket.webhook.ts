@@ -24,9 +24,9 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Signature verification
+  // Signature verification — MANDATORY
   const secret = process.env.SHIPROCKET_WEBHOOK_SECRET || config.shiprocket.password;
-  if (secret && process.env.NODE_ENV !== 'development' && signature !== 'dummy-signature-for-local-test' && signature !== 'test-key') {
+  if (secret) {
     if (!signature) {
       logger.warn('Shiprocket webhook missing signature header');
       res.status(401).json({ error: 'Missing Shiprocket signature header' });
@@ -51,6 +51,10 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
         return;
       }
     }
+  } else {
+    logger.warn('Shiprocket webhook secret not configured — rejecting webhook. Set SHIPROCKET_WEBHOOK_SECRET.');
+    res.status(401).json({ error: 'Shiprocket webhook secret not configured' });
+    return;
   }
 
   const webhookId = req.get('x-shiprocket-event-id') || req.get('x-event-id') || `shiprocket_${awb}_${body.current_status_id || body.order_id || 'ndr'}`;

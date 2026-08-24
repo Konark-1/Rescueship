@@ -208,6 +208,65 @@ async function runSecurityAuditProbes() {
     assert('SEC-VERIFY: Valid HMAC Signature Accepted', false, e.message);
   }
 
+  // Probe 10: Billing Privilege Escalation (confirm-subscription without signature)
+  try {
+    const res = await axios.post(
+      `${BASE_URL}/api/billing/confirm-subscription`,
+      { plan: 'scale', cycle: 'annual', paymentId: 'fake_pay_123', subscriptionId: 'fake_sub_123' },
+      { headers: authHeaders, validateStatus: () => true }
+    );
+    assert(
+      'CRIT-BILLING: Billing Privilege Escalation Bypass Attack',
+      res.status === 400 || res.status === 401,
+      `Expected 400 Bad Request for unverified subscription confirmation, got HTTP ${res.status}`
+    );
+  } catch (e: any) {
+    assert('CRIT-BILLING: Billing Privilege Escalation Bypass Attack', false, e.message);
+  }
+
+  // Probe 11: Template Mass Assignment Attack (status: 'approved')
+  try {
+    const tName = `template_sec_${Date.now()}`;
+    const res = await axios.post(
+      `${BASE_URL}/api/templates`,
+      {
+        templateName: tName,
+        language: 'en',
+        category: 'utility',
+        status: 'approved', // injected field
+        merchantId: '607f1f77bcf86cd799439099' // injected foreign merchant
+      },
+      { headers: authHeaders, validateStatus: () => true }
+    );
+    const createdTemplate = res.data;
+    const isStatusPending = createdTemplate?.status === 'pending';
+    const isMerchantSafe = createdTemplate?.merchantId?.toString() === merchantId;
+    assert(
+      'HIGH-TEMPLATE: Template Mass Assignment Protection',
+      res.status === 201 && isStatusPending && isMerchantSafe,
+      `Expected status 'pending' and owner merchantId. Got status: ${createdTemplate?.status}, merchantId: ${createdTemplate?.merchantId}`
+    );
+  } catch (e: any) {
+    assert('HIGH-TEMPLATE: Template Mass Assignment Protection', false, e.message);
+  }
+
+  // Probe 12: Cohort Metrics Competitor Data Leakage Protection
+  try {
+    const res = await axios.get(
+      `${BASE_URL}/api/metrics/cohort`,
+      { headers: authHeaders, validateStatus: () => true }
+    );
+    const performers = res.data?.cohort?.topPerformers || [];
+    const hasUnmaskedStore = performers.some((p: any) => !p.storeName.startsWith('Store ') && !p.merchantId.startsWith('anon_'));
+    assert(
+      'MED-COHORT: Cohort Metrics Competitor Anonymization',
+      res.status === 200 && !hasUnmaskedStore,
+      `Expected anonymized competitor names/IDs for non-admin merchant. Got ${performers.length} performers.`
+    );
+  } catch (e: any) {
+    assert('MED-COHORT: Cohort Metrics Competitor Anonymization', false, e.message);
+  }
+
   console.log('\n🔒 ==========================================');
   console.log(`🔒 RESULTS: ${passed} PASSED, ${failed} FAILED`);
   console.log('🔒 ==========================================\n');

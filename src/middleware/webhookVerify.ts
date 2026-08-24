@@ -53,13 +53,13 @@ function safeCompare(a: Buffer, b: Buffer): boolean {
 export function verifyShopifyHmac(secret: string) {
   return (req: RawBodyRequest, res: Response, next: NextFunction): void => {
     try {
-      const headerSignature = req.get('X-Shopify-Hmac-Sha256');
-
-      if (process.env.NODE_ENV === 'development' && headerSignature === 'dummy-signature-for-local-test') {
-        logger.debug('Shopify webhook HMAC bypassed for local development testing');
-        next();
+      if (!secret) {
+        logger.error('Shopify API secret not configured for HMAC verification.');
+        res.status(401).json({ error: 'Shopify webhook secret not configured' });
         return;
       }
+
+      const headerSignature = req.get('X-Shopify-Hmac-Sha256');
 
       if (!headerSignature) {
         logger.warn('Shopify webhook missing X-Shopify-Hmac-Sha256 header', {
@@ -85,11 +85,6 @@ export function verifyShopifyHmac(secret: string) {
       const headerBuffer = Buffer.from(headerSignature, 'base64');
 
       if (!safeCompare(computedBuffer, headerBuffer)) {
-        if (process.env.NODE_ENV === 'development' || secret === 'your-shopify-api-secret' || !secret) {
-          logger.warn('Shopify webhook HMAC mismatch (allowed in development mode for live dev store testing)');
-          next();
-          return;
-        }
         logger.warn('Shopify webhook HMAC verification failed', {
           ip: req.ip,
           path: req.path,
@@ -174,18 +169,13 @@ export function verifyRazorpaySignature(secret: string) {
 export function verifyWhatsAppSignature(secret: string) {
   return (req: RawBodyRequest, res: Response, next: NextFunction): void => {
     try {
-      const headerSignature = req.get('X-Hub-Signature-256');
-
-      if (
-        process.env.NODE_ENV === 'development' ||
-        headerSignature === 'dummy-signature-for-local-test' ||
-        headerSignature === 'sha256=dummy-signature-for-local-test' ||
-        !secret ||
-        secret === 'your-whatsapp-app-secret'
-      ) {
-        next();
+      if (!secret) {
+        logger.error('WhatsApp app secret not configured for HMAC verification.');
+        res.status(401).json({ error: 'WhatsApp webhook secret not configured' });
         return;
       }
+
+      const headerSignature = req.get('X-Hub-Signature-256');
 
       if (!headerSignature) {
         logger.warn('WhatsApp webhook missing X-Hub-Signature-256 header', {
@@ -223,11 +213,6 @@ export function verifyWhatsAppSignature(secret: string) {
       const headerBuffer = Buffer.from(signatureHex, 'hex');
 
       if (!safeCompare(computedBuffer, headerBuffer)) {
-        if (process.env.NODE_ENV === 'development' || headerSignature === 'dummy-signature-for-local-test' || !secret || secret === 'your-whatsapp-app-secret') {
-          logger.warn('WhatsApp webhook signature mismatch (allowed in development mode for seamless local testing)');
-          next();
-          return;
-        }
         logger.warn('WhatsApp webhook signature verification failed', {
           ip: req.ip,
           path: req.path,

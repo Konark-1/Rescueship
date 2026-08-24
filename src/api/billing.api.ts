@@ -113,47 +113,44 @@ router.post('/create-subscription', authenticateToken, async (req: Authenticated
 // POST /api/billing/confirm-subscription
 router.post('/confirm-subscription', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
-  const { plan, cycle, subscriptionId, paymentId } = req.body;
+  const { plan, cycle, razorpay_payment_id, razorpay_order_id, razorpay_signature, paymentId, subscriptionId } = req.body;
 
   try {
-    const planLimits: Record<string, number> = {
-      starter: 2000,
-      growth: 10000,
-      scale: 50000,
-    };
-    const orderLimit = planLimits[plan] || 2000;
+    const payId = razorpay_payment_id || paymentId;
+    const orderId = razorpay_order_id || subscriptionId;
+    const sig = razorpay_signature;
 
-    const merchant = await Merchant.findById(merchantId);
-    if (!merchant) {
-      res.status(404).json({ error: 'Merchant not found' });
+    if (!payId || !orderId || !sig) {
+      res.status(400).json({ error: 'Payment signature and transaction IDs (razorpay_payment_id, razorpay_order_id, razorpay_signature) are required' });
       return;
     }
 
-    merchant.billing.plan = plan;
-    merchant.billing.planOrderLimit = orderLimit;
-    if (cycle) {
-      merchant.billing.billingCycle = cycle;
-    }
-    await merchant.save();
+    const result = await subscriptionService.verifyAndProvision(merchantId!, {
+      razorpay_payment_id: payId,
+      razorpay_order_id: orderId,
+      razorpay_signature: sig,
+      tier: plan,
+      cycle: cycle || 'quarterly',
+    });
 
     await BillingEvent.create({
-      merchantId: merchant._id,
+      merchantId,
       eventType: 'subscription_upgraded',
       creditsCost: 0,
     });
 
     await AuditLog.create({
-      merchantId: merchant._id,
+      merchantId,
       action: 'subscription_upgraded',
       source: 'billing_api',
-      payload: { plan, cycle, subscriptionId, paymentId },
+      payload: { plan, cycle, subscriptionId: orderId, paymentId: payId },
       status: 'success',
     });
 
-    res.status(200).json({ success: true, billing: merchant.billing });
+    res.status(200).json({ success: true, billing: result });
   } catch (err: any) {
-    logger.error('Failed to confirm subscription', { error: err.message });
-    res.status(500).json({ error: 'Failed to confirm subscription' });
+    logger.error('Failed to confirm subscription', { error: err.message, merchantId });
+    res.status(400).json({ error: err.message || 'Payment verification failed' });
   }
 });
 

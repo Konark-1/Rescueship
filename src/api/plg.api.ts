@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { Merchant } from '../models/Merchant';
+import { generateToken } from '../middleware/auth';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -129,8 +130,7 @@ router.post('/activate', async (req: Request, res: Response) => {
     };
     await merchant.save();
 
-    const jwtSecret = process.env.JWT_SECRET || 'jwt_secret_dev_key';
-    const sessionToken = jwt.sign({ merchantId: merchant._id.toString(), type: 'merchant' }, jwtSecret, { expiresIn: '30d' });
+    const sessionToken = generateToken(merchant._id.toString(), (merchant as any).tokenVersion || 1);
 
     res.json({
       success: true,

@@ -43,9 +43,17 @@ const OPTIONAL_VARS: EnvRequirement[] = [
   { key: 'API_PUBLIC_URL', required: false, description: 'Public backend URL Shopify/Meta callbacks hit (e.g. https://api.rescueship.io)' },
 ];
 
+const PRODUCTION_REQUIRED_VARS: EnvRequirement[] = [
+  { key: 'WHATSAPP_APP_SECRET', required: true, description: 'Meta WhatsApp App Secret for webhook HMAC' },
+  { key: 'RAZORPAY_WEBHOOK_SECRET', required: true, description: 'Razorpay Webhook Secret for HMAC verification' },
+  { key: 'SHOPIFY_API_SECRET', required: true, description: 'Shopify API Secret for webhook HMAC' },
+  { key: 'DELHIVERY_WEBHOOK_SECRET', required: true, description: 'Delhivery Webhook Secret for HMAC/Token' },
+];
+
 export function validateEnvironment(): void {
   const errors: string[] = [];
   const warnings: string[] = [];
+  const isProd = process.env.NODE_ENV === 'production';
 
   for (const env of REQUIRED_VARS) {
     const value = process.env[env.key];
@@ -54,14 +62,23 @@ export function validateEnvironment(): void {
     }
   }
 
+  if (isProd) {
+    for (const env of PRODUCTION_REQUIRED_VARS) {
+      const value = process.env[env.key];
+      if (!value || value.trim() === '' || value.startsWith('your-')) {
+        errors.push(`  ❌ [PRODUCTION] ${env.key} must be configured with a valid secret (not placeholder): ${env.description}`);
+      }
+    }
+  }
+
   const jwtSecret = process.env.JWT_SECRET || '';
-  if (jwtSecret && jwtSecret.length < 32) {
-    errors.push('  ❌ JWT_SECRET must be at least 32 characters long');
+  if (jwtSecret && (jwtSecret.length < 32 || jwtSecret.startsWith('your-'))) {
+    errors.push('  ❌ JWT_SECRET must be at least 32 characters long and not a placeholder');
   }
 
   const encKey = process.env.ENCRYPTION_KEY || '';
-  if (encKey && encKey.length < 32) {
-    errors.push('  ❌ ENCRYPTION_KEY must be at least 32 characters long');
+  if (encKey && (encKey.length < 32 || encKey.startsWith('your-'))) {
+    errors.push('  ❌ ENCRYPTION_KEY must be at least 32 characters long and not a placeholder');
   }
 
   for (const env of OPTIONAL_VARS) {

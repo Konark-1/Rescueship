@@ -305,8 +305,8 @@ export class OrderService {
     const expectedAmountInr = Math.max(1, order.orderValue - discount);
     const expectedPaise = Math.round(expectedAmountInr * 100);
 
-    if (amountPaidPaise && amountPaidPaise > 0 && Math.abs(amountPaidPaise - expectedPaise) > 100) {
-      logger.error('Payment amount mismatch!', {
+    if (!amountPaidPaise || amountPaidPaise < expectedPaise) {
+      logger.error('Payment amount mismatch: payment was missing or underpaid', {
         paymentLinkId,
         expectedPaise,
         amountPaidPaise,
@@ -318,7 +318,7 @@ export class OrderService {
         source: 'payment_webhook',
         payload: { expectedPaise, amountPaidPaise },
         status: 'failed',
-        error: 'Payment amount mismatch',
+        error: 'Payment amount mismatch: underpaid or missing',
       });
       return;
     }

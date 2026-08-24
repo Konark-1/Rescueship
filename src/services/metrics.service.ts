@@ -154,7 +154,7 @@ class MetricsService {
   /**
    * Aggregate metrics across all pilot merchants.
    */
-  async getCohortMetrics(): Promise<CohortMetrics> {
+  async getCohortMetrics(anonymize: boolean = false): Promise<CohortMetrics> {
     const merchants = await Merchant.find({
       'onboarding.completedAt': { $exists: true },
     }).lean();
@@ -166,13 +166,17 @@ class MetricsService {
     const performers: Array<{ merchantId: string; storeName: string; rescueRate: number }> = [];
     const attention: Array<{ merchantId: string; storeName: string; rescueRate: number; issue: string }> = [];
 
-    for (const merchant of merchants) {
+    for (let i = 0; i < merchants.length; i++) {
+      const merchant = merchants[i];
       const m = (merchant as any).metrics || {};
       const attempted = m.rescuesAttempted || 0;
       const succeeded = m.rescuesSucceeded || 0;
       const rate = attempted > 0 ? succeeded / attempted : 0;
-      const mId = (merchant as any)._id?.toString() || '';
-      const storeName = (merchant as any).storeName || (merchant as any).shopify?.shopDomain || mId;
+      const rawMId = (merchant as any)._id?.toString() || '';
+      const rawStoreName = (merchant as any).storeName || (merchant as any).shopify?.shopDomain || rawMId;
+
+      const mId = anonymize ? `anon_merchant_${i + 1}` : rawMId;
+      const storeName = anonymize ? `Store ${String.fromCharCode(65 + (i % 26))}${i >= 26 ? Math.floor(i / 26) : ''}` : rawStoreName;
 
       totalAttempted += attempted;
       totalSucceeded += succeeded;

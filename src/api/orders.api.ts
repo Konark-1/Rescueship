@@ -34,7 +34,8 @@ const exportOrdersCsv = async (req: AuthenticatedRequest, res: Response): Promis
     const escapeCsvField = (field: any): string => {
       if (field === null || field === undefined) return '""';
       let str = String(field);
-      if (/^[=@+\-]/.test(str)) {
+      // Prevent CSV / DDE injection (matches formula triggers even if preceded by whitespace, tabs, or zero-width chars)
+      if (/^[\s\u0000-\u001f\u007f-\u009f\u200B-\u200D\uFEFF]*[=@+\-\t\r|%]/.test(str)) {
         str = `'${str}`;
       }
       return `"${str.replace(/"/g, '""')}"`;

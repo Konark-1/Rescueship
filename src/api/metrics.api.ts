@@ -23,7 +23,8 @@ router.get('/my', authenticateToken, async (req: AuthenticatedRequest, res: Resp
  */
 router.get('/cohort', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const cohort = await metricsService.getCohortMetrics();
+    const isAdmin = (req.merchant as any)?.role === 'admin' || (req.merchant as any)?.isAdmin === true;
+    const cohort = await metricsService.getCohortMetrics(!isAdmin);
     const phase4 = await metricsService.isPhase4Ready();
     res.json({ success: true, cohort, phase4Gate: phase4 });
   } catch (err: any) {

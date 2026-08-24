@@ -36,10 +36,30 @@ router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
 // POST new template
 router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
+  const { templateName, language, category, buttons, components } = req.body;
+
+  if (!templateName || typeof templateName !== 'string') {
+    res.status(400).json({ error: 'templateName is required' });
+    return;
+  }
+  if (!language || typeof language !== 'string') {
+    res.status(400).json({ error: 'language is required' });
+    return;
+  }
+  if (!category || typeof category !== 'string') {
+    res.status(400).json({ error: 'category is required' });
+    return;
+  }
+
   try {
     const newTemplate = new WhatsAppTemplate({
       merchantId,
-      ...req.body
+      templateName: templateName.trim(),
+      language: language.trim(),
+      category: category.trim(),
+      status: 'pending',
+      buttons: Array.isArray(buttons) ? buttons : [],
+      components: Array.isArray(components) ? components : [],
     });
     await newTemplate.save();
     res.status(201).json(newTemplate);
@@ -52,10 +72,22 @@ router.post('/', authenticateToken, async (req: AuthenticatedRequest, res: Respo
 // PUT update template
 router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
+  const { templateName, language, category, buttons, components } = req.body;
+
+  const updateFields: Record<string, any> = {
+    status: 'pending', // require re-review upon modification
+  };
+
+  if (typeof templateName === 'string' && templateName.trim()) updateFields.templateName = templateName.trim();
+  if (typeof language === 'string' && language.trim()) updateFields.language = language.trim();
+  if (typeof category === 'string' && category.trim()) updateFields.category = category.trim();
+  if (Array.isArray(buttons)) updateFields.buttons = buttons;
+  if (Array.isArray(components)) updateFields.components = components;
+
   try {
     const updated = await WhatsAppTemplate.findOneAndUpdate(
       { _id: req.params.id, merchantId },
-      req.body,
+      { $set: updateFields },
       { new: true }
     );
     if (!updated) {

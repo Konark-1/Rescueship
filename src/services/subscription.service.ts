@@ -81,12 +81,16 @@ export class SubscriptionService {
 
   /** Verify Razorpay signature, then PROVISION the plan (this is the activation). */
   async verifyAndProvision(merchantId: string, body: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string; tier: Tier; cycle: Cycle }) {
-    if (process.env.RAZORPAY_KEY_SECRET) {
-      const sig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-        .update(`${body.razorpay_order_id}|${body.razorpay_payment_id}`).digest('hex');
-      const a = Buffer.from(sig, 'hex'), b = Buffer.from(body.razorpay_signature || '', 'hex');
-      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('Invalid payment signature');
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      throw new Error('Razorpay key secret not configured on server');
     }
+    if (!body.razorpay_payment_id || !body.razorpay_order_id || !body.razorpay_signature) {
+      throw new Error('Missing Razorpay payment verification parameters');
+    }
+    const sig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+      .update(`${body.razorpay_order_id}|${body.razorpay_payment_id}`).digest('hex');
+    const a = Buffer.from(sig, 'hex'), b = Buffer.from(body.razorpay_signature, 'hex');
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('Invalid payment signature');
 
     const p = priceFor(body.tier, body.cycle);
     const now = new Date();

@@ -273,14 +273,8 @@ export class WhatsAppService {
 
   public verifyWebhookSignature(rawBody: string | Buffer, signature: string, appSecret: string): boolean {
     try {
-      if (
-        process.env.NODE_ENV === 'development' ||
-        signature === 'dummy-signature-for-local-test' ||
-        signature === 'sha256=dummy-signature-for-local-test' ||
-        !appSecret ||
-        appSecret === 'your-whatsapp-app-secret'
-      ) {
-        return true;
+      if (!appSecret || !signature || !rawBody) {
+        return false;
       }
 
       const elements = signature.split('=');
@@ -290,10 +284,14 @@ export class WhatsAppService {
         .update(rawBody)
         .digest('hex');
 
-      return crypto.timingSafeEqual(
-        Buffer.from(signatureHash, 'utf8'),
-        Buffer.from(expectedHash, 'utf8')
-      );
+      const sigBuf = Buffer.from(signatureHash, 'utf8');
+      const expectedBuf = Buffer.from(expectedHash, 'utf8');
+
+      if (sigBuf.length !== expectedBuf.length) {
+        return false;
+      }
+
+      return crypto.timingSafeEqual(sigBuf, expectedBuf);
     } catch (err) {
       return false;
     }

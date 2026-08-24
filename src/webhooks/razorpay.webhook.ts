@@ -17,7 +17,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
 
   logger.info('Received Razorpay webhook payment event');
 
-  // Verify Signature — MANDATORY when webhookSecret is configured
+  // Verify Signature — MANDATORY
   if (config.razorpay.webhookSecret) {
     if (!signature || !rawBody) {
       logger.warn('Razorpay webhook rejected: missing signature header or body', { hasSignature: !!signature, hasBody: !!rawBody });
@@ -31,7 +31,9 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
       return;
     }
   } else {
-    logger.warn('Razorpay webhookSecret not configured — signature verification skipped. Set RAZORPAY_WEBHOOK_SECRET for production.');
+    logger.warn('Razorpay webhookSecret not configured — rejecting webhook. Set RAZORPAY_WEBHOOK_SECRET.');
+    res.status(401).json({ error: 'Razorpay webhook secret not configured' });
+    return;
   }
 
   try {
