@@ -93,6 +93,39 @@ export class SubscriptionService {
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('Invalid payment signature');
 
     const p = priceFor(body.tier, body.cycle);
+    const expectedPaise = p.introUpfront * 100;
+
+    // Verify actual payment amount with Razorpay API if live/test keys are present
+    if (
+      process.env.RAZORPAY_KEY_ID &&
+      process.env.RAZORPAY_KEY_SECRET &&
+      !process.env.RAZORPAY_KEY_ID.startsWith('rzp_test_dummy')
+    ) {
+      try {
+        const paymentRes = await rz.get(`/payments/${body.razorpay_payment_id}`);
+        const actualAmountPaise = paymentRes.data?.amount;
+        const paymentStatus = paymentRes.data?.status;
+
+        if (paymentStatus !== 'captured' && paymentStatus !== 'authorized') {
+          throw new Error(`Payment status is not captured: ${paymentStatus}`);
+        }
+
+        if (actualAmountPaise && actualAmountPaise < expectedPaise * 0.95) {
+          throw new Error(
+            `Payment amount mismatch: Expected ~₹${p.introUpfront} for ${body.tier} (${body.cycle}), but actual payment was ₹${actualAmountPaise / 100}`
+          );
+        }
+      } catch (apiErr: any) {
+        // If it's our own mismatch error, rethrow
+        if (apiErr.message?.startsWith('Payment amount mismatch') || apiErr.message?.startsWith('Payment status is not')) {
+          throw apiErr;
+        }
+        logger.warn('Could not verify payment amount with Razorpay API (network/test), falling back to signature check', {
+          error: apiErr.message,
+        });
+      }
+    }
+
     const now = new Date();
     const renewal = new Date(now.getTime() + 90 * 24 * 3600 * 1000);
     await Merchant.findByIdAndUpdate(merchantId, { $set: {

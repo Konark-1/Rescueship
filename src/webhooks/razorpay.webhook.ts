@@ -83,8 +83,9 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
       const entity = body.payload?.subscription?.entity || body.payload?.payment?.entity;
       const notes = entity?.notes || {};
       const merchantId = notes.merchantId || notes.merchant_id;
-      const plan = notes.plan;
+      const plan = notes.plan || notes.tier;
       const cycle = notes.cycle;
+      const actualAmountPaise = entity?.amount || entity?.amount_paid || 0;
 
       if (merchantId) {
         const eventId = `razorpay_${event}_${entity?.id || Date.now()}`;
@@ -92,6 +93,35 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
         if (!isProcessed) {
           if (plan) {
             const planLimits: Record<string, number> = { starter: 2000, growth: 10000, scale: 50000 };
+            const PLAN_MONTHLY_PRICES: Record<string, Record<string, number>> = {
+              starter: { quarterly: 1599, semi_annual: 1359, semi: 1359, annual: 1119 },
+              growth: { quarterly: 3999, semi_annual: 3399, semi: 3399, annual: 2799 },
+              scale: { quarterly: 9999, semi_annual: 8499, semi: 8499, annual: 6999 },
+            };
+            const cycleMonths: Record<string, number> = {
+              quarterly: 3,
+              semi_annual: 6,
+              semi: 6,
+              annual: 12,
+            };
+
+            const selectedCycle = cycle || 'quarterly';
+            const priceConfig = PLAN_MONTHLY_PRICES[plan];
+            if (priceConfig && priceConfig[selectedCycle]) {
+              const expectedPaise = priceConfig[selectedCycle] * (cycleMonths[selectedCycle] || 3) * 100;
+              // Reject if actual amount paid is less than 90% of expected price
+              if (actualAmountPaise && actualAmountPaise < expectedPaise * 0.90) {
+                logger.warn('Webhook amount mismatch - plan upgrade rejected', {
+                  merchantId,
+                  plan,
+                  expectedPaise,
+                  actualAmountPaise,
+                });
+                res.status(400).json({ error: 'Payment amount mismatch for requested plan' });
+                return;
+              }
+            }
+
             const merchant = await Merchant.findById(merchantId);
             if (merchant) {
               merchant.billing.plan = plan;

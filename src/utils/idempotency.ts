@@ -16,10 +16,9 @@ export class IdempotencyGuard {
       const exists = await redisConnection.exists(fullKey);
       return exists === 1;
     } catch (err: any) {
-      logger.error('Error checking idempotency in Redis', { key, error: err.message });
-      // In case of Redis error, we default to false to allow processing (fail-open)
-      // but log it prominently.
-      return false;
+      logger.error('CRITICAL: Redis idempotency check failed - failing closed to prevent duplicate operations', { key, error: err.message });
+      // Fail closed: Assume it may be processed to prevent double-charging or duplicate provisioning
+      return true;
     }
   }
 

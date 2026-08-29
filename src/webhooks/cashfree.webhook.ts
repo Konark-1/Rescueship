@@ -11,6 +11,7 @@ const codConversionQueue = new Queue('cod-conversion', { connection: redisConnec
 
 router.post('/payment', async (req: Request, res: Response): Promise<void> => {
   const signature = req.get('x-webhook-signature');
+  const timestamp = req.get('x-webhook-timestamp');
   const rawBody = (req as any).rawBody ? (req as any).rawBody.toString('utf8') : '';
 
   logger.info('Received Cashfree webhook payment event');
@@ -22,7 +23,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Missing Cashfree signature header' });
       return;
     }
-    const isValid = paymentService.verifyCashfreeWebhook(rawBody, signature, config.cashfree.clientSecret);
+    const isValid = paymentService.verifyCashfreeWebhook(rawBody, signature, config.cashfree.clientSecret, timestamp);
     if (!isValid) {
       logger.warn('Cashfree webhook signature verification failed');
       res.status(401).json({ error: 'Invalid Cashfree signature' });

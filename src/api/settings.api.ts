@@ -1,5 +1,6 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
+import { credentialValidationLimiter } from '../middleware/rateLimiter';
 import { Merchant } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { validatePolicy } from '../config/rescue-policy';
@@ -65,7 +66,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
  * PUT /api/settings
  * Update settings and encrypt API credentials
  */
-router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.put('/', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const updates = req.body;
 
@@ -94,9 +95,15 @@ router.put('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
     }
 
     // Apply platformConfig updates
+    const SHOPIFY_DOMAIN_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
     if (updates.platformConfig) {
       merchant.platformConfig = merchant.platformConfig || {};
       if (updates.platformConfig.shopifyDomain) {
+        // 🔒 SEC-01 FIX: Strict Domain Validation
+        if (!SHOPIFY_DOMAIN_REGEX.test(updates.platformConfig.shopifyDomain)) {
+          res.status(400).json({ error: 'Invalid Shopify domain. Must be in format: store.myshopify.com' });
+          return;
+        }
         merchant.platformConfig.shopifyDomain = updates.platformConfig.shopifyDomain;
       }
       

@@ -1,0 +1,62 @@
+name: Production Security & Audit Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  security-audit:
+    name: Gitleaks, NPM Audit & Adversarial Verification
+    runs-on: ubuntu-latest
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Secret Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Audit NPM Dependencies
+        run: npm audit --audit-level=high --production
+
+      - name: Run Jest Test Suite
+        run: npm test
+
+      - name: Run Adversarial Security Verification Probes
+        run: npx ts-node scripts/verify-adversarial-fixes.ts
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/rescueship_ci
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: ci_test_jwt_secret_key_production_32chars_minimum
+          ENCRYPTION_KEY: ci_test_encryption_key_32chars_length
+          WHATSAPP_APP_SECRET: ci_test_whatsapp_app_secret
+          RAZORPAY_WEBHOOK_SECRET: ci_test_razorpay_webhook_secret
+          SHOPIFY_API_SECRET: ci_test_shopify_api_secret
+          DELHIVERY_WEBHOOK_SECRET: ci_test_delhivery_webhook_secret_key

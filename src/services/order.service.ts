@@ -382,13 +382,30 @@ export class OrderService {
     try {
       if (order && merchant && order.platform === 'shopify' && merchant.platformConfig?.shopifyDomain && merchant.platformConfig?.shopifyAccessToken) {
         const domain = merchant.platformConfig.shopifyDomain;
+
+        // 🔒 SEC-01 FIX: Defense-in-depth domain validation before outbound request
+        const SHOPIFY_DOMAIN_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
+        if (!SHOPIFY_DOMAIN_REGEX.test(domain)) {
+          logger.error('CRITICAL: Aborting Shopify sync due to invalid domain format (SSRF Protection)', { domain });
+          return;
+        }
+
+        const externalOrderId = order.externalOrderId;
+
+        // 🔒 SEC-04 FIX: Strict Alphanumeric Validation & URL Encoding
+        if (!externalOrderId || !/^[a-zA-Z0-9_-]+$/.test(String(externalOrderId))) {
+          logger.warn('Aborting Shopify sync: Invalid externalOrderId format (Path Traversal Protection)', { externalOrderId });
+          return;
+        }
+
+        const safeOrderId = encodeURIComponent(String(externalOrderId));
         const token = encryptionService.decrypt(merchant.platformConfig.shopifyAccessToken);
         const discount = order.codConversion?.incentiveOffered || 0;
         const netAmount = (order.orderValue - discount).toString();
 
         // 1. Post exact captured transaction to Shopify financial ledger
         await axios.post(
-          `https://${domain}/admin/api/2024-01/orders/${order.externalOrderId}/transactions.json`,
+          `https://${domain}/admin/api/2024-01/orders/${safeOrderId}/transactions.json`,
           {
             transaction: {
               kind: 'sale',
@@ -402,7 +419,7 @@ export class OrderService {
 
         // 2. Append refund protection note & tags to Shopify order
         await axios.put(
-          `https://${domain}/admin/api/2024-01/orders/${order.externalOrderId}.json`,
+          `https://${domain}/admin/api/2024-01/orders/${safeOrderId}.json`,
           {
             order: {
               id: order.externalOrderId,

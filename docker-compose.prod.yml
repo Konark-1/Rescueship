@@ -16,6 +16,7 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/rescueship
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     env_file:
       - .env.production
     depends_on:
@@ -31,6 +32,14 @@ services:
         reservations:
           cpus: '0.5'
           memory: 256M
+    # 🔒 INFRASTRUCTURE HARDENING
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
@@ -61,6 +70,15 @@ services:
         limits:
           cpus: '1.0'
           memory: 512M
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
     networks:
       - rescueship-net
 
@@ -68,8 +86,7 @@ services:
     image: mongo:7.0
     container_name: rescueship-mongo
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    # ❌ REMOVED exposed host ports to prevent ransomware/public internet exposure
     volumes:
       - mongo-data:/data/db
       - mongo-config:/data/configdb
@@ -90,9 +107,9 @@ services:
     image: redis:7-alpine
     container_name: rescueship-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # ❌ REMOVED exposed host ports to prevent public internet exposure
+    # 🔒 ADDED: --requirepass to enforce authentication
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
     volumes:
       - redis-data:/data
     deploy:
@@ -101,7 +118,7 @@ services:
           cpus: '0.5'
           memory: 512M
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

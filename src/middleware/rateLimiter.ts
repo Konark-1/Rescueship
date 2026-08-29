@@ -67,3 +67,54 @@ export const apiLimiter = rateLimit({
     return process.env.NODE_ENV === 'test';
   },
 });
+
+/**
+ * Strict rate limiter for payment gateway and carrier credential validation operations.
+ * Limits attempts to 10 per 15 minutes per IP to prevent outbound gateway DoS.
+ */
+export const credentialValidationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many credential validation attempts. Please try again later.',
+    retryAfterSeconds: 900,
+  },
+  handler: (req, res, next, options) => {
+    logger.warn('Credential validation rate limit exceeded', {
+      ip: req.ip,
+      path: req.path,
+    });
+    res.status(429).json(options.message);
+  },
+  skip: (_req) => {
+    return process.env.NODE_ENV === 'test';
+  },
+});
+
+/**
+ * 🔒 SEC-03 FIX: Dedicated Brute-Force Protection for Login
+ * Limits login attempts to 5 per 15 minutes per IP to prevent credential stuffing.
+ */
+export const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // Limit each IP to 5 login attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many login attempts from this IP. Please try again after 15 minutes.',
+    retryAfterSeconds: 900,
+  },
+  handler: (req, res, next, options) => {
+    logger.warn('Login brute-force rate limit exceeded', {
+      ip: req.ip,
+      path: req.path,
+    });
+    res.status(429).json(options.message);
+  },
+  skip: (_req) => {
+    return process.env.NODE_ENV === 'test';
+  },
+  skipSuccessfulRequests: false,
+});

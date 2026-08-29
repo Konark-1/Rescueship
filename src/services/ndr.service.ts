@@ -16,6 +16,7 @@ import { RescueLedger } from '../models/RescueLedger';
 import { recordOutbound } from './whatsapp-cost.service';
 import { COPY } from '../i18n/customer-copy';
 import { addressCorrectionService, LocationData } from './address-correction.service';
+import { SecurityAlertService } from './security-alert.service';
 
 export interface NDREventData {
   awb: string;
@@ -382,6 +383,13 @@ export class NDRService {
 
       if (order.merchantId.toString() !== merchant._id.toString()) {
         logger.warn('Security alert: Cross-tenant button action attempt rejected', { orderId: order._id, merchantId: merchant._id });
+        await SecurityAlertService.sendCriticalAlert('CROSS_TENANT_IDOR_BLOCKED', {
+          orderId: order._id.toString(),
+          ownerMerchantId: order.merchantId.toString(),
+          attackerMerchantId: merchant._id.toString(),
+          customerPhone: phone,
+          buttonPayload,
+        }).catch(() => {});
         return;
       }
 

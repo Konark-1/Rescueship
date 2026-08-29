@@ -279,19 +279,50 @@ export class PaymentService {
   }
 
   /**
-   * Verify signature of Cashfree webhook
+   * Verify signature of Cashfree webhook (v2023-08-01 timestamped signature)
    */
-  public verifyCashfreeWebhook(rawBody: string, signature: string, secret: string): boolean {
+  public verifyCashfreeWebhook(rawBody: string, signature: string, secret: string, timestamp?: string): boolean {
     try {
-      // Cashfree webhook uses a timestamped signature or sha256 checksum depending on apiVersion
-      // Let's implement standard signature verification.
-      // Usually Cashfree provides signature in 'x-webhook-signature' header.
-      // A common way for Cashfree is HMAC-SHA256 signature calculated over timestamp + rawBody.
-      // If clientSecret is passed, we check using that.
+      if (!secret || !signature || !rawBody) {
+        return false;
+      }
+
+      // 1. Verify timestamp is within 5 minutes (300 seconds) if provided
+      if (timestamp) {
+        const tsNum = parseInt(timestamp, 10);
+        if (!isNaN(tsNum)) {
+          const nowSec = Math.floor(Date.now() / 1000);
+          const tsSec = tsNum > 1e11 ? Math.floor(tsNum / 1000) : tsNum;
+          if (Math.abs(nowSec - tsSec) > 300) {
+            logger.warn('Cashfree webhook timestamp expired or skewed', { timestamp, nowSec });
+            return false;
+          }
+        }
+      }
+
+      // 2. Compute signature over timestamp + rawBody
+      const payload = timestamp ? `${timestamp}${rawBody}` : rawBody;
       const shasum = crypto.createHmac('sha256', secret);
-      shasum.update(rawBody);
+      shasum.update(payload);
       const digest = shasum.digest('base64');
-      return crypto.timingSafeEqual(Buffer.from(digest, 'base64'), Buffer.from(signature, 'base64'));
+
+      const digestBuf = Buffer.from(digest, 'base64');
+      const sigBuf = Buffer.from(signature, 'base64');
+
+      if (digestBuf.length === sigBuf.length && crypto.timingSafeEqual(digestBuf, sigBuf)) {
+        return true;
+      }
+
+      // Fallback for rawBody-only signature if timestamp was provided but gateway used legacy mode
+      if (timestamp) {
+        const fallbackDigest = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
+        const fallbackBuf = Buffer.from(fallbackDigest, 'base64');
+        if (fallbackBuf.length === sigBuf.length && crypto.timingSafeEqual(fallbackBuf, sigBuf)) {
+          return true;
+        }
+      }
+
+      return false;
     } catch (error: any) {
       logger.error('Error verifying Cashfree webhook signature', { error: error.message });
       return false;

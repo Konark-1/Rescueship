@@ -39,23 +39,97 @@ import auditLogsRouter from './api/auditlogs.api';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Enable Trust Proxy for reverse proxies/tunnels (Cloudflare, Nginx)
-app.set('trust proxy', 1);
+// 🔒 SEC-02 FIX: Strict Reverse Proxy Trust Configuration
+// If you are behind Cloudflare, Nginx, or AWS ALB, define their CIDRs in .env:
+// TRUSTED_PROXIES=173.245.48.0/20,103.21.244.0/22,10.0.0.0/8
+// If deployed directly or behind a local proxy, use loopback/linklocal.
+const trustedProxies = process.env.TRUSTED_PROXIES 
+  ? process.env.TRUSTED_PROXIES.split(',').map(ip => ip.trim())
+  : ['loopback', 'linklocal', 'uniquelocal'];
 
-// Setup Middleware
-app.use(helmet());
+app.set('trust proxy', trustedProxies);
+
+// Note: If you specifically need the true client IP from Cloudflare for logging 
+// (and not for rate limiting), use a custom property like `req.clientIp` instead of overwriting `req.ip`.
+app.use((req: any, _res: any, next: any) => {
+  req.clientIp = req.headers['cf-connecting-ip'] || req.ip;
+  next();
+});
+
+// ───────────────────────────────────────────────
+// 🔒 1. STRICT SECURITY HEADERS (HELMET + CSP)
+// ───────────────────────────────────────────────
 const allowedOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
   : ['http://localhost:5173'];
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, mobile apps, curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) return callback(null, true);
-    callback(new Error(`CORS: origin ${origin} not allowed`));
-  },
-  credentials: true,
-}));
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'", 
+          "'unsafe-inline'", // Required for Vite/React hydration
+          "https://checkout.razorpay.com", 
+          "https://sdk.cashfree.com"
+        ],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:", "https:"],
+        connectSrc: [
+          "'self'", 
+          "https://api.razorpay.com", 
+          "https://api.cashfree.com",
+          "wss:", "ws:" // Required for SSE/WebSocket realtime connections
+        ],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"], // Prevents Clickjacking (replaces X-Frame-Options)
+        upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+      },
+    },
+    hsts: {
+      maxAge: 31536000, // 1 year
+      includeSubDomains: true,
+      preload: true,
+    },
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  })
+);
+
+// ───────────────────────────────────────────────
+// 🔒 2. DYNAMIC CORS ENFORCEMENT
+// ───────────────────────────────────────────────
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (server-to-server, mobile apps, curl, Postman)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      
+      logger.warn(`CORS blocked unauthorized origin: ${origin}`);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'X-Hub-Signature-256',
+      'X-Razorpay-Signature',
+      'X-WC-Webhook-Signature',
+      'X-Shopify-Hmac-Sha256',
+      'x-webhook-signature',
+      'x-webhook-timestamp',
+      'x-api-key',
+    ],
+  })
+);
 
 // Capture raw body for signature verification and parse JSON
 app.use(
