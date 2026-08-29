@@ -356,9 +356,19 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
 
 /* ═══ MAIN ═══ */
 export default function LandingPage() {
-  const [booted, setBooted] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(true);
-  const [reduced, setReduced] = useState(false);
+  const [reduced, setReduced] = useState(() => {
+    try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
+  });
+  const [booted, setBooted] = useState(() => {
+    try {
+      return typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!sessionStorage.getItem('rs_booted'));
+    } catch { return false; }
+  });
+  const [showOverlay, setShowOverlay] = useState(() => {
+    try {
+      return typeof window !== 'undefined' ? !(window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!sessionStorage.getItem('rs_booted')) : true;
+    } catch { return true; }
+  });
 
   const feedCounterRef = useRef(0);
   const [feedLines, setFeedLines] = useState<{ id: string; t: string; msg: string; cls?: string }[]>([]);
@@ -383,8 +393,8 @@ export default function LandingPage() {
     let seen = false;
     try { seen = !!sessionStorage.getItem('rs_booted'); } catch {}
     if (r || seen) { setBooted(true); setShowOverlay(false); return; }
-    const t1 = setTimeout(() => setBooted(true), 2300);
-    const t2 = setTimeout(() => { setShowOverlay(false); try { sessionStorage.setItem('rs_booted', '1'); } catch {} }, 2900);
+    const t1 = setTimeout(() => setBooted(true), 1200);
+    const t2 = setTimeout(() => { setShowOverlay(false); try { sessionStorage.setItem('rs_booted', '1'); } catch {} }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
