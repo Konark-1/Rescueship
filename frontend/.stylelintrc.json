@@ -1,0 +1,45 @@
+{
+  "plugins": [
+    "stylelint-declaration-strict-value"
+  ],
+  "rules": {
+    "scale-unlimited/declaration-strict-value": [
+      [
+        "/color$/",
+        "padding",
+        "margin",
+        "gap"
+      ],
+      {
+        "ignoreValues": [
+          "0",
+          "auto",
+          "inherit",
+          "transparent",
+          "currentColor",
+          "none",
+          "unset",
+          "initial",
+          "inset",
+          "#fff",
+          "#ffffff",
+          "#000",
+          "#000000",
+          "white",
+          "black"
+        ],
+        "ignoreKeywords": {
+          "/color$/": [
+            "currentColor",
+            "transparent",
+            "inherit",
+            "#fff",
+            "#ffffff",
+            "white",
+            "black"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,330 @@
+/* ═══ SaaS Shell / App Layout ═══ */
+.app-shell {
+  display: flex;
+  min-height: 100dvh;
+  background-color: var(--bg-void);
+  color: var(--text-1);
+}
+
+/* Backdrop for mobile drawer */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: var(--black-50);
+  z-index: 35;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Floating Mobile Menu Button */
+.app-mobile-toggle {
+  display: none;
+  position: fixed;
+  bottom: var(--space-6);
+  right: var(--space-6);
+  z-index: 50;
+  background: var(--indigo);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-full);
+  width: 3.5rem;
+  height: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-glow);
+  cursor: pointer;
+  transition: transform 0.2s var(--ease-out), background-color 0.2s;
+}
+
+.app-mobile-toggle:hover {
+  transform: scale(1.05);
+  background-color: #5558e6;
+}
+
+.app-mobile-toggle:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Sidebar Shell */
+.app-sidebar {
+  width: 260px;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  transition: transform 0.3s var(--ease-out);
+}
+
+/* Brand Header in Sidebar */
+.app-brand {
+  padding: var(--space-8) var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.app-brand-icon {
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.25rem;
+  box-shadow: var(--shadow-glow);
+}
+
+.app-brand-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.app-brand-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  margin: 0;
+  font-family: var(--font-display);
+  color: var(--text-1);
+}
+
+.app-brand-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-3);
+}
+
+/* Sidebar Nav */
+.app-nav {
+  flex: 1;
+  padding: var(--space-6) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  overflow-y: auto;
+}
+
+.app-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: transparent;
+  border: 1px solid transparent;
+  font-weight: 500;
+  font-size: 0.92rem;
+  transition: all 0.2s var(--ease-out);
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+}
+
+.app-nav-link:hover {
+  background: var(--white-03);
+  color: var(--text-1);
+}
+
+.app-nav-link--active {
+  color: var(--text-1);
+  background: var(--indigo-15);
+  font-weight: 600;
+}
+
+.app-nav-indicator {
+  position: absolute;
+  left: 0;
+  top: 10%;
+  bottom: 10%;
+  width: 3px;
+  background: var(--indigo);
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+
+.app-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+  z-index: 1;
+  transition: color 0.2s;
+}
+
+.app-nav-link--active .app-nav-icon {
+  color: var(--indigo);
+}
+
+.app-nav-label {
+  z-index: 1;
+}
+
+/* User Profile Footer */
+.app-user-panel {
+  padding: var(--space-6);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background-color: var(--black-20);
+}
+
+.app-user-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-user-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background-color: var(--white-05);
+  border: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-2);
+}
+
+.app-user-details {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.app-user-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-1);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.app-user-role {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  text-transform: capitalize;
+}
+
+.app-logout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-2-5) var(--space-4);
+  background-color: transparent;
+  border: 1px solid var(--rose-20);
+  border-radius: var(--radius-sm);
+  color: var(--rose);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.875rem;
+  transition: all 0.2s var(--ease-out);
+}
+
+.app-logout-btn:hover {
+  background-color: var(--rose-10);
+  border-color: var(--rose);
+}
+
+.app-logout-btn:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+/* Main Content Area */
+.app-main-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin-left: 260px;
+}
+
+/* Header */
+.app-header {
+  height: 70px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--space-8);
+  background-color: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.app-engine-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-engine-status-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-2);
+  font-family: var(--font-mono);
+}
+
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.app-header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-full);
+  background: var(--indigo-15);
+  border: 1px solid var(--indigo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Content Viewport */
+.app-content {
+  padding: var(--space-8);
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* ═══ Responsive Breakpoints ═══ */
+@media (max-width: 768px) {
+  .app-mobile-toggle {
+    display: flex;
+  }
+  .app-sidebar {
+    transform: translateX(-100%);
+  }
+  .app-sidebar--open {
+    transform: translateX(0);
+  }
+  .app-main-wrap {
+    margin-left: 0;
+  }
+  .app-header {
+    padding: 0 var(--space-4);
+  }
+  .app-content {
+    padding: var(--space-4);
+  }
+}

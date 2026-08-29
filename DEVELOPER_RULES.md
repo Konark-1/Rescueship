@@ -36,6 +36,21 @@ All developers, contributors, and AI assistants modifying the RescueShip codebas
 
 ---
 
-## 🧪 5. Verification Requirements Before Check-in
+## 🎨 5. UI/UX & Accessibility Standards
+1. **Zero Hardcoded Colors or Magic Pixels**: All page and component stylesheets MUST consume semantic CSS variables from `index.css` (e.g. `var(--bg-void)`, `var(--indigo)`, `var(--indigo-15)`, `var(--space-4)`, `var(--radius-md)`). Never write raw `rgba()` color strings or arbitrary pixel values in component CSS.
+2. **Enforce 4px Spatial Grid**: Spacing, padding, and margins MUST adhere to the `--space-*` scale (`--space-1` = 4px, `--space-2` = 8px, `--space-4` = 16px, `--space-6` = 24px, `--space-8` = 32px, etc.).
+3. **Semantic HTML & Navigation Landmarks**:
+   - Layout navigation bars MUST use `<nav aria-label="...">` landmark elements.
+   - Active navigation items MUST declare `aria-current="page"`.
+   - Modals and drawers MUST declare `role="dialog"` or `role="navigation"`, manage focus, and contain `aria-expanded` and `aria-controls` on toggles.
+4. **Zero Inline Styles in Core Layout Components**: Component layouts MUST be defined in dedicated CSS modules or stylesheets (e.g. `AppLayout.css`). Do not use inline `style={{}}` anti-patterns that prevent pseudo-class states or media query overrides.
+5. **Modular Icon Architecture**: Do not bloat JSX pages with raw inline `<svg>` blocks. Extract SVGs into standalone components in `src/components/icons/` with default `size`, `className`, and `aria-hidden="true"` support.
+6. **Form Accessibility & Quality**: All form inputs MUST include explicit `<label>` or `aria-label`, correct `autoComplete` attributes, `spellCheck={false}` on identifiers/emails, and inline error announcements (`aria-live="polite"`).
+
+---
+
+## 🧪 6. Verification Requirements Before Check-in
 1. **Run TypeScript Check**: Execute `npx tsc --noEmit` in root. Zero errors allowed.
 2. **Run Frontend Build**: Execute `npm run build` in `frontend/`. Zero errors allowed.
+3. **Run Playwright E2E Tests**: Execute `npm run test:e2e` in `frontend/`. All test suites must pass.
+

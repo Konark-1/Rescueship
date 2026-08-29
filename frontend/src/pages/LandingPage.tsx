@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useInView, useScroll, useTransform } from 'motion/react';
 import { Link } from 'react-router-dom';
+import {
+  DeliveryTruckIcon,
+  LockedDoorIcon,
+  RescueRadarIcon,
+  WhatsAppChatIcon,
+  MapPinRerouteIcon,
+  PackageDeliveredIcon,
+  CheckmarkIcon,
+} from '../components/icons';
 import './landing.css';
 
 /* ═══ BOOT SEQUENCE ═══ */
@@ -74,12 +83,12 @@ const REEL_BEATS = [
 ];
 
 const REEL_ICONS = [
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7h11v8H2z" /><path d="M13 10h4l3 3v2h-7z" /><circle cx="6.5" cy="17.5" r="1.7" /><circle cx="17" cy="17.5" r="1.7" /></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="3" width="12" height="18" rx="1.2" /><rect x="9.5" y="11" width="5" height="4.6" rx="0.8" /><path d="M10.5 11V9.6a1.5 1.5 0 0 1 3 0V11" /></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3.4" /><path d="M12 12 17.5 7.5" /><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="16.4" cy="8.6" r="0.9" fill="currentColor" stroke="none" /></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" /><path d="M8 8.5h8" /><path d="M8 11.5h5" /></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s6-5.3 6-10a6 6 0 1 0-12 0c0 4.7 6 10 6 10z" /><circle cx="12" cy="11" r="2" /><path d="M3 21h5" strokeDasharray="2 2" /></svg>),
-  (<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="9.5" width="16" height="10.5" rx="1.2" /><path d="M4 9.5 6 5h12l2 4.5" /><path d="M9 14.5l2 2 4-4" /></svg>),
+  <DeliveryTruckIcon key="truck" />,
+  <LockedDoorIcon key="door" />,
+  <RescueRadarIcon key="radar" />,
+  <WhatsAppChatIcon key="wa" />,
+  <MapPinRerouteIcon key="pin" />,
+  <PackageDeliveredIcon key="package" />,
 ];
 
 /* ═══ Helpers ═══ */
@@ -88,16 +97,18 @@ function SpawnWords({ text, booted, baseDelay = 0, className = '' }: {
 }) {
   return (
     <span className={className}>
-      {text.split(' ').map((w, i) => (
-        <motion.span
-          key={i}
-          className="lp-word"
-          initial={{ opacity: 0, y: 26, filter: 'blur(7px)' }}
-          animate={booted ? { opacity: 1, y: 0, filter: 'blur(0px)' } : {}}
-          transition={{ duration: 0.55, delay: baseDelay + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
-        >
-          {w}
-        </motion.span>
+      {text.split(' ').map((w, i, arr) => (
+        <span key={i}>
+          <motion.span
+            className="lp-word"
+            initial={{ opacity: 0, y: 26, filter: 'blur(7px)' }}
+            animate={booted ? { opacity: 1, y: 0, filter: 'blur(0px)' } : {}}
+            transition={{ duration: 0.55, delay: baseDelay + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {w}
+          </motion.span>
+          {i < arr.length - 1 ? ' ' : ''}
+        </span>
       ))}
     </span>
   );
@@ -496,9 +507,9 @@ export default function LandingPage() {
       <motion.header className="lp-top"
         initial={{ opacity: 0, y: -16 }} animate={booted ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}>
-        <a href="/" className="lp-brand"><span>⚓</span> RescueShip</a>
+        <a href="/" className="lp-brand"><span aria-hidden="true">⚓</span> RescueShip</a>
         <span className="lp-top__tag">Autonomous NDR Rescue</span>
-        <nav className="lp-top__nav">
+        <nav className="lp-top__nav" aria-label="Landing Navigation">
           <Link to="/login" className="lp-top__link">Log in</Link>
           <Link to="/register" className="lp-top__cta">Get started</Link>
         </nav>
@@ -573,11 +584,11 @@ export default function LandingPage() {
 
           <h1 className="lp-intent__h1">
             <span className="lp-intent__line">
-              <SpawnWords text="He never" booted={booted} baseDelay={0.35} />
+              <SpawnWords text="He never" booted={booted} baseDelay={0.35} />{' '}
               <SpawnWords text="knocked." booted={booted} baseDelay={0.58} className="lp-intent__accent" />
             </span>
             <span className="lp-intent__line">
-              <SpawnWords text="You lost" booted={booted} baseDelay={0.78} />
+              <SpawnWords text="You lost" booted={booted} baseDelay={0.78} />{' '}
               <SpawnWords text="the sale." booted={booted} baseDelay={1.0} className="lp-intent__accent" />
             </span>
           </h1>
@@ -595,7 +606,7 @@ export default function LandingPage() {
             <motion.div className="lp-pass lp-pass--done"
               initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}>
-              <svg viewBox="0 0 24 24" className="lp-pass__check"><path d="M5 13l4 4L19 7" /></svg>
+              <CheckmarkIcon className="lp-pass__check" />
               <p className="lp-pass__done-t">You’re on the manifest.</p>
               <p className="lp-pass__done-s">Check your inbox — your test rescue is on its way.</p>
             </motion.div>
@@ -607,11 +618,13 @@ export default function LandingPage() {
               <div className="lp-pass__row">
                 <label className="lp-pass__label">Work email</label>
                 <input className="lp-pass__input" type="email" placeholder="founder@yourbrand.com"
+                  autoComplete="email" spellCheck={false}
                   value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="lp-pass__row">
                 <label className="lp-pass__label">Store URL</label>
                 <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com"
+                  autoComplete="url" spellCheck={false}
                   value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
               </div>
               <button className="lp-pass__btn" type="submit" disabled={submitting}>
@@ -672,7 +685,7 @@ export default function LandingPage() {
           <div className="lp-cost__total">
             <span className="lp-cost__cur">₹</span>
             <motion.span className="lp-cost__n"
-              initial={{ opacity: 0.2, scale: 0.9 }} animate={lossIn ? { opacity: 1, scale: 1 } : {}}
+              initial={{ opacity: 0, scale: 0.9 }} animate={lossIn ? { opacity: 1, scale: 1 } : {}}
               transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1] }}>430</motion.span>
             <span className="lp-cost__lbl">average cost per failed delivery — your currency, your math</span>
           </div>
@@ -777,6 +790,8 @@ export default function LandingPage() {
                 <motion.span
                   className="lp-reel__parcel"
                   style={reduced ? undefined : { top: reelTop }}
+                  role="img"
+                  aria-label="Delivery parcel"
                 >📦</motion.span>
               </div>
               <ol className="lp-reel__beats">
