@@ -87,7 +87,8 @@ export default function ExportButton({ exportType, label, className = '' }: Expo
         <button
           onClick={() => handleExport('csv')}
           disabled={isExporting}
-          className="px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="btn btn-secondary"
+          style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', fontWeight: 600 }}
           title={isAllowed ? 'Download as CSV' : 'Upgrade to Scale plan to export'}
         >
           {isExporting ? '⏳ Exporting...' : (label || EXPORT_LABELS[exportType])} (CSV)
@@ -95,7 +96,8 @@ export default function ExportButton({ exportType, label, className = '' }: Expo
         <button
           onClick={() => handleExport('json')}
           disabled={isExporting}
-          className="px-3 py-1.5 text-xs font-medium rounded-md bg-slate-600 text-white hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="btn btn-secondary"
+          style={{ fontSize: '0.75rem', padding: '0.35rem 0.6rem', fontWeight: 600 }}
           title={isAllowed ? 'Download as JSON' : 'Upgrade to Scale plan to export'}
         >
           JSON

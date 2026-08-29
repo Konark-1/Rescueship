@@ -79,6 +79,7 @@ const AuditLogsPage = () => {
           <input 
             type="text" 
             placeholder="Search events or sources..." 
+            aria-label="Search events or sources"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={{ 
@@ -180,13 +181,14 @@ const AuditLogsPage = () => {
                 </div>
                 <button 
                   onClick={() => { setSelectedLog(null); setCopied(false); }}
+                  aria-label="Close JSON payload modal"
                   style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.5rem' }}
                 >
                   <X size={20} />
                 </button>
               </div>
               <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.3)' }}>
-                <pre style={{ 
+                <pre tabIndex={0} aria-label="JSON Event Payload" style={{ 
                   margin: 0, padding: '1rem', background: '#0d1117', borderRadius: 'var(--radius-sm)',
                   overflowX: 'auto', color: '#e6edf3', fontSize: '0.875rem', border: '1px solid #30363d',
                   fontFamily: 'monospace'

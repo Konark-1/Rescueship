@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, X, Plus } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 
 interface Template {
   id: string;
@@ -83,7 +83,7 @@ export default function TemplatesPage() {
           <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
             <h2 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Template Library</h2>
           </div>
-          <div style={{ height: '600px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+          <div tabIndex={0} aria-label="Template categories list" style={{ height: '600px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
             {categories.map(category => (
               <div key={category} style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
                 <h3 style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>{category}</h3>
@@ -128,40 +128,34 @@ export default function TemplatesPage() {
               </div>
               <div>
                 <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>Rescueship Updates</div>
-                <div style={{ fontSize: '0.75rem', opacity: 0.8 }}>Business Account</div>
+                <div style={{ fontSize: '0.75rem', color: '#d4d4d8' }}>Business Account</div>
               </div>
             </div>
             
             <div style={{ flex: 1, backgroundColor: '#0b141a', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative', zIndex: 0 }}>
-              <AnimatePresence mode="wait">
-                <motion.div 
-                  key={selectedTemplate.id} 
-                  initial={{ opacity: 0, y: 20 }} 
-                  animate={{ opacity: 1, y: 0 }} 
-                  exit={{ opacity: 0, y: -20 }} 
-                  transition={{ duration: 0.3 }}
-                  style={{ backgroundColor: '#202c33', borderRadius: '0.5rem', borderTopLeftRadius: 0, padding: '0.75rem', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', maxWidth: '90%', fontSize: '0.85rem', color: '#e9edef', marginTop: '1rem' }}
-                >
-                  {selectedTemplate.content.split(/(\{\{[^}]+\}\})/).map((part, i) => {
-                    if (part.startsWith('{{') && part.endsWith('}}')) {
-                      return <span key={i} style={{ color: 'var(--accent)', fontWeight: '600', padding: '0 2px' }}>{part}</span>;
-                    }
-                    return <span key={i}>{part}</span>;
-                  })}
-                  <div style={{ fontSize: '0.65rem', color: '#8696a0', textAlign: 'right', marginTop: '0.25rem' }}>12:00 PM</div>
-                </motion.div>
-              </AnimatePresence>
+              <div 
+                key={selectedTemplate.id} 
+                style={{ backgroundColor: '#202c33', borderRadius: '0.5rem', borderTopLeftRadius: 0, padding: '0.75rem', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', maxWidth: '90%', fontSize: '0.85rem', color: '#f8fafc', marginTop: '1rem' }}
+              >
+                {selectedTemplate.content.split(/(\{\{[^}]+\}\})/).map((part, i) => {
+                  if (part.startsWith('{{') && part.endsWith('}}')) {
+                    return <span key={i} style={{ color: '#38bdf8', fontWeight: '600', padding: '0 2px' }}>{part}</span>;
+                  }
+                  return <span key={i}>{part}</span>;
+                })}
+                <div style={{ fontSize: '0.65rem', color: '#cbd5e1', textAlign: 'right', marginTop: '0.25rem' }}>12:00 PM</div>
+              </div>
             </div>
 
             <div style={{ backgroundColor: '#202c33', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', zIndex: 10 }}>
-              <div style={{ flex: 1, backgroundColor: '#2a3942', borderRadius: '9999px', height: '36px', display: 'flex', alignItems: 'center', padding: '0 1rem', fontSize: '0.8rem', color: '#8696a0' }}>Type a message...</div>
+              <div style={{ flex: 1, backgroundColor: '#2a3942', borderRadius: '9999px', height: '36px', display: 'flex', alignItems: 'center', padding: '0 1rem', fontSize: '0.8rem', color: '#d4d4d8' }}>Type a message...</div>
             </div>
           </div>
 
           <button 
             onClick={() => setShowTestModal(true)}
             className="btn btn-primary"
-            style={{ width: '100%', marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#00a884', borderColor: '#00a884' }}
+            style={{ width: '100%', marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
             <Send size={18} />
             Test Send WhatsApp
@@ -174,15 +168,17 @@ export default function TemplatesPage() {
           <div className="glass-card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Send Test Message</h3>
-              <button onClick={() => setShowTestModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+              <button onClick={() => setShowTestModal(false)} aria-label="Close test modal" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Phone Number</label>
+                <label className="form-label" htmlFor="test-phone-input">Phone Number</label>
                 <input 
+                  id="test-phone-input"
                   type="text" 
                   placeholder="+91 9999999999" 
                   className="form-control"
+                  aria-label="Phone Number"
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
                 />
@@ -212,16 +208,16 @@ export default function TemplatesPage() {
           <div className="glass-card" style={{ width: '100%', maxWidth: '500px', padding: 0, overflow: 'hidden' }}>
             <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Create New Template</h3>
-              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+              <button onClick={() => setShowCreateModal(false)} aria-label="Close create template modal" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
             </div>
             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Template Name</label>
-                <input type="text" className="form-control" placeholder="e.g. abandoned_cart_01" />
+                <label className="form-label" htmlFor="template-name-input">Template Name</label>
+                <input id="template-name-input" aria-label="Template Name" type="text" className="form-control" placeholder="e.g. abandoned_cart_01" />
               </div>
               <div className="form-group">
-                <label className="form-label">Category</label>
-                <select className="form-control">
+                <label className="form-label" htmlFor="template-category-select">Category</label>
+                <select id="template-category-select" aria-label="Category" className="form-control">
                   <option>COD-to-Prepaid</option>
                   <option>NDR Address Fix</option>
                   <option>Delivery Re-attempt</option>
@@ -229,8 +225,8 @@ export default function TemplatesPage() {
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label">Message Content</label>
-                <textarea className="form-control" rows={4} placeholder="Hi {{name}}, your order..."></textarea>
+                <label className="form-label" htmlFor="template-content-area">Message Content</label>
+                <textarea id="template-content-area" aria-label="Message Content" className="form-control" rows={4} placeholder="Hi {{name}}, your order..."></textarea>
               </div>
             </div>
             <div style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>

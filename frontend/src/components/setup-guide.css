@@ -11,7 +11,7 @@
   background: rgba(56, 189, 248, 0.08);
   border: 1px solid rgba(56, 189, 248, 0.2);
   border-radius: 6px;
-  color: #38bdf8;
+  color: var(--indigo-soft, #818cf8);
   font-size: 0.8rem;
   cursor: pointer;
   transition: all 0.2s;
@@ -40,8 +40,8 @@
   width: 340px;
   max-height: 420px;
   overflow-y: auto;
-  background: #1e293b;
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: var(--bg-deep, #0a0a10);
+  border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   z-index: 100;
@@ -55,13 +55,13 @@
   font-weight: 600;
   font-size: 0.9rem;
   margin-bottom: 1rem;
-  color: #f1f5f9;
+  color: var(--text-1, #f8fafc);
 }
 
 .guide-close {
   background: none;
   border: none;
-  color: #64748b;
+  color: var(--text-3, #9ca3af);
   cursor: pointer;
   font-size: 1rem;
 }
@@ -74,19 +74,19 @@
 .guide-step {
   margin-bottom: 1rem;
   font-size: 0.82rem;
-  color: #cbd5e1;
+  color: var(--text-2, #cbd5e1);
   line-height: 1.5;
 }
 
 .guide-step strong {
-  color: #f1f5f9;
+  color: var(--text-1, #f8fafc);
   display: block;
   margin-bottom: 0.25rem;
 }
 
 .guide-step p {
   margin: 0.25rem 0;
-  color: #94a3b8;
+  color: var(--text-3, #9ca3af);
 }
 
 .guide-errors {
@@ -95,7 +95,7 @@
 }
 
 .guide-errors summary {
-  color: #fb923c;
+  color: var(--amber, #fb923c);
   cursor: pointer;
   font-weight: 500;
 }
@@ -103,7 +103,7 @@
 .guide-errors ul {
   margin: 0.4rem 0 0 1rem;
   padding: 0;
-  color: #94a3b8;
+  color: var(--text-3, #9ca3af);
 }
 
 .guide-errors li {

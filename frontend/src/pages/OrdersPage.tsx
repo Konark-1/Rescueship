@@ -74,16 +74,6 @@ export const OrdersPage: React.FC = () => {
 
   const statuses = ['All Statuses', 'Pending', 'Shipped', 'Delivered', 'NDR Initiated', 'Cancelled'];
 
-  const tableVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
-  };
-
-  const rowVariants = {
-    hidden: { opacity: 0, y: 10 },
-    visible: { opacity: 1, y: 0 }
-  };
-
   return (
     <div className="glass-card fade-in-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
@@ -98,6 +88,7 @@ export const OrdersPage: React.FC = () => {
         <input 
           type="text" 
           placeholder="Search by Order ID or Phone" 
+          aria-label="Search by Order ID or Phone"
           value={search} 
           onChange={(e) => setSearch(e.target.value)}
           className="form-control"
@@ -120,7 +111,7 @@ export const OrdersPage: React.FC = () => {
           Loading Orders...
         </div>
       ) : (
-        <div className="table-container">
+        <div className="table-container" tabIndex={0} aria-label="Orders table">
           <table className="custom-table">
             <thead>
               <tr>
@@ -131,24 +122,19 @@ export const OrdersPage: React.FC = () => {
                 <th>Carrier</th>
               </tr>
             </thead>
-            <motion.tbody
-              initial="hidden"
-              animate="visible"
-              variants={tableVariants}
-            >
+            <tbody>
               {orders.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>No orders found</td>
                 </tr>
               ) : (
                 orders.map((order) => (
-                  <motion.tr 
+                  <tr 
                     key={order.id} 
-                    variants={rowVariants}
                     onClick={() => handleRowClick(order)}
                     style={{ cursor: 'pointer', transition: 'background 0.2s' }}
                   >
-                    <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary)' }}>{order.orderId}</td>
+                    <td style={{ fontFamily: 'var(--font-mono)', color: 'var(--indigo-soft, #818cf8)' }}>{order.orderId}</td>
                     <td>{order.customerName}</td>
                     <td style={{ fontFamily: 'var(--font-mono)' }}>{order.phone}</td>
                     <td>
@@ -160,10 +146,10 @@ export const OrdersPage: React.FC = () => {
                       </span>
                     </td>
                     <td>{order.carrier}</td>
-                  </motion.tr>
+                  </tr>
                 ))
               )}
-            </motion.tbody>
+            </tbody>
           </table>
         </div>
       )}

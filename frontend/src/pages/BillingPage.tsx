@@ -100,8 +100,8 @@ export default function BillingPage() {
         <aside className="bl-position">
           <p className="bl-kicker">Your position this month</p>
           <div className="bl-vol">
-            <label>Monthly orders</label>
-            <input type="range" min={500} max={50000} step={500} value={volume} onChange={(e) => setVolume(+e.target.value)} />
+            <label htmlFor="volume-range-input">Monthly orders</label>
+            <input id="volume-range-input" aria-label="Monthly orders volume" type="range" min={500} max={50000} step={500} value={volume} onChange={(e) => setVolume(+e.target.value)} />
             <span className="bl-vol__n">{volume.toLocaleString('en-IN')}</span>
           </div>
 
@@ -233,10 +233,16 @@ function Row({ k, v, accent, mute }: { k: string; v: string; accent?: boolean; m
 function CycleSwitch({ value, onChange }: { value: Cycle; onChange: (c: Cycle) => void }) {
   const idx = CYCLES.findIndex((c) => c.key === value);
   return (
-    <div className="bl-cycle" role="tablist">
+    <div className="bl-cycle" role="tablist" aria-label="Billing cycle">
       <motion.span className="bl-cycle__knob" layout transition={{ type: 'spring', stiffness: 380, damping: 30 }} style={{ left: `calc(${idx} * (100% / 3))`, width: `calc(100% / 3)` }} />
       {CYCLES.map((c) => (
-        <button key={c.key} className={value === c.key ? 'on' : ''} onClick={() => onChange(c.key)}>
+        <button
+          key={c.key}
+          role="tab"
+          aria-selected={value === c.key}
+          className={value === c.key ? 'on' : ''}
+          onClick={() => onChange(c.key)}
+        >
           {c.label}{c.tag && <em>{c.tag}</em>}
         </button>
       ))}

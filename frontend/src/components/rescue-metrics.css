@@ -9,7 +9,7 @@
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 1rem;
-  color: #f1f5f9;
+  color: var(--text-1, #f8fafc);
 }
 
 .metrics-hero {
@@ -26,7 +26,7 @@
 
 .hero-label {
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--text-3, #9ca3af);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-top: 0.25rem;
@@ -54,14 +54,14 @@
   display: block;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-2, #e2e8f0);
   font-family: 'JetBrains Mono', monospace;
 }
 
 .metric-label {
   display: block;
   font-size: 0.7rem;
-  color: #64748b;
+  color: var(--text-3, #9ca3af);
   margin-top: 0.25rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -70,16 +70,16 @@
 .metrics-warning {
   margin-top: 1rem;
   padding: 0.75rem;
-  background: rgba(251, 191, 36, 0.08);
-  border: 1px solid rgba(251, 191, 36, 0.2);
+  background: var(--amber-10, rgba(251, 191, 36, 0.08));
+  border: 1px solid var(--amber-20, rgba(251, 191, 36, 0.2));
   border-radius: 8px;
   font-size: 0.8rem;
-  color: #fbbf24;
+  color: var(--amber, #f59e0b);
 }
 
 .metrics-loading {
   padding: 2rem;
   text-align: center;
-  color: #64748b;
+  color: var(--text-2, #d4d4d8);
   font-size: 0.85rem;
 }

@@ -172,14 +172,14 @@ export const SettingsPage: React.FC = () => {
             <motion.div key="platform" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Platform Connection</h3>
               <div className="form-group">
-                <label className="form-label">Platform URL</label>
-                <input type="text" name="platformUrl" value={settings.platformUrl} onChange={handleChange} className="form-control" placeholder="https://your-store.myshopify.com" />
+                <label className="form-label" htmlFor="platform-url-input">Platform URL</label>
+                <input id="platform-url-input" aria-label="Platform URL" type="text" name="platformUrl" value={settings.platformUrl} onChange={handleChange} className="form-control" placeholder="https://your-store.myshopify.com" />
               </div>
               <div className="form-group">
-                <label className="form-label">Platform API Key</label>
+                <label className="form-label" htmlFor="platform-key-input">Platform API Key</label>
                 <div style={{ position: 'relative' }}>
-                  <input type={showPlatformKey ? "text" : "password"} name="platformApiKey" value={settings.platformApiKey} onChange={handleChange} className="form-control" placeholder={settings.platformApiKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
-                  <button type="button" onClick={() => setShowPlatformKey(!showPlatformKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input id="platform-key-input" aria-label="Platform API Key" type={showPlatformKey ? "text" : "password"} name="platformApiKey" value={settings.platformApiKey} onChange={handleChange} className="form-control" placeholder={settings.platformApiKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" aria-label={showPlatformKey ? "Hide platform API key" : "Show platform API key"} onClick={() => setShowPlatformKey(!showPlatformKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     {showPlatformKey ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -195,14 +195,14 @@ export const SettingsPage: React.FC = () => {
             <motion.div key="carrier" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Carrier Configuration</h3>
               <div className="form-group">
-                <label className="form-label">Carrier Name</label>
-                <input type="text" name="carrierName" value={settings.carrierName} onChange={handleChange} className="form-control" placeholder="e.g., Delhivery, Shiprocket, ClickPost" />
+                <label className="form-label" htmlFor="carrier-name-input">Carrier Name</label>
+                <input id="carrier-name-input" aria-label="Carrier Name" type="text" name="carrierName" value={settings.carrierName} onChange={handleChange} className="form-control" placeholder="e.g., Delhivery, Shiprocket, ClickPost" />
               </div>
               <div className="form-group">
-                <label className="form-label">Carrier API Key</label>
+                <label className="form-label" htmlFor="carrier-key-input">Carrier API Key</label>
                 <div style={{ position: 'relative' }}>
-                  <input type={showCarrierKey ? "text" : "password"} name="carrierApiKey" value={settings.carrierApiKey} onChange={handleChange} className="form-control" placeholder={settings.carrierApiKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
-                  <button type="button" onClick={() => setShowCarrierKey(!showCarrierKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input id="carrier-key-input" aria-label="Carrier API Key" type={showCarrierKey ? "text" : "password"} name="carrierApiKey" value={settings.carrierApiKey} onChange={handleChange} className="form-control" placeholder={settings.carrierApiKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" aria-label={showCarrierKey ? "Hide carrier API key" : "Show carrier API key"} onClick={() => setShowCarrierKey(!showCarrierKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     {showCarrierKey ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -217,10 +217,10 @@ export const SettingsPage: React.FC = () => {
             <motion.div key="whatsapp" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>WhatsApp Meta Setup</h3>
               <div className="form-group">
-                <label className="form-label">WhatsApp Access Token</label>
+                <label className="form-label" htmlFor="whatsapp-token-input">WhatsApp Access Token</label>
                 <div style={{ position: 'relative' }}>
-                  <input type={showWhatsAppKey ? "text" : "password"} name="whatsappToken" value={settings.whatsappToken} onChange={handleChange} className="form-control" placeholder={settings.whatsappToken ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
-                  <button type="button" onClick={() => setShowWhatsAppKey(!showWhatsAppKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input id="whatsapp-token-input" aria-label="WhatsApp Access Token" type={showWhatsAppKey ? "text" : "password"} name="whatsappToken" value={settings.whatsappToken} onChange={handleChange} className="form-control" placeholder={settings.whatsappToken ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" aria-label={showWhatsAppKey ? "Hide WhatsApp access token" : "Show WhatsApp access token"} onClick={() => setShowWhatsAppKey(!showWhatsAppKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     {showWhatsAppKey ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
@@ -237,10 +237,10 @@ export const SettingsPage: React.FC = () => {
             <motion.div key="payment" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.2 }}>
               <h3 style={{ fontFamily: 'var(--font-display)', marginBottom: '1.5rem', color: 'var(--text-primary)' }}>Payment Gateway Setup</h3>
               <div className="form-group">
-                <label className="form-label">Payment Gateway Key</label>
+                <label className="form-label" htmlFor="payment-key-input">Payment Gateway Key</label>
                 <div style={{ position: 'relative' }}>
-                  <input type={showPaymentKey ? "text" : "password"} name="paymentGatewayKey" value={settings.paymentGatewayKey} onChange={handleChange} className="form-control" placeholder={settings.paymentGatewayKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
-                  <button type="button" onClick={() => setShowPaymentKey(!showPaymentKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                  <input id="payment-key-input" aria-label="Payment Gateway Key" type={showPaymentKey ? "text" : "password"} name="paymentGatewayKey" value={settings.paymentGatewayKey} onChange={handleChange} className="form-control" placeholder={settings.paymentGatewayKey ? "••••••••••••••••" : ""} style={{ paddingRight: '40px' }} />
+                  <button type="button" aria-label={showPaymentKey ? "Hide payment gateway key" : "Show payment gateway key"} onClick={() => setShowPaymentKey(!showPaymentKey)} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
                     {showPaymentKey ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>

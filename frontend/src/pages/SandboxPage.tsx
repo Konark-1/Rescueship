@@ -197,6 +197,7 @@ export default function SandboxPage() {
                 className={`sb-toggle ${status?.enabled ? 'sb-toggle--on' : ''}`}
                 onClick={handleToggle}
                 aria-pressed={status?.enabled}
+                aria-label="Toggle Sandbox Mode"
               >
                 <span className="sb-toggle__knob" />
               </button>

@@ -98,12 +98,24 @@ rs.messages.send(
               type={revealed ? "text" : "password"} 
               value="rs_live_8f7d6a5b4c3e2d1f0a9b8c7d6e5f4a3b" 
               readOnly 
+              aria-label="API Authentication Token"
               style={{ flex: 1, background: 'transparent', border: 'none', padding: '0.75rem 1rem', color: 'var(--text-secondary)', outline: 'none', fontFamily: 'monospace' }} 
             />
             <button 
+              type="button"
               onClick={() => setRevealed(!revealed)}
-              style={{ background: 'transparent', border: 'none', borderLeft: '1px solid var(--border-color)', padding: '0 1rem', color: 'var(--primary)', cursor: 'pointer', fontWeight: 600 }}>
+              aria-label={revealed ? "Hide API token" : "Reveal API token"}
+              style={{ background: 'transparent', border: 'none', borderLeft: '1px solid var(--border-color)', padding: '0 1rem', color: 'var(--indigo-soft, #818cf8)', cursor: 'pointer', fontWeight: 600 }}>
               {revealed ? 'Hide' : 'Reveal'}
+            </button>
+            <button 
+              onClick={() => {
+                navigator.clipboard.writeText('rs_live_8f7d6a5b4c3e2d1f0a9b8c7d6e5f4a3b');
+                showToast('API Key copied to clipboard!');
+              }}
+              aria-label="Copy API Key"
+              style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--border-color)', padding: '0.6rem 0.75rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>
+              <Copy size={16} />
             </button>
           </div>
         </div>
@@ -123,9 +135,27 @@ rs.messages.send(
               <span>npm install @rescueship/sdk</span>
             </div>
           </div>
-          <a href="#" onClick={(e) => { e.preventDefault(); showToast('Redirecting to SDK Documentation...'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontSize: '0.9rem', marginTop: '1rem', textDecoration: 'none', fontWeight: 500 }}>
+          <a href="#" onClick={(e) => { e.preventDefault(); showToast('Redirecting to SDK Documentation...'); }} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: 'var(--indigo-soft, #818cf8)', fontSize: '0.9rem', marginTop: '1rem', textDecoration: 'none', fontWeight: 500 }}>
             View SDK Documentation <ExternalLink size={14} />
           </a>
+        </div>
+
+        {/* Quick Links Box */}
+        <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1.5rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <CodeIcon size={20} color="var(--primary)" />
+              <h3 style={{ margin: 0, fontWeight: 600 }}>SDKs & Libraries</h3>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Download official client libraries for Node.js, Python, PHP, and Go.
+            </p>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <a href="https://github.com" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border-color)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary)', textDecoration: 'none', fontSize: '0.85rem' }}>
+              GitHub Repositories <ExternalLink size={14} />
+            </a>
+          </div>
         </div>
       </div>
 
@@ -149,24 +179,22 @@ rs.messages.send(
             </button>
             <button 
               onClick={handleTest}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--primary)', color: 'black', border: 'none', padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
             >
-              <Play size={14} fill="black" /> Test Request
+              <Play size={14} fill="white" /> Test Request
             </button>
           </div>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <AnimatePresence mode="wait">
-            <motion.pre
+            <pre
               key={activeCodeTab}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              tabIndex={0}
+              aria-label="Code example"
               style={{ margin: 0, padding: '1.5rem', background: '#0d1117', color: '#e6edf3', fontSize: '0.9rem', overflowX: 'auto', fontFamily: 'monospace', lineHeight: 1.5 }}
             >
               {codeExamples[activeCodeTab]}
-            </motion.pre>
+            </pre>
           </AnimatePresence>
           <AnimatePresence>
             {tested && (
@@ -178,7 +206,7 @@ rs.messages.send(
               >
                 <div style={{ borderTop: '1px solid #30363d', background: '#0a0d12', padding: '1.5rem' }}>
                   <div style={{ fontSize: '0.8rem', color: '#10b981', marginBottom: '0.5rem', fontWeight: 600 }}>RESPONSE (200 OK)</div>
-                  <pre style={{ margin: 0, color: '#a5d6ff', fontSize: '0.9rem', fontFamily: 'monospace' }}>
+                  <pre tabIndex={0} aria-label="API Response" style={{ margin: 0, color: '#a5d6ff', fontSize: '0.9rem', fontFamily: 'monospace', overflowX: 'auto' }}>
                     {JSON.stringify({ success: true, message_id: "msg_9f8e7d6c", status: "queued" }, null, 2)}
                   </pre>
                 </div>

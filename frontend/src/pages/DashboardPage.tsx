@@ -84,7 +84,7 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  const token = localStorage.getItem('auth_token');
+  const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
 
   const fetchAnalytics = useCallback(async () => {
       try {
@@ -363,7 +363,7 @@ export const DashboardPage: React.FC = () => {
             <h3 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Recent Orders</h3>
             <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => navigate('/orders')}>View All</button>
           </div>
-          <div className="table-container" style={{ flex: 1, border: 'none', background: 'transparent' }}>
+          <div className="table-container" tabIndex={0} aria-label="Recent orders table" style={{ flex: 1, border: 'none', background: 'transparent' }}>
             <table className="custom-table" style={{ fontSize: '0.85rem' }}>
               <thead>
                 <tr>
@@ -376,7 +376,7 @@ export const DashboardPage: React.FC = () => {
               <tbody>
                 {(data.recentOrders || []).map((order) => (
                   <tr key={order.id}>
-                    <td style={{ paddingLeft: 0, color: 'var(--primary)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{order.id}</td>
+                    <td style={{ paddingLeft: 0, color: 'var(--indigo-soft, #818cf8)', fontWeight: 500, fontFamily: 'var(--font-mono)' }}>{order.id}</td>
                     <td>
                       <div>{order.customer}</div>
                       <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{order.date}</div>

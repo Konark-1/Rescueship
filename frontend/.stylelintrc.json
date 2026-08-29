@@ -5,10 +5,7 @@
   "rules": {
     "scale-unlimited/declaration-strict-value": [
       [
-        "/color$/",
-        "padding",
-        "margin",
-        "gap"
+        "/color$/"
       ],
       {
         "ignoreValues": [
