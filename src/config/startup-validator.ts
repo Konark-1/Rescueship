@@ -30,6 +30,8 @@ const OPTIONAL_VARS: EnvRequirement[] = [
   { key: 'WHATSAPP_APP_SECRET', required: false, description: 'Meta WhatsApp App Secret' },
   { key: 'WHATSAPP_VERIFY_TOKEN', required: false, description: 'Meta WhatsApp Verify Token' },
   { key: 'SMTP_HOST', required: false, description: 'Email SMTP host' },
+  { key: 'SETUP_CALL_URL', required: false, description: 'Booking link shown to merchants after purchase (Calendly/Cal.com)' },
+  { key: 'OWNER_NOTIFY_EMAIL', required: false, description: 'Receives signup / plan-purchase / setup-request alerts' },
   { key: 'SMTP_PORT', required: false, description: 'Email SMTP port' },
   { key: 'SMTP_USER', required: false, description: 'Email SMTP user' },
   { key: 'SMTP_PASS', required: false, description: 'Email SMTP password' },
@@ -48,6 +50,7 @@ const PRODUCTION_REQUIRED_VARS: EnvRequirement[] = [
   { key: 'RAZORPAY_WEBHOOK_SECRET', required: true, description: 'Razorpay Webhook Secret for HMAC verification' },
   { key: 'SHOPIFY_API_SECRET', required: true, description: 'Shopify API Secret for webhook HMAC' },
   { key: 'DELHIVERY_WEBHOOK_SECRET', required: true, description: 'Delhivery Webhook Secret for HMAC/Token' },
+  { key: 'CLICKPOST_WEBHOOK_SECRET', required: true, description: 'ClickPost Webhook Secret for HMAC/Token' },
 ];
 
 export function validateEnvironment(): void {

@@ -5,7 +5,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import AuthLayout from '../components/AuthLayout';
-import { Mail, Lock } from 'lucide-react';
+import { Mail, Lock, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 import './auth.css';
 
@@ -14,16 +14,26 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [googlePrompt, setGooglePrompt] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, forceSetupPassword = false) => {
     e.preventDefault();
+    if (forceSetupPassword && (!password || password.length < 8)) {
+      setError('Please enter a password with at least 8 characters in the password field first.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const response = await api.post('/api/auth/login', { email, password, rememberMe });
+      const response = await api.post('/api/auth/login', {
+        email,
+        password,
+        rememberMe,
+        setupPassword: forceSetupPassword,
+      });
       const { token, merchant } = response.data;
       login(token, merchant);
       if (merchant?.onboardingStatus === 'pending') {
@@ -33,7 +43,13 @@ const LoginPage: React.FC = () => {
       }
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || 'Failed to login');
+        const errorData = err.response?.data;
+        if (errorData?.code === 'GOOGLE_ACCOUNT_NO_PASSWORD' || errorData?.hasGoogleAuth) {
+          setGooglePrompt(true);
+          setError(errorData.error || 'This account was registered with Google. Try logging in with Google or set a password.');
+        } else {
+          setError(errorData?.error || errorData?.message || 'Failed to login');
+        }
       } else {
         setError('An unexpected error occurred');
       }
@@ -58,13 +74,41 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <AuthLayout 
-      title="Operations Command Center" 
-      subtitle="Real-time NDR monitoring & autonomous revenue recovery."
+    <AuthLayout
+      title="Back on deck."
+      accent=" Rescues resumed."
+      subtitle="Real-time NDR monitoring and autonomous revenue recovery, right where you left it."
     >
-      <h2>Sign In</h2>
-      {error && <div className="error-message">{error}</div>}
-      
+      <h2>Sign in</h2>
+      <p className="auth-sub">Access your command deck</p>
+      {error && !googlePrompt && <div className="error-message">{error}</div>}
+
+      {googlePrompt && (
+        <motion.div
+          className="google-warning-card"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="google-warning-badge">
+            <AlertTriangle size={15} />
+            <span>Google Account Found</span>
+          </div>
+          <p className="google-warning-desc">
+            This account was registered using Google and doesn't have a password yet. You can sign in with Google directly, or set this password to enable email &amp; password sign-in.
+          </p>
+          <div className="google-warning-actions">
+            <button
+              type="button"
+              className="google-warning-setup-btn"
+              disabled={loading}
+              onClick={(e) => handleSubmit(e, true)}
+            >
+              {loading ? 'Setting password…' : 'Set this password & Sign in'}
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       <div className="google-btn-wrapper">
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
@@ -73,11 +117,8 @@ const LoginPage: React.FC = () => {
           shape="pill"
         />
       </div>
-      
-      <div style={{ textAlign: 'center', marginBottom: '24px', color: '#94a3b8', fontSize: '14px', position: 'relative' }}>
-        <span style={{ background: 'var(--glass-bg)', padding: '0 10px', position: 'relative', zIndex: 1 }}>or sign in with email</span>
-        <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.1)', zIndex: 0 }}></div>
-      </div>
+
+      <div className="auth-divider"><span>or sign in with email</span></div>
 
       <form onSubmit={handleSubmit}>
         <div className="form-group input-with-icon">
@@ -121,7 +162,7 @@ const LoginPage: React.FC = () => {
           disabled={loading}
           whileTap={{ scale: 0.98 }}
         >
-          {loading ? 'Logging in...' : 'Log In to Command Center'}
+          {loading ? 'Authenticating…' : 'Enter command deck'}
         </motion.button>
       </form>
       <div className="auth-links">

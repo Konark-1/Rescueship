@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useMagnetic } from '../hooks/useMagnetic';
 import type { Tier, Cycle } from '../lib/billing';
 import { TIERS, CYCLES, priceFor, lossFor, recommendedTier, inr, billingApi, loadRazorpay } from '../lib/billing';
+import { connectApi } from '../lib/connect';
 import './billing.css';
 
 export default function BillingPage() {
@@ -22,10 +23,12 @@ export default function BillingPage() {
   const [drawer, setDrawer] = useState(false);
   const [paying, setPaying] = useState(false);
   const [active, setActive] = useState<any>(null); // set after success / if already subscribed
+  const [setupCallUrl, setSetupCallUrl] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => { localStorage.setItem('rs_volume', String(volume)); setTier(recommendedTier(volume)); }, [volume]);
   useEffect(() => { billingApi.status(token!).then((s) => { if (s.active) setActive(s); }).catch(() => {}); }, [token]);
+  useEffect(() => { if (token) connectApi.state(token).then((s: any) => setSetupCallUrl(s?.setupCallUrl || null)).catch(() => {}); }, [token]);
 
   const loss = useMemo(() => lossFor(volume), [volume]);
   const price = useMemo(() => priceFor(tier, cycle), [tier, cycle]);
@@ -81,6 +84,16 @@ export default function BillingPage() {
             <Row k="Next invoice" v={active.nextInvoice ? new Date(active.nextInvoice).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'} />
             <Row k="Activated" v={new Date(active.activatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} />
           </div>
+          {setupCallUrl && (
+            <div className="bl-callout">
+              <p className="bl-callout__title">📞 Free guided setup call</p>
+              <p className="bl-callout__sub">Your plan just went live — we'll finish the store, WhatsApp, courier and payment wiring with you in 20 minutes.</p>
+              <div className="bl-callout__actions">
+                <a className="bl-callout__btn" href={setupCallUrl} target="_blank" rel="noopener noreferrer">Book your setup call →</a>
+                <button className="bl-link bl-link--mute" onClick={() => nav('/onboarding')}>Set it up myself</button>
+              </div>
+            </div>
+          )}
           <div className="bl-receipt__foot">
             <button className="bl-link" onClick={() => nav('/dashboard')}>Open dashboard →</button>
             <button className="bl-link bl-link--mute" onClick={() => nav('/settings')}>Manage billing</button>

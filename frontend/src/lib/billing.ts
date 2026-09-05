@@ -3,7 +3,7 @@
  * The backend recomputes this identically before charging; the UI
  * never decides what to charge, only what to show. Keep both in sync.
  */
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API = import.meta.env.VITE_API_URL || '';
 
 export type Tier = 'starter' | 'growth' | 'scale';
 export type Cycle = 'quarterly' | 'semi' | 'annual';

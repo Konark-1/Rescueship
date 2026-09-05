@@ -5,6 +5,7 @@ import { loginLimiter } from '../middleware/rateLimiter';
 import { logger } from '../utils/logger';
 import { OAuth2Client } from 'google-auth-library';
 import { SecurityAlertService } from '../services/security-alert.service';
+import { emailService } from '../services/email.service';
 
 const router = Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -14,23 +15,77 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
  * Merchant Signup
  */
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, platform } = req.body;
+  const { name, email, password, platform, setupPassword } = req.body;
 
-  if (!name || !email || !password) {
-    res.status(400).json({ error: 'Missing required fields: name, email, password' });
+  if (!email) {
+    res.status(400).json({ error: 'Email is required' });
     return;
   }
 
+  const cleanEmail = email.toLowerCase().trim();
+
   try {
-    const existing = await Merchant.findOne({ email });
+    const existing = await Merchant.findOne({ email: cleanEmail });
     if (existing) {
-      res.status(400).json({ error: 'Email already registered' });
+      // If account is linked with Google:
+      if (existing.googleId) {
+        if (setupPassword) {
+          if (!password || password.length < 8) {
+            res.status(400).json({ error: 'Password must be at least 8 characters long' });
+            return;
+          }
+          existing.password = password;
+          if (name && (!existing.name || existing.name === 'Google User')) {
+            existing.name = name;
+          }
+          await existing.save();
+
+          const token = generateToken(existing._id.toString(), existing.tokenVersion ?? 1);
+          logger.info('Password set/updated for Google account via register', { merchantId: existing._id });
+
+          res.status(200).json({
+            message: 'Password set successfully! Logged in.',
+            token,
+            merchant: {
+              id: existing._id,
+              name: existing.name,
+              email: existing.email,
+              platform: existing.platform,
+              onboardingStatus: existing.onboardingStatus,
+            },
+          });
+          return;
+        }
+
+        res.status(409).json({
+          error: 'An account with this email was registered using Google. Try logging in with Google, or set up a password.',
+          code: 'GOOGLE_ACCOUNT_EXISTS',
+          hasGoogleAuth: true,
+          canSetupPassword: true,
+        });
+        return;
+      }
+
+      res.status(400).json({
+        error: 'Email already registered. Please sign in with your email and password.',
+        code: 'EMAIL_ALREADY_REGISTERED',
+      });
+      return;
+    }
+
+    if (!name || !password) {
+      res.status(400).json({ error: 'Missing required fields: name, password' });
+      return;
+    }
+
+    if (password.length < 8) {
+      res.status(400).json({ error: 'Password must be at least 8 characters long' });
       return;
     }
 
     const merchant = await Merchant.create({
       name,
-      email,
+      email: cleanEmail,
       password,
       platform: platform || 'custom',
       settings: {
@@ -41,6 +96,15 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 
     const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
     logger.info('New merchant registered successfully', { merchantId: merchant._id });
+
+    // Fire-and-forget: never block or fail registration on notifications
+    void emailService.sendMerchantWelcome(merchant.email, merchant.name).catch(() => {});
+    void emailService.notifyOwner('New merchant signup', {
+      merchant: merchant.name,
+      email: merchant.email,
+      merchantId: merchant._id.toString(),
+      platform: merchant.platform,
+    });
 
     res.status(201).json({
       message: 'Registration successful',
@@ -64,22 +128,71 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
  * Merchant Login
  */
 router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
+  const { email, password, setupPassword } = req.body;
 
   if (!email || !password) {
     res.status(400).json({ error: 'Email and password are required' });
     return;
   }
 
+  const cleanEmail = email.toLowerCase().trim();
+
   try {
-    const merchant = await Merchant.findOne({ email });
+    const merchant = await Merchant.findOne({ email: cleanEmail });
     if (!merchant) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
+    // Check if account is linked to Google
+    if (merchant.googleId) {
+      if (setupPassword) {
+        if (!password || password.length < 8) {
+          res.status(400).json({ error: 'Password must be at least 8 characters long' });
+          return;
+        }
+        merchant.password = password;
+        await merchant.save();
+
+        const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
+        logger.info('Password set/updated for Google user on login', { merchantId: merchant._id });
+
+        res.status(200).json({
+          message: 'Password set successfully! Logged in.',
+          token,
+          merchant: {
+            id: merchant._id,
+            name: merchant.name,
+            email: merchant.email,
+            platform: merchant.platform,
+            onboardingStatus: merchant.onboardingStatus,
+          },
+        });
+        return;
+      }
+
+      if (!merchant.password) {
+        res.status(401).json({
+          error: 'This account was registered using Google. Try logging in with Google, or set up a password.',
+          code: 'GOOGLE_ACCOUNT_NO_PASSWORD',
+          hasGoogleAuth: true,
+          canSetupPassword: true,
+        });
+        return;
+      }
+    }
+
     const isMatch = await merchant.comparePassword(password);
     if (!isMatch) {
+      if (merchant.googleId) {
+        res.status(401).json({
+          error: 'Incorrect password. This account is linked to Google — you can sign in with Google or set this password below.',
+          code: 'GOOGLE_ACCOUNT_PASSWORD_MISMATCH',
+          hasGoogleAuth: true,
+          canSetupPassword: true,
+        });
+        return;
+      }
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
@@ -109,7 +222,7 @@ router.post('/login', loginLimiter, async (req: Request, res: Response): Promise
  * Google Login / Signup
  */
 router.post('/google', async (req: Request, res: Response): Promise<void> => {
-  const { credential } = req.body;
+  const { credential, password } = req.body;
 
   if (!credential) {
     res.status(400).json({ error: 'Missing Google credential' });
@@ -129,39 +242,47 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
     }
 
     const { email, name, sub: googleId } = payload;
+    const cleanEmail = email.toLowerCase().trim();
 
     // Check if user exists by email or googleId
-    let merchant = await Merchant.findOne({ $or: [{ email }, { googleId }] });
+    let merchant = await Merchant.findOne({ $or: [{ email: cleanEmail }, { googleId }] });
 
     if (!merchant) {
       // Create new merchant without password
       merchant = await Merchant.create({
         name: name || 'Google User',
-        email,
+        email: cleanEmail,
         googleId,
         platform: 'shopify', // Default, they will configure in onboarding
         onboardingStatus: 'pending'
       });
       logger.info('New merchant registered via Google', { merchantId: merchant._id });
     } else {
-      // Account Takeover Prevention: Do NOT auto-link if account was created with password.
+      // Account Takeover Prevention: Check if account exists with password
       if (!merchant.googleId) {
-        logger.warn('Google OAuth login rejected: Account exists with password, not linked to Google', { email });
-        await SecurityAlertService.sendCriticalAlert('OAUTH_ACCOUNT_TAKEOVER_PROBE_BLOCKED', {
-          email,
-          attemptedGoogleId: googleId,
-          merchantId: merchant._id.toString(),
-        }).catch(() => {});
+        // If password is provided in body, verify and link
+        if (password && (await merchant.comparePassword(password))) {
+          merchant.googleId = googleId;
+          await merchant.save();
+          logger.info('Google account linked via password confirmation', { merchantId: merchant._id });
+        } else {
+          logger.warn('Google OAuth login rejected: Account exists with password, not linked to Google', { email: cleanEmail });
+          await SecurityAlertService.sendCriticalAlert('OAUTH_ACCOUNT_TAKEOVER_PROBE_BLOCKED', {
+            email: cleanEmail,
+            attemptedGoogleId: googleId,
+            merchantId: merchant._id.toString(),
+          }).catch(() => {});
 
-        res.status(409).json({
-          error: 'An account with this email already exists. Please log in with your password to link your Google account.'
-        });
-        return;
-      }
-      if (merchant.googleId !== googleId) {
-        logger.warn('Google OAuth login rejected: Google ID mismatch', { email, existingGoogleId: merchant.googleId, incomingGoogleId: googleId });
+          res.status(409).json({
+            error: 'An account with this email already exists. Please log in with your password to link your Google account.',
+            code: 'ACCOUNT_EXISTS_WITH_PASSWORD'
+          });
+          return;
+        }
+      } else if (merchant.googleId !== googleId) {
+        logger.warn('Google OAuth login rejected: Google ID mismatch', { email: cleanEmail, existingGoogleId: merchant.googleId, incomingGoogleId: googleId });
         await SecurityAlertService.sendCriticalAlert('OAUTH_GOOGLE_ID_MISMATCH_BLOCKED', {
-          email,
+          email: cleanEmail,
           existingGoogleId: merchant.googleId,
           incomingGoogleId: googleId,
           merchantId: merchant._id.toString(),

@@ -15,6 +15,7 @@ export interface IOrder extends Document {
     | 'shipped'
     | 'ndr_detected'
     | 'ndr_rescue_sent'
+    | 'ndr_pending_review'
     | 'ndr_rescued'
     | 'delivered'
     | 'rto';
@@ -40,7 +41,8 @@ export interface IOrder extends Document {
     holdout?: boolean;
     holdoutReason?: string;
     fakeRemarkScore?: number;
-    decisionMode?: 'engaged' | 'holdout' | 'review' | 'manual_skip';
+    decisionMode?: 'engaged' | 'holdout' | 'review' | 'manual_skip' | 'deciding';
+    decisionClaimedAt?: Date;
     lastOutboundAt?: Date;
     lastOutboundMerchantId?: Types.ObjectId;
     addressCorrectionStep?: any;
@@ -75,6 +77,7 @@ const OrderSchema = new Schema<IOrder>(
         'shipped',
         'ndr_detected',
         'ndr_rescue_sent',
+        'ndr_pending_review',
         'ndr_rescued',
         'delivered',
         'rto',
@@ -107,7 +110,8 @@ const OrderSchema = new Schema<IOrder>(
       holdout: { type: Boolean, default: false },
       holdoutReason: { type: String },
       fakeRemarkScore: { type: Number, default: 0 },
-      decisionMode: { type: String, enum: ['engaged', 'holdout', 'review', 'manual_skip'] },
+      decisionMode: { type: String, enum: ['engaged', 'holdout', 'review', 'manual_skip', 'deciding'] },
+      decisionClaimedAt: { type: Date },
       lastOutboundAt: { type: Date },
       lastOutboundMerchantId: { type: Schema.Types.ObjectId, ref: 'Merchant' },
       addressCorrectionStep: { type: Schema.Types.Mixed },

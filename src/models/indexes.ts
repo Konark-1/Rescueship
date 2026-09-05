@@ -24,10 +24,18 @@ export async function ensureIndexes(): Promise<void> {
       { customerPhone: 1, status: 1 },
       { name: 'idx_phone_status', background: true }
     );
-    await Order.collection.createIndex(
-      { externalOrderId: 1 },
-      { name: 'idx_external_order_unique', unique: true, background: true }
-    );
+    // One-time repair: drop legacy GLOBAL-unique index on externalOrderId.
+    // It wrongly rejects two merchants sharing the same platform order ID;
+    // uniqueness is enforced per-tenant via (merchantId, externalOrderId) in Order.ts.
+    try {
+      await Order.collection.dropIndex('idx_external_order_unique');
+      logger.warn('Dropped legacy global-unique index idx_external_order_unique (replaced by per-tenant compound index)');
+    } catch (dropErr: any) {
+      // IndexNotFound (27) / NamespaceNotFound (26) are fine — means nothing to repair
+      if (dropErr?.code !== 26 && dropErr?.code !== 27 && dropErr?.codeName !== 'IndexNotFound') {
+        throw dropErr;
+      }
+    }
     await Order.collection.createIndex(
       { paymentLinkId: 1 },
       { name: 'idx_payment_link', sparse: true, background: true }

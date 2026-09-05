@@ -7,8 +7,12 @@ import { Merchant } from '../src/models/Merchant';
 import { redisConnection } from '../src/config/redis';
 
 async function testShiprocketAuth() {
-  const email = process.env.SHIPROCKET_EMAIL || 'konarksesto@gmail.com';
-  const password = process.env.SHIPROCKET_PASSWORD || '004WdM6K88Vujrv@pB1RkX&klXCctbUg';
+  const email = process.env.SHIPROCKET_EMAIL;
+  const password = process.env.SHIPROCKET_PASSWORD;
+  if (!email || !password) {
+    console.error('❌ Set SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD env vars before running this test.');
+    process.exit(1);
+  }
 
   console.log('Testing Shiprocket API authentication for:', email);
   try {
@@ -20,7 +24,7 @@ async function testShiprocketAuth() {
     console.log('✅ Token obtained:', res.data.token ? res.data.token.slice(0, 25) + '...' : 'No token');
     
     // Connect in MongoDB for Konark's merchant
-    await mongoose.connect('mongodb://localhost:27017/rescueship');
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/rescueship');
     let merchant = await Merchant.findOne({ email });
     if (!merchant) {
       merchant = await Merchant.findOne();

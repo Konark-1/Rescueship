@@ -1,35 +1,33 @@
-.setup-guide {
-  position: relative;
-  display: inline-block;
-}
+/* SetupGuide — console help popover */
+.setup-guide { position: relative; display: inline-block; }
 
 .guide-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.35rem 0.75rem;
-  background: rgba(56, 189, 248, 0.08);
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  border-radius: 6px;
-  color: var(--indigo-soft, #818cf8);
-  font-size: 0.8rem;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
+  background: var(--indigo-06);
+  border: 1px solid var(--indigo-20);
+  border-radius: var(--radius-full);
+  color: var(--indigo-soft);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s;
 }
-
-.guide-trigger:hover {
-  background: rgba(56, 189, 248, 0.15);
-}
+.guide-trigger:hover { background: var(--indigo-12); border-color: var(--indigo-30); }
 
 .guide-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
+  display: inline-grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
-  background: rgba(56, 189, 248, 0.2);
-  font-size: 0.7rem;
+  background: var(--indigo-20);
+  font-size: 0.62rem;
   font-weight: 700;
 }
 
@@ -40,72 +38,51 @@
   width: 340px;
   max-height: 420px;
   overflow-y: auto;
-  background: var(--bg-deep, #0a0a10);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  background: var(--bg-deep);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 24px 60px -20px var(--black-80);
   z-index: 100;
-  padding: 1rem;
+  padding: var(--space-4);
 }
 
 .guide-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 0.9rem;
-  margin-bottom: 1rem;
-  color: var(--text-1, #f8fafc);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: var(--space-4);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-1);
 }
 
 .guide-close {
-  background: none;
-  border: none;
-  color: var(--text-3, #9ca3af);
+  background: var(--white-04);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--text-3);
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.8rem;
+  transition: color 0.2s, border-color 0.2s;
 }
+.guide-close:hover { color: var(--text-1); border-color: var(--border-hover); }
 
-.guide-steps {
-  padding-left: 1.25rem;
-  margin: 0;
-}
+.guide-steps { padding-left: var(--space-5); margin: 0; }
 
-.guide-step {
-  margin-bottom: 1rem;
-  font-size: 0.82rem;
-  color: var(--text-2, #cbd5e1);
-  line-height: 1.5;
-}
+.guide-step { margin-bottom: var(--space-4); font-size: 0.82rem; color: var(--text-2); line-height: 1.5; }
+.guide-step strong { color: var(--text-1); display: block; margin-bottom: var(--space-1); }
+.guide-step p { margin: var(--space-1) 0; color: var(--text-3); }
 
-.guide-step strong {
-  color: var(--text-1, #f8fafc);
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-.guide-step p {
-  margin: 0.25rem 0;
-  color: var(--text-3, #9ca3af);
-}
-
-.guide-errors {
-  margin-top: 0.5rem;
-  font-size: 0.78rem;
-}
-
-.guide-errors summary {
-  color: var(--amber, #fb923c);
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.guide-errors ul {
-  margin: 0.4rem 0 0 1rem;
-  padding: 0;
-  color: var(--text-3, #9ca3af);
-}
-
-.guide-errors li {
-  margin-bottom: 0.3rem;
-}
+.guide-errors { margin-top: var(--space-2); font-size: 0.78rem; }
+.guide-errors summary { color: var(--amber); cursor: pointer; font-weight: 500; }
+.guide-errors ul { margin: var(--space-1-5) 0 0 var(--space-4); padding: 0; color: var(--text-3); }
+.guide-errors li { margin-bottom: var(--space-1); }

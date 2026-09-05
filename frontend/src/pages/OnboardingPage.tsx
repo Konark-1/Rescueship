@@ -8,7 +8,7 @@ import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
-  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify or WooCommerce — read-only order access.' },
+  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'One click — RescueShip\'s app connects YOUR store only. No keys, no Partner account needed from you.' },
   { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your own Business number. Customers message the brand, not us.' },
   { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — your existing API key.' },
   { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — for COD → prepaid links.' },
@@ -16,6 +16,10 @@ const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
 
 declare global { interface Window { FB: any; fbAsyncInit?: () => void; } }
 const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '';
+const META_APP_ID = import.meta.env.VITE_META_APP_ID || '';
+// Embedded Signup UI must never fire without both — an undefined appId fails
+// silently inside Meta's SDK and the merchant sees "nothing happened".
+const META_SIGNUP_READY = Boolean(META_APP_ID && META_CONFIG_ID);
 
 export default function OnboardingPage() {
   const { token } = useAuth();
@@ -26,7 +30,18 @@ export default function OnboardingPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
+  const [assist, setAssist] = useState<'idle' | 'busy' | 'done'>('idle');
   const pollRef = useRef<any>(null);
+
+  const requestAssist = async () => {
+    setAssist('busy'); setErr(null);
+    try {
+      const r = await connectApi.requestAssistedSetup(token!);
+      setAssist('done');
+      push('✓ guided setup requested — the rescue team will reach out');
+      if (r?.setupCallUrl) window.open(r.setupCallUrl, '_blank', 'noopener');
+    } catch (e: any) { setErr(e.message); setAssist('idle'); }
+  };
 
   const push = (line: string) => setLog((l) => [...l.slice(-5), line]);
   const refresh = async () => { const s = await connectApi.state(token!); setState(s); return s; };
@@ -50,7 +65,19 @@ export default function OnboardingPage() {
   // ── actions ──
   const connectShopify = async (shop: string) => {
     setBusy('shopify'); setErr(null); push(`› building install link for ${shop}…`);
-    try { const { url } = await connectApi.shopifyUrl(token!, shop); push('› redirecting to Shopify…'); window.location.href = url; }
+    try {
+      const r = await connectApi.shopifyUrl(token!, shop);
+      if (r?.demo) {
+        // Dev sandbox: no Partner app configured locally, so we simulate the connection
+        push('› demo mode: connecting store locally (no Shopify app needed on localhost)…');
+        await connectApi.shopifyDemoConnect(token!, shop);
+        push(`✓ ${shop} connected (demo) — on production this goes through Shopify's consent screen`);
+        refresh(); setBusy(null);
+        return;
+      }
+      push('› redirecting to Shopify…');
+      window.location.href = r.url;
+    }
     catch (e: any) { setErr(e.message); setBusy(null); }
   };
   const loadFbSdk = () => new Promise<void>((res) => {
@@ -83,7 +110,32 @@ export default function OnboardingPage() {
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
   const pulse = async () => { setBusy('pulse'); setErr(null); push('› sending test rescue to your number…'); try { await connectApi.testPulse(token!); push('✓ test rescue sent — check your phone'); refresh(); setBusy(null); } catch (e: any) { setErr(e.message); setBusy(null); } };
-  const goLive = async () => { setBusy('finalize'); try { await connectApi.finalize(token!); nav('/dashboard'); } catch (e: any) { setErr(e.message); setBusy(null); } };
+  const goLive = async () => {
+    setBusy('finalize');
+    try {
+      await connectApi.finalize(token!);
+      // Sync the cached user so the dashboard gate sees the new status
+      const raw = localStorage.getItem('user');
+      if (raw) { try { localStorage.setItem('user', JSON.stringify({ ...JSON.parse(raw), onboardingStatus: 'completed' })); } catch { /* ignore */ } }
+      window.location.href = '/dashboard';
+    } catch (e: any) { setErr(e.message); setBusy(null); }
+  };
+  // Bail out of the wizard but keep the account — dashboard unlocks in "skipped" mode.
+  const skipOnboarding = async () => {
+    setBusy('skip'); setErr(null);
+    try {
+      await connectApi.skip(token!);
+      const raw = localStorage.getItem('user');
+      if (raw) {
+        try { localStorage.setItem('user', JSON.stringify({ ...JSON.parse(raw), onboardingStatus: 'skipped' })); } catch { /* ignore */ }
+      }
+      window.location.href = '/dashboard'; // full reload so AuthContext rehydrates the new status
+    } catch (e: any) { setErr(e.message); setBusy(null); }
+  };
+  const handleSkip = () => {
+    if (currentIndex >= STATIONS.length - 1) void skipOnboarding();
+    else setActive(STATIONS[currentIndex + 1].key);
+  };
 
   return (
     <div className="ob">
@@ -107,7 +159,7 @@ export default function OnboardingPage() {
               const isActive = s.key === active;
               const pending = st === 'templates_pending' || st === 'connecting';
               return (
-                <button key={s.key} className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => setActive(s.key)} style={{ ['--i' as any]: i }}>
+                <button key={s.key} className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => { setActive(s.key); setErr(null); }} style={{ ['--i' as any]: i }}>
                   <span className="ob-node__line" data-fill={i < currentIndex || isDone ? '1' : '0'} />
                   <span className="ob-node__dot">
                     {isDone ? <svg viewBox="0 0 24 24" className="ob-check"><path d="M5 13l4 4L19 7" /></svg>
@@ -126,6 +178,26 @@ export default function OnboardingPage() {
             {log.map((l, i) => <span key={i} className="ob-feed__line">{l}</span>)}
             {log.length === 0 && <span className="ob-feed__line ob-feed__idle">› idle · pick a station to begin</span>}
           </div>
+
+          {/* Guided setup card */}
+          <div className="ob-assist">
+            <p className="ob-assist__title">Need a hand?</p>
+            <p className="ob-assist__sub">Every step above is self-serve — or let us do it with you on a free 20-minute call.</p>
+            <div className="ob-assist__actions">
+              {state?.setupCallUrl && (
+                <a className="ob-assist__btn ob-assist__btn--primary" href={state.setupCallUrl} target="_blank" rel="noopener noreferrer">
+                  📞 Book free setup call
+                </a>
+              )}
+              <button
+                className="ob-assist__btn"
+                onClick={requestAssist}
+                disabled={assist !== 'idle'}
+              >
+                {assist === 'done' ? '✓ We\'ll reach out to you' : assist === 'busy' ? 'Sending…' : 'Set it up for me'}
+              </button>
+            </div>
+          </div>
         </aside>
 
         {/* ── active station card ── */}
@@ -139,7 +211,7 @@ export default function OnboardingPage() {
               <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
 
               {active === 'shopify' && <ShopifyForm onConnect={connectShopify} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} />}
-              {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
+              {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} metaReady={META_SIGNUP_READY} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
 
@@ -148,7 +220,9 @@ export default function OnboardingPage() {
           </AnimatePresence>
 
           <footer className="ob-foot">
-            <button className="ob-foot__skip" onClick={() => setActive(STATIONS[Math.min(currentIndex + 1, 3)].key)}>Skip for now</button>
+            <button className="ob-foot__skip" onClick={handleSkip} disabled={busy === 'skip'}>
+              {busy === 'skip' ? 'Opening dashboard…' : currentIndex >= STATIONS.length - 1 ? 'Finish later → dashboard' : 'Skip for now'}
+            </button>
             <button className="ob-foot__go" disabled={!allGreen || busy === 'finalize'} onClick={() => allGreen && !state?.paid ? nav('/billing') : goLive()}>
               {allGreen ? (!state?.paid ? 'Subscribe to go live →' : 'Go live →') : `${STATIONS.filter((s) => !done(s.key)).length} station${STATIONS.filter((s) => !done(s.key)).length === 1 ? '' : 's'} to go`}
             </button>
@@ -167,13 +241,14 @@ function ShopifyForm({ onConnect, busy, done, shop }: any) {
   return done ? <Done provider={`Connected · ${shop}`} /> : (
     <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(v.trim()); }}>
       <Field label="Store address"><input className="ob-input" placeholder="your-brand.myshopify.com" value={v} onChange={(e) => setV(e.target.value)} required /></Field>
-      <p className="ob-note">We request read-only order + fulfillment access. You can revoke anytime from your Shopify admin.</p>
+      <p className="ob-note">Type your store name and we'll redirect you to Shopify's own consent screen. You'll see <strong>RescueShip</strong> requesting order access — approve it there. Our single Partner app serves every merchant, but each store is fully isolated: your token, your orders, your data. A merchant never touches API keys, and can't see any other store.</p>
+      <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>WooCommerce or custom platform? <strong>Skip this station</strong> and use Settings → Platform once you're in the dashboard.</p>
       <button className="ob-btn" disabled={busy || !v.includes('.myshopify.com')}>{busy ? 'Redirecting…' : 'Connect Shopify'}</button>
     </form>
   );
 }
 
-function WhatsAppPanel({ onConnect, onPulse, busy, status, templates, ownerPhone, onSetPhone }: any) {
+function WhatsAppPanel({ onConnect, onPulse, busy, status, templates, ownerPhone, metaReady, onSetPhone }: any) {
   const [phone, setPhone] = useState(ownerPhone || '');
   const [name, setName] = useState('');
   const connected = status === 'connected' || status === 'templates_pending' || status === 'templates_rejected';
@@ -182,7 +257,14 @@ function WhatsAppPanel({ onConnect, onPulse, busy, status, templates, ownerPhone
       {!connected ? (
         <>
           <p className="ob-note">Opens Meta's signup in a popup. Log into <strong>your</strong> Business account, pick the WhatsApp number customers will message, and grant access. We receive a permanent token — you never share a password.</p>
-          <button className="ob-btn" disabled={busy === 'whatsapp'} onClick={onConnect}>{busy === 'whatsapp' ? 'Connecting…' : 'Connect WhatsApp number'}</button>
+          {metaReady ? (
+            <button className="ob-btn" disabled={busy === 'whatsapp'} onClick={onConnect}>{busy === 'whatsapp' ? 'Connecting…' : 'Connect WhatsApp number'}</button>
+          ) : (
+            <>
+              <button className="ob-btn" disabled title="One-click WhatsApp connect is being enabled on this deployment">Connect WhatsApp number</button>
+              <p className="ob-note" style={{ color: 'var(--amber)' }}>One-click connect is being enabled on this deployment right now. Use <strong>Set it up for me</strong> on the left and we'll connect your number with you on a short call — nothing else on this page is blocked.</p>
+            </>
+          )}
         </>
       ) : (
         <>

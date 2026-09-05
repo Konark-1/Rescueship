@@ -51,6 +51,8 @@ export interface IMerchant extends Document {
   billing: {
     plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'enterprise';
     billingCycle?: 'quarterly' | 'semi_annual' | 'annual';
+    status?: 'active' | 'pre_signup' | 'pending_payment' | 'paused' | 'paused_quality' | 'past_due' | 'cancelled';
+    lastPaymentError?: string;
     planOrderLimit: number;
     currentMonthOrders: number;
     cycleStartDate?: Date;
@@ -75,7 +77,17 @@ export interface IMerchant extends Document {
   shopify?: { shopDomain?: string; accessToken?: string; scope?: string; webhooksRegistered?: boolean };
   ownerPhone?: string;
   storeName?: string;
-  onboarding?: { completedAt?: Date; currentStep?: string; testRescueSentAt?: Date };
+  onboarding?: {
+    completedAt?: Date;
+    currentStep?: string;
+    testRescueSentAt?: Date;
+    status?: 'invited' | 'in_progress' | 'completed';
+    token?: string;
+    tokenExpiresAt?: Date;
+    invitedAt?: Date;
+    startedAt?: Date;
+    assistedSetupRequestedAt?: Date;
+  };
   sandbox?: {
     enabled?: boolean;
     activatedAt?: Date;
@@ -186,6 +198,11 @@ const MerchantSchema = new Schema<IMerchant>(
           enum: ['quarterly', 'semi_annual', 'annual'],
           default: 'annual',
         },
+        status: {
+          type: String,
+          enum: ['active', 'pre_signup', 'pending_payment', 'paused', 'paused_quality', 'past_due', 'cancelled'],
+        },
+        lastPaymentError: String,
         planOrderLimit: { type: Number, default: 500 },
         currentMonthOrders: { type: Number, default: 0 },
         cycleStartDate: { type: Date, default: Date.now },
@@ -225,7 +242,17 @@ const MerchantSchema = new Schema<IMerchant>(
     shopify: { shopDomain: String, accessToken: String, scope: String, webhooksRegistered: Boolean },
     ownerPhone: String,
     storeName: String,
-    onboarding: { completedAt: Date, currentStep: String, testRescueSentAt: Date },
+    onboarding: {
+      completedAt: Date,
+      currentStep: String,
+      testRescueSentAt: Date,
+      status: { type: String, enum: ['invited', 'in_progress', 'completed'] },
+      token: { type: String, index: { sparse: true } },
+      tokenExpiresAt: Date,
+      invitedAt: Date,
+      startedAt: Date,
+      assistedSetupRequestedAt: Date,
+    },
   },
   {
     timestamps: true,

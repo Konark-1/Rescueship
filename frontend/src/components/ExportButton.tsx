@@ -3,10 +3,12 @@
  * ─────────────────────────────────────────────────────────────
  * Reusable CSV/JSON export button for Scale & Enterprise merchants.
  * Shows plan-gated upgrade prompt for lower tiers.
+ * Plan is fetched from the server — never assumed from local storage.
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 interface ExportButtonProps {
   exportType: 'orders' | 'ndr_report' | 'revenue_summary' | 'carrier_performance';
@@ -21,13 +23,31 @@ const EXPORT_LABELS: Record<string, string> = {
   carrier_performance: '📊 Export Carrier Performance',
 };
 
+const EXPORT_PLANS = ['scale', 'enterprise'];
+
 export default function ExportButton({ exportType, label, className = '' }: ExportButtonProps) {
-  const { token, user } = useAuth();
+  const { token } = useAuth();
   const [isExporting, setIsExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [plan, setPlan] = useState<string | null>(null);
+  const [planLoaded, setPlanLoaded] = useState(false);
 
-  const plan = (user as any)?.plan || localStorage.getItem('merchant_plan') || 'scale';
-  const isAllowed = ['scale', 'enterprise', 'growth', 'starter'].includes(plan);
+  useEffect(() => {
+    let cancelled = false;
+    api.get('/api/billing/plan')
+      .then(res => {
+        if (!cancelled) setPlan(res.data?.plan ?? null);
+      })
+      .catch(() => {
+        // Leave plan unknown — the server enforces plan-gating authoritatively.
+      })
+      .finally(() => {
+        if (!cancelled) setPlanLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const isAllowed = planLoaded && plan !== null && EXPORT_PLANS.includes(plan);
 
   const handleExport = async (format: 'csv' | 'json') => {
     if (!isAllowed) {
@@ -48,7 +68,7 @@ export default function ExportButton({ exportType, label, className = '' }: Expo
         endDate: now.toISOString().slice(0, 10),
       });
 
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      const apiUrl = import.meta.env.VITE_API_URL || '';
       const response = await fetch(`${apiUrl}/api/export/${exportType}?${params}`, {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -82,36 +102,34 @@ export default function ExportButton({ exportType, label, className = '' }: Expo
   };
 
   return (
-    <div className={`inline-flex flex-col gap-1 ${className}`}>
-      <div className="inline-flex items-center gap-2">
+    <div className={className} style={{ display: 'inline-flex', flexDirection: 'column', gap: 'var(--space-1)' }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
         <button
           onClick={() => handleExport('csv')}
-          disabled={isExporting}
-          className="btn btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', fontWeight: 600 }}
+          disabled={isExporting || !planLoaded}
+          className="btn btn-ghost btn-sm"
           title={isAllowed ? 'Download as CSV' : 'Upgrade to Scale plan to export'}
         >
-          {isExporting ? '⏳ Exporting...' : (label || EXPORT_LABELS[exportType])} (CSV)
+          {isExporting ? 'Exporting…' : `${label || EXPORT_LABELS[exportType]} · CSV`}
         </button>
         <button
           onClick={() => handleExport('json')}
-          disabled={isExporting}
-          className="btn btn-secondary"
-          style={{ fontSize: '0.75rem', padding: '0.35rem 0.6rem', fontWeight: 600 }}
+          disabled={isExporting || !planLoaded}
+          className="btn btn-ghost btn-sm"
           title={isAllowed ? 'Download as JSON' : 'Upgrade to Scale plan to export'}
         >
           JSON
         </button>
       </div>
 
-      {!isAllowed && (
-        <span className="text-[10px] text-amber-500 font-medium">
-          🔒 Scale/Enterprise plan required
+      {planLoaded && !isAllowed && (
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--amber)', letterSpacing: '0.06em' }}>
+          🔒 scale / enterprise plan required
         </span>
       )}
 
       {error && (
-        <span className="text-[10px] text-red-500 font-medium">{error}</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--rose)' }}>{error}</span>
       )}
     </div>
   );

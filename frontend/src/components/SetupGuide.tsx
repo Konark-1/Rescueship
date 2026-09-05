@@ -19,16 +19,25 @@ const GUIDES: StationGuide[] = [
     icon: '🛒',
     steps: [
       {
-        title: 'Click "Connect Shopify"',
-        body: 'You\'ll be redirected to Shopify\'s authorization page. Log in with your store admin credentials.',
+        title: 'How the app model works (why this is one click)',
+        body: 'RescueShip runs ONE approved Shopify app for all merchants. You do not create a Partner account, copy keys, or install anything in advance — you just authorize your store with us. Every store gets its own encrypted token and its own data. Merchants are fully isolated from each other.',
       },
       {
-        title: 'Approve permissions',
-        body: 'RescueShip needs read access to Orders and Customers. We never modify your store data. Click "Install app".',
+        title: 'Type your store, click "Connect Shopify"',
+        body: 'We redirect you to Shopify\'s own consent screen (your-store.myshopify.com). Log in as the store owner/admin and approve.',
+      },
+      {
+        title: 'Approve read-only permissions',
+        body: 'We request read access to Orders + Fulfillments so we can see new COD orders and delivery failures. We never modify products or customers.',
       },
       {
         title: 'Automatic webhook registration',
-        body: 'After approval, we automatically register webhooks for orders/create, orders/updated, and fulfillments/update. No manual setup needed.',
+        body: 'After approval we register order + fulfillment webhooks for YOUR store only, tagged with your merchant ID. No manual setup.',
+        commonErrors: [
+          '"Application cannot be found" → a RescueShip-side config issue; use "Set it up for me" and we\'ll enable it',
+          'Logged into the wrong Shopify account → log out of Shopify admin first, then retry',
+          'WooCommerce / custom store → skip this station; finish from Settings → Platform in your dashboard',
+        ],
       },
     ],
   },

@@ -96,7 +96,13 @@
 }
 .lp-brand {
   font-family: var(--font-display); font-weight: 700; font-size: 1.05rem;
-  color: var(--text-1); text-decoration: none; display: flex; align-items: center; gap: var(--space-2);
+  color: var(--text-1); text-decoration: none; display: flex; align-items: center; gap: var(--space-2-5);
+}
+.lp-brand__mark {
+  display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: var(--radius-sm); font-size: 0.95rem;
+  background: linear-gradient(135deg, var(--indigo), var(--violet));
+  box-shadow: 0 4px 16px var(--indigo-30);
 }
 .lp-top__tag {
   font-family: var(--font-mono); font-size: 0.68rem;
@@ -555,9 +561,19 @@
   display: flex; justify-content: space-between; align-items: center;
   font-size: 0.8rem; color: var(--text-3); flex-wrap: wrap; gap: var(--space-4);
 }
-.lp-foot__links { display: flex; gap: var(--space-6); }
+.lp-foot__brand { display: inline-flex; align-items: center; gap: var(--space-2-5); }
+.lp-foot__brand strong { font-family: var(--font-display); color: var(--text-1); font-weight: 700; font-size: 0.95rem; }
+.lp-foot__tag {
+  font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-3);
+  padding: var(--space-1) var(--space-2-5); border: 1px solid var(--border); border-radius: var(--radius-full);
+}
+.lp-foot__links { display: flex; align-items: center; gap: var(--space-6); }
 .lp-foot__links a { color: var(--text-3); text-decoration: none; transition: color 0.2s; }
 .lp-foot__links a:hover { color: var(--text-1); }
+.lp-foot__cta { color: var(--indigo-soft) !important; font-weight: 600; }
+.lp-foot__cta:hover { color: var(--text-1) !important; }
+@media (max-width: 600px) { .lp-foot__tag { display: none; } }
 
 /* ═══ SCROLL REEL — desktop‑only cinematic recap ═══
    Not mounted below 961px (JS gate) AND display:none (CSS net) → zero mobile cost.

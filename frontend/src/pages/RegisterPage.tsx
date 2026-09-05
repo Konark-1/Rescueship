@@ -5,7 +5,7 @@ import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import AuthLayout from '../components/AuthLayout';
-import { Zap, Bot, ShieldCheck, Mail, Lock, User } from 'lucide-react';
+import { Zap, Bot, ShieldCheck, Mail, Lock, User, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 import './auth.css';
 
@@ -30,6 +30,7 @@ const RegisterPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState('');
+  const [googlePrompt, setGooglePrompt] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -45,22 +46,42 @@ const RegisterPage: React.FC = () => {
   };
 
   const strength = getPasswordStrength(password);
-  let strengthColor = '#ef4444';
-  if (strength > 25) strengthColor = '#eab308';
-  if (strength > 75) strengthColor = '#22c55e';
+  let strengthColor = 'var(--rose)';
+  if (strength > 25) strengthColor = 'var(--amber)';
+  if (strength > 75) strengthColor = 'var(--emerald)';
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, forceSetupPassword = false) => {
     e.preventDefault();
+    if (forceSetupPassword && (!password || password.length < 8)) {
+      setError('Please enter a password with at least 8 characters in the password field first.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const response = await api.post('/api/auth/register', { name, email, password });
+      const response = await api.post('/api/auth/register', {
+        name,
+        email,
+        password,
+        setupPassword: forceSetupPassword,
+      });
       const { token, merchant } = response.data;
       login(token, merchant);
-      navigate('/onboarding');
+      if (merchant?.onboardingStatus === 'pending') {
+        navigate('/onboarding');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
-        setError(err.response?.data?.message || 'Failed to register');
+        const d = err.response?.data;
+        if (d?.code === 'GOOGLE_ACCOUNT_EXISTS' || d?.hasGoogleAuth) {
+          setGooglePrompt(true);
+          setError(d?.error || 'An account with this email was registered using Google. Try logging in with Google, or set up a password.');
+        } else {
+          setGooglePrompt(false);
+          setError(d?.error || d?.message || 'Failed to register');
+        }
       } else {
         setError('An unexpected error occurred');
       }
@@ -81,31 +102,62 @@ const RegisterPage: React.FC = () => {
   };
 
   const features = (
-    <motion.div variants={containerVariants} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+    <motion.div variants={containerVariants} initial="hidden" animate="visible" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
       <motion.div className="feature-item" variants={itemVariants}>
-        <span className="feature-icon"><Zap size={18} className="text-[#818cf8]" /></span>
-        <span className="feature-text">Instant Shopify & WooCommerce webhooks</span>
+        <span className="feature-icon"><Zap size={16} /></span>
+        <span className="feature-text">Instant Shopify &amp; WooCommerce webhooks</span>
       </motion.div>
       <motion.div className="feature-item" variants={itemVariants}>
-        <span className="feature-icon"><Bot size={18} className="text-[#a855f7]" /></span>
+        <span className="feature-icon feature-icon--amber"><Bot size={16} /></span>
         <span className="feature-text">Automated WhatsApp Cloud API NDR recovery</span>
       </motion.div>
       <motion.div className="feature-item" variants={itemVariants}>
-        <span className="feature-icon"><ShieldCheck size={18} className="text-[#10b981]" /></span>
+        <span className="feature-icon feature-icon--emerald"><ShieldCheck size={16} /></span>
         <span className="feature-text">Prevent ₹4L+/month in RTO losses</span>
       </motion.div>
     </motion.div>
   );
 
   return (
-    <AuthLayout 
-      title="Automate Your NDR Recovery" 
-      subtitle="Set up in under 5 minutes. Protect your margins today."
+    <AuthLayout
+      title="Stop losing orders to"
+      accent=" failed deliveries."
+      subtitle="Set up in under 5 minutes. Protect your margins from tonight's dispatches."
       features={features}
     >
-      <h2>Create Account</h2>
-      {error && <div className="error-message">{error}</div>}
-      
+      <h2>Create account</h2>
+      <p className="auth-sub">Spin up your rescue engine</p>
+      {error && !googlePrompt && <div className="error-message">{error}</div>}
+
+      {googlePrompt && (
+        <motion.div
+          className="google-warning-card"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div className="google-warning-badge">
+            <AlertTriangle size={15} />
+            <span>Google Account Found</span>
+          </div>
+          <p className="google-warning-desc">
+            An account with <strong>{email}</strong> already exists via Google. You can sign in with Google directly, or set up this password to enable password sign-in.
+          </p>
+          <div className="google-warning-actions">
+            <button
+              type="button"
+              className="google-warning-setup-btn"
+              disabled={loading}
+              onClick={(e) => handleSubmit(e, true)}
+            >
+              {loading ? 'Setting password…' : 'Set up password & Sign in'}
+            </button>
+            <Link to="/login" className="google-warning-link">
+              Sign in with Google instead →
+            </Link>
+          </div>
+        </motion.div>
+      )}
+
       <div className="google-btn-wrapper">
         <GoogleLogin
           onSuccess={handleGoogleSuccess}
@@ -115,11 +167,8 @@ const RegisterPage: React.FC = () => {
           shape="pill"
         />
       </div>
-      
-      <div style={{ textAlign: 'center', marginBottom: '24px', color: '#94a3b8', fontSize: '14px', position: 'relative' }}>
-        <span style={{ background: 'var(--glass-bg)', padding: '0 10px', position: 'relative', zIndex: 1 }}>or sign up with email</span>
-        <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', background: 'rgba(255,255,255,0.1)', zIndex: 0 }}></div>
-      </div>
+
+      <div className="auth-divider"><span>or sign up with email</span></div>
 
       <form onSubmit={handleSubmit}>
         <div className="form-group input-with-icon">

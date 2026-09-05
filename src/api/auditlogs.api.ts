@@ -14,7 +14,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
 
   try {
     const logs = await AuditLog.find({ merchantId })
-      .sort({ createdAt: -1 })
+      .sort({ timestamp: -1 })
       .skip(skip)
       .limit(limit);
 

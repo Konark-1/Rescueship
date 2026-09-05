@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import './styles/app.css';
 import { AppLayout } from './components/AppLayout';
 
 // Pages
@@ -48,8 +49,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 // Layout wrapping component for dashboard pages
 const DashboardLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
-  
-  if (user?.onboardingStatus !== 'completed') {
+
+  // 'skipped' merchants are allowed in — the dashboard shows a resume banner
+  // and the wizard stays reachable at /onboarding. Only 'pending' bounces back.
+  if (user?.onboardingStatus === 'pending') {
     return <Navigate to="/onboarding" replace />;
   }
 

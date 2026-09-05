@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
 import { Merchant } from '../models/Merchant';
 import { generateToken } from '../middleware/auth';
+import { emailService } from '../services/email.service';
+import { SecurityAlertService } from '../services/security-alert.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -10,6 +11,7 @@ const router = Router();
 /**
  * POST /api/plg/signup
  * Public endpoint. Creates a merchant record + generates a magic onboarding link.
+ * Sends SaaS introduction confirmation email to the user, and setup call notification to admin.
  */
 router.post('/signup', async (req: Request, res: Response) => {
   try {
@@ -20,53 +22,80 @@ router.post('/signup', async (req: Request, res: Response) => {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    let onboardingToken = crypto.randomBytes(32).toString('hex');
+    let merchantName = storeUrl
+      ? storeUrl.replace(/^https?:\/\//, '').split('.')[0]
+      : cleanEmail.split('@')[0];
 
     // Check if already exists
-    const existing = await Merchant.findOne({ ownerEmail: cleanEmail }).lean();
+    const existing = await Merchant.findOne({ email: cleanEmail });
     if (existing) {
-      return res.json({ success: true, message: 'Check your email for the onboarding link.' });
+      if (existing.onboarding?.token && existing.onboarding?.tokenExpiresAt && existing.onboarding.tokenExpiresAt > new Date()) {
+        onboardingToken = existing.onboarding.token;
+      } else {
+        existing.onboarding = {
+          ...(existing.onboarding || {}),
+          status: existing.onboarding?.status || 'invited',
+          token: onboardingToken,
+          tokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          invitedAt: new Date(),
+        };
+        await existing.save();
+      }
+      merchantName = existing.name || merchantName;
+    } else {
+      // Create merchant record
+      const newMerchant = new Merchant({
+        name: merchantName,
+        email: cleanEmail,
+        password: crypto.randomBytes(16).toString('hex'), // temp random password
+        platform: 'custom',
+        storeName: storeUrl ? storeUrl.replace(/^https?:\/\//, '') : undefined,
+        onboarding: {
+          status: 'invited',
+          token: onboardingToken,
+          tokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          invitedAt: new Date(),
+        },
+        billing: {
+          status: 'pre_signup',
+        },
+        sandbox: {
+          enabled: false,
+          testRescuesSent: 0,
+          testRescuesSucceeded: 0,
+          graduationThreshold: 3,
+          graduated: false,
+        },
+        metrics: {
+          ndrReceived: 0,
+          rescuesAttempted: 0,
+          rescuesSucceeded: 0,
+        },
+      });
+
+      await newMerchant.save();
     }
 
-    // Create merchant record
-    const onboardingToken = crypto.randomBytes(32).toString('hex');
-
-    const newMerchant = new Merchant({
-      email: cleanEmail,
-      ownerEmail: cleanEmail,
-      password: crypto.randomBytes(16).toString('hex'), // temp random password
-      storeName: storeUrl ? storeUrl.split('.')[0] : 'New Store',
-      onboarding: {
-        status: 'invited',
-        token: onboardingToken,
-        tokenExpiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        invitedAt: new Date(),
-      },
-      billing: {
-        status: 'pre_signup',
-        plan: null,
-      },
-      sandbox: {
-        enabled: false,
-        testRescuesSent: 0,
-        testRescuesSucceeded: 0,
-        graduationThreshold: 3,
-        graduated: false,
-      },
-      metrics: {
-        ndrReceived: 0,
-        rescuesAttempted: 0,
-        rescuesSucceeded: 0,
-      },
-    });
-
-    await newMerchant.save();
-
     const onboardingUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/onboard?token=${onboardingToken}`;
-    logger.info(`[PLG] New signup: ${cleanEmail} → ${newMerchant._id} | Link: ${onboardingUrl}`);
+    logger.info(`[PLG] Manifest signup: ${cleanEmail} → Store: ${storeUrl || 'N/A'} | Link: ${onboardingUrl}`);
+
+    // 1. Send confirmation email to merchant explaining our SaaS & onboarding link
+    await emailService.sendManifestConfirmationEmail(cleanEmail, storeUrl, onboardingUrl, merchantName);
+
+    // 2. Send setup call notification to the operator (OWNER_NOTIFY_EMAIL)
+    await emailService.sendSetupCallAdminNotification(cleanEmail, storeUrl, onboardingUrl);
+
+    // 3. Out-of-band ops notification if webhook configured
+    await SecurityAlertService.sendCriticalAlert('SETUP_CALL_REQUESTED', {
+      email: cleanEmail,
+      storeUrl,
+      onboardingUrl,
+    }).catch(() => {});
 
     res.json({
       success: true,
-      message: 'Check your email for the onboarding link.',
+      message: 'Check your email for the onboarding link and setup call details.',
     });
   } catch (err: any) {
     logger.error('[PLG] Signup failed', { error: err.message });

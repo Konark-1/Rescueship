@@ -1,85 +1,108 @@
-.metrics-widget {
-  padding: 1.5rem;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid rgba(56, 189, 248, 0.1);
-  border-radius: 12px;
-}
-
-.metrics-widget h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  color: var(--text-1, #f8fafc);
+/* RescueMetrics — hero rate + telemetry ledger */
+.metrics-body {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: var(--space-6);
+  align-items: stretch;
 }
 
 .metrics-hero {
-  text-align: center;
-  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: var(--space-6);
+  border-right: 1px solid var(--border);
 }
 
 .hero-rate {
-  font-size: 3rem;
+  font-family: var(--font-num);
+  font-size: clamp(3.2rem, 6vw, 4.6rem);
   font-weight: 800;
-  font-family: 'JetBrains Mono', monospace;
-  line-height: 1;
+  line-height: 0.9;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
 }
+.hero-rate.is-ok { color: var(--emerald); text-shadow: 0 0 40px var(--emerald-20); }
+.hero-rate.is-warn { color: var(--amber); text-shadow: 0 0 40px var(--amber-20); }
+.hero-rate.is-bad { color: var(--rose); text-shadow: 0 0 40px var(--rose-20); }
 
 .hero-label {
-  font-size: 0.8rem;
-  color: var(--text-3, #9ca3af);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--text-3);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-top: 0.25rem;
+  letter-spacing: 0.12em;
+  margin-top: var(--space-2);
 }
 
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0.75rem;
 }
 
 .metric-cell {
-  padding: 0.75rem;
-  background: rgba(15, 23, 42, 0.5);
-  border-radius: 8px;
-  text-align: center;
+  padding: var(--space-4) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
 }
+.metric-cell:nth-child(-n+3) { border-bottom: 1px solid var(--border); }
+.metric-cell:nth-last-child(-n+3) { border-bottom: none; }
+.metric-cell:not(:nth-child(3n)) { border-right: 1px solid var(--border); }
+.metric-cell:hover { background: var(--white-02); }
 
-.metric-cell.highlight {
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  background: rgba(34, 197, 94, 0.05);
-}
+.metric-cell.is-ok .metric-value { color: var(--emerald); }
+
+.metric-cell.highlight { background: var(--emerald-06); }
+.metric-cell.highlight .metric-value { color: var(--emerald); }
 
 .metric-value {
-  display: block;
-  font-size: 1.25rem;
+  font-family: var(--font-num);
+  font-size: 1.5rem;
   font-weight: 700;
-  color: var(--text-2, #e2e8f0);
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
 }
 
 .metric-label {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--text-3, #9ca3af);
-  margin-top: 0.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-3);
+  margin-top: var(--space-1);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.08em;
 }
 
 .metrics-warning {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: var(--amber-10, rgba(251, 191, 36, 0.08));
-  border: 1px solid var(--amber-20, rgba(251, 191, 36, 0.2));
-  border-radius: 8px;
+  padding: var(--space-3) var(--space-5);
+  background: var(--amber-06);
+  border-top: 1px solid var(--amber-15);
   font-size: 0.8rem;
-  color: var(--amber, #f59e0b);
+  color: var(--amber);
 }
 
 .metrics-loading {
-  padding: 2rem;
+  padding: var(--space-8);
   text-align: center;
-  color: var(--text-2, #d4d4d8);
+  color: var(--text-3);
   font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+}
+
+@media (max-width: 720px) {
+  .metrics-body { grid-template-columns: 1fr; }
+  .metrics-hero { border-right: none; border-bottom: 1px solid var(--border); align-items: center; text-align: center; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .metric-cell:not(:nth-child(3n)) { border-right: none; }
+  .metric-cell:nth-child(odd) { border-right: 1px solid var(--border); }
+  .metric-cell:nth-child(-n+4) { border-bottom: 1px solid var(--border); }
+  .metric-cell:nth-last-child(-n+2) { border-bottom: none; }
 }

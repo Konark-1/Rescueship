@@ -517,7 +517,7 @@ export default function LandingPage() {
       <motion.header className="lp-top"
         initial={{ opacity: 0, y: -16 }} animate={booted ? { opacity: 1, y: 0 } : {}}
         transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}>
-        <a href="/" className="lp-brand"><span aria-hidden="true">⚓</span> RescueShip</a>
+        <a href="/" className="lp-brand"><span className="lp-brand__mark" aria-hidden="true">⚓</span> RescueShip</a>
         <span className="lp-top__tag">Autonomous NDR Rescue</span>
         <nav className="lp-top__nav" aria-label="Landing Navigation">
           <Link to="/login" className="lp-top__link">Log in</Link>
@@ -847,10 +847,15 @@ export default function LandingPage() {
       </section>
 
       <footer className="lp-foot">
-        <span>⚓ RescueShip · Autonomous NDR Rescue for D2C Brands on WhatsApp</span>
+        <span className="lp-foot__brand">
+          <span className="lp-brand__mark" aria-hidden="true">⚓</span>
+          <strong>RescueShip</strong>
+          <span className="lp-foot__tag">autonomous ndr rescue · whatsapp</span>
+        </span>
         <span className="lp-foot__links">
-          <Link to="/docs">Docs</Link>
+          <Link to="/docs">API Docs</Link>
           <Link to="/login">Log in</Link>
+          <Link to="/register" className="lp-foot__cta">Get started →</Link>
         </span>
       </footer>
     </div>

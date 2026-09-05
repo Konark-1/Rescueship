@@ -28,7 +28,7 @@ export function useRealtime(token: string | null, options?: Options, enabled = t
   const connect = useCallback(() => {
     if (!token || !enabled || stoppedRef.current) return;
 
-    const url = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/realtime/stream?token=${token}`;
+    const url = `${import.meta.env.VITE_API_URL || ''}/api/realtime/stream?token=${token}`;
     const es = new EventSource(url);
     esRef.current = es;
 

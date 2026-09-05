@@ -1,246 +1,347 @@
-import { useState } from 'react';
-import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, X, Plus } from 'lucide-react';
-import { motion } from 'motion/react';
+import { useState, useEffect, useCallback } from 'react';
+import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, X, Plus, RefreshCw, XCircle } from 'lucide-react';
+import axios from 'axios';
+import api from '../services/api';
 
-interface Template {
-  id: string;
-  name: string;
-  category: 'COD-to-Prepaid' | 'NDR Address Fix' | 'Delivery Re-attempt' | 'Pre-RTO Offer';
-  status: 'Approved' | 'In Review' | 'Draft';
-  content: string;
+interface TemplateComponent {
+  type: string;
+  text?: string;
+  [key: string]: unknown;
 }
 
-const templates: Template[] = [
-  {
-    id: '1',
-    name: 'cod_to_prepaid_discount',
-    category: 'COD-to-Prepaid',
-    status: 'Approved',
-    content: 'Hi {{customer_name}}, your order {{order_id}} is confirmed as Cash on Delivery. Get ₹50 OFF if you pay online now! Click here: {{prepay_discount_link}}',
-  },
-  {
-    id: '2',
-    name: 'ndr_address_confirmation',
-    category: 'NDR Address Fix',
-    status: 'In Review',
-    content: 'Hi {{customer_name}}, we could not deliver order {{order_id}} due to an incomplete address. Please update your address here to ensure delivery today: {{address_update_link}}',
-  },
-  {
-    id: '3',
-    name: 'delivery_reattempt_notice',
-    category: 'Delivery Re-attempt',
-    status: 'Approved',
-    content: 'Hi {{customer_name}}, our executive tried to deliver order {{order_id}} but you were unavailable. We will re-attempt tomorrow. Let us know if you want to reschedule.',
-  },
-  {
-    id: '4',
-    name: 'pre_rto_final_offer',
-    category: 'Pre-RTO Offer',
-    status: 'Draft',
-    content: 'Hi {{customer_name}}, your order {{order_id}} is about to be returned. Claim a special 10% discount and accept delivery today!',
-  },
-];
+interface Template {
+  _id: string;
+  templateName: string;
+  language: string;
+  category: string;
+  status: string;
+  components: TemplateComponent[];
+  buttons: unknown[];
+}
+
+const extractBody = (t: Template): string => {
+  const body = t.components?.find(c => c.type === 'BODY');
+  return body?.text || '(no body text set)';
+};
 
 export default function TemplatesPage() {
-  const [selectedTemplate, setSelectedTemplate] = useState<Template>(templates[0]);
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showTestModal, setShowTestModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [testPhone, setTestPhone] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Create form state
+  const [newName, setNewName] = useState('');
+  const [newLanguage, setNewLanguage] = useState('en');
+  const [newCategory, setNewCategory] = useState('UTILITY');
+  const [newBody, setNewBody] = useState('');
 
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
   };
 
-  const getStatusBadge = (status: Template['status']) => {
+  const fetchTemplates = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await api.get('/api/templates');
+      const list: Template[] = res.data || [];
+      setTemplates(list);
+      setSelectedTemplate(prev => {
+        if (prev) {
+          const stillThere = list.find(t => t._id === prev._id);
+          if (stillThere) return stillThere;
+        }
+        return list[0] ?? null;
+      });
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        setError(err.response?.data?.error || 'Failed to load templates.');
+      } else {
+        setError('Failed to load templates.');
+      }
+      setTemplates([]);
+      setSelectedTemplate(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTemplates();
+  }, [fetchTemplates]);
+
+  const handleCreate = async () => {
+    if (!newName.trim() || !newBody.trim()) {
+      showToast('Name and message body are required.');
+      return;
+    }
+    try {
+      setSaving(true);
+      await api.post('/api/templates', {
+        templateName: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+        language: newLanguage,
+        category: newCategory,
+        components: [{ type: 'BODY', text: newBody.trim() }],
+        buttons: [],
+      });
+      showToast('Template saved as draft — pending review.');
+      setShowCreateModal(false);
+      setNewName('');
+      setNewBody('');
+      await fetchTemplates();
+    } catch (err) {
+      showToast(axios.isAxiosError(err) ? (err.response?.data?.error || 'Failed to create template.') : 'Failed to create template.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'Approved':
-        return <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle size={12} /> Approved</span>;
-      case 'In Review':
-        return <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Clock size={12} /> In Review</span>;
-      case 'Draft':
-        return <span className="badge badge-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Edit2 size={12} /> Draft</span>;
+      case 'approved':
+        return <span className="badge badge-success"><CheckCircle size={11} /> Approved</span>;
+      case 'pending':
+        return <span className="badge badge-warning"><Clock size={11} /> In Review</span>;
+      case 'rejected':
+        return <span className="badge badge-danger"><XCircle size={11} /> Rejected</span>;
+      default:
+        return <span className="badge badge-secondary"><Edit2 size={11} /> Draft</span>;
     }
   };
 
   const categories = Array.from(new Set(templates.map(t => t.category)));
 
   return (
-    <div className="fade-in-up" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="page">
+      <header className="page-head">
         <div>
-          <h1 style={{ fontSize: '1.8rem', fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-display)', margin: 0 }}>WhatsApp Templates</h1>
-          <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Manage and preview your Meta-approved WhatsApp messages.</p>
+          <p className="page-head__kicker">04 · Messaging</p>
+          <h1 className="page-head__title">WhatsApp <em>templates</em></h1>
+          <p className="page-head__sub">Meta-approved messages your rescue engine fires at failed deliveries.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreateModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <Plus size={18} /> New Template
-        </button>
-      </div>
+        <div className="page-head__actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <button className="btn btn-ghost" onClick={fetchTemplates} disabled={loading} aria-label="Refresh templates">
+            <RefreshCw size={14} /> {loading ? 'Loading…' : 'Refresh'}
+          </button>
+          <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <Plus size={15} /> New template
+          </button>
+        </div>
+      </header>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 350px', gap: '2rem', alignItems: 'start' }}>
-        <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-          <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)' }}>
-            <h2 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Template Library</h2>
+      <div className="tpl-grid">
+        {/* Template library */}
+        <div className="panel">
+          <div className="panel__head">
+            <span className="panel__title"><MessageSquare size={12} aria-hidden="true" /> Template library</span>
+            <span className="panel__aside">{templates.length} registered</span>
           </div>
-          <div tabIndex={0} aria-label="Template categories list" style={{ height: '600px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            {categories.map(category => (
-              <div key={category} style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)' }}>
-                <h3 style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>{category}</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {templates.filter(t => t.category === category).map(template => (
-                    <motion.div 
-                      key={template.id}
-                      onClick={() => setSelectedTemplate(template)}
-                      whileHover={{ scale: 1.02 }}
-                      style={{
-                        padding: '1.25rem',
-                        borderRadius: 'var(--radius-md)',
-                        border: selectedTemplate.id === template.id ? '1px solid var(--primary)' : '1px solid var(--border-color)',
-                        background: selectedTemplate.id === template.id ? 'var(--primary-glow)' : 'rgba(0,0,0,0.2)',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
-                        <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{template.name}</span>
-                        {getStatusBadge(template.status)}
-                      </div>
-                      <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{template.content}</p>
-                    </motion.div>
-                  ))}
-                </div>
+          <div tabIndex={0} aria-label="Template categories list" style={{ maxHeight: 640, overflowY: 'auto' }}>
+            {loading && (
+              <div className="empty" style={{ padding: 'var(--space-10) var(--space-4)' }}>
+                <p className="empty__title">Loading templates…</p>
+              </div>
+            )}
+            {!loading && error && (
+              <div className="empty" style={{ padding: 'var(--space-10) var(--space-4)' }}>
+                <p className="empty__title">Could not load templates</p>
+                <p className="empty__sub">{error}</p>
+              </div>
+            )}
+            {!loading && !error && templates.length === 0 && (
+              <div className="empty" style={{ padding: 'var(--space-10) var(--space-4)' }}>
+                <p className="empty__title">No templates yet</p>
+                <p className="empty__sub">Templates are provisioned automatically when WhatsApp is connected, or create one above.</p>
+              </div>
+            )}
+            {!loading && !error && categories.map(category => (
+              <div key={category}>
+                <p className="tpl-category">{category}</p>
+                {templates.filter(t => t.category === category).map(template => (
+                  <button
+                    key={template._id}
+                    onClick={() => setSelectedTemplate(template)}
+                    className={`tpl-row ${selectedTemplate?._id === template._id ? 'is-selected' : ''}`}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 'var(--space-3)', marginBottom: 'var(--space-1-5)' }}>
+                      <span className="mono" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>{template.templateName}</span>
+                      {getStatusBadge(template.status)}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-2)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{extractBody(template)}</p>
+                  </button>
+                ))}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="glass-card" style={{ position: 'sticky', top: '2rem' }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 1.5rem 0', fontSize: '1.1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>
-            <Smartphone size={20} color="var(--primary)" />
-            Live Preview
-          </h2>
-          
-          <div style={{ position: 'relative', margin: '0 auto', width: '280px', height: '580px', backgroundColor: '#111b21', borderRadius: '2.5rem', border: '4px solid #222e35', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ backgroundColor: '#202c33', color: 'white', padding: '1.5rem 1rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 10 }}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <MessageSquare size={16} color="white" />
-              </div>
-              <div>
-                <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>Rescueship Updates</div>
-                <div style={{ fontSize: '0.75rem', color: '#d4d4d8' }}>Business Account</div>
-              </div>
-            </div>
-            
-            <div style={{ flex: 1, backgroundColor: '#0b141a', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', position: 'relative', zIndex: 0 }}>
-              <div 
-                key={selectedTemplate.id} 
-                style={{ backgroundColor: '#202c33', borderRadius: '0.5rem', borderTopLeftRadius: 0, padding: '0.75rem', boxShadow: '0 1px 2px rgba(0,0,0,0.2)', maxWidth: '90%', fontSize: '0.85rem', color: '#f8fafc', marginTop: '1rem' }}
-              >
-                {selectedTemplate.content.split(/(\{\{[^}]+\}\})/).map((part, i) => {
-                  if (part.startsWith('{{') && part.endsWith('}}')) {
-                    return <span key={i} style={{ color: '#38bdf8', fontWeight: '600', padding: '0 2px' }}>{part}</span>;
-                  }
-                  return <span key={i}>{part}</span>;
-                })}
-                <div style={{ fontSize: '0.65rem', color: '#cbd5e1', textAlign: 'right', marginTop: '0.25rem' }}>12:00 PM</div>
-              </div>
-            </div>
-
-            <div style={{ backgroundColor: '#202c33', padding: '0.5rem 1rem', display: 'flex', alignItems: 'center', zIndex: 10 }}>
-              <div style={{ flex: 1, backgroundColor: '#2a3942', borderRadius: '9999px', height: '36px', display: 'flex', alignItems: 'center', padding: '0 1rem', fontSize: '0.8rem', color: '#d4d4d8' }}>Type a message...</div>
-            </div>
+        {/* Live preview */}
+        <div className="panel" style={{ position: 'sticky', top: 90, alignSelf: 'start' }}>
+          <div className="panel__head">
+            <span className="panel__title"><Smartphone size={12} aria-hidden="true" /> Live preview</span>
+            <span className="panel__aside mono">{selectedTemplate?.templateName ?? '—'}</span>
           </div>
+          <div className="panel__body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            {selectedTemplate ? (
+              <>
+                <div className="wa-preview">
+                  <div className="wa-preview__head">
+                    <div className="wa-preview__avatar"><MessageSquare size={14} color="#fff" /></div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#fff' }}>RescueShip Updates</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--emerald)' }}>● business account</div>
+                    </div>
+                  </div>
 
-          <button 
-            onClick={() => setShowTestModal(true)}
-            className="btn btn-primary"
-            style={{ width: '100%', marginTop: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-          >
-            <Send size={18} />
-            Test Send WhatsApp
-          </button>
+                  <div className="wa-preview__body">
+                    <div key={selectedTemplate._id} className="wa-preview__bubble fade-in-up">
+                      {extractBody(selectedTemplate).split(/(\{\{[^}]+\}\})/).map((part, i) => {
+                        if (part.startsWith('{{') && part.endsWith('}}')) {
+                          return <span key={i} className="wa-preview__var">{part}</span>;
+                        }
+                        return <span key={i}>{part}</span>;
+                      })}
+                      <div className="wa-preview__time">12:00 ✓✓</div>
+                    </div>
+                  </div>
+
+                  <div className="wa-preview__input">Type a message…</div>
+                </div>
+
+                <button
+                  onClick={() => setShowTestModal(true)}
+                  className="btn btn-primary"
+                  style={{ marginTop: 'var(--space-5)', alignSelf: 'stretch' }}
+                >
+                  <Send size={14} /> Fire test rescue
+                </button>
+              </>
+            ) : (
+              <div className="empty" style={{ padding: 'var(--space-8) var(--space-4)' }}>
+                <p className="empty__title">Nothing to preview</p>
+                <p className="empty__sub">Select a template from the library.</p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {showTestModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '400px', padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Send Test Message</h3>
-              <button onClick={() => setShowTestModal(false)} aria-label="Close test modal" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+      {/* Test send modal */}
+      {showTestModal && selectedTemplate && (
+        <div className="modal-overlay" onClick={() => setShowTestModal(false)}>
+          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()} role="dialog" aria-label="Send test message">
+            <div className="modal__head">
+              <span className="modal__dot modal__dot--r" />
+              <span className="modal__dot modal__dot--a" />
+              <span className="modal__dot modal__dot--g" />
+              <span className="modal__title">fire test rescue</span>
+              <button onClick={() => setShowTestModal(false)} aria-label="Close test modal" className="modal__close"><X size={16} /></button>
             </div>
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+              <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-2)' }}>
+                Live template sends run through the Sandbox simulator (Sandbox → Simulate NDR) so your rescue credits follow the audited path. Direct template blasting is disabled by design.
+              </p>
+              <dl className="dl">
+                <div><dt>Template</dt><dd className="mono" style={{ fontSize: '0.78rem' }}>{selectedTemplate.templateName}</dd></div>
+                <div><dt>Status</dt><dd>{getStatusBadge(selectedTemplate.status)}</dd></div>
+              </dl>
               <div className="form-group">
-                <label className="form-label" htmlFor="test-phone-input">Phone Number</label>
-                <input 
+                <label className="form-label" htmlFor="test-phone-input">Test phone (recorded only)</label>
+                <input
                   id="test-phone-input"
-                  type="text" 
-                  placeholder="+91 9999999999" 
+                  type="text"
+                  placeholder="+91 9999999999"
                   className="form-control"
-                  aria-label="Phone Number"
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
+                  style={{ fontFamily: 'var(--font-mono)' }}
                 />
               </div>
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
-                <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-muted)', display: 'block', marginBottom: '0.25rem' }}>Selected Template:</span>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-primary)', fontWeight: '500' }}>{selectedTemplate.name}</span>
-              </div>
             </div>
-            <div style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button onClick={() => setShowTestModal(false)} className="btn btn-secondary">Cancel</button>
-              <button 
-                onClick={() => { showToast('Test sent successfully!'); setShowTestModal(false); }}
+            <div className="modal__foot">
+              <button onClick={() => setShowTestModal(false)} className="btn btn-ghost">Close</button>
+              <button
+                onClick={() => { showToast('Use Sandbox → Simulate NDR to fire a real test rescue.'); setShowTestModal(false); }}
                 className="btn btn-primary"
-                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
               >
-                <Send size={16} />
-                Send Now
+                <Send size={14} /> How to send
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Create modal */}
       {showCreateModal && (
-        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '500px', padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>Create New Template</h3>
-              <button onClick={() => setShowCreateModal(false)} aria-label="Close create template modal" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}><X size={20} /></button>
+        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Create new template">
+            <div className="modal__head">
+              <span className="modal__dot modal__dot--r" />
+              <span className="modal__dot modal__dot--a" />
+              <span className="modal__dot modal__dot--g" />
+              <span className="modal__title">new template</span>
+              <button onClick={() => setShowCreateModal(false)} aria-label="Close create template modal" className="modal__close"><X size={16} /></button>
             </div>
-            <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               <div className="form-group">
-                <label className="form-label" htmlFor="template-name-input">Template Name</label>
-                <input id="template-name-input" aria-label="Template Name" type="text" className="form-control" placeholder="e.g. abandoned_cart_01" />
+                <label className="form-label" htmlFor="template-name-input">Template name</label>
+                <input
+                  id="template-name-input"
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. abandoned_cart_01"
+                  style={{ fontFamily: 'var(--font-mono)' }}
+                  value={newName}
+                  onChange={e => setNewName(e.target.value)}
+                />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="template-category-select">Category</label>
-                <select id="template-category-select" aria-label="Category" className="form-control">
-                  <option>COD-to-Prepaid</option>
-                  <option>NDR Address Fix</option>
-                  <option>Delivery Re-attempt</option>
-                  <option>Pre-RTO Offer</option>
+                <label className="form-label" htmlFor="template-language-select">Language</label>
+                <select id="template-language-select" className="form-control" value={newLanguage} onChange={e => setNewLanguage(e.target.value)}>
+                  <option value="en">English (en)</option>
+                  <option value="hi">Hindi (hi)</option>
                 </select>
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="template-content-area">Message Content</label>
-                <textarea id="template-content-area" aria-label="Message Content" className="form-control" rows={4} placeholder="Hi {{name}}, your order..."></textarea>
+                <label className="form-label" htmlFor="template-category-select">Meta category</label>
+                <select id="template-category-select" className="form-control" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
+                  <option value="UTILITY">UTILITY</option>
+                  <option value="MARKETING">MARKETING</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="template-content-area">Message body</label>
+                <textarea
+                  id="template-content-area"
+                  className="form-control"
+                  rows={4}
+                  placeholder="Hi {{customer_name}}, your order {{order_id}}…"
+                  value={newBody}
+                  onChange={e => setNewBody(e.target.value)}
+                />
               </div>
             </div>
-            <div style={{ padding: '1.25rem', borderTop: '1px solid var(--border-color)', background: 'rgba(255,255,255,0.02)', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
-              <button onClick={() => setShowCreateModal(false)} className="btn btn-secondary">Cancel</button>
-              <button onClick={() => { showToast('Template created and sent for review!'); setShowCreateModal(false); }} className="btn btn-primary">Create Template</button>
+            <div className="modal__foot">
+              <button onClick={() => setShowCreateModal(false)} className="btn btn-ghost">Cancel</button>
+              <button onClick={handleCreate} disabled={saving} className="btn btn-primary">
+                {saving ? 'Saving…' : 'Create template'}
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {toast && (
-        <div style={{ position: 'fixed', bottom: '2rem', right: '2rem', background: 'var(--success-glow)', border: '1px solid var(--success)', color: 'var(--success)', padding: '1rem 1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.75rem', zIndex: 2000, boxShadow: 'var(--shadow-glow)', animation: 'fadeInUp 0.3s ease-out' }}>
-          <CheckCircle size={20} />
-          <span style={{ fontWeight: 500 }}>{toast}</span>
+        <div className="toast-notification" role="status">
+          <CheckCircle size={18} color="var(--emerald)" />
+          <span>{toast}</span>
         </div>
       )}
     </div>

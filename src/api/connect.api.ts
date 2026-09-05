@@ -12,6 +12,7 @@ import { carrierConnectService } from '../services/carrier-connect.service';
 import { paymentConnectService } from '../services/payment-connect.service';
 import { whatsAppService } from '../services/whatsapp.service';
 import { sandboxService } from '../services/sandbox.service';
+import { emailService } from '../services/email.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
@@ -36,6 +37,9 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
       templates: (m as any).whatsappConfig?.templates || [],
       onboarding: (m as any).onboarding || { completedAt: null },
       ready: allGreen,
+      paid: !!(m as any).billing?.plan && (m as any).billing.plan !== 'free_trial' && ((m as any).billing.status === 'active' || !!(m as any).billing.activatedAt),
+      onboardingStatus: (m as any).onboardingStatus,
+      setupCallUrl: process.env.SETUP_CALL_URL || null,
     });
   } catch (e: any) {
     logger.error('connect route error', { error: e.message });
@@ -47,7 +51,20 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
 router.get('/shopify/url', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const { shop } = req.query;
   if (typeof shop !== 'string') return res.status(400).json({ error: 'shop required' });
+  // No Partner app keys in dev → offer the simulated store path instead of a dead Shopify error page
+  if (shopifyOAuthService.isDemoAvailable()) {
+    return res.json({ demo: true });
+  }
   try { res.json({ url: shopifyOAuthService.authorizeUrl(req.merchant!.merchantId, shop) }); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+// Dev-sandbox connect: marks the store connection without any real Shopify app.
+// Only enabled when NODE_ENV !== 'production' AND SHOPIFY_API_KEY is unset.
+router.post('/shopify/demo-connect', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  const { shop } = req.body;
+  if (typeof shop !== 'string') return res.status(400).json({ error: 'shop required' });
+  try { res.json(await shopifyOAuthService.demoConnect(req.merchant!.merchantId, shop)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // Hit by Shopify (no JWT) — verifies hmac+state, then bounces the browser to the wizard.
@@ -65,6 +82,13 @@ router.get('/shopify/callback', async (req: Request, res: Response) => {
 router.post('/whatsapp/signup', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const { code, businessId } = req.body;
   if (!code) return res.status(400).json({ error: 'code required' });
+  // Fail with an actionable message instead of Meta's opaque OAuth failure.
+  const metaReady = process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_CONFIG_ID;
+  if (!metaReady) {
+    return res.status(400).json({
+      error: 'WhatsApp one-click connect is not configured on this RescueShip deployment yet (META_APP_ID / META_APP_SECRET / META_CONFIG_ID). Contact support or use "Set it up for me" — we will connect your number with you on a call.',
+    });
+  }
   try {
     const summary = await metaEmbeddedSignupService.connect(req.merchant!.merchantId, code, businessId);
     await metaTemplateService.submitAll(req.merchant!.merchantId); // fire-and-forget approval
@@ -106,6 +130,35 @@ router.post('/payment', authenticateToken, async (req: AuthenticatedRequest, res
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
+// ── Assisted setup: merchant asks the rescue team to set them up on a call ──
+router.post('/assisted-setup/request', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const m = await Merchant.findById(req.merchant!.merchantId);
+    if (!m) return res.status(404).json({ error: 'not found' });
+
+    // Idempotent: re-request just refreshes the timestamp (owner sees latest intent)
+    const firstTime = !(m as any).onboarding?.assistedSetupRequestedAt;
+    await Merchant.findByIdAndUpdate(m._id, {
+      $set: { 'onboarding.assistedSetupRequestedAt': new Date() },
+    });
+
+    if (firstTime) {
+      await emailService.notifyOwner('Guided setup requested', {
+        merchant: m.name,
+        email: m.email,
+        merchantId: m._id.toString(),
+        phone: (m as any).ownerPhone || 'not set',
+        note: 'Merchant asked for hands-on setup. Contact them or wait for their booking.',
+      });
+    }
+
+    res.json({ ok: true, setupCallUrl: process.env.SETUP_CALL_URL || null });
+  } catch (e: any) {
+    logger.error('assisted-setup request failed', { error: e.message });
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // ── Owner phone (for the test pulse) + finalize ──
 router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const { ownerPhone, storeName } = req.body;
@@ -140,10 +193,30 @@ router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, re
     $set: {
       'onboarding.completedAt': new Date(),
       'onboarding.currentStep': 'done',
+      'onboarding.status': 'completed',
+      onboardingStatus: 'completed',
       'sandbox.enabled': false, // auto-disable sandbox on go-live
     },
   });
   res.json({ ok: true });
+});
+
+// Merchant bails on the wizard — let them into the dashboard anyway.
+// They can always come back: /onboarding stays reachable and everything is resumable.
+router.post('/skip', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    await Merchant.findByIdAndUpdate(req.merchant!.merchantId, {
+      $set: {
+        onboardingStatus: 'skipped',
+        'onboarding.currentStep': 'skipped',
+        'onboarding.status': 'in_progress', // spine resume point — not abandoned
+      },
+    });
+    res.json({ ok: true, onboardingStatus: 'skipped' });
+  } catch (e: any) {
+    logger.error('skip onboarding failed', { error: e.message });
+    res.status(400).json({ error: e.message });
+  }
 });
 
 export default router;

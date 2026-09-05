@@ -1,6 +1,5 @@
 import React, { type ReactNode } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { BeamsBackground } from './motion/BeamsBackground';
 import '../pages/auth.css';
 
 interface AuthLayoutProps {
@@ -8,43 +7,45 @@ interface AuthLayoutProps {
   title: string;
   subtitle: string;
   features?: ReactNode;
+  accent?: string;
 }
 
-const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, features }) => {
+const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, features, accent }) => {
   return (
     <div className="auth-layout">
+      {/* ── Left: narrative console panel ── */}
       <div className="auth-left">
-        <BeamsBackground className="auth-beams-wrapper">
-          <div className="auth-mesh-glow"></div>
-          <div className="auth-particles">
-            <div className="particle p1"></div>
-            <div className="particle p2"></div>
-            <div className="particle p3"></div>
-            <div className="particle p4"></div>
-          </div>
-          
-          <div className="auth-left-content">
-            <div className="auth-brand">
-              <span className="brand-logo">⚓</span>
-              <span className="brand-text">RescueShip</span>
-            </div>
-            
-            <div className="auth-hero-text">
-              <h1 className="chrome-text">{title}</h1>
-              <p className="subtitle">{subtitle}</p>
-            </div>
+        <div className="auth-grid-bg" aria-hidden="true" />
+        <div className="auth-orb auth-orb--1" aria-hidden="true" />
+        <div className="auth-orb auth-orb--2" aria-hidden="true" />
+        <div className="auth-scan" aria-hidden="true" />
 
-            {features && <div className="auth-features">{features}</div>}
-            
-            <div className="auth-ticker">
-              <div className="ticker-badge">Live</div>
-              <div className="ticker-text">
-                <span>854 shipments rescued today • ₹12.5L RTO loss prevented</span>
-              </div>
-            </div>
+        <div className="auth-left-content">
+          <a className="auth-brand" href="/">
+            <span className="auth-brand__logo" aria-hidden="true">⚓</span>
+            <span className="auth-brand__name">RescueShip</span>
+            <span className="auth-brand__tag">NDR · RTO COMMAND</span>
+          </a>
+
+          <div className="auth-hero-text">
+            <p className="auth-kicker">Access terminal</p>
+            <h1 className="auth-title">
+              {title}
+              {accent && <em className="auth-title__accent">{accent}</em>}
+            </h1>
+            <p className="subtitle">{subtitle}</p>
           </div>
-        </BeamsBackground>
+
+          {features && <div className="auth-features">{features}</div>}
+
+          <div className="auth-ticker">
+            <span className="ticker-badge"><i aria-hidden="true" />Live</span>
+            <span className="ticker-text">854 shipments rescued today · ₹12.5L RTO loss prevented</span>
+          </div>
+        </div>
       </div>
+
+      {/* ── Right: form console ── */}
       <div className="auth-right">
         <AnimatePresence mode="wait">
           <motion.div
@@ -55,6 +56,12 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, feat
             transition={{ duration: 0.3 }}
             className="auth-glass-container"
           >
+            <div className="auth-window-head" aria-hidden="true">
+              <span className="auth-window-dot auth-window-dot--r" />
+              <span className="auth-window-dot auth-window-dot--a" />
+              <span className="auth-window-dot auth-window-dot--g" />
+              <span className="auth-window-title">rescueship://auth</span>
+            </div>
             {children}
           </motion.div>
         </AnimatePresence>

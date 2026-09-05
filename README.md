@@ -113,7 +113,7 @@ npm run build
 
 ## 🔒 Security & Developer Guidelines
 
-All developers modifying the codebase MUST adhere to [DEVELOPER_RULES.md](file:///C:/Users/Konark%20Parihar/Desktop/wa/rescueship/DEVELOPER_RULES.md):
+All developers modifying the codebase MUST adhere to [DEVELOPER_RULES.md](./DEVELOPER_RULES.md):
 - **Tenant Isolation**: Every database query MUST filter by `merchantId: req.merchant.merchantId`.
 - **HMAC Signatures**: All incoming webhook endpoints MUST verify HMAC signature headers.
 - **Credential Encryption**: Store all third-party API tokens encrypted via `encryption.service.ts` (AES-256-GCM).

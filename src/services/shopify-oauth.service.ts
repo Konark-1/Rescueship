@@ -22,8 +22,21 @@ const TOPICS = ['orders/create', 'orders/updated', 'orders/cancelled', 'fulfillm
 const backendPublic = () => (process.env.API_PUBLIC_URL || '').replace(/\/$/, '');
 
 export class ShopifyOAuthService {
+  /** True when real Partner-app credentials are configured. */
+  private isConfigured(): boolean {
+    const apiKey = process.env.SHOPIFY_API_KEY;
+    const apiSecret = process.env.SHOPIFY_API_SECRET;
+    return !!apiKey && !!apiSecret && !apiKey.startsWith('your-') && !apiSecret.startsWith('your-');
+  }
+
   authorizeUrl(merchantId: string, shop: string): string {
     if (!SHOP_RE.test(shop)) throw new Error('Invalid Shopify store domain');
+
+    // Fail BEFORE redirecting the merchant to Shopify's "application not found" page.
+    if (!this.isConfigured()) {
+      throw new Error('Shopify one-click connect is not configured on this RescueShip deployment yet (SHOPIFY_API_KEY/SECRET). Contact support and we will enable it for you, or use the guided setup option on the left.');
+    }
+
     const nonce = crypto.randomBytes(16).toString('hex');
     const state = jwt.sign({ merchantId, nonce, provider: 'shopify' }, process.env.JWT_SECRET!, { expiresIn: '10m' });
     const params = new URLSearchParams({
@@ -33,6 +46,34 @@ export class ShopifyOAuthService {
     // store nonce for single-use check
     void redisConnection.set(`oauth_nonce:${nonce}`, merchantId, 'EX', 600);
     return `https://${shop}/admin/oauth/authorize?${params.toString()}`;
+  }
+
+  /**
+   * DEMO CONNECT — development/test only.
+   * Lets the onboarding flow be exercised end-to-end before a real Shopify
+   * Partner app exists. NEVER available in production. Orders flow in via the
+   * /webhooks/custom or /webhooks/shopify paths regardless (per-merchant HMAC).
+   */
+  isDemoAvailable(): boolean {
+    return process.env.NODE_ENV !== 'production' && !this.isConfigured();
+  }
+
+  async demoConnect(merchantId: string, shop: string): Promise<{ shop: string }> {
+    if (!this.isDemoAvailable()) throw new Error('Demo connect is only available in development without real Shopify keys.');
+    if (!SHOP_RE.test(shop)) throw new Error('Invalid Shopify store domain');
+
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) throw new Error('Merchant not found');
+    (merchant as any).shopify = {
+      shopDomain: shop,
+      accessToken: encryptionService.encrypt(`demo_token_${Date.now()}`),
+      scope: 'demo', webhooksRegistered: false, demo: true,
+    };
+    (merchant as any).connections = { ...((merchant as any).connections || {}), shopify: { status: 'connected', connectedAt: new Date(), shopDomain: shop, demo: true } };
+    merchant.storeName = merchant.storeName || shop.replace(/\.myshopify\.com$/, '');
+    await merchant.save();
+    logger.info('Demo Shopify connect (development only)', { merchantId, shop });
+    return { shop };
   }
 
   private verifyHmac(query: Record<string, string>): boolean {

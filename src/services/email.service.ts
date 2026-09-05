@@ -257,6 +257,119 @@ export class EmailService {
 
     return this.sendEmail({ to: email, subject, text, html });
   }
+
+  /**
+   * Plan activated — congratulate the merchant and offer a free guided setup call.
+   * Sent exactly once per first activation (callers gate on prior activatedAt).
+   */
+  public async sendPlanActivated(email: string, merchantName: string, plan: string): Promise<boolean> {
+    const setupCallUrl = process.env.SETUP_CALL_URL || '';
+    const appUrl = process.env.APP_URL || 'https://app.rescueship.io';
+    const subject = `🚀 Your ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan is live — RescueShip`;
+    const callBlockText = setupCallUrl ? `\n\nWant us to walk you through setup? Book your free onboarding call: ${setupCallUrl}` : '';
+    const callBlockHtml = setupCallUrl
+      ? `<p style="margin: 20px 0;"><a href="${setupCallUrl}" style="background-color: #059669; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Book your free setup call</a></p>`
+      : '';
+    const text = `Hello ${merchantName},\n\nYour RescueShip ${plan} plan is now active! Your rescue engine can go live as soon as your connections are verified.\n\nNext steps:\n1. Finish connecting your store, WhatsApp, carrier and payment gateway: ${appUrl}/onboarding\n2. Run the sandbox test rescues, then graduate to live mode.${callBlockText}\n\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: sans-serif; line-height: 1.5;">
+      <h2>🚀 Your plan is live!</h2>
+      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Your RescueShip <strong>${plan}</strong> plan is now active. Your rescue engine can go live as soon as your connections are verified.</p>
+      <ol>
+        <li>Finish connecting your store, WhatsApp, carrier and payment gateway: <a href="${appUrl}/onboarding">Open onboarding</a></li>
+        <li>Run the sandbox test rescues, then graduate to live mode.</li>
+      </ol>
+      ${callBlockHtml}
+      <hr />
+      <p style="font-size: 12px; color: #666;">RescueShip Team</p>
+    </div>`;
+
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
+  /**
+   * PLG magic-link onboarding email — first touch after landing-page signup.
+   * Explains the product and carries the one-click onboarding link.
+   */
+  public async sendManifestConfirmationEmail(
+    email: string,
+    storeUrl: string | undefined,
+    onboardingUrl: string,
+    merchantName: string = 'Merchant'
+  ): Promise<boolean> {
+    const setupCallUrl = process.env.SETUP_CALL_URL || '';
+    const store = storeUrl || 'your store';
+    const subject = `⚓ Welcome aboard, ${merchantName} — your rescue engine is being provisioned`;
+    const text = `Hello ${merchantName},\n\nThanks for signing up RescueShip for ${store}. Here's what happens next:\n\n1. Open your personal onboarding link (valid 7 days):\n${onboardingUrl}\n\n2. Connect your store, WhatsApp Business, courier account and payment gateway — each takes ~2 minutes and is validated live.\n\n3. Run the sandbox test rescues, graduate, and go live. From then on every failed delivery (NDR) and COD order is rescued automatically on WhatsApp.\n${setupCallUrl ? `\nPrefer a guided setup? Book a free 20-minute call and we'll set everything up with you: ${setupCallUrl}\n` : ''}\n— RescueShip Team`;
+    const html = `<div style="font-family: sans-serif; line-height: 1.6; max-width: 560px;">
+      <h2>⚓ Welcome aboard, ${merchantName}!</h2>
+      <p>Thanks for signing up RescueShip for <strong>${store}</strong>. RescueShip automatically converts COD orders to prepaid and rescues failed deliveries (NDRs) over WhatsApp — recovering the revenue most D2C brands lose to RTO.</p>
+      <p><strong>Your next 3 steps:</strong></p>
+      <ol>
+        <li>Open your personal onboarding link (valid 7 days):<br />
+          <a href="${onboardingUrl}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 8px 0;">Start onboarding</a></li>
+        <li>Connect your store, WhatsApp Business, courier and payment gateway — each validated live in ~2 minutes.</li>
+        <li>Run sandbox test rescues, graduate, and go live.</li>
+      </ol>
+      ${setupCallUrl ? `<p>Prefer a guided setup? <a href="${setupCallUrl}" style="background-color: #059669; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Book your free setup call</a> — we'll configure everything with you inside your own portal.</p>` : ''}
+      <hr />
+      <p style="font-size: 12px; color: #666;">RescueShip Team</p>
+    </div>`;
+
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
+  /**
+   * Alert the operator that a new lead requested onboarding (PLG signup).
+   * Delivered to OWNER_NOTIFY_EMAIL; falls back to a log line when unset.
+   */
+  public async sendSetupCallAdminNotification(
+    email: string,
+    storeUrl: string | undefined,
+    onboardingUrl: string
+  ): Promise<void> {
+    await this.notifyOwner('New signup — setup assisted onboarding', {
+      email,
+      storeUrl: storeUrl || 'not provided',
+      onboardingUrl,
+      note: 'User completed the landing-page signup. Reach out for their setup call if needed.',
+    });
+  }
+
+  /**
+   * Internal notification to the RescueShip operator (you).
+   * Routed to OWNER_NOTIFY_EMAIL; silently no-ops if unset.
+   * Never throws — notifications must never break user-facing flows.
+   */
+  public async notifyOwner(subject: string, details: Record<string, string | number | undefined>): Promise<void> {
+    const ownerEmail = process.env.OWNER_NOTIFY_EMAIL;
+    if (!ownerEmail) return;
+
+    const rows = Object.entries(details)
+      .filter(([, v]) => v !== undefined && v !== '')
+      .map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`)
+      .join('\n');
+    const lines = Object.entries(details)
+      .filter(([, v]) => v !== undefined && v !== '')
+      .map(([k, v]) => `${k}: ${v}`)
+      .join('\n');
+
+    try {
+      await this.sendEmail({
+        to: ownerEmail,
+        subject: `[RescueShip Ops] ${subject}`,
+        text: `${subject}\n\n${lines}`,
+        html: `<div style="font-family: sans-serif; line-height: 1.5;">
+          <h2>${subject}</h2>
+          <ul>${rows}</ul>
+          <hr />
+          <p style="font-size: 12px; color: #666;">RescueShip internal notification</p>
+        </div>`,
+      });
+    } catch (err: any) {
+      logger.error('Failed to send owner notification', { subject, error: err.message });
+    }
+  }
 }
 
 export const emailService = EmailService.getInstance();

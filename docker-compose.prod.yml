@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   rescueship-api:
     build:
@@ -61,8 +59,9 @@ services:
     container_name: rescueship-frontend-prod
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      # Container nginx listens on unprivileged 8080 (read_only rootfs + cap_drop ALL).
+      # Terminate TLS upstream (load balancer / reverse proxy) and forward here.
+      - "80:8080"
     depends_on:
       - rescueship-api
     deploy:

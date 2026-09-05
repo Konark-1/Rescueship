@@ -6,6 +6,7 @@ import { config } from '../config/env';
 import { IdempotencyGuard } from '../utils/idempotency';
 import { AuditLog, BillingEvent, Merchant } from '../models';
 import { subscriptionService } from '../services/subscription.service';
+import { emailService } from '../services/email.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -124,11 +125,23 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
 
             const merchant = await Merchant.findById(merchantId);
             if (merchant) {
+              const firstActivation = !merchant.billing.activatedAt;
               merchant.billing.plan = plan;
               merchant.billing.planOrderLimit = planLimits[plan] || 2000;
               (merchant as any).billing.status = 'active';
+              if (firstActivation) merchant.billing.activatedAt = new Date();
               if (cycle) merchant.billing.billingCycle = cycle;
               await merchant.save();
+              if (firstActivation) {
+                void emailService.sendPlanActivated(merchant.email, merchant.name, plan).catch(() => {});
+                void emailService.notifyOwner('Plan activated (webhook)', {
+                  merchant: merchant.name,
+                  email: merchant.email,
+                  plan,
+                  merchantId: merchant._id.toString(),
+                  note: 'Consider reaching out for their setup call.',
+                });
+              }
             }
           }
           await subscriptionService.onRenewalCharged(merchantId);

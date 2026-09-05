@@ -18,6 +18,7 @@
 import crypto from 'crypto';
 import axios from 'axios';
 import { Merchant } from '../models';
+import { emailService } from './email.service';
 import { logger } from '../utils/logger';
 
 export type Tier = 'starter' | 'growth' | 'scale';
@@ -128,7 +129,7 @@ export class SubscriptionService {
 
     const now = new Date();
     const renewal = new Date(now.getTime() + 90 * 24 * 3600 * 1000);
-    await Merchant.findByIdAndUpdate(merchantId, { $set: {
+    const prev = await Merchant.findByIdAndUpdate(merchantId, { $set: {
       'billing.plan': body.tier,
       'billing.planOrderLimit': LIMIT[body.tier],
       'billing.billingCycle': body.cycle,
@@ -141,7 +142,33 @@ export class SubscriptionService {
       'onboarding.completedAt': now,
     }});
     logger.info('Plan provisioned via self-serve checkout', { merchantId, tier: body.tier, cycle: body.cycle });
+    // Notify only on the FIRST activation — renewals/re-verifications stay silent.
+    if (!(prev as any)?.billing?.activatedAt) {
+      void this.notifyFirstActivation(merchantId, body.tier);
+    }
     return this.status(merchantId);
+  }
+
+  /**
+   * First-activation side effects: congratulate merchant (with setup-call CTA)
+   * and alert the operator. Idempotent — only fires when activatedAt was absent
+   * before this activation, so renewals never re-notify.
+   */
+  private async notifyFirstActivation(merchantId: string, plan: string): Promise<void> {
+    try {
+      const merchant = await Merchant.findById(merchantId).lean();
+      if (!merchant) return;
+      await emailService.sendPlanActivated(merchant.email, merchant.name, plan);
+      await emailService.notifyOwner('Plan activated (purchase)', {
+        merchant: merchant.name,
+        email: merchant.email,
+        plan,
+        merchantId: merchant._id.toString(),
+        note: 'Consider reaching out for their setup call.',
+      });
+    } catch (err: any) {
+      logger.error('First-activation notification failed (non-fatal)', { merchantId, error: err.message });
+    }
   }
 
   /** Called from the subscription.charged webhook — roll the cycle forward. */

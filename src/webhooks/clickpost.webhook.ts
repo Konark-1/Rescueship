@@ -26,9 +26,14 @@ router.post('/ndr', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Signature verification
+  // Signature verification — fail closed like every other provider (no bypass when unset)
   const secret = process.env.CLICKPOST_WEBHOOK_SECRET;
-  if (secret) {
+  if (!secret) {
+    logger.warn('ClickPost webhook secret not configured — rejecting webhook. Set CLICKPOST_WEBHOOK_SECRET.');
+    res.status(401).json({ error: 'ClickPost webhook secret not configured' });
+    return;
+  }
+  {
     if (!signature) {
       logger.warn('ClickPost webhook missing signature header');
       res.status(401).json({ error: 'Missing ClickPost signature header' });
