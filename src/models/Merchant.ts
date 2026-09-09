@@ -283,7 +283,7 @@ MerchantSchema.index(
     name: 'idx_waba_phonenumber_unique',
     unique: true,
     partialFilterExpression: {
-      'whatsappConfig.phoneNumberId': { $type: 'string', $ne: '' },
+      'whatsappConfig.phoneNumberId': { $gt: '' },
     },
   }
 );

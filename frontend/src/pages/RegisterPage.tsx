@@ -93,7 +93,7 @@ const RegisterPage: React.FC = () => {
       // Respect where they left off — returning merchants go straight to the dashboard
       navigate(merchant?.onboardingStatus === 'pending' ? '/onboarding' : '/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Google registration failed');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Google registration failed');
     }
   };
 

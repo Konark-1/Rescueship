@@ -64,7 +64,7 @@ const LoginPage: React.FC = () => {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Google login failed');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Google login failed');
     }
   };
 

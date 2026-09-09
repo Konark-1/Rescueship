@@ -111,7 +111,7 @@ export async function ensureIndexes(): Promise<void> {
         options: {
           name: 'idx_waba_phonenumber_unique',
           unique: true,
-          partialFilterExpression: { 'whatsappConfig.phoneNumberId': { $type: 'string', $ne: '' } },
+          partialFilterExpression: { 'whatsappConfig.phoneNumberId': { $gt: '' } },
         },
         fatal: true,
       },
@@ -120,7 +120,7 @@ export async function ensureIndexes(): Promise<void> {
         options: {
           name: `idx_${field.replace(/\./g, '_')}_unique`,
           unique: true,
-          partialFilterExpression: { [field]: { $type: 'string', $ne: '' } },
+          partialFilterExpression: { [field]: { $gt: '' } },
         },
       })),
       { keys: { 'billing.razorpaySubscriptionId': 1 }, options: { name: 'idx_billing_subscription', sparse: true } },
