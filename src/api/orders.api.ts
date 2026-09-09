@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { requireFeature } from '../middleware/planGating.middleware';
 import { Order, AuditLog } from '../models';
@@ -145,6 +146,10 @@ router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
   try {
     logger.info('Fetching order details', { merchantId, orderId });
 
+    if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
     const order = await Order.findOne({ _id: orderId, merchantId });
     if (!order) {
       res.status(404).json({ error: 'Order not found' });

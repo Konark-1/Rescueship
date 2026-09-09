@@ -60,7 +60,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
         return;
       }
 
-      res.status(400).json({
+      res.status(409).json({
         error: 'Email already registered. Please sign in with your email and password.',
         code: 'EMAIL_ALREADY_REGISTERED',
       });
@@ -282,8 +282,11 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (err: any) {
-    logger.error('Google Auth failed', { error: err.message });
-    res.status(500).json({ error: 'Google Authentication failed. Please try again.' });
+    logger.error('Google Auth failed', { error: err.message, stack: err.stack });
+    res.status(401).json({
+      error: 'Google Authentication failed: ' + (err.message || 'Please try again.'),
+      details: err.message,
+    });
   }
 });
 

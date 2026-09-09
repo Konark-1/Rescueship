@@ -152,16 +152,19 @@ function validateRequiredVars(requiredKeys: string[]): void {
 /*  Validation & Config Construction                                   */
 /* ------------------------------------------------------------------ */
 
-/** Environment variables that MUST be set for the app to boot. */
+/**
+ * Environment variables that MUST be set for the app to boot.
+ *
+ * WhatsApp is intentionally NOT here: a deployment may legitimately run without a
+ * platform WABA (merchants bring their own numbers via embedded signup / manual
+ * connect). The startup-validator (startup-validator.ts) enforces provider secrets
+ * only where they are actually required (e.g. production placeholders).
+ */
 const REQUIRED_VARS: string[] = [
   'MONGODB_URI',
   'REDIS_HOST',
   'JWT_SECRET',
   'ENCRYPTION_KEY',
-  'WHATSAPP_PHONE_NUMBER_ID',
-  'WHATSAPP_ACCESS_TOKEN',
-  'WHATSAPP_VERIFY_TOKEN',
-  'WHATSAPP_APP_SECRET',
 ];
 
 validateRequiredVars(REQUIRED_VARS);
@@ -200,10 +203,10 @@ export const config: AppConfig = {
 
   whatsapp: {
     apiVersion: getEnv('WHATSAPP_API_VERSION', false, 'v22.0'),
-    phoneNumberId: getEnv('WHATSAPP_PHONE_NUMBER_ID', true),
-    accessToken: getEnv('WHATSAPP_ACCESS_TOKEN', true),
-    verifyToken: getEnv('WHATSAPP_VERIFY_TOKEN', true),
-    appSecret: getEnv('WHATSAPP_APP_SECRET', true),
+    phoneNumberId: getEnv('WHATSAPP_PHONE_NUMBER_ID', false),
+    accessToken: getEnv('WHATSAPP_ACCESS_TOKEN', false),
+    verifyToken: getEnv('WHATSAPP_VERIFY_TOKEN', false),
+    appSecret: getEnv('WHATSAPP_APP_SECRET', false),
   },
 
   razorpay: {

@@ -8,7 +8,7 @@ router.post(
   '/ndr',
   createCarrierNdrHandler(
     'shiprocket',
-    () => process.env.SHIPROCKET_WEBHOOK_SECRET || config.shiprocket.password || undefined,
+    () => process.env.SHIPROCKET_WEBHOOK_SECRET || undefined,
     (req: Request) => {
       const body = req.body ?? {};
       const awb = safeStr(body.awb, 64);

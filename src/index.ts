@@ -10,7 +10,7 @@ import cors from 'cors';
 import { connectDatabase, disconnectDatabase } from './config/database';
 import { connectRedis, disconnectRedis } from './config/redis';
 import { startAllWorkers, stopAllWorkers } from './jobs';
-import { globalErrorHandler } from './middleware/errorHandler';
+import { globalErrorHandler, AppError } from './middleware/errorHandler';
 import { webhookLimiter, apiLimiter } from './middleware/rateLimiter';
 import { logger } from './utils/logger';
 import mongoSanitize from 'express-mongo-sanitize';
@@ -59,9 +59,25 @@ app.use((req: any, _res: any, next: any) => {
 // ───────────────────────────────────────────────
 // 🔒 1. STRICT SECURITY HEADERS (HELMET + CSP)
 // ───────────────────────────────────────────────
-const allowedOrigins = process.env.FRONTEND_URL
-  ? process.env.FRONTEND_URL.split(',').map(o => o.trim())
-  : ['http://localhost:5173'];
+const configuredOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map((o) => o.trim()).filter(Boolean)
+  : [];
+
+const defaultOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:5174',
+  'http://127.0.0.1:3000',
+];
+
+const allowedOrigins = Array.from(
+  new Set([
+    ...defaultOrigins,
+    ...configuredOrigins,
+  ])
+);
 
 app.use(
   helmet({
@@ -112,7 +128,7 @@ app.use(
       }
       
       logger.warn(`CORS blocked unauthorized origin: ${origin}`);
-      callback(new Error(`CORS: origin ${origin} not allowed`));
+      callback(new AppError(`CORS: origin ${origin} not allowed`, 403));
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],

@@ -1,9 +1,14 @@
 import { Router, Response } from 'express';
+import { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { WhatsAppTemplate } from '../models';
 import { logger } from '../utils/logger';
 
 const router = Router();
+
+function validId(id: unknown): id is string {
+  return typeof id === 'string' && Types.ObjectId.isValid(id);
+}
 
 // GET all templates
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
@@ -21,6 +26,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
 router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   try {
+    if (!validId(req.params.id)) { res.status(404).json({ error: 'Template not found' }); return; }
     const template = await WhatsAppTemplate.findOne({ _id: req.params.id, merchantId });
     if (!template) {
       res.status(404).json({ error: 'Template not found' });
@@ -85,6 +91,7 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
   if (Array.isArray(components)) updateFields.components = components;
 
   try {
+    if (!validId(req.params.id)) { res.status(404).json({ error: 'Template not found' }); return; }
     const updated = await WhatsAppTemplate.findOneAndUpdate(
       { _id: req.params.id, merchantId },
       { $set: updateFields },
@@ -105,6 +112,7 @@ router.put('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
 router.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   try {
+    if (!validId(req.params.id)) { res.status(404).json({ error: 'Template not found' }); return; }
     const deleted = await WhatsAppTemplate.findOneAndDelete({ _id: req.params.id, merchantId });
     if (!deleted) {
       res.status(404).json({ error: 'Template not found' });
@@ -121,6 +129,7 @@ router.delete('/:id', authenticateToken, async (req: AuthenticatedRequest, res: 
 router.post('/:id/submit', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   try {
+    if (!validId(req.params.id)) { res.status(404).json({ error: 'Template not found' }); return; }
     const template = await WhatsAppTemplate.findOne({ _id: req.params.id, merchantId });
     if (!template) {
       res.status(404).json({ error: 'Template not found' });
