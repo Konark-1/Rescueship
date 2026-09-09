@@ -405,7 +405,7 @@ export class OrderService {
 
         // 1. Post exact captured transaction to Shopify financial ledger
         await axios.post(
-          `https://${domain}/admin/api/2024-01/orders/${safeOrderId}/transactions.json`,
+          `https://${domain}/admin/api/2026-07/orders/${safeOrderId}/transactions.json`,
           {
             transaction: {
               kind: 'sale',
@@ -419,7 +419,7 @@ export class OrderService {
 
         // 2. Append refund protection note & tags to Shopify order
         await axios.put(
-          `https://${domain}/admin/api/2024-01/orders/${safeOrderId}.json`,
+          `https://${domain}/admin/api/2026-07/orders/${safeOrderId}.json`,
           {
             order: {
               id: order.externalOrderId,

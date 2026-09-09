@@ -34,9 +34,16 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
         carrier: c.carrier || { status: 'disconnected' },
         payment: c.payment || { status: 'disconnected' },
       },
-      templates: (m as any).whatsappConfig?.templates || [],
+        templates: (m as any).whatsappConfig?.templates || [],
       onboarding: (m as any).onboarding || { completedAt: null },
       ready: allGreen,
+      // Which store-connect paths this deployment can offer right now
+      capabilities: {
+        shopifyOAuth: shopifyOAuthService.isConfigured(),
+        shopifyToken: true,
+        shopifyDemo: shopifyOAuthService.isDemoAvailable(),
+        whatsappEmbedded: !!(process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_CONFIG_ID),
+      },
       paid: !!(m as any).billing?.plan && (m as any).billing.plan !== 'free_trial' && ((m as any).billing.status === 'active' || !!(m as any).billing.activatedAt),
       onboardingStatus: (m as any).onboardingStatus,
       setupCallUrl: process.env.SETUP_CALL_URL || null,
@@ -65,6 +72,17 @@ router.post('/shopify/demo-connect', authenticateToken, async (req: Authenticate
   const { shop } = req.body;
   if (typeof shop !== 'string') return res.status(400).json({ error: 'shop required' });
   try { res.json(await shopifyOAuthService.demoConnect(req.merchant!.merchantId, shop)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+// Direct API token path — merchant pastes their store's Admin API access token.
+// Works everywhere (dev or prod), no Partner app required from anyone.
+router.post('/shopify/token', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  const { shop, accessToken } = req.body;
+  if (typeof shop !== 'string' || typeof accessToken !== 'string') {
+    return res.status(400).json({ error: 'shop and accessToken required' });
+  }
+  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // Hit by Shopify (no JWT) — verifies hmac+state, then bounces the browser to the wizard.

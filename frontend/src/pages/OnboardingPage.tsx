@@ -8,7 +8,7 @@ import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
-  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'One click — RescueShip\'s app connects YOUR store only. No keys, no Partner account needed from you.' },
+  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'One-click consent or paste a token from your own Shopify admin — either way, your store is fully isolated.' },
   { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your own Business number. Customers message the brand, not us.' },
   { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — your existing API key.' },
   { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — for COD → prepaid links.' },
@@ -210,7 +210,7 @@ export default function OnboardingPage() {
               </div>
               <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
 
-              {active === 'shopify' && <ShopifyForm onConnect={connectShopify} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} />}
+              {active === 'shopify' && <ShopifyForm onConnect={connectShopify} onTokenConnect={(shop: string, token: string) => { setBusy('shopify'); setErr(null); push('› validating Shopify token with your store…'); connectApi.shopifyToken(token!, shop, token).then(() => { push(`✓ ${shop} connected via API token`); refresh(); setBusy(null); }).catch((e: any) => { setErr(e.message); push('✗ token rejected — nothing saved'); setBusy(null); }); }} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} caps={state?.capabilities} />}
               {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} metaReady={META_SIGNUP_READY} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
@@ -236,15 +236,39 @@ export default function OnboardingPage() {
 /* ── station forms (compact, real) ── */
 function Field({ label, children }: any) { return <label className="ob-field"><span>{label}</span>{children}</label>; }
 
-function ShopifyForm({ onConnect, busy, done, shop }: any) {
+function ShopifyForm({ onConnect, onTokenConnect, busy, done, shop, caps }: any) {
+  const [mode, setMode] = useState<'oauth' | 'token'>(caps?.shopifyOAuth ? 'oauth' : 'token');
   const [v, setV] = useState('');
+  const [accessToken, setAccessToken] = useState('');
+  const showOAuth = caps?.shopifyOAuth !== false; // mirror server truth
+  const shopValid = v.trim().includes('.myshopify.com');
+
   return done ? <Done provider={`Connected · ${shop}`} /> : (
-    <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(v.trim()); }}>
+    <div className="ob-form">
+      <div className="ob-seg">
+        {showOAuth && <button type="button" className={mode === 'oauth' ? 'on' : ''} onClick={() => setMode('oauth')}>One-click connect</button>}
+        <button type="button" className={mode === 'token' ? 'on' : ''} onClick={() => setMode('token')}>API token</button>
+      </div>
+
       <Field label="Store address"><input className="ob-input" placeholder="your-brand.myshopify.com" value={v} onChange={(e) => setV(e.target.value)} required /></Field>
-      <p className="ob-note">Type your store name and we'll redirect you to Shopify's own consent screen. You'll see <strong>RescueShip</strong> requesting order access — approve it there. Our single Partner app serves every merchant, but each store is fully isolated: your token, your orders, your data. A merchant never touches API keys, and can't see any other store.</p>
-      <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>WooCommerce or custom platform? <strong>Skip this station</strong> and use Settings → Platform once you're in the dashboard.</p>
-      <button className="ob-btn" disabled={busy || !v.includes('.myshopify.com')}>{busy ? 'Redirecting…' : 'Connect Shopify'}</button>
-    </form>
+
+      {mode === 'oauth' ? (
+        <form onSubmit={(e) => { e.preventDefault(); onConnect(v.trim()); }}>
+          <p className="ob-note">Type your store and we'll send you to <strong>Shopify's own consent screen</strong> — approve <strong>RescueShip</strong> there. Our single Partner app serves every merchant; your token, orders and data stay yours alone. No API keys, no Partner account needed from you.</p>
+          <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>WooCommerce or custom platform? <strong>Skip this station</strong> — Settings → Platform in your dashboard covers those.</p>
+          <button className="ob-btn" disabled={busy || !shopValid}>{busy ? 'Redirecting…' : 'Connect Shopify'}</button>
+        </form>
+      ) : (
+        <form onSubmit={(e) => { e.preventDefault(); onTokenConnect(v.trim(), accessToken.trim()); }}>
+          <Field label="Admin API access token">
+            <input className="ob-input" type="password" placeholder="shpat_…" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required />
+          </Field>
+          <p className="ob-note">In your Shopify admin: <strong>left sidebar → Apps → Develop apps</strong> (top right) → <strong>Create an app</strong> (name it anything) → <strong>Configuration → Configure Admin API scopes</strong> → tick <strong>read_orders, write_orders, read_fulfillments, write_fulfillments</strong> → Save → <strong>Install app</strong> → copy the <strong>Admin API access token</strong> and paste it here. (Ignore <strong>Sales channels</strong> in the sidebar — that's for marketplaces, not this.) We test the token against your store, register your webhooks automatically, and store it encrypted (AES-256). Works in every environment — no one needs a Partner account.</p>
+          <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>Steps also in the <strong>Setup Guide</strong> (top right) with screenshots-level detail.</p>
+          <button className="ob-btn" disabled={busy || !shopValid || !accessToken.trim()}>{busy ? 'Validating with Shopify…' : 'Validate & connect'}</button>
+        </form>
+      )}
+    </div>
   );
 }
 

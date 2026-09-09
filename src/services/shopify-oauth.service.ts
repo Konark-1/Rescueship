@@ -23,7 +23,7 @@ const backendPublic = () => (process.env.API_PUBLIC_URL || '').replace(/\/$/, ''
 
 export class ShopifyOAuthService {
   /** True when real Partner-app credentials are configured. */
-  private isConfigured(): boolean {
+  isConfigured(): boolean {
     const apiKey = process.env.SHOPIFY_API_KEY;
     const apiSecret = process.env.SHOPIFY_API_SECRET;
     return !!apiKey && !!apiSecret && !apiKey.startsWith('your-') && !apiSecret.startsWith('your-');
@@ -119,7 +119,7 @@ export class ShopifyOAuthService {
 
   /** Idempotent: create only the topics we don't already have. */
   private async registerWebhooks(shop: string, token: string) {
-    const gql = async (q: string) => (await axios.post(`https://${shop}/admin/api/2025-01/graphql.json`, { query: q }, { headers: { 'X-Shopify-Access-Token': token } })).data;
+    const gql = async (q: string) => (await axios.post(`https://${shop}/admin/api/2026-07/graphql.json`, { query: q }, { headers: { 'X-Shopify-Access-Token': token } })).data;
     const existing = await gql(`{ webhookSubscriptions(first: 50) { edges { node { topic } } } }`);
     const have = new Set((existing.data?.webhookSubscriptions?.edges || []).map((e: any) => e.node.topic));
     for (const topic of TOPICS) {
@@ -130,5 +130,53 @@ export class ShopifyOAuthService {
     }
   }
   private topicEnum(t: string) { return t.toUpperCase().replace('/', '_'); } // orders/create → ORDERS_CREATE
+
+  /**
+   * DIRECT-TOKEN CONNECT — the no-Partner-app path.
+   * Merchant creates a custom app in THEIR own Shopify admin (Settings → Apps
+   * → Develop apps → Create app → Admin API access token) and pastes it here.
+   * We validate it live (GET /shop.json), then store encrypted + register
+   * per-merchant webhooks with THEIR token. Fully multi-tenant safe; works in
+   * every environment, no Partner account required from anyone.
+   */
+  async connectWithToken(merchantId: string, shop: string, accessToken: string): Promise<{ shop: string }> {
+    if (!SHOP_RE.test(shop)) throw new Error('Invalid Shopify store domain (expected your-brand.myshopify.com)');
+    const token = (accessToken || '').trim();
+    if (!token) throw new Error('Access token required');
+    if (token.length < 20) throw new Error('That token looks too short — paste the full Admin API access token.');
+
+    // Validate token live against the merchant's own store
+    const shopInfo = await axios.get(`https://${shop}/admin/api/2026-07/shop.json`, {
+      headers: { 'X-Shopify-Access-Token': token },
+      timeout: 8000,
+    }).catch((e: any) => {
+      const sc = e.response?.status;
+      if (sc === 401) throw new Error('Shopify rejected the token (401) — regenerate the Admin API access token and try again.');
+      if (sc === 404) throw new Error('Store not found — check the .myshopify.com domain.');
+      throw new Error(`Could not reach Shopify (${sc || e.code || 'network error'}). Try again in a moment.`);
+    });
+
+    const shopName = shopInfo.data?.shop?.name || shop;
+
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) throw new Error('Merchant not found');
+    (merchant as any).platform = 'shopify';
+    (merchant as any).shopify = {
+      shopDomain: shop,
+      accessToken: encryptionService.encrypt(token),
+      scope: 'custom-app',
+      webhooksRegistered: false,
+    };
+    (merchant as any).connections = { ...((merchant as any).connections || {}), shopify: { status: 'connected', connectedAt: new Date(), shopDomain: shop, method: 'token' } };
+    merchant.storeName = merchant.storeName || shopName;
+    await merchant.save();
+
+    await this.registerWebhooks(shop, token);
+    (merchant as any).shopify.webhooksRegistered = true;
+    await merchant.save();
+
+    logger.info('Shopify connected via direct token', { merchantId, shop });
+    return { shop };
+  }
 }
 export const shopifyOAuthService = new ShopifyOAuthService();

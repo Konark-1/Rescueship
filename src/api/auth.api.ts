@@ -258,15 +258,22 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
       });
       logger.info('New merchant registered via Google', { merchantId: merchant._id });
     } else {
-      // Account Takeover Prevention: Check if account exists with password
+      // Account exists but not yet linked to Google
       if (!merchant.googleId) {
-        // If password is provided in body, verify and link
         if (password && (await merchant.comparePassword(password))) {
+          // Explicit password confirmation → link (kept for backward compat)
           merchant.googleId = googleId;
           await merchant.save();
           logger.info('Google account linked via password confirmation', { merchantId: merchant._id });
+        } else if (payload.email_verified === true) {
+          // JIT auto-link: Google itself verified this user owns the email.
+          // Equivalent to "if you own the inbox, you own the account" — the same
+          // guarantee a password-reset email flow relies on.
+          merchant.googleId = googleId;
+          await merchant.save();
+          logger.info('Google account auto-linked via verified email', { merchantId: merchant._id, email: cleanEmail });
         } else {
-          logger.warn('Google OAuth login rejected: Account exists with password, not linked to Google', { email: cleanEmail });
+          logger.warn('Google OAuth login rejected: email not verified by provider', { email: cleanEmail });
           await SecurityAlertService.sendCriticalAlert('OAUTH_ACCOUNT_TAKEOVER_PROBE_BLOCKED', {
             email: cleanEmail,
             attemptedGoogleId: googleId,

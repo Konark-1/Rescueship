@@ -19,24 +19,30 @@ const GUIDES: StationGuide[] = [
     icon: '🛒',
     steps: [
       {
-        title: 'How the app model works (why this is one click)',
-        body: 'RescueShip runs ONE approved Shopify app for all merchants. You do not create a Partner account, copy keys, or install anything in advance — you just authorize your store with us. Every store gets its own encrypted token and its own data. Merchants are fully isolated from each other.',
+        title: 'Know your two options',
+        body: 'One-click connect: type your store address and approve on Shopify\'s consent screen — done in 20 seconds, but only works if the RescueShip Partner app is live. API token: you create a small app inside your own Shopify admin and paste one token here. It always works, even on a fresh account. Takes about 2 minutes. Steps below are for API token.',
       },
       {
-        title: 'Type your store, click "Connect Shopify"',
-        body: 'We redirect you to Shopify\'s own consent screen (your-store.myshopify.com). Log in as the store owner/admin and approve.',
+        title: 'Open Apps (not Sales channels)',
+        body: 'In your Shopify admin, look at the left sidebar. Click "Apps". Ignore "Sales channels" — that is a separate option for marketplaces like Instagram and Google, and you do not need it. New Shopify accounts show these as two different items, so don\'t look for an "Apps and sales channels" page.',
       },
       {
-        title: 'Approve read-only permissions',
-        body: 'We request read access to Orders + Fulfillments so we can see new COD orders and delivery failures. We never modify products or customers.',
+        title: 'Create your app',
+        body: 'On the Apps page, click the "Develop apps" button at the top right. Then click "Create an app", type the name "RescueShip", and press Create app.',
       },
       {
-        title: 'Automatic webhook registration',
-        body: 'After approval we register order + fulfillment webhooks for YOUR store only, tagged with your merchant ID. No manual setup.',
+        title: 'Give it 4 permissions',
+        body: 'Open the "Configuration" tab → under Admin API integration click "Configure". Tick exactly these 4 boxes: read_orders, write_orders, read_fulfillments, write_fulfillments. Click Save. (If you see "Enable development store access" or it asks where the app runs, accept the defaults.)',
+      },
+      {
+        title: 'Install and copy the token',
+        body: 'Open the "API credentials" tab → click "Install app" → confirm. Then under "Admin API access token" click reveal — copy the token (starts with shpat_…). Shopify shows it only once. Paste it on this page together with your store address (your-brand.myshopify.com). We test it against your store, register your webhooks automatically, and store it encrypted.',
         commonErrors: [
-          '"Application cannot be found" → a RescueShip-side config issue; use "Set it up for me" and we\'ll enable it',
-          'Logged into the wrong Shopify account → log out of Shopify admin first, then retry',
-          'WooCommerce / custom store → skip this station; finish from Settings → Platform in your dashboard',
+          'Token rejected (401) → you copied the "Client secret" instead — use the "Admin API access token" field from the API credentials tab',
+          'Store not found → the address must look exactly like your-brand.myshopify.com (the one in your admin URL)',
+          'Token only shown once → if you lost it, uninstall the app from the Apps page (red "Uninstall" button) and make a new one',
+          '"Application cannot be found" on the one-click path → the Partner app isn\'t live here; use API token instead',
+          'WooCommerce / custom store → skip this station; Settings → Platform in the dashboard handles those',
         ],
       },
     ],

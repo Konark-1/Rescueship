@@ -95,7 +95,8 @@ const RegisterPage: React.FC = () => {
       const response = await api.post('/api/auth/google', { credential: credentialResponse.credential });
       const { token, merchant } = response.data;
       login(token, merchant);
-      navigate('/onboarding');
+      // Respect where they left off — returning merchants go straight to the dashboard
+      navigate(merchant?.onboardingStatus === 'pending' ? '/onboarding' : '/dashboard');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Google registration failed');
     }
