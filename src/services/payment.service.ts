@@ -137,7 +137,11 @@ export class PaymentService {
     const baseUrl = isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
     const url = `${baseUrl}/links`;
 
-    const linkId = `link_${params.orderId}_${Date.now().toString().slice(-4)}`;
+    // Cashfree link_id: alphanumeric/underscore/hyphen, max 50 chars. Keep a stable prefix
+    // of the order id and a short random suffix so it stays unique without overflowing.
+    const suffix = `_${Date.now().toString(36).slice(-6)}${crypto.randomBytes(2).toString('hex')}`;
+    const safeOrder = String(params.orderId).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 50 - 5 - suffix.length);
+    const linkId = `link_${safeOrder}${suffix}`;
     const safeExpireMinutes = Math.min(params.expiresInMinutes || 1440, 10080); // Max 7 days
     const expiryTime = new Date(Date.now() + safeExpireMinutes * 60 * 1000).toISOString();
     const validAmount = Math.max(1, params.amount);
@@ -153,7 +157,7 @@ export class PaymentService {
         customer_name: (params.customerName || 'Customer').slice(0, 50),
       },
       link_meta: {
-        notify_url: `${config.server.apiBaseUrl}/webhooks/cashfree/payment`,
+        notify_url: `${(process.env.API_PUBLIC_URL || config.server.apiBaseUrl).replace(/\/$/, '')}/webhooks/cashfree/payment`,
         upi_link: true,
       },
       link_expiry_time: expiryTime,
@@ -216,12 +220,13 @@ export class PaymentService {
 
       if (merchantPhone && whatsappConfig) {
         let waToken: string | undefined;
-        try {
-          if (whatsappConfig.accessToken) {
+        if (whatsappConfig.accessToken) {
+          try {
             waToken = encryptionService.decrypt(whatsappConfig.accessToken);
+          } catch (err) {
+            logger.error('Stored WhatsApp token cannot be decrypted; skipping seller notification', { orderId });
+            return;
           }
-        } catch (err) {
-          waToken = whatsappConfig.accessToken;
         }
 
         await whatsAppService

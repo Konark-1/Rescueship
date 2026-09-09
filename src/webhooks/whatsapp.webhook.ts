@@ -1,16 +1,24 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { whatsAppService } from '../services/whatsapp.service';
 import { ndrService } from '../services/ndr.service';
 import { addressCorrectionService } from '../services/address-correction.service';
 import { rescueMatchingService, MatchCandidate } from '../services/rescue-matching.service';
-import { IdempotencyGuard } from '../utils/idempotency';
+import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
 import { config } from '../config/env';
-import { logger } from '../utils/logger';
+import { logger, maskPhone } from '../utils/logger';
 import { Merchant } from '../models';
+import { encryptionService } from '../services/encryption.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { redisConnection } from '../config/redis';
 
 const router = Router();
+
+function safeEqualStr(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  return ab.length === bb.length && ab.length > 0 && crypto.timingSafeEqual(ab, bb);
+}
 
 /**
  * GET Route: WhatsApp Webhook Verification
@@ -21,11 +29,12 @@ router.get('/', (req: Request, res: Response): void => {
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
-  logger.info('Received WhatsApp webhook verification request', { mode, token });
+  // Never log the presented token — it is the shared secret.
+  logger.info('Received WhatsApp webhook verification request', { mode, tokenPresent: typeof token === 'string' && token.length > 0 });
 
-  if (mode === 'subscribe' && token === config.whatsapp.verifyToken) {
+  if (mode === 'subscribe' && typeof token === 'string' && safeEqualStr(token, config.whatsapp.verifyToken)) {
     logger.info('WhatsApp webhook verified successfully');
-    res.status(200).send(challenge);
+    res.status(200).send(typeof challenge === 'string' ? challenge : '');
   } else {
     logger.warn('WhatsApp webhook verification failed');
     res.sendStatus(403);
@@ -58,47 +67,60 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
-  // Acknowledge receipt to Meta immediately (prevents retry loop)
+  const parsed = whatsAppService.parseIncomingMessage(req.body);
+  if (!parsed) {
+    res.status(200).send('EVENT_RECEIVED');
+    return;
+  }
+
+  // --- derive merchant from the RECEIVING number (cross-tenant safety) ---
+  const value = req.body?.entry?.[0]?.changes?.[0]?.value;
+  const phoneNumberId = typeof value?.metadata?.phone_number_id === 'string' ? value.metadata.phone_number_id : undefined;
+  const merchant = phoneNumberId ? await Merchant.findOne({ 'whatsappConfig.phoneNumberId': phoneNumberId }) : null;
+
+  if (!merchant) {
+    logger.warn('Inbound WA for unknown phoneNumberId — no matching merchant, dropping message', { phoneNumberId });
+    res.status(200).send('EVENT_RECEIVED');
+    return;
+  }
+  const merchantId = merchant._id.toString();
+
+  // ─── Idempotency (tenant-namespaced, atomic claim) ───
+  const messageId = parsed.messageId || `${parsed.from}:${parsed.timestamp}:${parsed.type}`;
+  const idempotencyKey = IdempotencyGuard.key('whatsapp', merchantId, messageId);
+  try {
+    const claim = await IdempotencyGuard.claim(idempotencyKey, 3600);
+    if (claim === 'duplicate') {
+      logger.info('Duplicate WhatsApp incoming message skipped', { messageId, from: maskPhone(parsed.from) });
+      res.status(200).send('EVENT_RECEIVED');
+      return;
+    }
+  } catch (err) {
+    if (err instanceof IdempotencyUnavailableError) {
+      // Let Meta retry rather than silently dropping a customer reply.
+      res.status(503).send('RETRY');
+      return;
+    }
+    throw err;
+  }
+
+  // Acknowledge receipt to Meta now that the claim is durable (prevents retry loop)
   res.status(200).send('EVENT_RECEIVED');
 
   try {
-    const parsed = whatsAppService.parseIncomingMessage(req.body);
-    if (!parsed) return;
-
-    // ─── Idempotency: Prevent double-processing of customer replies ───
-    const messageId = parsed.messageId || `${parsed.from}:${parsed.timestamp}:${parsed.type}`;
-    const idempotencyKey = `wa_incoming:${messageId}`;
-
-    const isDuplicate = await IdempotencyGuard.isProcessed(idempotencyKey);
-    if (isDuplicate) {
-      logger.info('Duplicate WhatsApp incoming message skipped', { messageId, from: parsed.from });
-      return;
-    }
-    await IdempotencyGuard.markProcessed(idempotencyKey, 3600); // 1 hour TTL
-    // ─── END Idempotency ───
-
-    logger.info('Parsed WhatsApp incoming message', { from: parsed.from, type: parsed.type });
-
-    // --- derive merchant from the RECEIVING number (cross-tenant safety) ---
-    const value = req.body?.entry?.[0]?.changes?.[0]?.value;
-    const phoneNumberId = value?.metadata?.phone_number_id;
-    let merchant = phoneNumberId ? await Merchant.findOne({ 'whatsappConfig.phoneNumberId': phoneNumberId }) : null;
-    
-    if (!merchant && phoneNumberId && config.whatsapp.phoneNumberId && phoneNumberId === config.whatsapp.phoneNumberId) {
-      merchant = await Merchant.findOne({ 'whatsappConfig.phoneNumberId': config.whatsapp.phoneNumberId });
-    }
-
-    if (!merchant) {
-      logger.warn('Inbound WA for unknown phoneNumberId — no matching merchant, dropping message', { phoneNumberId });
-      return;
-    }
-    const merchantId = merchant._id.toString();
+    logger.info('Parsed WhatsApp incoming message', { from: maskPhone(parsed.from), type: parsed.type, merchantId });
 
     // --- resolve the order WITHIN this merchant only ---
     const result = await rescueMatchingService.resolveInbound(merchantId, parsed.from);
 
     if (result.ambiguous) {
-      const waConfig = merchant.whatsappConfig?.accessToken ? merchant.whatsappConfig : undefined;
+      // Reply from the merchant's own number with the DECRYPTED token (the stored value is ciphertext).
+      // Always pass the merchant's config (never `undefined`, which would mean the platform number).
+      const waConfig = {
+        phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
+        accessToken: merchant.whatsappConfig?.accessToken ? encryptionService.decrypt(merchant.whatsappConfig.accessToken) : undefined,
+        businessAccountId: merchant.whatsappConfig?.businessAccountId,
+      };
       await whatsAppService.sendText(parsed.from, rescueMatchingService.disambiguationMessage(result.candidates!), waConfig);
       await redisConnection.set(`wa_disambig:${merchantId}:${normalizeIndianPhone(parsed.from)}`, JSON.stringify(result.candidates), 'EX', 600);
       return;
@@ -120,7 +142,9 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
     await dispatchOrder(result.order, parsed);
   } catch (err: any) {
-    logger.error('Error handling incoming WhatsApp webhook event', { error: err.message });
+    logger.error('Error handling incoming WhatsApp webhook event', { error: err.message, merchantId });
+    // Processing failed after ack: release the claim so Meta's retry can be processed.
+    await IdempotencyGuard.release(idempotencyKey);
   }
 });
 

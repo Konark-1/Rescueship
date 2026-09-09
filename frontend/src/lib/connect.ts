@@ -23,7 +23,7 @@ export const connectApi = {
   state: (t: string) => call(t, '/state'),
   shopifyUrl: (t: string, shop: string) => call(t, `/shopify/url?shop=${encodeURIComponent(shop)}`),
   shopifyDemoConnect: (t: string, shop: string) => call(t, '/shopify/demo-connect', { shop }),
-  shopifyToken: (t: string, shop: string, accessToken: string) => call(t, '/shopify/token', { shop, accessToken }),
+  shopifyToken: (t: string, shop: string, accessToken: string, apiSecret: string) => call(t, '/shopify/token', { shop, accessToken, apiSecret }),
   whatsappSignup: (t: string, code: string, businessId?: string) => call(t, '/whatsapp/signup', { code, businessId }),
   whatsappTemplates: (t: string) => call(t, '/whatsapp/templates/status'),
   testPulse: (t: string) => call(t, '/whatsapp/test-pulse', {}),

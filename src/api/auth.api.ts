@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
+import crypto from 'crypto';
 import { Merchant } from '../models';
 import { generateToken, AuthenticatedRequest, authenticateToken } from '../middleware/auth';
-import { loginLimiter } from '../middleware/rateLimiter';
+import { loginLimiter, passwordResetLimiter } from '../middleware/rateLimiter';
 import { logger } from '../utils/logger';
 import { OAuth2Client } from 'google-auth-library';
 import { SecurityAlertService } from '../services/security-alert.service';
@@ -10,58 +11,51 @@ import { emailService } from '../services/email.service';
 const router = Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
+const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+
+function isValidPassword(password: unknown): password is string {
+  return typeof password === 'string' && password.length >= MIN_PASSWORD_LENGTH && password.length <= MAX_PASSWORD_LENGTH;
+}
+
+function normalizeEmail(email: unknown): string | null {
+  if (typeof email !== 'string') return null;
+  const clean = email.toLowerCase().trim();
+  if (!clean || clean.length > 254 || !clean.includes('@')) return null;
+  return clean;
+}
+
+function hashResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
 /**
  * POST /api/auth/register
  * Merchant Signup
+ *
+ * SECURITY: There is intentionally NO "setupPassword" branch here. Setting a
+ * password on an existing (Google-linked) account is an account-recovery
+ * action and must go through the emailed reset token flow below.
  */
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
-  const { name, email, password, platform, setupPassword } = req.body;
+  const { name, email, password, platform } = req.body ?? {};
 
-  if (!email) {
-    res.status(400).json({ error: 'Email is required' });
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) {
+    res.status(400).json({ error: 'A valid email is required' });
     return;
   }
 
-  const cleanEmail = email.toLowerCase().trim();
-
   try {
-    const existing = await Merchant.findOne({ email: cleanEmail });
+    const existing = await Merchant.findOne({ email: cleanEmail }).select('_id googleId');
     if (existing) {
-      // If account is linked with Google:
       if (existing.googleId) {
-        if (setupPassword) {
-          if (!password || password.length < 8) {
-            res.status(400).json({ error: 'Password must be at least 8 characters long' });
-            return;
-          }
-          existing.password = password;
-          if (name && (!existing.name || existing.name === 'Google User')) {
-            existing.name = name;
-          }
-          await existing.save();
-
-          const token = generateToken(existing._id.toString(), existing.tokenVersion ?? 1);
-          logger.info('Password set/updated for Google account via register', { merchantId: existing._id });
-
-          res.status(200).json({
-            message: 'Password set successfully! Logged in.',
-            token,
-            merchant: {
-              id: existing._id,
-              name: existing.name,
-              email: existing.email,
-              platform: existing.platform,
-              onboardingStatus: existing.onboardingStatus,
-            },
-          });
-          return;
-        }
-
         res.status(409).json({
-          error: 'An account with this email was registered using Google. Try logging in with Google, or set up a password.',
+          error: 'An account with this email was registered using Google. Sign in with Google, or use "Forgot password" to set a password.',
           code: 'GOOGLE_ACCOUNT_EXISTS',
           hasGoogleAuth: true,
-          canSetupPassword: true,
+          canSetupPassword: false,
         });
         return;
       }
@@ -73,18 +67,24 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    if (!name || !password) {
+    if (!name || typeof name !== 'string' || !password) {
       res.status(400).json({ error: 'Missing required fields: name, password' });
       return;
     }
 
-    if (password.length < 8) {
-      res.status(400).json({ error: 'Password must be at least 8 characters long' });
+    if (!isValidPassword(password)) {
+      res.status(400).json({ error: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters long` });
+      return;
+    }
+
+    const allowedPlatforms = ['shopify', 'woocommerce', 'custom'];
+    if (platform !== undefined && !allowedPlatforms.includes(platform)) {
+      res.status(400).json({ error: 'Invalid platform' });
       return;
     }
 
     const merchant = await Merchant.create({
-      name,
+      name: name.trim().slice(0, 120),
       email: cleanEmail,
       password,
       platform: platform || 'custom',
@@ -128,71 +128,38 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
  * Merchant Login
  */
 router.post('/login', loginLimiter, async (req: Request, res: Response): Promise<void> => {
-  const { email, password, setupPassword } = req.body;
+  const { email, password } = req.body ?? {};
 
-  if (!email || !password) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail || typeof password !== 'string' || !password) {
     res.status(400).json({ error: 'Email and password are required' });
     return;
   }
 
-  const cleanEmail = email.toLowerCase().trim();
-
   try {
     const merchant = await Merchant.findOne({ email: cleanEmail });
     if (!merchant) {
+      // Run a dummy compare so timing does not reveal whether the email exists.
+      await Merchant.dummyCompare(password);
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
 
-    // Check if account is linked to Google
-    if (merchant.googleId) {
-      if (setupPassword) {
-        if (!password || password.length < 8) {
-          res.status(400).json({ error: 'Password must be at least 8 characters long' });
-          return;
-        }
-        merchant.password = password;
-        await merchant.save();
-
-        const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
-        logger.info('Password set/updated for Google user on login', { merchantId: merchant._id });
-
-        res.status(200).json({
-          message: 'Password set successfully! Logged in.',
-          token,
-          merchant: {
-            id: merchant._id,
-            name: merchant.name,
-            email: merchant.email,
-            platform: merchant.platform,
-            onboardingStatus: merchant.onboardingStatus,
-          },
-        });
-        return;
-      }
-
-      if (!merchant.password) {
-        res.status(401).json({
-          error: 'This account was registered using Google. Try logging in with Google, or set up a password.',
-          code: 'GOOGLE_ACCOUNT_NO_PASSWORD',
-          hasGoogleAuth: true,
-          canSetupPassword: true,
-        });
-        return;
-      }
+    // Google-linked account with no password yet: direct to Google or reset flow.
+    // Note: we deliberately do NOT allow the caller to set a password here.
+    if (merchant.googleId && !merchant.password) {
+      await Merchant.dummyCompare(password);
+      res.status(401).json({
+        error: 'This account was registered using Google. Sign in with Google, or use "Forgot password" to set a password.',
+        code: 'GOOGLE_ACCOUNT_NO_PASSWORD',
+        hasGoogleAuth: true,
+        canSetupPassword: false,
+      });
+      return;
     }
 
     const isMatch = await merchant.comparePassword(password);
     if (!isMatch) {
-      if (merchant.googleId) {
-        res.status(401).json({
-          error: 'Incorrect password. This account is linked to Google — you can sign in with Google or set this password below.',
-          code: 'GOOGLE_ACCOUNT_PASSWORD_MISMATCH',
-          hasGoogleAuth: true,
-          canSetupPassword: true,
-        });
-        return;
-      }
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }
@@ -357,15 +324,15 @@ router.post('/logout', authenticateToken, async (req: AuthenticatedRequest, res:
  */
 router.post('/change-password', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
-  const { currentPassword, newPassword } = req.body;
+  const { currentPassword, newPassword } = req.body ?? {};
 
-  if (!currentPassword || !newPassword) {
+  if (typeof currentPassword !== 'string' || !currentPassword || !newPassword) {
     res.status(400).json({ error: 'Current and new password are required' });
     return;
   }
 
-  if (newPassword.length < 8) {
-    res.status(400).json({ error: 'New password must be at least 8 characters long' });
+  if (!isValidPassword(newPassword)) {
+    res.status(400).json({ error: `New password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters long` });
     return;
   }
 
@@ -373,6 +340,12 @@ router.post('/change-password', authenticateToken, async (req: AuthenticatedRequ
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) {
       res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+
+    // Google-only accounts (no password) must use the reset-token flow to set one.
+    if (!merchant.password) {
+      res.status(400).json({ error: 'No password is set on this account. Use "Forgot password" to set one.', code: 'NO_PASSWORD_SET' });
       return;
     }
 
@@ -385,6 +358,8 @@ router.post('/change-password', authenticateToken, async (req: AuthenticatedRequ
     merchant.password = newPassword;
     merchant.tokenVersion = (merchant.tokenVersion ?? 1) + 1;
     await merchant.save();
+    // Invalidate any outstanding reset token once the password has been changed.
+    await Merchant.updateOne({ _id: merchant._id }, { $unset: { passwordReset: 1 } });
 
     const newToken = generateToken(merchant._id.toString(), merchant.tokenVersion);
     logger.info('Password changed successfully and older sessions revoked', { merchantId });
@@ -396,6 +371,107 @@ router.post('/change-password', authenticateToken, async (req: AuthenticatedRequ
   } catch (err: any) {
     logger.error('Change password failed', { merchantId, error: err.message });
     res.status(500).json({ error: 'Failed to change password' });
+  }
+});
+
+/**
+ * POST /api/auth/forgot-password
+ * Issues a single-use, short-lived reset token delivered to the account email.
+ * Always responds 200 to avoid account enumeration. This is the ONLY way to
+ * set a password on an account that does not have one (e.g. Google signups).
+ */
+router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
+  const cleanEmail = normalizeEmail(req.body?.email);
+  const genericResponse = { message: 'If an account exists for that email, a password reset link has been sent.' };
+
+  if (!cleanEmail) {
+    res.status(200).json(genericResponse);
+    return;
+  }
+
+  try {
+    const merchant = await Merchant.findOne({ email: cleanEmail }).select('_id name email');
+    if (merchant) {
+      const rawToken = crypto.randomBytes(32).toString('base64url');
+      const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+
+      await Merchant.updateOne(
+        { _id: merchant._id },
+        { $set: { 'passwordReset.tokenHash': hashResetToken(rawToken), 'passwordReset.expiresAt': expiresAt } }
+      );
+
+      // Never log the raw token; the email is the only channel that receives it.
+      void emailService.sendPasswordResetEmail(merchant.email, rawToken, merchant.name).catch((err: any) => {
+        logger.error('Failed to dispatch password reset email', { merchantId: merchant._id, error: err.message });
+      });
+      logger.info('Password reset token issued', { merchantId: merchant._id });
+    }
+
+    res.status(200).json(genericResponse);
+  } catch (err: any) {
+    logger.error('Forgot password failed', { error: err.message });
+    res.status(200).json(genericResponse);
+  }
+});
+
+/**
+ * POST /api/auth/reset-password
+ * Consumes a reset token atomically (single use), sets the password and
+ * revokes every existing session via tokenVersion.
+ */
+router.post('/reset-password', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
+  const { token, email, newPassword } = req.body ?? {};
+  const cleanEmail = normalizeEmail(email);
+
+  if (!cleanEmail || typeof token !== 'string' || token.length < 32 || token.length > 128) {
+    res.status(400).json({ error: 'Invalid or expired reset token' });
+    return;
+  }
+  if (!isValidPassword(newPassword)) {
+    res.status(400).json({ error: `Password must be between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters long` });
+    return;
+  }
+
+  try {
+    const tokenHash = hashResetToken(token);
+    // Atomic claim: the token is cleared in the same operation that matches it,
+    // so two concurrent requests cannot both succeed.
+    const merchant = await Merchant.findOneAndUpdate(
+      {
+        email: cleanEmail,
+        'passwordReset.tokenHash': tokenHash,
+        'passwordReset.expiresAt': { $gt: new Date() },
+      },
+      { $unset: { passwordReset: 1 } },
+      { new: true }
+    );
+
+    if (!merchant) {
+      res.status(400).json({ error: 'Invalid or expired reset token' });
+      return;
+    }
+
+    merchant.password = newPassword;
+    merchant.tokenVersion = (merchant.tokenVersion ?? 1) + 1;
+    await merchant.save();
+
+    logger.info('Password reset completed; all prior sessions revoked', { merchantId: merchant._id });
+
+    const newToken = generateToken(merchant._id.toString(), merchant.tokenVersion);
+    res.status(200).json({
+      message: 'Password reset successfully. All previous sessions have been invalidated.',
+      token: newToken,
+      merchant: {
+        id: merchant._id,
+        name: merchant.name,
+        email: merchant.email,
+        platform: merchant.platform,
+        onboardingStatus: merchant.onboardingStatus,
+      },
+    });
+  } catch (err: any) {
+    logger.error('Reset password failed', { error: err.message });
+    res.status(500).json({ error: 'Failed to reset password' });
   }
 });
 

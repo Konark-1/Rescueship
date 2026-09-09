@@ -57,6 +57,52 @@ export class WhatsAppService {
   }
 
   /**
+   * Simulation is an explicit opt-in, never an implicit side effect of an error.
+   * - NODE_ENV=test: always simulated (unit tests mock nothing external).
+   * - WHATSAPP_SIMULATE=true: local dev without a real WABA.
+   * - A dummy_ token is a marker for seeded dev/sandbox merchants.
+   * Production can never simulate, regardless of flags.
+   */
+  private shouldSimulate(accessToken?: string): boolean {
+    if (process.env.NODE_ENV === 'production') return false;
+    if (process.env.NODE_ENV === 'test') return true;
+    if (process.env.WHATSAPP_SIMULATE === 'true') return true;
+    return !!accessToken && accessToken.startsWith('dummy_');
+  }
+
+  private simulatedResponse(to: string): WhatsAppResponse {
+    return {
+      messaging_product: 'whatsapp',
+      contacts: [{ input: to, wa_id: to }],
+      messages: [{ id: `wamid_sim_${Date.now()}` }],
+    };
+  }
+
+  /**
+   * Resolve the sending identity. Customer-facing sends MUST come from the merchant's
+   * own number: falling back to the platform WABA would deliver a tenant's message from
+   * RescueShip's identity (cross-tenant leak) and burn the platform's quality rating.
+   * The platform number is used only when the caller passes no config at all
+   * (internal/ops sends such as owner alerts).
+   */
+  private resolveCredentials(merchantConfig?: WhatsAppConfig): { phoneNumberId: string; accessToken: string } {
+    if (merchantConfig) {
+      const phoneNumberId = merchantConfig.phoneNumberId;
+      const accessToken = merchantConfig.accessToken;
+      if (!phoneNumberId || !accessToken) {
+        if (this.shouldSimulate(accessToken)) return { phoneNumberId: phoneNumberId || 'simulated', accessToken: accessToken || 'dummy_sim' };
+        throw new Error('WhatsApp is not connected for this merchant (missing phoneNumberId or accessToken)');
+      }
+      return { phoneNumberId, accessToken };
+    }
+    if (!this.defaultPhoneNumberId || !this.defaultAccessToken || this.defaultAccessToken.startsWith('your-')) {
+      if (this.shouldSimulate(this.defaultAccessToken)) return { phoneNumberId: 'simulated', accessToken: 'dummy_sim' };
+      throw new Error('Platform WhatsApp credentials are not configured');
+    }
+    return { phoneNumberId: this.defaultPhoneNumberId, accessToken: this.defaultAccessToken };
+  }
+
+  /**
    * Send a plain text message.
    */
   public async sendText(
@@ -80,9 +126,13 @@ export class WhatsAppService {
   ): Promise<WhatsAppResponse> {
     const map = (merchantConfig as any)?.templateMap || {};
     const registeredName = map[templateName] || templateName;
-    const phoneNumberId = merchantConfig?.phoneNumberId || this.defaultPhoneNumberId;
-    const accessToken = merchantConfig?.accessToken || this.defaultAccessToken;
+    const { phoneNumberId, accessToken } = this.resolveCredentials(merchantConfig);
     const version = this.defaultApiVersion;
+
+    if (this.shouldSimulate(accessToken)) {
+      logger.warn('[WhatsApp Simulation] Template simulated', { to, templateName, language });
+      return this.simulatedResponse(to);
+    }
 
     const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
 
@@ -109,18 +159,6 @@ export class WhatsAppService {
       });
       return response.data;
     } catch (error: any) {
-      if (process.env.NODE_ENV === 'development' || !accessToken || accessToken.startsWith('dummy_')) {
-        logger.warn('[WhatsApp Simulation] Template simulated for development testing', {
-          to,
-          templateName,
-          language,
-        });
-        return {
-          messaging_product: 'whatsapp',
-          contacts: [{ input: to, wa_id: to }],
-          messages: [{ id: `wamid_sim_${Date.now()}` }],
-        };
-      }
       logger.error('Failed to send WhatsApp template message', {
         to,
         templateName,
@@ -141,9 +179,13 @@ export class WhatsAppService {
   ): Promise<WhatsAppResponse> {
     assertSafeCopy(bodyText); // R4 Boundary Guard
 
-    const phoneNumberId = merchantConfig?.phoneNumberId || this.defaultPhoneNumberId;
-    const accessToken = merchantConfig?.accessToken || this.defaultAccessToken;
+    const { phoneNumberId, accessToken } = this.resolveCredentials(merchantConfig);
     const version = this.defaultApiVersion;
+
+    if (this.shouldSimulate(accessToken)) {
+      logger.warn('[WhatsApp Simulation] Message simulated', { to, bodyText, buttonCount: (buttons || []).length });
+      return this.simulatedResponse(to);
+    }
 
     const url = `https://graph.facebook.com/${version}/${phoneNumberId}/messages`;
 
@@ -184,18 +226,6 @@ export class WhatsAppService {
       });
       return response.data;
     } catch (error: any) {
-      if (process.env.NODE_ENV === 'development' || !accessToken || accessToken.startsWith('dummy_')) {
-        logger.warn('[WhatsApp Simulation] Message simulated and logged for development testing', {
-          to,
-          bodyText,
-          buttonCount: (buttons || []).length,
-        });
-        return {
-          messaging_product: 'whatsapp',
-          contacts: [{ input: to, wa_id: to }],
-          messages: [{ id: `wamid_sim_${Date.now()}` }],
-        };
-      }
       logger.error('Failed to send WhatsApp message', {
         to,
         error: error.response?.data || error.message,

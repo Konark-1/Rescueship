@@ -4,6 +4,7 @@ import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
 import { sandboxService } from '../services/sandbox.service';
 import { Merchant } from '../models/Merchant';
 import { whatsAppService } from '../services/whatsapp.service';
+import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -57,10 +58,29 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
       await merchant.save();
     }
 
-    const ownerPhone = (merchant as any).ownerPhone || req.body.customerPhone || '+919876543210';
-    if (!(merchant as any).ownerPhone) {
-      (merchant as any).ownerPhone = ownerPhone;
-      await merchant.save();
+    // Recipient is ONLY the owner phone previously saved through the validated
+    // /api/connect/owner-phone route. Never accept a number from this request —
+    // otherwise any free account becomes a WhatsApp spam relay.
+    const ownerPhone: string | undefined = (merchant as any).ownerPhone;
+    if (!ownerPhone) {
+      return res.status(400).json({ success: false, error: 'Set your own mobile number first (Onboarding → WhatsApp → test number).', code: 'OWNER_PHONE_REQUIRED' });
+    }
+
+    // Test messages must go out through the MERCHANT's own connected WhatsApp number,
+    // not the platform's WABA/token.
+    const waCfg = (merchant as any).whatsappConfig;
+    if (!waCfg?.phoneNumberId || !waCfg?.accessToken) {
+      return res.status(400).json({ success: false, error: 'Connect your WhatsApp Business number before sending test rescues.', code: 'WHATSAPP_NOT_CONNECTED' });
+    }
+    let merchantWaConfig: { phoneNumberId: string; accessToken: string; businessAccountId?: string };
+    try {
+      merchantWaConfig = {
+        phoneNumberId: waCfg.phoneNumberId,
+        accessToken: encryptionService.decrypt(waCfg.accessToken),
+        businessAccountId: waCfg.businessAccountId,
+      };
+    } catch {
+      return res.status(400).json({ success: false, error: 'WhatsApp credentials need to be reconnected.', code: 'WHATSAPP_RECONNECT' });
     }
 
     // Generate simulated NDR
@@ -82,11 +102,12 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
               { type: 'text', text: simNDR.courier },
             ],
           },
-        ]
+        ],
+        merchantWaConfig
       );
       await sandboxService.recordTestRescue(merchantId, true);
     } catch (err: any) {
-      logger.warn('[Sandbox Simulation] WhatsApp send failed', { phone: ownerPhone, orderId: simNDR.orderId, error: err.message });
+      logger.warn('[Sandbox Simulation] WhatsApp send failed', { merchantId, orderId: simNDR.orderId, error: err.message });
       whatsappResult = { success: false, error: err.message };
       await sandboxService.recordTestRescue(merchantId, false);
     }

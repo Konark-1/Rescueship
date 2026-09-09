@@ -20,6 +20,7 @@ const tabs = [
   { id: 'carrier', label: 'Carrier' },
   { id: 'whatsapp', label: 'WhatsApp' },
   { id: 'payment', label: 'Payments' },
+  { id: 'ai', label: 'AI Provider' },
   { id: 'features', label: 'Feature toggles' }
 ];
 
@@ -191,6 +192,12 @@ export const SettingsPage: React.FC = () => {
               </TabSection>
             )}
 
+            {activeTab === 'ai' && (
+              <TabSection key="ai" title="AI provider" desc="Select which AI model powers smart responses and image analysis.">
+                <AiProviderSelector />
+              </TabSection>
+            )}
+
             {activeTab === 'features' && (
               <TabSection key="features" title="Feature toggles" desc="Global behavior switches for the rescue engine.">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
@@ -240,6 +247,132 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 };
+
+/* ── AI Provider Selector ── */
+const AiProviderSelector: React.FC = () => {
+  const [providers, setProviders] = useState<{ kieAi: boolean; gemini: boolean }>({ kieAi: false, gemini: false });
+  const [activeProvider, setActiveProvider] = useState<string>('kieAi');
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const res = await api.get('/api/settings/ai-providers');
+        setProviders(res.data.providers);
+        setActiveProvider(res.data.activeProvider || 'kieAi');
+      } catch {
+        // Endpoint not available yet — show both as unavailable
+        setProviders({ kieAi: false, gemini: false });
+      }
+    };
+    fetchProviders();
+  }, []);
+
+  const handleSwitch = async (provider: string) => {
+    setSaving(true);
+    setMessage('');
+    try {
+      await api.put('/api/settings', { settings: { aiProvider: provider } });
+      setActiveProvider(provider);
+      setMessage('AI provider updated');
+    } catch {
+      setMessage('Failed to update');
+    } finally {
+      setSaving(false);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+      <p style={{ fontSize: '0.82rem', color: 'var(--text-3)', marginBottom: 'var(--space-2)' }}>
+        {providers.kieAi || providers.gemini
+          ? 'Available providers based on server configuration:'
+          : 'No AI providers configured on the server. Add API keys to the backend .env file.'}
+      </p>
+
+      {/* KIE AI (GPT-6) */}
+      <ProviderCard
+        name="KIE AI · GPT-6 Astra"
+        id="kieAi"
+        configured={providers.kieAi}
+        active={activeProvider === 'kieAi'}
+        disabled={saving}
+        onSelect={() => handleSwitch('kieAi')}
+      />
+
+      {/* Gemini */}
+      <ProviderCard
+        name="Google Gemini · 2.5 Flash"
+        id="gemini"
+        configured={providers.gemini}
+        active={activeProvider === 'gemini'}
+        disabled={saving}
+        onSelect={() => handleSwitch('gemini')}
+      />
+
+      {message && (
+        <p style={{ fontSize: '0.8rem', color: message.includes('Failed') ? 'var(--rose)' : 'var(--emerald)', fontFamily: 'var(--font-mono)' }}>
+          {message}
+        </p>
+      )}
+    </div>
+  );
+};
+
+interface ProviderCardProps {
+  name: string;
+  id: string;
+  configured: boolean;
+  active: boolean;
+  disabled: boolean;
+  onSelect: () => void;
+}
+
+const ProviderCard: React.FC<ProviderCardProps> = ({ name, id, configured, active, disabled, onSelect }) => (
+  <label
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      padding: 'var(--space-3) var(--space-4)',
+      background: active ? 'rgba(79,70,229,0.08)' : 'var(--bg-input)',
+      border: `1px solid ${active ? 'var(--indigo)' : configured ? 'var(--border-color)' : 'rgba(255,255,255,0.04)'}`,
+      borderRadius: 8,
+      cursor: configured ? 'pointer' : 'not-allowed',
+      opacity: configured ? 1 : 0.5,
+      transition: 'all 0.15s ease',
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
+      <div
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: configured ? (active ? 'var(--emerald)' : 'var(--text-3)') : 'var(--rose)',
+          flexShrink: 0,
+        }}
+      />
+      <div>
+        <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>{name}</span>
+        <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-3)', marginTop: 2 }}>
+          {configured ? (active ? 'Active' : 'Available') : 'Not configured'}
+        </span>
+      </div>
+    </div>
+    <input
+      type="radio"
+      name="aiProvider"
+      value={id}
+      checked={active}
+      disabled={disabled || !configured}
+      onChange={onSelect}
+      style={{ accentColor: 'var(--indigo)', width: 16, height: 16 }}
+    />
+  </label>
+);
 
 /* ── helpers ── */
 const TabSection: React.FC<{ title: string; desc: string; children: React.ReactNode }> = ({ title, desc, children }) => (

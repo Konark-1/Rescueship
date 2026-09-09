@@ -191,7 +191,7 @@ export class LogisticsService {
     try {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
       // Shiprocket NDR action update endpoint
-      const url = 'https://api.shiprocket.in/v1/external/ndr/action';
+      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
       
       // Map common reason to Shiprocket NDR action codes (1 = Reattempt, etc.)
       const payload = {
@@ -221,7 +221,7 @@ export class LogisticsService {
   private async updateAddressShiprocket(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
     try {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-      const url = 'https://api.shiprocket.in/v1/external/ndr/action';
+      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
 
       const payload = {
         awb: params.awb,
@@ -253,7 +253,7 @@ export class LogisticsService {
 
   private async rescheduleClickPost(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
     try {
-      const apiToken = carrierConfig?.apiToken;
+      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
       if (!apiToken) {
         throw new Error('ClickPost API Token is not configured');
       }
@@ -288,7 +288,7 @@ export class LogisticsService {
 
   private async updateAddressClickPost(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
     try {
-      const apiToken = carrierConfig?.apiToken;
+      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
       if (!apiToken) {
         throw new Error('ClickPost API Token is not configured');
       }
@@ -333,11 +333,15 @@ export class LogisticsService {
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
-      // Delhivery requires a date, if missing fallback to tomorrow
+      // Delhivery NDR API: POST /api/p/update with { data: [{ waybill, act, ... }] }.
+      // act = RE-ATTEMPT (retry next working day) | DEFER_DLV (defer to a date, needs deferred_date).
+      const deferredDate = sanitizeDeferredDate(params.newDate);
       const payload = {
-        waybill: params.awb,
-        action: 'reattempt', // reattempt
-        deferred_date: sanitizeDeferredDate(params.newDate),
+        data: [
+          deferredDate
+            ? { waybill: params.awb, act: 'DEFER_DLV', deferred_date: deferredDate }
+            : { waybill: params.awb, act: 'RE-ATTEMPT' },
+        ],
       };
 
       const response = await axios.post(url, payload, {
@@ -345,10 +349,13 @@ export class LogisticsService {
           Authorization: `Token ${apiToken}`,
           'Content-Type': 'application/json',
         },
+        timeout: 15000,
       });
+      const first = Array.isArray(response.data?.data) ? response.data.data[0] : response.data;
+      const ok = response.data?.status === 'success' || first?.status === true || first?.status === 'success' || response.data?.request_id !== undefined;
       return {
-        success: response.data.status === 'success',
-        message: response.data.message || 'Updated Delhivery NDR',
+        success: !!ok,
+        message: first?.message || response.data?.message || 'Updated Delhivery NDR',
         carrierResponse: response.data,
       };
     } catch (error: any) {
@@ -368,13 +375,18 @@ export class LogisticsService {
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
+      // act = EDIT_DETAILS lets the consignee address/phone be corrected on an undelivered shipment.
       const payload = {
-        waybill: params.awb,
-        action: 'address_update',
-        address: sanitizeString(params.address, 200),
-        city: sanitizeString(params.city, 50),
-        pincode: sanitizePincode(params.pincode),
-        phone: params.phone,
+        data: [
+          {
+            waybill: params.awb,
+            act: 'EDIT_DETAILS',
+            add: sanitizeString(params.address, 200),
+            city: sanitizeString(params.city, 50),
+            pin: sanitizePincode(params.pincode),
+            phone: params.phone,
+          },
+        ],
       };
 
       const response = await axios.post(url, payload, {
@@ -382,10 +394,13 @@ export class LogisticsService {
           Authorization: `Token ${apiToken}`,
           'Content-Type': 'application/json',
         },
+        timeout: 15000,
       });
+      const first = Array.isArray(response.data?.data) ? response.data.data[0] : response.data;
+      const ok = response.data?.status === 'success' || first?.status === true || first?.status === 'success' || response.data?.request_id !== undefined;
       return {
-        success: response.data.status === 'success',
-        message: response.data.message || 'Updated Delhivery address',
+        success: !!ok,
+        message: first?.message || response.data?.message || 'Updated Delhivery address',
         carrierResponse: response.data,
       };
     } catch (error: any) {

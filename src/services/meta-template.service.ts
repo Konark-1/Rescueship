@@ -1,4 +1,4 @@
-/**
+﻿/**
  * meta-template.service.ts
  * ─────────────────────────────────────────────────────────────
  * Submits the canonical rescue templates to the merchant's WABA and
@@ -17,6 +17,12 @@ import { enqueueTemplatePolls } from '../jobs/template-poller.job';
 import { logger } from '../utils/logger';
 
 const G = 'https://graph.facebook.com/v22.0';
+/**
+ * Meta requires URL buttons to have a FIXED host with at most one trailing {{1}}
+ * variable. We host a tiny redirector so the payment link (Razorpay/Cashfree,
+ * different hosts) can be passed as the dynamic suffix.
+ */
+const PAY_REDIRECT_BASE = `${(process.env.API_PUBLIC_URL || process.env.API_BASE_URL || 'https://app.rescueship.io').replace(/\/$/, '')}/r/pay/`;
 
 interface TplDef { name: string; category: 'UTILITY' | 'MARKETING'; language: string; body: string; buttons?: { type: 'QUICK_REPLY' | 'URL'; text: string; url?: string }[]; }
 
@@ -27,10 +33,10 @@ export const TEMPLATE_DEFS: TplDef[] = [
     buttons: [ { type: 'QUICK_REPLY', text: "Yes I'm home" }, { type: 'QUICK_REPLY', text: 'Reschedule' }, { type: 'QUICK_REPLY', text: 'Share location' }, { type: 'QUICK_REPLY', text: 'Cancel order' } ] },
   { name: 'cod_confirm_en', category: 'UTILITY', language: 'en',   // utility-first default (L-3)
     body: 'Hi {{1}}, confirm order {{2}} by paying online to lock your delivery slot. No cash needed at the door.',
-    buttons: [ { type: 'URL', text: 'Pay Now', url: '{{3}}' } ] },
+    buttons: [ { type: 'URL', text: 'Pay Now', url: `${PAY_REDIRECT_BASE}{{1}}` } ] },
   { name: 'cod_convert_en', category: 'MARKETING', language: 'en', // incentive variant (costlier)
     body: 'Hi {{1}}, pay online for order {{2}} now and get {{3}} off. Tap Pay Now to confirm.',
-    buttons: [ { type: 'URL', text: 'Pay Now', url: '{{4}}' } ] },
+    buttons: [ { type: 'URL', text: 'Pay Now', url: `${PAY_REDIRECT_BASE}{{1}}` } ] },
   { name: 'address_pin_en', category: 'UTILITY', language: 'en',
     body: 'Hi {{1}}, please share your exact delivery location pin for order {{2}} so the driver can find you.' },
   { name: 'rescue_done_en', category: 'UTILITY', language: 'en',
@@ -43,7 +49,7 @@ function buildComponents(d: TplDef) {
   const comps: any[] = [{ type: 'BODY', text: d.body }];
   if (d.buttons?.length) {
     comps.push({ type: 'BUTTONS', buttons: d.buttons.map((b) =>
-      b.type === 'QUICK_REPLY' ? { type: 'QUICK_REPLY', text: b.text } : { type: 'URL', text: b.text, url: b.url, example: [b.url?.replace(/{{\d+}}/g, 'https://pay.example.com')] }) });
+      b.type === 'QUICK_REPLY' ? { type: 'QUICK_REPLY', text: b.text } : { type: 'URL', text: b.text, url: b.url, example: [b.url?.replace(/{{\d+}}/g, 'plink_example123')] }) });
   }
   return comps;
 }
@@ -82,19 +88,17 @@ export class MetaTemplateService {
     if (!(merchant as any).whatsappConfig) (merchant as any).whatsappConfig = {};
     (merchant as any).whatsappConfig.templates = results;
     (merchant as any).connections = { ...((merchant as any).connections || {}), whatsapp: { ...((merchant as any).connections?.whatsapp || {}), status: 'templates_pending' } };
+    merchant.markModified('whatsappConfig');
+    merchant.markModified('connections');
     await merchant.save();
 
-    // Enqueue status polling for submitted templates
+    // Enqueue status polling for submitted templates. The worker re-reads the token
+    // from the merchant record � never place a credential in Redis job data.
     const createdTemplates = results
       .filter((r) => r.status === 'PENDING')
-      .map((r) => ({ id: r.name, name: r.name }));
+      .map((r) => ({ name: r.name }));
     if (createdTemplates.length > 0) {
-      await enqueueTemplatePolls(
-        merchantId,
-        wabaId,
-        token,
-        createdTemplates
-      );
+      await enqueueTemplatePolls(merchantId, wabaId, createdTemplates);
     }
 
     return results;
@@ -118,6 +122,7 @@ export class MetaTemplateService {
     });
     if (!(merchant as any).whatsappConfig) (merchant as any).whatsappConfig = {};
     (merchant as any).whatsappConfig.templates = merged;
+    merchant.markModified('whatsappConfig');
     const allApproved = merged.every((m) => m.status === 'APPROVED');
     const anyRejected = merged.some((m) => m.status === 'REJECTED');
     (merchant as any).connections = {
@@ -127,6 +132,7 @@ export class MetaTemplateService {
         status: allApproved ? 'connected' : anyRejected ? 'templates_rejected' : 'templates_pending',
       },
     };
+    merchant.markModified('connections');
     await merchant.save();
     return { status: (merchant as any).connections.whatsapp.status, templates: merged };
   }

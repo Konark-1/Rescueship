@@ -11,10 +11,16 @@
  *   app.use('/api', apiLimiter);
  */
 
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { createLogger } from '../config/logger';
 
 const logger = createLogger('rate-limiter');
+
+/** IP (IPv6-normalised) + target email, so both per-IP spraying and per-account spraying are throttled. */
+const ipPlusEmailKey = (req: any): string => {
+  const email = typeof req.body?.email === 'string' ? req.body.email.toLowerCase().trim().slice(0, 254) : '';
+  return `${ipKeyGenerator(req.ip || '')}|${email}`;
+};
 
 /**
  * Rate limiter for webhook endpoints.
@@ -99,11 +105,12 @@ export const credentialValidationLimiter = rateLimit({
  */
 export const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login attempts per window
+  max: 10, // Per IP + target email pair
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: ipPlusEmailKey,
   message: {
-    error: 'Too many login attempts from this IP. Please try again after 15 minutes.',
+    error: 'Too many login attempts. Please try again after 15 minutes.',
     retryAfterSeconds: 900,
   },
   handler: (req, res, next, options) => {
@@ -117,4 +124,25 @@ export const loginLimiter = rateLimit({
     return process.env.NODE_ENV === 'test';
   },
   skipSuccessfulRequests: false,
+});
+
+/**
+ * Limiter for forgot/reset password flows. Keyed on IP + email so that reset
+ * tokens cannot be brute-forced and inboxes cannot be flooded.
+ */
+export const passwordResetLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: ipPlusEmailKey,
+  message: {
+    error: 'Too many password reset attempts. Please try again later.',
+    retryAfterSeconds: 900,
+  },
+  handler: (req, res, next, options) => {
+    logger.warn('Password reset rate limit exceeded', { ip: req.ip, path: req.path });
+    res.status(429).json(options.message);
+  },
+  skip: (_req) => process.env.NODE_ENV === 'test',
 });

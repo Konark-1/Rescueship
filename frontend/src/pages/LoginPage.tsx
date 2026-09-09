@@ -19,12 +19,8 @@ const LoginPage: React.FC = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent, forceSetupPassword = false) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (forceSetupPassword && (!password || password.length < 8)) {
-      setError('Please enter a password with at least 8 characters in the password field first.');
-      return;
-    }
     setError('');
     setLoading(true);
     try {
@@ -32,7 +28,6 @@ const LoginPage: React.FC = () => {
         email,
         password,
         rememberMe,
-        setupPassword: forceSetupPassword,
       });
       const { token, merchant } = response.data;
       login(token, merchant);
@@ -94,17 +89,15 @@ const LoginPage: React.FC = () => {
             <span>Google Account Found</span>
           </div>
           <p className="google-warning-desc">
-            This account was registered using Google and doesn't have a password yet. You can sign in with Google directly, or set this password to enable email &amp; password sign-in.
+            This account was registered using Google and doesn't have a password yet. Sign in with Google directly, or set a password through the emailed reset link.
           </p>
           <div className="google-warning-actions">
-            <button
-              type="button"
+            <Link
+              to={`/forgot-password?email=${encodeURIComponent(email)}`}
               className="google-warning-setup-btn"
-              disabled={loading}
-              onClick={(e) => handleSubmit(e, true)}
             >
-              {loading ? 'Setting password…' : 'Set this password & Sign in'}
-            </button>
+              Email me a password setup link
+            </Link>
           </div>
         </motion.div>
       )}

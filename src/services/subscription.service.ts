@@ -17,7 +17,7 @@
  */
 import crypto from 'crypto';
 import axios from 'axios';
-import { Merchant } from '../models';
+import { Merchant, ProcessedPayment } from '../models';
 import { emailService } from './email.service';
 import { logger } from '../utils/logger';
 
@@ -25,11 +25,21 @@ export type Tier = 'starter' | 'growth' | 'scale';
 export type Cycle = 'quarterly' | 'semi' | 'annual';
 
 const BASE: Record<Tier, number> = { starter: 2999, growth: 8999, scale: 19999 };
-const LIMIT: Record<Tier, number> = { starter: 2000, growth: 10000, scale: 50000 };
+export const LIMIT: Record<Tier, number> = { starter: 2000, growth: 10000, scale: 50000 };
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
 const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.30 };
 const INTRO_OFF = 0.4;
 const PERIOD: Record<Cycle, 'monthly' | 'quarterly' | 'yearly'> = { quarterly: 'monthly', semi: 'monthly', annual: 'monthly' };
+
+export const TIERS: readonly Tier[] = ['starter', 'growth', 'scale'];
+export const CYCLES: readonly Cycle[] = ['quarterly', 'semi', 'annual'];
+/** Accept legacy 'semi_annual' stored values / old clients and map onto the canonical key. */
+export function normalizeCycle(c: unknown): Cycle | null {
+  if (c === 'semi_annual' || c === 'semi-annual' || c === 'half_yearly') return 'semi';
+  return (CYCLES as readonly string[]).includes(String(c)) ? (c as Cycle) : null;
+}
+export const isTier = (v: unknown): v is Tier => typeof v === 'string' && (TIERS as readonly string[]).includes(v);
+export const isCycle = (v: unknown): v is Cycle => typeof v === 'string' && (CYCLES as readonly string[]).includes(v);
 
 export function priceFor(tier: Tier, cycle: Cycle) {
   const base = BASE[tier];
@@ -38,12 +48,25 @@ export function priceFor(tier: Tier, cycle: Cycle) {
   return { introMonthly, renewMonthly, introUpfront: introMonthly * 3, renewalCharge: renewMonthly * MONTHS[cycle], months: MONTHS[cycle] };
 }
 
-const rz = axios.create({ baseURL: 'https://api.razorpay.com/v1', auth: { username: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy', password: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret' } });
+/** True when real Razorpay credentials are configured (no dummy placeholders). */
+export function razorpayConfigured(): boolean {
+  const id = process.env.RAZORPAY_KEY_ID || '';
+  const secret = process.env.RAZORPAY_KEY_SECRET || '';
+  return !!id && !!secret && !id.includes('dummy') && !secret.includes('dummy');
+}
+
+// No placeholder credentials: if Razorpay is not configured, every call fails loudly.
+const rz = axios.create({
+  baseURL: 'https://api.razorpay.com/v1',
+  timeout: 15000,
+  auth: { username: process.env.RAZORPAY_KEY_ID || '', password: process.env.RAZORPAY_KEY_SECRET || '' },
+});
 
 export class SubscriptionService {
   /** Build the upfront intro order + the deferred renewal subscription. */
   async createCheckout(merchantId: string, tier: Tier, cycle: Cycle) {
-    if (!BASE[tier]) throw new Error('Invalid tier');
+    if (!isTier(tier) || !isCycle(cycle)) throw new Error('Invalid tier or billing cycle');
+    if (!razorpayConfigured()) throw new Error('Billing is not configured on this deployment (RAZORPAY_KEY_ID/SECRET).');
     const p = priceFor(tier, cycle);
 
     let orderId: string;
@@ -77,74 +100,106 @@ export class SubscriptionService {
       'billing.status': 'pending_payment',
     }});
 
-    return { orderId, subscriptionId, amountInr: p.introUpfront * 100, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy' };
+    return { orderId, subscriptionId, amountInr: p.introUpfront * 100, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID };
   }
 
-  /** Verify Razorpay signature, then PROVISION the plan (this is the activation). */
-  async verifyAndProvision(merchantId: string, body: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string; tier: Tier; cycle: Cycle }) {
-    if (!process.env.RAZORPAY_KEY_SECRET) {
-      throw new Error('Razorpay key secret not configured on server');
+  /**
+   * Verify a Razorpay checkout and PROVISION the plan.
+   *
+   * Security model (each check is independent and required):
+   *   1. Signature HMAC(order_id|payment_id) proves Razorpay produced the pair.
+   *   2. order_id MUST equal the pending intro order stored for THIS merchant
+   *      (binds the payment to the tenant; prevents cross-merchant replay).
+   *   3. tier/cycle are taken from the stored intent, never from the client.
+   *   4. Payment is fetched from Razorpay and must be captured, INR, for the
+   *      exact expected amount, and belong to the same order. Fail closed if
+   *      Razorpay is unreachable.
+   *   5. payment_id is recorded in a unique collection → provision exactly once.
+   */
+  async verifyAndProvision(merchantId: string, body: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string; tier?: Tier; cycle?: Cycle }) {
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+    if (!razorpayConfigured() || !keySecret) {
+      throw new Error('Billing is not configured on this deployment');
     }
-    if (!body.razorpay_payment_id || !body.razorpay_order_id || !body.razorpay_signature) {
-      throw new Error('Missing Razorpay payment verification parameters');
+    const paymentId = typeof body.razorpay_payment_id === 'string' ? body.razorpay_payment_id : '';
+    const orderId = typeof body.razorpay_order_id === 'string' ? body.razorpay_order_id : '';
+    const signature = typeof body.razorpay_signature === 'string' ? body.razorpay_signature : '';
+    if (!paymentId || !orderId || !signature || !/^pay_[A-Za-z0-9]+$/.test(paymentId) || !/^order_[A-Za-z0-9]+$/.test(orderId)) {
+      throw new Error('Missing or malformed Razorpay payment verification parameters');
     }
-    const sig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${body.razorpay_order_id}|${body.razorpay_payment_id}`).digest('hex');
-    const a = Buffer.from(sig, 'hex'), b = Buffer.from(body.razorpay_signature, 'hex');
+
+    // (1) signature
+    const expectedSig = crypto.createHmac('sha256', keySecret).update(`${orderId}|${paymentId}`).digest('hex');
+    const a = Buffer.from(expectedSig, 'hex'), b = Buffer.from(signature, 'hex');
     if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) throw new Error('Invalid payment signature');
 
-    const p = priceFor(body.tier, body.cycle);
+    // (2)+(3) bind to this merchant's pending intent
+    const merchant = await Merchant.findById(merchantId).select('billing').lean();
+    const billing: any = (merchant as any)?.billing;
+    if (!merchant || !billing) throw new Error('Merchant not found');
+    if (!billing.introOrderId || billing.introOrderId !== orderId) {
+      logger.warn('Checkout verify rejected: order does not match pending intent', { merchantId, orderId });
+      throw new Error('This payment does not belong to a pending checkout for your account');
+    }
+    const tier = billing.pendingTier;
+    const cycle = billing.pendingCycle;
+    if (!isTier(tier) || !isCycle(cycle)) throw new Error('Pending checkout is missing plan details; start checkout again');
+    if (body.tier && body.tier !== tier) throw new Error('Plan mismatch with pending checkout');
+    if (body.cycle && body.cycle !== cycle) throw new Error('Cycle mismatch with pending checkout');
+
+    const p = priceFor(tier, cycle);
     const expectedPaise = p.introUpfront * 100;
 
-    // Verify actual payment amount with Razorpay API if live/test keys are present
-    if (
-      process.env.RAZORPAY_KEY_ID &&
-      process.env.RAZORPAY_KEY_SECRET &&
-      !process.env.RAZORPAY_KEY_ID.startsWith('rzp_test_dummy')
-    ) {
-      try {
-        const paymentRes = await rz.get(`/payments/${body.razorpay_payment_id}`);
-        const actualAmountPaise = paymentRes.data?.amount;
-        const paymentStatus = paymentRes.data?.status;
+    // (4) fetch payment; fail closed on any error
+    let payment: any;
+    try {
+      payment = (await rz.get(`/payments/${encodeURIComponent(paymentId)}`)).data;
+    } catch (apiErr: any) {
+      logger.error('Razorpay payment lookup failed during verification', { merchantId, paymentId, error: apiErr.response?.data || apiErr.message });
+      throw new Error('Payment verification is temporarily unavailable. Your payment is safe; please retry in a moment.');
+    }
+    if (payment?.order_id !== orderId) throw new Error('Payment does not belong to the checkout order');
+    if (payment?.status !== 'captured') throw new Error(`Payment is not captured (status: ${payment?.status || 'unknown'})`);
+    if (payment?.currency !== 'INR') throw new Error('Unexpected payment currency');
+    if (typeof payment?.amount !== 'number' || payment.amount !== expectedPaise) {
+      throw new Error(`Payment amount mismatch: expected ₹${expectedPaise / 100} for ${tier} (${cycle})`);
+    }
 
-        if (paymentStatus !== 'captured' && paymentStatus !== 'authorized') {
-          throw new Error(`Payment status is not captured: ${paymentStatus}`);
-        }
-
-        if (actualAmountPaise && actualAmountPaise < expectedPaise * 0.95) {
-          throw new Error(
-            `Payment amount mismatch: Expected ~₹${p.introUpfront} for ${body.tier} (${body.cycle}), but actual payment was ₹${actualAmountPaise / 100}`
-          );
-        }
-      } catch (apiErr: any) {
-        // If it's our own mismatch error, rethrow
-        if (apiErr.message?.startsWith('Payment amount mismatch') || apiErr.message?.startsWith('Payment status is not')) {
-          throw apiErr;
-        }
-        logger.warn('Could not verify payment amount with Razorpay API (network/test), falling back to signature check', {
-          error: apiErr.message,
-        });
+    // (5) one-shot: unique index rejects replays (same payment, any merchant)
+    try {
+      await ProcessedPayment.create({ provider: 'razorpay', externalId: paymentId, merchantId, kind: 'subscription_intro', amountPaise: payment.amount });
+    } catch (err: any) {
+      if (err?.code === 11000) {
+        logger.warn('Checkout verify replay rejected: payment already consumed', { merchantId, paymentId });
+        // Idempotent success for the legitimate owner re-submitting; hard fail for anyone else.
+        const prior = await ProcessedPayment.findOne({ provider: 'razorpay', externalId: paymentId }).select('merchantId').lean();
+        if (prior && prior.merchantId.toString() === merchantId) return this.status(merchantId);
+        throw new Error('This payment has already been used');
       }
+      throw err;
     }
 
     const now = new Date();
     const renewal = new Date(now.getTime() + 90 * 24 * 3600 * 1000);
-    const prev = await Merchant.findByIdAndUpdate(merchantId, { $set: {
-      'billing.plan': body.tier,
-      'billing.planOrderLimit': LIMIT[body.tier],
-      'billing.billingCycle': body.cycle,
-      'billing.cycleStartDate': now,
-      'billing.nextInvoiceDate': renewal,
-      'billing.renewMonthly': p.renewMonthly,
-      'billing.activatedAt': now,
-      'billing.status': 'active',
-      'billing.currentMonthOrders': 0,
-      'onboarding.completedAt': now,
-    }});
-    logger.info('Plan provisioned via self-serve checkout', { merchantId, tier: body.tier, cycle: body.cycle });
+    const prev = await Merchant.findOneAndUpdate(
+      { _id: merchantId, 'billing.introOrderId': orderId },
+      { $set: {
+        'billing.plan': tier,
+        'billing.planOrderLimit': LIMIT[tier],
+        'billing.billingCycle': cycle,
+        'billing.cycleStartDate': now,
+        'billing.nextInvoiceDate': renewal,
+        'billing.renewMonthly': p.renewMonthly,
+        'billing.activatedAt': now,
+        'billing.status': 'active',
+        'billing.currentMonthOrders': 0,
+        'onboarding.completedAt': now,
+      }, $unset: { 'billing.pendingTier': 1, 'billing.pendingCycle': 1, 'billing.introOrderId': 1 } }
+    );
+    logger.info('Plan provisioned via self-serve checkout', { merchantId, tier, cycle, paymentId });
     // Notify only on the FIRST activation — renewals/re-verifications stay silent.
     if (!(prev as any)?.billing?.activatedAt) {
-      void this.notifyFirstActivation(merchantId, body.tier);
+      void this.notifyFirstActivation(merchantId, tier);
     }
     return this.status(merchantId);
   }
@@ -171,32 +226,77 @@ export class SubscriptionService {
     }
   }
 
-  /** Called from the subscription.charged webhook — roll the cycle forward. */
-  async onRenewalCharged(merchantId: string) {
-    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.cycleStartDate': new Date(), 'billing.status': 'active' } });
-    logger.info('Subscription renewal charged', { merchantId });
+  /**
+   * Resolve the merchant that owns a Razorpay subscription. The subscription id
+   * was stored server-side at checkout — that is the authority, not webhook notes.
+   */
+  async merchantForSubscription(subscriptionId: string) {
+    if (!subscriptionId || !/^sub_[A-Za-z0-9]+$/.test(subscriptionId)) return null;
+    return Merchant.findOne({ 'billing.razorpaySubscriptionId': subscriptionId }).select('_id billing email name');
+  }
+
+  /**
+   * Called from the subscription.charged webhook — roll the cycle forward.
+   * Amount must match the stored renewal charge for the merchant's active cycle.
+   */
+  async onRenewalCharged(subscriptionId: string, paymentId: string | undefined, amountPaise: number | undefined) {
+    const merchant = await this.merchantForSubscription(subscriptionId);
+    if (!merchant) {
+      logger.warn('subscription.charged for unknown subscription id — ignored', { subscriptionId });
+      return;
+    }
+    const b: any = merchant.billing || {};
+    const tier = b.plan, cycle = normalizeCycle(b.billingCycle);
+    if (isTier(tier) && isCycle(cycle) && typeof amountPaise === 'number') {
+      // Renewal subscriptions are monthly plans; accept either the monthly or full-cycle amount.
+      const p = priceFor(tier, cycle);
+      const okAmounts = new Set([p.renewMonthly * 100, p.renewalCharge * 100]);
+      if (!okAmounts.has(amountPaise)) {
+        logger.error('Renewal charged with unexpected amount — not rolling cycle forward', { merchantId: merchant._id, subscriptionId, amountPaise, expected: [...okAmounts] });
+        return;
+      }
+    }
+    if (paymentId) {
+      try {
+        await ProcessedPayment.create({ provider: 'razorpay', externalId: paymentId, merchantId: merchant._id, kind: 'subscription_renewal', amountPaise });
+      } catch (err: any) {
+        if (err?.code === 11000) { logger.info('Renewal payment already processed', { paymentId }); return; }
+        throw err;
+      }
+    }
+    await Merchant.updateOne({ _id: merchant._id }, { $set: { 'billing.cycleStartDate': new Date(), 'billing.status': 'active', 'billing.lastPaymentError': null } });
+    logger.info('Subscription renewal charged', { merchantId: merchant._id, subscriptionId });
   }
 
   /** Called from subscription.paused webhook */
-  async onSubscriptionPaused(merchantId: string) {
-    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.status': 'paused' } });
-    logger.warn('Subscription paused', { merchantId });
+  async onSubscriptionPaused(subscriptionId: string) {
+    const merchant = await this.merchantForSubscription(subscriptionId);
+    if (!merchant) return;
+    await Merchant.updateOne({ _id: merchant._id }, { $set: { 'billing.status': 'paused' } });
+    logger.warn('Subscription paused', { merchantId: merchant._id });
   }
 
   /** Called from subscription.cancelled or subscription.expired webhook */
-  async onSubscriptionCancelledOrExpired(merchantId: string, status: 'cancelled' | 'expired') {
-    await Merchant.findByIdAndUpdate(merchantId, { $set: {
+  async onSubscriptionCancelledOrExpired(subscriptionId: string, status: 'cancelled' | 'expired') {
+    const merchant = await this.merchantForSubscription(subscriptionId);
+    if (!merchant) return;
+    await Merchant.updateOne({ _id: merchant._id }, { $set: {
       'billing.plan': 'free_trial',
       'billing.planOrderLimit': 500,
       'billing.status': status,
     }});
-    logger.warn(`Subscription ${status}`, { merchantId });
+    logger.warn(`Subscription ${status}`, { merchantId: merchant._id });
   }
 
-  /** Called from payment.failed webhook */
-  async onPaymentFailed(merchantId: string, errorReason?: string) {
-    await Merchant.findByIdAndUpdate(merchantId, { $set: { 'billing.status': 'past_due', 'billing.lastPaymentError': errorReason || 'Payment failed' } });
-    logger.error('Subscription payment failed', { merchantId, errorReason });
+  /** Called from payment.failed webhook (subscription payments carry the subscription id). */
+  async onPaymentFailed(subscriptionId: string | undefined, orderId: string | undefined, errorReason?: string) {
+    let merchant = subscriptionId ? await this.merchantForSubscription(subscriptionId) : null;
+    if (!merchant && orderId && /^order_[A-Za-z0-9]+$/.test(orderId)) {
+      merchant = await Merchant.findOne({ 'billing.introOrderId': orderId }).select('_id');
+    }
+    if (!merchant) return;
+    await Merchant.updateOne({ _id: merchant._id }, { $set: { 'billing.status': 'past_due', 'billing.lastPaymentError': (errorReason || 'Payment failed').slice(0, 256) } });
+    logger.error('Subscription payment failed', { merchantId: merchant._id, errorReason });
   }
 
   async status(merchantId: string) {
@@ -204,7 +304,7 @@ export class SubscriptionService {
     const b = (m as any)?.billing || {};
     const active = !!b.activatedAt && b.plan && b.plan !== 'free_trial';
     return {
-      active, plan: b.plan, cycle: b.billingCycle, limit: b.planOrderLimit,
+      active, plan: b.plan, cycle: normalizeCycle(b.billingCycle) || b.billingCycle, limit: b.planOrderLimit,
       renewMonthly: b.renewMonthly, activatedAt: b.activatedAt, nextInvoice: b.nextInvoiceDate,
     };
   }

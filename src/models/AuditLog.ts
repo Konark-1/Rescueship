@@ -28,10 +28,10 @@ const AuditLogSchema = new Schema<IAuditLog>(
 );
 
 // Indexes
-AuditLogSchema.index({ merchantId: 1, timestamp: -1 });
+AuditLogSchema.index({ merchantId: 1, timestamp: -1 }, { name: 'idx_audit_merchant_ts' });
 
 // TTL Index: Auto-expire documents after 90 days (90 * 24 * 60 * 60 seconds)
-AuditLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 7776000 });
+AuditLogSchema.index({ timestamp: 1 }, { name: 'idx_audit_ttl', expireAfterSeconds: 7776000 });
 
 // ───────────────────────────────────────────────
 // 🔒 IMMUTABILITY ENFORCEMENT (SOC-2 Compliance)

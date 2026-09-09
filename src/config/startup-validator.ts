@@ -72,6 +72,22 @@ export function validateEnvironment(): void {
         errors.push(`  ❌ [PRODUCTION] ${env.key} must be configured with a valid secret (not placeholder): ${env.description}`);
       }
     }
+    // Development-only switches must never be on in production.
+    for (const flag of ['ENABLE_DEMO_MODE', 'EMAIL_DEBUG_LOG_BODY']) {
+      if (process.env[flag] === 'true') errors.push(`  ❌ [PRODUCTION] ${flag} must not be enabled`);
+    }
+    for (const k of ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'CASHFREE_CLIENT_SECRET']) {
+      const v = process.env[k] || '';
+      if (/dummy|placeholder|changeme/i.test(v)) errors.push(`  ❌ [PRODUCTION] ${k} contains a placeholder value`);
+    }
+    if (!process.env.API_PUBLIC_URL || !/^https:\/\//.test(process.env.API_PUBLIC_URL)) {
+      errors.push('  ❌ [PRODUCTION] API_PUBLIC_URL must be an https:// URL (webhook callback registration)');
+    }
+    if (!process.env.TRUSTED_PROXIES) {
+      warnings.push('  ⚠️  TRUSTED_PROXIES not set — rate limiting keys on the direct peer IP; set your proxy CIDRs if behind a load balancer');
+    }
+  } else if (process.env.ENABLE_DEMO_MODE === 'true') {
+    warnings.push('  ⚠️  ENABLE_DEMO_MODE=true — demo Shopify connect + static demo pages are enabled (development only)');
   }
 
   const jwtSecret = process.env.JWT_SECRET || '';

@@ -327,26 +327,17 @@ export class AddressCorrectionService {
     }
 
     let apiToken: string | undefined;
-    try {
-      if (merchant.carrierConfig?.apiToken) {
-        apiToken = encryptionService.decrypt(merchant.carrierConfig.apiToken);
-      }
-    } catch (err) {
-      apiToken = merchant.carrierConfig?.apiToken;
-    }
-
+    // Fail closed: an undecryptable credential must never be sent to a carrier as-is.
+    const cc: any = merchant.carrierConfig || {};
     let email = config.shiprocket.email;
     let password = config.shiprocket.password;
     try {
-      if ((merchant.carrierConfig as any)?.email) {
-        email = encryptionService.decrypt((merchant.carrierConfig as any).email);
-      }
-      if ((merchant.carrierConfig as any)?.password) {
-        password = encryptionService.decrypt((merchant.carrierConfig as any).password);
-      }
-    } catch {
-      email = (merchant.carrierConfig as any)?.email || config.shiprocket.email;
-      password = (merchant.carrierConfig as any)?.password || config.shiprocket.password;
+      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
+      if (cc.email) email = encryptionService.decrypt(cc.email);
+      if (cc.password) password = encryptionService.decrypt(cc.password);
+    } catch (err) {
+      logger.error('Stored carrier credentials cannot be decrypted; merchant must reconnect carrier', { merchantId: merchant._id });
+      throw new Error('Carrier credentials require reconnection');
     }
 
     const carrierConfig = {
@@ -407,12 +398,13 @@ export class AddressCorrectionService {
 
   private getWaConfig(merchant: any) {
     let token: string | undefined;
-    try {
-      if (merchant.whatsappConfig?.accessToken) {
+    if (merchant.whatsappConfig?.accessToken) {
+      try {
         token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+      } catch {
+        logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
+        throw new Error('WhatsApp credentials require reconnection');
       }
-    } catch {
-      token = merchant.whatsappConfig?.accessToken;
     }
     return {
       phoneNumberId: merchant.whatsappConfig?.phoneNumberId,

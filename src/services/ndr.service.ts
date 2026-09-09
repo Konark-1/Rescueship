@@ -17,6 +17,7 @@ import { recordOutbound } from './whatsapp-cost.service';
 import { COPY } from '../i18n/customer-copy';
 import { addressCorrectionService, LocationData } from './address-correction.service';
 import { SecurityAlertService } from './security-alert.service';
+import { makeJobId } from '../utils/job-id';
 
 export interface NDREventData {
   awb: string;
@@ -79,18 +80,33 @@ export class NDRService {
         });
       }
 
-      const normalizedPhone = normalizeIndianPhone(ndrData.phone);
-
       let order = await Order.findOne({ merchantId: merchant._id, awb: ndrData.awb });
-      if (!order) {
+      if (!order && ndrData.externalOrderId) {
         order = await Order.findOne({ merchantId: merchant._id, externalOrderId: ndrData.externalOrderId });
       }
 
       if (!order) {
+        // Carriers (Delhivery/ClickPost especially) often omit the consignee phone. Without
+        // an existing order we have nobody to message — skip cleanly instead of failing
+        // Order.create validation and burning three retries.
+        if (!ndrData.phone) {
+          logger.warn('NDR has no customer phone and no matching order; cannot rescue', { merchantId, awb: ndrData.awb });
+          await AuditLog.create({
+            merchantId: merchant._id,
+            action: 'ndr_skipped_no_phone',
+            source: 'ndr_service',
+            payload: { awb: ndrData.awb, externalOrderId: ndrData.externalOrderId, carrier: ndrData.carrier },
+            status: 'failed',
+            error: 'No customer phone in carrier payload and no matching order',
+          });
+          return;
+        }
+        const normalizedPhone = normalizeIndianPhone(ndrData.phone);
         try {
           order = await Order.create({
             merchantId: merchant._id,
-            externalOrderId: ndrData.externalOrderId,
+            // {merchantId, externalOrderId} is unique — never store '' for carrier-originated orders.
+            externalOrderId: ndrData.externalOrderId || `AWB-${ndrData.awb}`,
             platform: merchant.platform,
             customerPhone: normalizedPhone,
             orderValue: 0,
@@ -261,14 +277,15 @@ export class NDRService {
       await eq.add(
         'escalate-ndr',
         { orderId: order._id.toString(), level: i + 1, merchantId: merchant._id.toString() },
-        { delay: hours * 3600 * 1000, jobId: `escalation:${order._id}:${i + 1}`, removeOnComplete: true, removeOnFail: true }
+        { delay: hours * 3600 * 1000, jobId: makeJobId('escalation', order._id.toString(), i + 1), removeOnComplete: true, removeOnFail: true }
       );
     }
   }
 
   private fakeRemarkScore(order: any): number {
     const now = new Date();
-    const hour = now.getHours();
+    // Deliveries happen in India; evaluate the 'odd hour' heuristic in IST regardless of server TZ.
+    const hour = (now.getUTCHours() + 5 + (now.getUTCMinutes() + 30 >= 60 ? 1 : 0)) % 24;
     let score = 0;
     if (hour < 8 || hour >= 22) score += 0.5;
     if (order.outForDeliveryAt) {
@@ -276,6 +293,21 @@ export class NDRService {
       if (diffMin < 15) score += 0.5;
     }
     return Math.min(1.0, score);
+  }
+
+  private parseButtonPayload(payload: string): { action: 'reschedule' | 'address' | 'cancel'; orderId?: string } | null {
+    const raw = String(payload || '').trim();
+    const idx = raw.indexOf(':');
+    if (idx > 0) {
+      const action = raw.slice(0, idx).toLowerCase();
+      const orderId = raw.slice(idx + 1).trim();
+      if (action === 'reschedule' || action === 'address' || action === 'cancel') return { action, orderId: orderId || undefined };
+    }
+    const t = raw.toLowerCase();
+    if (/resched|reattempt|tomorrow|home|deliver/.test(t)) return { action: 'reschedule' };
+    if (/address|location|pin/.test(t)) return { action: 'address' };
+    if (/cancel|return|don'?t want|refuse/.test(t)) return { action: 'cancel' };
+    return null;
   }
 
   private merchantAlreadyResolved(order: any): boolean {
@@ -343,13 +375,19 @@ export class NDRService {
   public async handleCustomerResponse(phone: string, buttonPayload: string, resolvedOrder?: any): Promise<void> {
     logger.info('Handling customer response', { phone, buttonPayload });
 
-    const parts = buttonPayload.split(':');
-    if (parts.length !== 2) {
-      logger.warn('Invalid button payload format', { buttonPayload });
+    // Accept both our structured ction:orderId payload and the plain quick-reply
+    // titles Meta returns for template buttons (e.g. 'Reschedule Tomorrow', 'Cancel Order').
+    const parsed = this.parseButtonPayload(buttonPayload);
+    if (!parsed) {
+      logger.warn('Unrecognised button payload', { buttonPayload });
       return;
     }
-
-    const [action, orderId] = parts;
+    if (!parsed.orderId && !resolvedOrder) {
+      logger.warn('Button payload has no order reference and no resolved order', { buttonPayload });
+      return;
+    }
+    const action = parsed.action;
+    const orderId = parsed.orderId || resolvedOrder?._id?.toString();
     const normalizedPhone = normalizeIndianPhone(phone);
 
     try {
@@ -393,20 +431,27 @@ export class NDRService {
         return;
       }
 
+      // Use the MERCHANT's carrier account; fall back to the platform Shiprocket account
+      // only when the merchant has not connected their own. Fail closed on bad ciphertext.
+      const cc: any = merchant.carrierConfig || {};
       let apiToken: string | undefined;
+      let carrierEmail: string | undefined;
+      let carrierPassword: string | undefined;
       try {
-        if (merchant.carrierConfig?.apiToken) {
-          apiToken = encryptionService.decrypt(merchant.carrierConfig.apiToken);
-        }
+        if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
+        else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
+        if (cc.email) carrierEmail = encryptionService.decrypt(cc.email);
+        if (cc.password) carrierPassword = encryptionService.decrypt(cc.password);
       } catch (err) {
-        apiToken = merchant.carrierConfig?.apiToken;
+        logger.error('Stored carrier credentials cannot be decrypted; merchant must reconnect carrier', { merchantId: merchant._id });
+        throw new Error('Carrier credentials require reconnection');
       }
 
       const carrierConfig = {
-        provider: order.carrier || merchant.carrierConfig?.provider,
+        provider: order.carrier || cc.provider,
         apiToken,
-        email: config.shiprocket.email,
-        password: config.shiprocket.password,
+        email: carrierEmail || config.shiprocket.email,
+        password: carrierPassword || config.shiprocket.password,
       };
 
       if (action === 'reschedule') {
@@ -437,7 +482,7 @@ export class NDRService {
             const eq = this.getEscalationQueue();
             const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
             for (let i = 0; i < chain.length; i++) {
-              const jobId = `escalation:${order._id}:${i + 1}`;
+              const jobId = makeJobId('escalation', order._id.toString(), i + 1);
               const job = await eq.getJob(jobId);
               if (job) await job.remove();
             }
@@ -482,7 +527,7 @@ export class NDRService {
         const eq = this.getEscalationQueue();
         const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
         for (let i = 0; i < chain.length; i++) {
-          const jobId = `escalation:${order._id}:${i + 1}`;
+          const jobId = makeJobId('escalation', order._id.toString(), i + 1);
           const job = await eq.getJob(jobId);
           if (job) await job.remove();
         }
@@ -611,12 +656,14 @@ export class NDRService {
 
   private getWaConfig(merchant: any) {
     let token: string | undefined;
-    try {
-      if (merchant.whatsappConfig?.accessToken) {
+    if (merchant.whatsappConfig?.accessToken) {
+      try {
         token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+      } catch (err: any) {
+        // Fail closed: never send the stored ciphertext to Meta as if it were a token.
+        logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
+        throw new Error('WhatsApp credentials require reconnection');
       }
-    } catch {
-      token = merchant.whatsappConfig?.accessToken;
     }
     return {
       phoneNumberId: merchant.whatsappConfig?.phoneNumberId,

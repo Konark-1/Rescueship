@@ -13,9 +13,11 @@ import { paymentConnectService } from '../services/payment-connect.service';
 import { whatsAppService } from '../services/whatsapp.service';
 import { sandboxService } from '../services/sandbox.service';
 import { emailService } from '../services/email.service';
+import { encryptionService } from '../services/encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
+import { credentialValidationLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
@@ -77,12 +79,12 @@ router.post('/shopify/demo-connect', authenticateToken, async (req: Authenticate
 
 // Direct API token path — merchant pastes their store's Admin API access token.
 // Works everywhere (dev or prod), no Partner app required from anyone.
-router.post('/shopify/token', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { shop, accessToken } = req.body;
-  if (typeof shop !== 'string' || typeof accessToken !== 'string') {
-    return res.status(400).json({ error: 'shop and accessToken required' });
+router.post('/shopify/token', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  const { shop, accessToken, apiSecret } = req.body;
+  if (typeof shop !== 'string' || typeof accessToken !== 'string' || typeof apiSecret !== 'string') {
+    return res.status(400).json({ error: 'shop, accessToken and apiSecret required' });
   }
-  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken)); }
+  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken, apiSecret)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // Hit by Shopify (no JWT) — verifies hmac+state, then bounces the browser to the wizard.
@@ -124,8 +126,20 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
   if (!m) return res.status(404).json({ error: 'not found' });
   const phone = (m as any).ownerPhone;
   if (!phone) return res.status(400).json({ error: 'Set your mobile number first (for test messages).' });
+  const waCfg = (m as any).whatsappConfig;
+  if (!waCfg?.phoneNumberId || !waCfg?.accessToken) {
+    return res.status(400).json({ error: 'Connect your WhatsApp Business number first.' });
+  }
+  let decryptedToken: string;
+  try { decryptedToken = encryptionService.decrypt(waCfg.accessToken); }
+  catch { return res.status(400).json({ error: 'WhatsApp credentials need to be reconnected.' }); }
   try {
-    await whatsAppService.sendTemplate(phone, 'rs_test_pulse_en', 'en', [{ type: 'body', parameters: [{ type: 'text', text: (m as any).storeName || 'your store' }] }], (m as any).whatsappConfig);
+    // Always the merchant's own number/token — never the platform WABA.
+    await whatsAppService.sendTemplate(
+      phone, 'rs_test_pulse_en', 'en',
+      [{ type: 'body', parameters: [{ type: 'text', text: (m as any).storeName || 'your store' }] }],
+      { phoneNumberId: waCfg.phoneNumberId, accessToken: decryptedToken, businessAccountId: waCfg.businessAccountId, templateMap: waCfg.templateMap } as any
+    );
     await Merchant.findByIdAndUpdate(m._id, { $set: { 'onboarding.testRescueSentAt': new Date() } });
     res.json({ ok: true, to: phone });
   } catch (e: any) {
@@ -134,16 +148,27 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
   }
 });
 
-// ── Carrier ──
-router.post('/carrier', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+// ── Carrier ──  (outbound credential validation → strict limiter)
+router.post('/carrier', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try { res.json(await carrierConnectService.validateAndSave(req.merchant!.merchantId, req.body)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-// ── Payment ──
-router.post('/payment', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+// Per-merchant carrier webhook URL + secret (paste into carrier panel).
+router.get('/carrier/webhook', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await carrierConnectService.webhookCredentials(req.merchant!.merchantId)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+// ── Payment ──  (outbound credential validation → strict limiter)
+router.post('/payment', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   const { gateway, keyId, keySecret } = req.body;
-  if (!gateway || !keyId || !keySecret) return res.status(400).json({ error: 'gateway, keyId, keySecret required' });
+  if (typeof gateway !== 'string' || typeof keyId !== 'string' || typeof keySecret !== 'string' || !gateway || !keyId || !keySecret) {
+    return res.status(400).json({ error: 'gateway, keyId, keySecret required' });
+  }
+  if (gateway !== 'razorpay' && gateway !== 'cashfree') {
+    return res.status(400).json({ error: 'Unsupported gateway' });
+  }
   try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
@@ -181,10 +206,15 @@ router.post('/assisted-setup/request', authenticateToken, standardMerchantLimite
 router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const { ownerPhone, storeName } = req.body;
   // MED-1 fix: Validate phone format (E.164: +countrycode followed by 7-14 digits)
-  if (ownerPhone && !/^\+\d{7,15}$/.test(ownerPhone)) {
+  if (ownerPhone !== undefined && (typeof ownerPhone !== 'string' || !/^\+\d{7,15}$/.test(ownerPhone))) {
     return res.status(400).json({ error: 'Invalid phone number format. Use E.164 format, e.g. +919876543210' });
   }
-  await Merchant.findByIdAndUpdate(req.merchant!.merchantId, { $set: { ownerPhone, ...(storeName ? { storeName } : {}) } });
+  if (storeName !== undefined && (typeof storeName !== 'string' || storeName.length > 120)) {
+    return res.status(400).json({ error: 'Invalid store name' });
+  }
+  await Merchant.findByIdAndUpdate(req.merchant!.merchantId, {
+    $set: { ...(ownerPhone ? { ownerPhone } : {}), ...(storeName ? { storeName: storeName.trim() } : {}) },
+  });
   res.json({ ok: true });
 });
 router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {

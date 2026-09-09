@@ -2,6 +2,14 @@ import { orderService } from '../services/order.service';
 import { Order, Merchant, AuditLog, BillingEvent } from '../models';
 import { whatsAppService } from '../services/whatsapp.service';
 import { paymentService } from '../services/payment.service';
+import { encryptionService } from '../services/encryption.service';
+
+// Credentials are stored encrypted; the service must decrypt them (and refuse plaintext/ciphertext fallbacks).
+const encPaymentConfig = () => ({
+  provider: 'razorpay',
+  keyId: encryptionService.encrypt('rzp_test_key123'),
+  keySecret: encryptionService.encrypt('sec123'),
+});
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const mockOrderInstance: any = {
@@ -120,7 +128,7 @@ describe('OrderService - Unit Tests', () => {
           },
         },
         billing: { rescueCredits: 100 },
-        paymentConfig: { provider: 'razorpay', keyId: 'key123', keySecret: 'sec123' },
+        paymentConfig: encPaymentConfig(),
         whatsappConfig: { phoneNumberId: 'ph123' },
       });
 
@@ -174,6 +182,7 @@ describe('OrderService - Unit Tests', () => {
           },
         },
         billing: { rescueCredits: 100 },
+        paymentConfig: encPaymentConfig(),
       });
 
       (paymentService.createPaymentLink as jest.Mock).mockResolvedValue({
@@ -195,6 +204,37 @@ describe('OrderService - Unit Tests', () => {
         expect.objectContaining({ amount: 1800 }),
         expect.any(Object)
       );
+    });
+
+    it('SECURITY: skips conversion (no platform-key fallback) when merchant has no payment gateway', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 0 } },
+        billing: { rescueCredits: 100 },
+      });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1003', platform: 'shopify', customerPhone: '9876543210', orderValue: 500, paymentMethod: 'cod',
+      });
+
+      expect(paymentService.createPaymentLink).not.toHaveBeenCalled();
+      expect(whatsAppService.sendTemplate).not.toHaveBeenCalled();
+      expect(Order.deleteOne).toHaveBeenCalled();
+    });
+
+    it('SECURITY: fails closed (never uses raw stored value) when payment credentials cannot be decrypted', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 0 } },
+        billing: { rescueCredits: 100 },
+        paymentConfig: { provider: 'razorpay', keyId: 'not-ciphertext', keySecret: 'not-ciphertext' },
+      });
+
+      await expect(orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1004', platform: 'shopify', customerPhone: '9876543210', orderValue: 500, paymentMethod: 'cod',
+      })).rejects.toThrow(/reconnection/);
+
+      expect(paymentService.createPaymentLink).not.toHaveBeenCalled();
     });
   });
 

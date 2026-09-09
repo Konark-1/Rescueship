@@ -113,24 +113,24 @@ export class OrderService {
 
       const finalAmount = orderData.orderValue - discount;
 
-      const paymentProvider = merchant.paymentConfig?.provider || 'razorpay';
-      let keyId: string | undefined;
-      let keySecret: string | undefined;
-
+      // The customer's money must land in the MERCHANT's gateway account. Never fall back
+      // to platform keys, and never treat undecryptable ciphertext as a credential.
+      const pc: any = merchant.paymentConfig || {};
+      const paymentProvider: 'razorpay' | 'cashfree' = pc.provider || pc.gateway || 'razorpay';
+      if (!pc.keyId || !pc.keySecret) {
+        logger.warn('COD conversion skipped: merchant has no connected payment gateway', { merchantId });
+        await Order.deleteOne({ _id: order._id });
+        return;
+      }
+      let keyId: string;
+      let keySecret: string;
       try {
-        if (merchant.paymentConfig?.keyId) {
-          keyId = encryptionService.decrypt(merchant.paymentConfig.keyId);
-        }
-        if (merchant.paymentConfig?.keySecret) {
-          keySecret = encryptionService.decrypt(merchant.paymentConfig.keySecret);
-        }
+        keyId = encryptionService.decrypt(pc.keyId);
+        keySecret = encryptionService.decrypt(pc.keySecret);
       } catch (decErr: any) {
-        logger.warn('Decryption of payment gateway credentials failed, attempting fallback to raw storage', {
-          merchantId,
-          error: decErr.message,
-        });
-        keyId = merchant.paymentConfig?.keyId;
-        keySecret = merchant.paymentConfig?.keySecret;
+        logger.error('Stored payment gateway credentials cannot be decrypted; merchant must reconnect payment gateway', { merchantId });
+        await Order.deleteOne({ _id: order._id });
+        throw new Error('Payment credentials require reconnection');
       }
 
       let paymentLink;
@@ -151,12 +151,10 @@ export class OrderService {
             : { clientId: keyId, clientSecret: keySecret }
         );
       } catch (err: any) {
-        if (process.env.NODE_ENV === 'development' || !keyId || keyId.startsWith('rzp_test_')) {
-          logger.warn('Payment gateway error, using simulation payment link for seamless testing', { error: err.message });
-          paymentLink = {
-            linkId: `plink_sim_${Date.now()}`,
-            shortUrl: `https://pay.rescueship.io/l/${orderData.externalOrderId}`,
-          };
+        // Never send a fabricated payment link to a real customer. Simulation is only
+        // for automated tests, where the gateway is mocked.
+        if (process.env.NODE_ENV === 'test') {
+          paymentLink = { linkId: `plink_sim_${Date.now()}`, shortUrl: `https://pay.rescueship.io/l/${orderData.externalOrderId}` };
         } else {
           await Order.deleteOne({ _id: order._id });
           throw err;
@@ -181,12 +179,13 @@ export class OrderService {
       await order.save();
 
       let waToken: string | undefined;
-      try {
-        if (merchant.whatsappConfig?.accessToken) {
+      if (merchant.whatsappConfig?.accessToken) {
+        try {
           waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+        } catch (decErr: any) {
+          logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId });
+          throw new Error('WhatsApp credentials require reconnection');
         }
-      } catch (decErr: any) {
-        waToken = merchant.whatsappConfig?.accessToken;
       }
 
       const lang = merchant.settings.codConversion.messageLanguage || 'en';
@@ -229,11 +228,19 @@ export class OrderService {
           orderId: order.externalOrderId,
         });
       } catch (waErr: any) {
-        logger.warn('WhatsApp API send bypassed (simulated in development mode)', {
-          phone: order.customerPhone,
-          orderId: order.externalOrderId,
-          notice: 'Message simulated & recorded successfully',
+        // Do not charge a credit or record a "sent" event for a message that never left.
+        logger.error('WhatsApp COD conversion send failed', { merchantId, orderId: order.externalOrderId, error: waErr.message });
+        await Order.updateOne({ _id: order._id }, { $set: { status: 'new', 'codConversion.messageSentAt': null } });
+        await AuditLog.create({
+          merchantId: merchant._id,
+          orderId: order._id,
+          action: 'cod_conversion_send_failed',
+          source: 'order_service',
+          payload: { externalOrderId: orderData.externalOrderId },
+          status: 'failed',
+          error: waErr.message,
         });
+        throw waErr;
       }
 
       realtimeService.emitOrderUpdate(
@@ -380,8 +387,11 @@ export class OrderService {
 
   private async syncOrderToPlatform(order: any, merchant: any): Promise<void> {
     try {
-      if (order && merchant && order.platform === 'shopify' && merchant.platformConfig?.shopifyDomain && merchant.platformConfig?.shopifyAccessToken) {
-        const domain = merchant.platformConfig.shopifyDomain;
+      // Shopify credentials may live under `merchant.shopify` (OAuth / direct-token connect)
+      // or the legacy `platformConfig` (manual settings). Prefer the connect flow's copy.
+      const shopifyCreds = merchant ? this.resolveShopifyCredentials(merchant) : null;
+      if (order && merchant && order.platform === 'shopify' && shopifyCreds) {
+        const domain = shopifyCreds.domain;
 
         // 🔒 SEC-01 FIX: Defense-in-depth domain validation before outbound request
         const SHOPIFY_DOMAIN_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
@@ -399,7 +409,13 @@ export class OrderService {
         }
 
         const safeOrderId = encodeURIComponent(String(externalOrderId));
-        const token = encryptionService.decrypt(merchant.platformConfig.shopifyAccessToken);
+        let token: string;
+        try {
+          token = encryptionService.decrypt(shopifyCreds.encryptedToken);
+        } catch {
+          logger.error('Stored Shopify access token cannot be decrypted; merchant must reconnect Shopify', { merchantId: merchant._id });
+          return;
+        }
         const discount = order.codConversion?.incentiveOffered || 0;
         const netAmount = (order.orderValue - discount).toString();
 
@@ -441,6 +457,19 @@ export class OrderService {
     } catch (err: any) {
       logger.error('Failed to sync order status to platform', { orderId: order?.externalOrderId, error: err.message });
     }
+  }
+
+  /** Pick the Shopify domain + encrypted token from whichever place the merchant connected through. */
+  private resolveShopifyCredentials(merchant: any): { domain: string; encryptedToken: string } | null {
+    const s = merchant.shopify;
+    if (s?.shopDomain && s?.accessToken && !s.demo) {
+      return { domain: String(s.shopDomain).toLowerCase(), encryptedToken: s.accessToken };
+    }
+    const pc = merchant.platformConfig;
+    if (pc?.shopifyDomain && pc?.shopifyAccessToken) {
+      return { domain: String(pc.shopifyDomain).toLowerCase(), encryptedToken: pc.shopifyAccessToken };
+    }
+    return null;
   }
 }
 

@@ -188,6 +188,8 @@ class RealtimeService extends EventEmitter {
         }
       }
     }, 30000);
+    // Never keep the event loop alive on our own (lets Jest / CLIs exit cleanly).
+    this.heartbeatInterval.unref?.();
   }
 
   public shutdown(): void {

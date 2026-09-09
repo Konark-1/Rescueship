@@ -39,45 +39,61 @@ const WEBHOOK_CONFIG: RateLimitConfig = {
 };
 
 /**
- * Sliding window rate limiter using Redis ZSET.
+ * Atomic sliding-window limiter (single Lua round-trip, no check-then-set race).
+ * KEYS[1]=zset key, ARGV[1]=now ms, ARGV[2]=window ms, ARGV[3]=max, ARGV[4]=member
+ * Returns [allowed(0|1), count_after, oldest_score_or_-1]
  */
+const SLIDING_WINDOW_LUA = `
+redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, tonumber(ARGV[1]) - tonumber(ARGV[2]))
+local count = redis.call('ZCARD', KEYS[1])
+if count >= tonumber(ARGV[3]) then
+  local oldest = redis.call('ZRANGE', KEYS[1], 0, 0, 'WITHSCORES')
+  return {0, count, oldest[2] and tonumber(oldest[2]) or -1}
+end
+redis.call('ZADD', KEYS[1], tonumber(ARGV[1]), ARGV[4])
+redis.call('PEXPIRE', KEYS[1], tonumber(ARGV[2]) + 1000)
+return {1, count + 1, -1}
+`;
+
+/**
+ * Bounded in-process fallback used ONLY when Redis is unreachable. Keeps the API
+ * usable for legitimate merchants while still capping abuse per instance instead of
+ * failing open entirely.
+ */
+const localFallback = new Map<string, { count: number; resetAt: number }>();
+function localCheck(key: string, config: RateLimitConfig): { allowed: boolean; remaining: number; resetMs: number } {
+  const now = Date.now();
+  let e = localFallback.get(key);
+  if (!e || e.resetAt <= now) {
+    e = { count: 0, resetAt: now + config.windowMs };
+    localFallback.set(key, e);
+  }
+  if (localFallback.size > 10000) localFallback.clear(); // memory guard
+  e.count++;
+  return { allowed: e.count <= config.maxRequests, remaining: Math.max(0, config.maxRequests - e.count), resetMs: e.resetAt - now };
+}
+
 async function checkRateLimit(
   merchantId: string,
   config: RateLimitConfig
 ): Promise<{ allowed: boolean; remaining: number; resetMs: number }> {
+  const key = `${config.keyPrefix}:${merchantId}`;
+  const now = Date.now();
   try {
-    const key = `${config.keyPrefix}:${merchantId}`;
-    const now = Date.now();
-    const windowStart = now - config.windowMs;
+    const member = `${now}:${Math.random().toString(36).slice(2)}`;
+    const [allowed, count, oldest] = (await redisConnection.eval(
+      SLIDING_WINDOW_LUA, 1, key, String(now), String(config.windowMs), String(config.maxRequests), member
+    )) as [number, number, number];
 
-    // Remove expired entries
-    await redisConnection.zremrangebyscore(key, 0, windowStart);
-
-    // Count current window
-    const count = await redisConnection.zcard(key);
-
-    if (count >= config.maxRequests) {
-      const oldestEntry = await redisConnection.zrange(key, 0, 0, 'WITHSCORES');
-      const resetMs = oldestEntry && oldestEntry.length > 1
-        ? parseFloat(oldestEntry[1]) + config.windowMs - now
-        : config.windowMs;
-
+    if (allowed !== 1) {
+      const resetMs = oldest > 0 ? Math.max(1, oldest + config.windowMs - now) : config.windowMs;
       return { allowed: false, remaining: 0, resetMs };
     }
-
-    // Add current request
-    await redisConnection.zadd(key, now, `${now}:${Math.random().toString(36).slice(2)}`);
-    await redisConnection.expire(key, Math.ceil(config.windowMs / 1000) + 1);
-
-    return {
-      allowed: true,
-      remaining: config.maxRequests - count - 1,
-      resetMs: config.windowMs,
-    };
+    return { allowed: true, remaining: Math.max(0, config.maxRequests - count), resetMs: config.windowMs };
   } catch (err: any) {
-    // Fail open: if Redis is down, allow the request
-    logger.warn('Rate limiter Redis unavailable, allowing request', { error: err.message });
-    return { allowed: true, remaining: config.maxRequests, resetMs: config.windowMs };
+    // Redis unavailable: degrade to a per-instance limiter (never fully fail open).
+    logger.warn('Rate limiter Redis unavailable, using bounded local fallback', { error: err.message });
+    return localCheck(key, config);
   }
 }
 

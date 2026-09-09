@@ -23,8 +23,15 @@ router.get('/my', authenticateToken, async (req: AuthenticatedRequest, res: Resp
  */
 router.get('/cohort', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const isAdmin = (req.merchant as any)?.role === 'admin' || (req.merchant as any)?.isAdmin === true;
-    const cohort = await metricsService.getCohortMetrics(!isAdmin);
+    // JWTs carry no role claim. Admin access is an explicit allowlist of merchant IDs
+    // (ADMIN_MERCHANT_IDS=comma,separated). Everyone else gets 403 — cross-tenant
+    // aggregates must not leak to ordinary merchants even in pseudonymised form.
+    const admins = (process.env.ADMIN_MERCHANT_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const isAdmin = admins.includes(req.merchant!.merchantId);
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, error: 'Admin access required' });
+    }
+    const cohort = await metricsService.getCohortMetrics(false);
     const phase4 = await metricsService.isPhase4Ready();
     res.json({ success: true, cohort, phase4Gate: phase4 });
   } catch (err: any) {

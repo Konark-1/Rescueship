@@ -171,12 +171,13 @@ export class QRWhatsAppService {
       }
 
       let waToken: string | undefined;
-      try {
-        if (merchant.whatsappConfig?.accessToken) {
+      if (merchant.whatsappConfig?.accessToken) {
+        try {
           waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+        } catch (err) {
+          logger.error('Stored WhatsApp token cannot be decrypted; skipping seller alert', { merchantId });
+          return;
         }
-      } catch (err) {
-        waToken = merchant.whatsappConfig?.accessToken;
       }
 
       if (!merchant.whatsappConfig?.phoneNumberId || !waToken) {

@@ -8,6 +8,16 @@ export interface EmailOptions {
   html?: string;
 }
 
+/** Escape a value for safe interpolation into HTML email bodies. */
+function esc(v: unknown): string {
+  return String(v ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export class EmailService {
   private static instance: EmailService;
   private transporter: nodemailer.Transporter | null = null;
@@ -77,12 +87,14 @@ export class EmailService {
   }
 
   private logEmailFallback(from: string, options: EmailOptions): void {
-    logger.info('[Email Fallback Log]', {
+    // Bodies can carry reset/onboarding tokens. Only dump them when explicitly opted in
+    // for local development; never in production.
+    const dumpBody = process.env.NODE_ENV !== 'production' && process.env.EMAIL_DEBUG_LOG_BODY === 'true';
+    logger.info('[Email Fallback Log] SMTP not configured — email not sent', {
       from,
       to: options.to,
       subject: options.subject,
-      text: options.text,
-      html: options.html,
+      ...(dumpBody ? { text: options.text } : { bodyBytes: (options.text || options.html || '').length }),
     });
   }
 
@@ -96,7 +108,7 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nPlease verify your email address by clicking the link below or entering verification token ${token}:\n${verifyUrl}\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>✉️ Verify Your Email Address</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>Thank you for signing up with RescueShip. Please verify your email address to activate all features of your account.</p>
       <p style="margin: 20px 0;">
         <a href="${verifyUrl}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Verify Email</a>
@@ -123,7 +135,7 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nYou requested a password reset for your RescueShip account. Please reset your password by visiting:\n${resetUrl}\n\nAlternatively, use token: ${token}\n\nIf you did not request this, please ignore this email.\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>🔒 Password Reset Request</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>We received a request to reset the password for your RescueShip account.</p>
       <p style="margin: 20px 0;">
         <a href="${resetUrl}" style="background-color: #dc2626; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a>
@@ -149,7 +161,7 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nWelcome to RescueShip! We're excited to help you automate your NDR rescue and COD conversion.\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>Welcome to RescueShip! 🚀</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>Thank you for joining RescueShip. We're excited to help you automate your NDR rescue and COD conversions.</p>
       <hr />
       <p style="font-size: 12px; color: #666;">RescueShip Team</p>
@@ -170,7 +182,7 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nYour RescueShip rescue credits balance is running low (${remainingCredits} credits remaining). Please top up your account to ensure uninterrupted NDR rescue automation.\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>⚠️ Low Rescue Credits Alert</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>Your RescueShip rescue credits balance is running low: <strong>${remainingCredits} credits remaining</strong>.</p>
       <p>Please top up your account to ensure uninterrupted NDR rescue automation.</p>
       <hr />
@@ -202,7 +214,7 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nHeres your monthly summary report:\n- Total Orders: ${reportData.totalOrders}\n- Rescued Orders: ${reportData.rescuedOrders}\n- Rescue Rate: ${reportData.rescueRate}%\n- Revenue Saved: ₹${reportData.totalRevenueSaved}\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>📊 Monthly Performance Summary</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>Here is your performance summary for the past month:</p>
       <ul>
         <li><strong>Total Orders:</strong> ${reportData.totalOrders}</li>
@@ -229,10 +241,10 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nWe have received your payment of ₹${amount}. ${creditsAdded} credits have been added to your account.\nTransaction ID: ${transactionId}\n\nThank you for choosing RescueShip!\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>✅ Payment Received</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>We have successfully processed your payment of <strong>₹${amount}</strong>.</p>
       <p><strong>${creditsAdded} credits</strong> have been added to your account balance.</p>
-      <p>Transaction ID: <code>${transactionId}</code></p>
+      <p>Transaction ID: <code>${esc(transactionId)}</code></p>
       <hr />
       <p style="font-size: 12px; color: #666;">RescueShip Team</p>
     </div>`;
@@ -248,7 +260,7 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nYou have used ${currentUsage} of your ${planLimit} monthly plan orders. Consider upgrading your plan to keep scaling seamlessly.\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>⚠️ Plan Order Limit Warning</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
       <p>You have processed <strong>${currentUsage}</strong> out of <strong>${planLimit}</strong> orders allowed on your current plan.</p>
       <p>To ensure seamless order processing without interruptions, please consider upgrading your subscription plan.</p>
       <hr />
@@ -273,8 +285,8 @@ export class EmailService {
     const text = `Hello ${merchantName},\n\nYour RescueShip ${plan} plan is now active! Your rescue engine can go live as soon as your connections are verified.\n\nNext steps:\n1. Finish connecting your store, WhatsApp, carrier and payment gateway: ${appUrl}/onboarding\n2. Run the sandbox test rescues, then graduate to live mode.${callBlockText}\n\nBest regards,\nRescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.5;">
       <h2>🚀 Your plan is live!</h2>
-      <p>Hello <strong>${merchantName}</strong>,</p>
-      <p>Your RescueShip <strong>${plan}</strong> plan is now active. Your rescue engine can go live as soon as your connections are verified.</p>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>Your RescueShip <strong>${esc(plan)}</strong> plan is now active. Your rescue engine can go live as soon as your connections are verified.</p>
       <ol>
         <li>Finish connecting your store, WhatsApp, carrier and payment gateway: <a href="${appUrl}/onboarding">Open onboarding</a></li>
         <li>Run the sandbox test rescues, then graduate to live mode.</li>
@@ -302,8 +314,8 @@ export class EmailService {
     const subject = `⚓ Welcome aboard, ${merchantName} — your rescue engine is being provisioned`;
     const text = `Hello ${merchantName},\n\nThanks for signing up RescueShip for ${store}. Here's what happens next:\n\n1. Open your personal onboarding link (valid 7 days):\n${onboardingUrl}\n\n2. Connect your store, WhatsApp Business, courier account and payment gateway — each takes ~2 minutes and is validated live.\n\n3. Run the sandbox test rescues, graduate, and go live. From then on every failed delivery (NDR) and COD order is rescued automatically on WhatsApp.\n${setupCallUrl ? `\nPrefer a guided setup? Book a free 20-minute call and we'll set everything up with you: ${setupCallUrl}\n` : ''}\n— RescueShip Team`;
     const html = `<div style="font-family: sans-serif; line-height: 1.6; max-width: 560px;">
-      <h2>⚓ Welcome aboard, ${merchantName}!</h2>
-      <p>Thanks for signing up RescueShip for <strong>${store}</strong>. RescueShip automatically converts COD orders to prepaid and rescues failed deliveries (NDRs) over WhatsApp — recovering the revenue most D2C brands lose to RTO.</p>
+      <h2>⚓ Welcome aboard, ${esc(merchantName)}!</h2>
+      <p>Thanks for signing up RescueShip for <strong>${esc(store)}</strong>. RescueShip automatically converts COD orders to prepaid and rescues failed deliveries (NDRs) over WhatsApp — recovering the revenue most D2C brands lose to RTO.</p>
       <p><strong>Your next 3 steps:</strong></p>
       <ol>
         <li>Open your personal onboarding link (valid 7 days):<br />
@@ -347,7 +359,7 @@ export class EmailService {
 
     const rows = Object.entries(details)
       .filter(([, v]) => v !== undefined && v !== '')
-      .map(([k, v]) => `<li><strong>${k}:</strong> ${v}</li>`)
+      .map(([k, v]) => `<li><strong>${esc(k)}:</strong> ${esc(v)}</li>`)
       .join('\n');
     const lines = Object.entries(details)
       .filter(([, v]) => v !== undefined && v !== '')
@@ -360,7 +372,7 @@ export class EmailService {
         subject: `[RescueShip Ops] ${subject}`,
         text: `${subject}\n\n${lines}`,
         html: `<div style="font-family: sans-serif; line-height: 1.5;">
-          <h2>${subject}</h2>
+          <h2>${esc(subject)}</h2>
           <ul>${rows}</ul>
           <hr />
           <p style="font-size: 12px; color: #666;">RescueShip internal notification</p>

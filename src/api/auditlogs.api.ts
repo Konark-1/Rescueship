@@ -8,8 +8,8 @@ const router = Router();
 // GET /api/audit-logs
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
-  const page = parseInt(req.query.page as string) || 1;
-  const limit = parseInt(req.query.limit as string) || 20;
+  const page = Math.min(Math.max(parseInt(req.query.page as string) || 1, 1), 10000);
+  const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 20, 1), 200);
   const skip = (page - 1) * limit;
 
   try {

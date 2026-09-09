@@ -135,12 +135,20 @@ const OrderSchema = new Schema<IOrder>(
 );
 
 // Indexes
-OrderSchema.index({ merchantId: 1, status: 1, createdAt: -1 });
-OrderSchema.index({ merchantId: 1, awb: 1 }, { unique: true, sparse: true });
-OrderSchema.index({ merchantId: 1, customerPhone: 1 });
-OrderSchema.index({ customerPhone: 1, status: 1 });
-OrderSchema.index({ merchantId: 1, status: 1 });
-OrderSchema.index({ merchantId: 1, createdAt: -1 });
-OrderSchema.index({ merchantId: 1, externalOrderId: 1 }, { unique: true });
+// NOTE: names are explicit and shared with models/indexes.ts so the two never
+// race to create the same key pattern under different names (code 85/86).
+OrderSchema.index({ merchantId: 1, status: 1, createdAt: -1 }, { name: 'idx_merchant_status_created' });
+// Per-tenant AWB uniqueness. `sparse` does NOT skip docs where only `awb` is null in a
+// compound index (merchantId is always present), so a partial filter is required or the
+// second `awb: null` order per merchant would be rejected.
+OrderSchema.index(
+  { merchantId: 1, awb: 1 },
+  { name: 'idx_merchant_awb_unique', unique: true, partialFilterExpression: { awb: { $type: 'string' } } }
+);
+OrderSchema.index({ merchantId: 1, customerPhone: 1 }, { name: 'idx_merchant_phone' });
+OrderSchema.index({ customerPhone: 1, status: 1 }, { name: 'idx_phone_status' });
+OrderSchema.index({ merchantId: 1, createdAt: -1 }, { name: 'idx_merchant_created' });
+OrderSchema.index({ merchantId: 1, externalOrderId: 1 }, { name: 'idx_merchant_external_order_unique', unique: true });
+OrderSchema.index({ paymentLinkId: 1 }, { name: 'idx_payment_link', sparse: true });
 
 export const Order = model<IOrder>('Order', OrderSchema);

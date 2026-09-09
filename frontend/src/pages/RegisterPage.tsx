@@ -50,12 +50,8 @@ const RegisterPage: React.FC = () => {
   if (strength > 25) strengthColor = 'var(--amber)';
   if (strength > 75) strengthColor = 'var(--emerald)';
 
-  const handleSubmit = async (e: React.FormEvent, forceSetupPassword = false) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (forceSetupPassword && (!password || password.length < 8)) {
-      setError('Please enter a password with at least 8 characters in the password field first.');
-      return;
-    }
     setError('');
     setLoading(true);
     try {
@@ -63,7 +59,6 @@ const RegisterPage: React.FC = () => {
         name,
         email,
         password,
-        setupPassword: forceSetupPassword,
       });
       const { token, merchant } = response.data;
       login(token, merchant);
@@ -141,17 +136,15 @@ const RegisterPage: React.FC = () => {
             <span>Google Account Found</span>
           </div>
           <p className="google-warning-desc">
-            An account with <strong>{email}</strong> already exists via Google. You can sign in with Google directly, or set up this password to enable password sign-in.
+            An account with <strong>{email}</strong> already exists via Google. Sign in with Google directly, or set a password through the emailed reset link.
           </p>
           <div className="google-warning-actions">
-            <button
-              type="button"
+            <Link
+              to={`/forgot-password?email=${encodeURIComponent(email)}`}
               className="google-warning-setup-btn"
-              disabled={loading}
-              onClick={(e) => handleSubmit(e, true)}
             >
-              {loading ? 'Setting password…' : 'Set up password & Sign in'}
-            </button>
+              Email me a password setup link
+            </Link>
             <Link to="/login" className="google-warning-link">
               Sign in with Google instead →
             </Link>

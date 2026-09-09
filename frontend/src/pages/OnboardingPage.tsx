@@ -210,7 +210,7 @@ export default function OnboardingPage() {
               </div>
               <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
 
-              {active === 'shopify' && <ShopifyForm onConnect={connectShopify} onTokenConnect={(shop: string, token: string) => { setBusy('shopify'); setErr(null); push('› validating Shopify token with your store…'); connectApi.shopifyToken(token!, shop, token).then(() => { push(`✓ ${shop} connected via API token`); refresh(); setBusy(null); }).catch((e: any) => { setErr(e.message); push('✗ token rejected — nothing saved'); setBusy(null); }); }} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} caps={state?.capabilities} />}
+              {active === 'shopify' && <ShopifyForm onConnect={connectShopify} onTokenConnect={(shop: string, accessToken: string, apiSecret: string) => { setBusy('shopify'); setErr(null); push('› validating Shopify token with your store…'); connectApi.shopifyToken(token!, shop, accessToken, apiSecret).then(() => { push(`✓ ${shop} connected via API token`); refresh(); setBusy(null); }).catch((e: any) => { setErr(e.message); push('✗ token rejected — nothing saved'); setBusy(null); }); }} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} caps={state?.capabilities} />}
               {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} metaReady={META_SIGNUP_READY} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
@@ -240,6 +240,7 @@ function ShopifyForm({ onConnect, onTokenConnect, busy, done, shop, caps }: any)
   const [mode, setMode] = useState<'oauth' | 'token'>(caps?.shopifyOAuth ? 'oauth' : 'token');
   const [v, setV] = useState('');
   const [accessToken, setAccessToken] = useState('');
+  const [apiSecret, setApiSecret] = useState('');
   const showOAuth = caps?.shopifyOAuth !== false; // mirror server truth
   const shopValid = v.trim().includes('.myshopify.com');
 
@@ -259,13 +260,16 @@ function ShopifyForm({ onConnect, onTokenConnect, busy, done, shop, caps }: any)
           <button className="ob-btn" disabled={busy || !shopValid}>{busy ? 'Redirecting…' : 'Connect Shopify'}</button>
         </form>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); onTokenConnect(v.trim(), accessToken.trim()); }}>
+        <form onSubmit={(e) => { e.preventDefault(); onTokenConnect(v.trim(), accessToken.trim(), apiSecret.trim()); }}>
           <Field label="Admin API access token">
             <input className="ob-input" type="password" placeholder="shpat_…" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required />
           </Field>
-          <p className="ob-note">In your Shopify admin: <strong>left sidebar → Apps → Develop apps</strong> (top right) → <strong>Create an app</strong> (name it anything) → <strong>Configuration → Configure Admin API scopes</strong> → tick <strong>read_orders, write_orders, read_fulfillments, write_fulfillments</strong> → Save → <strong>Install app</strong> → copy the <strong>Admin API access token</strong> and paste it here. (Ignore <strong>Sales channels</strong> in the sidebar — that's for marketplaces, not this.) We test the token against your store, register your webhooks automatically, and store it encrypted (AES-256). Works in every environment — no one needs a Partner account.</p>
+          <Field label="API secret key (for webhook verification)">
+            <input className="ob-input" type="password" placeholder="shpss_…" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} required />
+          </Field>
+          <p className="ob-note">In your Shopify admin: <strong>left sidebar → Apps → Develop apps</strong> (top right) → <strong>Create an app</strong> (name it anything) → <strong>Configuration → Configure Admin API scopes</strong> → tick <strong>read_orders, write_orders, read_fulfillments, write_fulfillments</strong> → Save → <strong>Install app</strong> → copy the <strong>Admin API access token</strong> and the <strong>API secret key</strong> (under API credentials) and paste both here. (Ignore <strong>Sales channels</strong> in the sidebar — that's for marketplaces, not this.) We test the token against your store, register your webhooks automatically, and store it encrypted (AES-256). Works in every environment — no one needs a Partner account.</p>
           <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>Steps also in the <strong>Setup Guide</strong> (top right) with screenshots-level detail.</p>
-          <button className="ob-btn" disabled={busy || !shopValid || !accessToken.trim()}>{busy ? 'Validating with Shopify…' : 'Validate & connect'}</button>
+          <button className="ob-btn" disabled={busy || !shopValid || !accessToken.trim() || !apiSecret.trim()}>{busy ? 'Validating with Shopify…' : 'Validate & connect'}</button>
         </form>
       )}
     </div>

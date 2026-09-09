@@ -1,10 +1,12 @@
-import { Schema, model, Document } from 'mongoose';
+import { Schema, model, Document, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
 export interface IMerchant extends Document {
   name: string;
   email: string;
   password?: string;
+  /** Single-use password reset token (sha256 hash) + expiry. Never selected by default. */
+  passwordReset?: { tokenHash?: string; expiresAt?: Date };
   googleId?: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
   onboardingStatus: 'pending' | 'skipped' | 'completed';
@@ -33,6 +35,7 @@ export interface IMerchant extends Document {
   };
   settings: {
     globalPause?: boolean;
+    aiProvider?: 'kieAi' | 'gemini';
     rescuePolicy?: any;
     codConversion: {
       enabled: boolean;
@@ -50,7 +53,7 @@ export interface IMerchant extends Document {
   };
   billing: {
     plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'enterprise';
-    billingCycle?: 'quarterly' | 'semi_annual' | 'annual';
+    billingCycle?: 'quarterly' | 'semi' | 'semi_annual' | 'annual';
     status?: 'active' | 'pre_signup' | 'pending_payment' | 'paused' | 'paused_quality' | 'past_due' | 'cancelled';
     lastPaymentError?: string;
     planOrderLimit: number;
@@ -74,7 +77,8 @@ export interface IMerchant extends Document {
     carrier?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; provider?: string; lastError?: string };
     payment?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; gateway?: string; lastError?: string };
   };
-  shopify?: { shopDomain?: string; accessToken?: string; scope?: string; webhooksRegistered?: boolean };
+  /** apiSecret: encrypted custom-app API secret (direct-token connect) used to verify webhook HMACs. */
+  shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; scope?: string; webhooksRegistered?: boolean };
   ownerPhone?: string;
   storeName?: string;
   onboarding?: {
@@ -141,11 +145,22 @@ export interface IMerchant extends Document {
   updatedAt: Date;
 }
 
-const MerchantSchema = new Schema<IMerchant>(
+export interface IMerchantModel extends Model<IMerchant> {
+  /** Burns a bcrypt compare against a fixed hash so unknown-email and wrong-password paths take similar time. */
+  dummyCompare(candidate: string): Promise<void>;
+}
+
+const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
   {
     name: { type: String, required: true },
-    email: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    // Uniqueness index is declared below with an explicit name (shared with models/indexes.ts).
+    email: { type: String, required: true, lowercase: true, trim: true },
     password: { type: String, required: false },
+    passwordReset: {
+      type: { tokenHash: { type: String }, expiresAt: { type: Date } },
+      required: false,
+      select: false,
+    },
     googleId: { type: String, required: false, unique: true, sparse: true },
     tokenVersion: { type: Number, default: 1 },
     platform: { type: String, enum: ['shopify', 'woocommerce', 'custom'], required: true },
@@ -171,6 +186,7 @@ const MerchantSchema = new Schema<IMerchant>(
     rescuePolicy: { type: Schema.Types.Mixed, default: () => require('../config/rescue-policy').defaultRescuePolicy() },
     settings: {
       globalPause: { type: Boolean, default: false },
+      aiProvider: { type: String, enum: ['kieAi', 'gemini'], default: 'kieAi' },
       rescuePolicy: { type: Schema.Types.Mixed, default: () => require('../config/rescue-policy').defaultRescuePolicy() },
       codConversion: {
         enabled: { type: Boolean, default: false },
@@ -195,7 +211,8 @@ const MerchantSchema = new Schema<IMerchant>(
         },
         billingCycle: {
           type: String,
-          enum: ['quarterly', 'semi_annual', 'annual'],
+          // 'semi' is the API/frontend key (subscription.service CYCLES); 'semi_annual' is legacy data.
+      enum: ['quarterly', 'semi', 'semi_annual', 'annual'],
           default: 'annual',
         },
         status: {
@@ -239,7 +256,7 @@ const MerchantSchema = new Schema<IMerchant>(
         payment: { status: 'disconnected' },
       }),
     },
-    shopify: { shopDomain: String, accessToken: String, scope: String, webhooksRegistered: Boolean },
+    shopify: { shopDomain: { type: String, lowercase: true, trim: true }, accessToken: String, apiSecret: String, scope: String, webhooksRegistered: Boolean },
     ownerPhone: String,
     storeName: String,
     onboarding: {
@@ -259,6 +276,7 @@ const MerchantSchema = new Schema<IMerchant>(
   }
 );
 
+MerchantSchema.index({ email: 1 }, { name: 'idx_merchant_email_unique', unique: true });
 MerchantSchema.index(
   { 'whatsappConfig.phoneNumberId': 1 },
   {
@@ -281,6 +299,12 @@ MerchantSchema.pre<IMerchant>('save', async function () {
 MerchantSchema.methods.comparePassword = async function (candidate: string): Promise<boolean> {
   if (!this.password) return false;
   return bcrypt.compare(candidate, this.password);
+};
+
+// Pre-computed bcrypt hash used only to equalise timing on failed logins.
+const DUMMY_HASH = bcrypt.hashSync('rescueship-dummy-timing-hash', 10);
+MerchantSchema.statics.dummyCompare = async function (candidate: string): Promise<void> {
+  await bcrypt.compare(candidate, DUMMY_HASH);
 };
 
 const SandboxSchema = new Schema({
@@ -343,4 +367,4 @@ MerchantSchema.add({
   metrics: { type: MetricsSchema, default: () => ({}) },
 });
 
-export const Merchant = model<IMerchant>('Merchant', MerchantSchema);
+export const Merchant = model<IMerchant, IMerchantModel>('Merchant', MerchantSchema);

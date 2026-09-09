@@ -144,16 +144,26 @@ app.use(
 // Prevent HTTP Parameter Pollution (must be after express.json)
 app.use(hpp());
 
-// NoSQL Injection Sanitizer (Express 5 compatible)
+// NoSQL Injection Sanitizer (Express 5 compatible).
+// Express 5 re-parses req.query on every access, so in-place mutation is lost; we
+// override the getter with the sanitised copy instead. Keep the simple query parser
+// (default) — never switch to 'extended', which can produce nested $-operators.
+app.set('query parser', 'simple');
 app.use((req: any, _res: any, next: any) => {
   if (req.body) mongoSanitize.sanitize(req.body);
   if (req.params) mongoSanitize.sanitize(req.params);
-  if (req.query) mongoSanitize.sanitize(req.query);
+  // allowDots: query strings are flat key/value pairs under the 'simple' parser, so a
+  // dotted key (e.g. Meta's `hub.verify_token`) can never become a nested Mongo path.
+  // Only `$`-prefixed keys are dangerous here and they are still stripped.
+  const q = mongoSanitize.sanitize({ ...req.query }, { allowDots: true });
+  Object.defineProperty(req, 'query', { value: q, writable: true, configurable: true, enumerable: true });
   next();
 });
 
-// Serve Static Dashboard UI
-app.use(express.static(path.join(__dirname, 'public')));
+// Legacy static demo pages (auto-create accounts on load). Local development only.
+if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_MODE === 'true') {
+  app.use(express.static(path.join(__dirname, 'public')));
+}
 
 // Health check endpoint
 app.get('/health', (req, res) => {

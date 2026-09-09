@@ -3,6 +3,7 @@ import { redisConnection } from '../config/redis';
 import { Merchant, IMerchant } from '../models/Merchant';
 import { alertService } from '../services/alert.service';
 import { logger } from '../utils/logger';
+import { encryptionService } from '../services/encryption.service';
 
 const QUEUE_NAME = 'quality-monitor';
 
@@ -21,9 +22,8 @@ async function graphGet(path: string, params: Record<string, any>, token: string
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, String(v));
   }
-  url.searchParams.set('access_token', token);
-
-  const res = await fetch(url.toString());
+  // Bearer header, never a query param (query strings end up in proxies/logs).
+  const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
   if (!res.ok) {
     const body: any = await res.json().catch(() => ({}));
     throw new Error(body?.error?.message || `Graph API ${res.status}`);
@@ -33,8 +33,12 @@ async function graphGet(path: string, params: Record<string, any>, token: string
 
 async function checkMerchantQuality(merchant: IMerchant): Promise<QualityCheckResult> {
   const wabaConfig = (merchant as any).whatsappConfig;
-  const token = wabaConfig?.systemUserToken || wabaConfig?.accessToken;
-  const wabaId = wabaConfig?.wabaId;
+  const encToken = wabaConfig?.systemUserToken || wabaConfig?.accessToken;
+  let token: string | undefined;
+  if (encToken) {
+    try { token = encryptionService.decrypt(encToken); } catch { token = undefined; }
+  }
+  const wabaId = wabaConfig?.wabaId || wabaConfig?.businessAccountId;
 
   const result: QualityCheckResult = {
     merchantId: (merchant as any)._id?.toString() || (merchant as any).id || '',
