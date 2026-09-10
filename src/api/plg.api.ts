@@ -175,4 +175,8 @@ router.post('/activate', passwordResetLimiter, async (req: Request, res: Respons
   }
 });
 
+router.get('/email-status', (_req: Request, res: Response) => {
+  res.json(emailService.getStatus());
+});
+
 export default router;

@@ -41,21 +41,42 @@ export class EmailService {
     const pass = process.env.SMTP_PASS;
 
     if (host && user && pass) {
-      this.transporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: {
-          user,
-          pass,
-        },
-      });
+      const isGmail = host.includes('gmail');
+      this.transporter = nodemailer.createTransport(
+        isGmail
+          ? {
+              service: 'gmail',
+              auth: { user, pass: pass.replace(/\s+/g, '') }, // remove spaces if user pasted app password with spaces
+            }
+          : {
+              host,
+              port,
+              secure: port === 465,
+              auth: { user, pass },
+            }
+      );
       this.isSmtpConfigured = true;
-      logger.info('EmailService initialized with SMTP transport', { host, port, user });
+      logger.info('EmailService initialized with SMTP transport', { host, port, user, isGmail });
     } else {
       this.isSmtpConfigured = false;
       logger.info('EmailService initialized with fallback logging (SMTP credentials not fully provided)');
     }
+  }
+
+  public getStatus() {
+    return {
+      isSmtpConfigured: this.isSmtpConfigured,
+      host: process.env.SMTP_HOST || null,
+      port: process.env.SMTP_PORT || null,
+      user: process.env.SMTP_USER || null,
+      hasPass: !!process.env.SMTP_PASS,
+      from: process.env.SMTP_FROM || null,
+      ownerNotifyEmail: process.env.OWNER_NOTIFY_EMAIL || null,
+    };
+  }
+
+  public reinit(): void {
+    this.initTransporter();
   }
 
   /**
