@@ -36,6 +36,7 @@ export interface MongoDBConfig {
 
 /** Redis configuration. */
 export interface RedisConfig {
+  url?: string;
   host: string;
   port: number;
   password: string | undefined;
@@ -162,7 +163,7 @@ function validateRequiredVars(requiredKeys: string[]): void {
  */
 const REQUIRED_VARS: string[] = [
   'MONGODB_URI',
-  'REDIS_HOST',
+  ...(process.env.REDIS_URL ? [] : ['REDIS_HOST']),
   'JWT_SECRET',
   'ENCRYPTION_KEY',
 ];
@@ -187,6 +188,7 @@ export const config: AppConfig = {
   },
 
   redis: {
+    url: process.env.REDIS_URL || undefined,
     host: getEnv('REDIS_HOST', false, 'localhost'),
     port: parseInt(getEnv('REDIS_PORT', false, '6379'), 10),
     password: process.env.REDIS_PASSWORD || undefined,

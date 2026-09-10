@@ -30,7 +30,7 @@ const redisOptions: RedisOptions = {
   port: config.redis.port,
   password: config.redis.password,
   maxRetriesPerRequest: null, // Required by BullMQ — never give up on a request
-  enableReadyCheck: true,
+  enableReadyCheck: false,
   retryStrategy(times: number): number | null {
     if (times > 20) {
       logger.error(`Redis: exceeded 20 reconnection attempts — giving up`);
@@ -62,7 +62,11 @@ const redisOptions: RedisOptions = {
  * a single connection pool.
  */
 export const redisConnection: Redis = process.env.REDIS_URL
-  ? new Redis(process.env.REDIS_URL, redisOptions)
+  ? new Redis(process.env.REDIS_URL, {
+      maxRetriesPerRequest: null,
+      enableReadyCheck: false,
+      lazyConnect: true,
+    })
   : new Redis(redisOptions);
 
 /* ------------------------------------------------------------------ */
@@ -114,8 +118,7 @@ redisConnection.on('end', () => {
 export async function connectRedis(): Promise<void> {
   try {
     logger.info('🔌  Connecting to Redis…', {
-      host: config.redis.host,
-      port: config.redis.port,
+      target: process.env.REDIS_URL ? 'Cloud REDIS_URL' : `${config.redis.host}:${config.redis.port}`,
     });
 
     if (redisConnection.status === 'wait' || redisConnection.status === 'end') {
