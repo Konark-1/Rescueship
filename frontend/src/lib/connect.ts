@@ -33,4 +33,5 @@ export const connectApi = {
   finalize: (t: string) => call(t, '/finalize', {}),
   requestAssistedSetup: (t: string) => call(t, '/assisted-setup/request', {}),
   skip: (t: string) => call(t, '/skip', {}),
+  shopifyMetrics: (t: string) => call(t, '/shopify/metrics'),
 };

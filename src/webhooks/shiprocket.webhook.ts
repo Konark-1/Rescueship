@@ -1,5 +1,4 @@
 import { Router, Request } from 'express';
-import { config } from '../config/env';
 import { createCarrierNdrHandler, safeStr } from './carrier-ndr.handler';
 
 const router = Router();

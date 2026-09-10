@@ -241,3 +241,13 @@ export const isProduction = (): boolean => config.server.nodeEnv === 'production
 
 /** Helper: returns `true` when `NODE_ENV` is `'development'`. */
 export const isDevelopment = (): boolean => config.server.nodeEnv === 'development';
+
+/**
+ * FRONTEND_URL doubles as the CORS allow-list (comma-separated) AND the base for
+ * customer/merchant-facing links. Links need exactly one origin — always resolve to
+ * the FIRST entry so a comma-separated whitelist never produces a malformed URL.
+ */
+export function frontendOrigin(): string {
+  const raw = process.env.FRONTEND_URL || 'http://localhost:5173';
+  return raw.split(',')[0].trim().replace(/\/$/, '');
+}

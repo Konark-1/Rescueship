@@ -5,6 +5,7 @@ import { generateToken } from '../middleware/auth';
 import { emailService } from '../services/email.service';
 import { passwordResetLimiter } from '../middleware/rateLimiter';
 import { logger } from '../utils/logger';
+import { frontendOrigin } from '../config/env';
 
 const router = Router();
 
@@ -62,7 +63,7 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
         void emailService.sendEmail({
           to: cleanEmail,
           subject: 'Your RescueShip account already exists',
-          text: `Hello ${existing.name},\n\nSomeone (probably you) requested onboarding for this email, but an account already exists. Sign in at ${process.env.FRONTEND_URL || 'https://app.rescueship.io'}/login, or use "Forgot password" if you need to set one.\n\nIf this wasn't you, no action is needed.\n\n— RescueShip Team`,
+          text: `Hello ${existing.name},\n\nSomeone (probably you) requested onboarding for this email, but an account already exists. Sign in at ${frontendOrigin()}/login, or use "Forgot password" if you need to set one.\n\nIf this wasn't you, no action is needed.\n\n— RescueShip Team`,
         }).catch(() => {});
         return res.json(genericResponse);
       }
@@ -85,7 +86,7 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
       }).save();
     }
 
-    const onboardingUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/onboard?token=${rawToken}`;
+    const onboardingUrl = `${frontendOrigin()}/onboard?token=${rawToken}`;
     logger.info('[PLG] Manifest signup: onboarding link issued', { email: cleanEmail, storeHost: storeHost || 'N/A' });
 
     // 1. Merchant email carries the ONLY copy of the raw token.

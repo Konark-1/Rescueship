@@ -33,10 +33,10 @@ export const TEMPLATE_DEFS: TplDef[] = [
     buttons: [ { type: 'QUICK_REPLY', text: "Yes I'm home" }, { type: 'QUICK_REPLY', text: 'Reschedule' }, { type: 'QUICK_REPLY', text: 'Share location' }, { type: 'QUICK_REPLY', text: 'Cancel order' } ] },
   { name: 'cod_confirm_en', category: 'UTILITY', language: 'en',   // utility-first default (L-3)
     body: 'Hi {{1}}, confirm order {{2}} by paying online to lock your delivery slot. No cash needed at the door.',
-    buttons: [ { type: 'URL', text: 'Pay Now', url: `${PAY_REDIRECT_BASE}{{1}}` } ] },
+    buttons: [ { type: 'URL', text: 'Pay Now', url: `${PAY_REDIRECT_BASE}{{3}}` } ] },
   { name: 'cod_convert_en', category: 'MARKETING', language: 'en', // incentive variant (costlier)
     body: 'Hi {{1}}, pay online for order {{2}} now and get {{3}} off. Tap Pay Now to confirm.',
-    buttons: [ { type: 'URL', text: 'Pay Now', url: `${PAY_REDIRECT_BASE}{{1}}` } ] },
+    buttons: [ { type: 'URL', text: 'Pay Now', url: `${PAY_REDIRECT_BASE}{{4}}` } ] },
   { name: 'address_pin_en', category: 'UTILITY', language: 'en',
     body: 'Hi {{1}}, please share your exact delivery location pin for order {{2}} so the driver can find you.' },
   { name: 'rescue_done_en', category: 'UTILITY', language: 'en',

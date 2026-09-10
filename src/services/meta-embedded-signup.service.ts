@@ -87,8 +87,10 @@ export class MetaEmbeddedSignupService {
   /** 4. permanent system-user token + assign the WABA to it */
   private async provisionSystemUser(businessId: string, wabaId: string, userToken: string) {
     const su = await post(`/${businessId}/system_users`, { name: 'RescueShip Engine', role: 'EMPLOYEE' }, userToken);
+    // Meta expects `scope` as a comma-separated string (not an array). `expires_in: 'NEVER'`
+    // is not a documented parameter and is omitted — system-user tokens are long-lived.
     const tok = await post(`/${su.id}/access_tokens`, {
-      business_app: cfg().appId, scope: SCOPES, expires_in: 'NEVER',
+      business_app: cfg().appId, scope: SCOPES.join(','),
     }, userToken);
     await post(`/${su.id}/assigned_whatsapp_business_accounts`, {
       whatsapp_business_accounts: [wabaId], access_level: 'MANAGE',

@@ -94,12 +94,22 @@ export class OrderService {
           status: 'new',
         });
       } catch (err: any) {
-        if (err.code === 11000) {
+      if (err.code === 11000) {
+        // A prior attempt created the order but failed before the message went out
+        // (e.g. WhatsApp send error already reset it to 'new'). Resume instead of
+        // silently dropping the conversion.
+        const existing = await Order.findOne({ merchantId: merchant._id, externalOrderId: orderData.externalOrderId });
+        if (!existing) throw err;
+        if (existing.status !== 'new') {
           logger.info('Order already processed (duplicate index)', { externalOrderId: orderData.externalOrderId });
           return;
         }
+        order = existing;
+        logger.info('Resuming COD conversion for existing order after retry', { externalOrderId: orderData.externalOrderId });
+      } else {
         throw err;
       }
+    }
 
       let discount = 0;
       const incentiveType = merchant.settings.codConversion.incentiveType;
@@ -189,24 +199,34 @@ export class OrderService {
       }
 
       const lang = merchant.settings.codConversion.messageLanguage || 'en';
-      const templateName = `cod_conversion_${lang}`;
+      const hasDiscount = discount > 0;
+      // Registered names (meta-template.service): utility framing (no incentive) or
+      // marketing framing (with incentive): cod_confirm_en {customer, order, url}
+      // vs cod_convert_en {customer, order, discount, url}. Only 'en' templates exist today.
+      const templateName = hasDiscount ? 'cod_convert_en' : 'cod_confirm_en';
 
-      const components = [
+      const components: any[] = [
         {
           type: 'body',
-          parameters: [
-            { type: 'text', text: order.customerName || 'Customer' },
-            { type: 'text', text: order.externalOrderId },
-            { type: 'text', text: `₹${order.orderValue}` },
-            { type: 'text', text: `₹${discount}` },
-          ],
+          parameters: hasDiscount
+            ? [
+                { type: 'text', text: order.customerName || 'Customer' },
+                { type: 'text', text: String(order.externalOrderId) },
+                { type: 'text', text: `₹${discount}` },
+              ]
+            : [
+                { type: 'text', text: order.customerName || 'Customer' },
+                { type: 'text', text: String(order.externalOrderId) },
+              ],
         },
         {
           type: 'button',
           index: '0',
           sub_type: 'url',
+          // The template's URL button is a fixed redirector + a single trailing variable;
+          // the payment link id (not the full short_url) is the dynamic suffix.
           parameters: [
-            { type: 'text', text: paymentLink.shortUrl.replace(/^https?:\/\/[^\/]+\//, '') },
+            { type: 'text', text: paymentLink.linkId },
           ],
         },
       ];
@@ -370,7 +390,12 @@ export class OrderService {
   }
 
   public async handlePaymentConfirmation(paymentLinkId: string, amountPaidPaise: any): Promise<void> {
-    const amount = typeof amountPaidPaise === 'number' ? amountPaidPaise : 0;
+    const amount = Number(amountPaidPaise);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      // Fail the job loud so BullMQ retries / dead-letters it and operators can see it,
+      // instead of silently succeeding and leaving the order stuck in cod_conversion_sent.
+      throw new Error(`Missing or invalid payment amount for payment link ${paymentLinkId}`);
+    }
     return this.handlePaymentSuccess(paymentLinkId, amount);
   }
 

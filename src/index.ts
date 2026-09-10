@@ -190,6 +190,29 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Payment link redirector. WhatsApp URL buttons must carry a FIXED host for Meta
+// approval; the dynamic Razorpay/Cashfree short link is passed as the trailing
+// variable. Resolve that id back to the real URL and 302 the customer.
+app.get('/r/pay/:id', async (req, res) => {
+  const linkId = String(req.params.id || '');
+  if (!linkId || linkId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(linkId)) {
+    res.status(400).send('Invalid payment link');
+    return;
+  }
+  try {
+    const { Order } = await import('./models');
+    const order = await Order.findOne({ paymentLinkId: linkId }).select('paymentLinkUrl').lean();
+    if (!order?.paymentLinkUrl) {
+      res.status(404).send('Payment link not found or expired');
+      return;
+    }
+    res.redirect(302, order.paymentLinkUrl);
+  } catch (err: any) {
+    logger.error('Payment redirect failed', { linkId, error: err?.message });
+    res.status(500).send('Payment redirect unavailable');
+  }
+});
+
 // Mount Webhook Routes (apply webhookLimiter)
 app.use('/webhooks/shopify', webhookLimiter, shopifyRouter);
 app.use('/webhooks/woocommerce', webhookLimiter, woocommerceRouter);
@@ -210,7 +233,6 @@ import { standardMerchantLimiter, exportMerchantLimiter } from './middleware/mer
 import sandboxRouter from './api/sandbox.api';
 import metricsRouter from './api/metrics.api';
 import plgRouter from './api/plg.api';
-import { featureFlags } from './services/feature-flags.service';
 import { startQualityMonitorWorker } from './jobs/quality-monitor.job';
 import { startTemplatePollerWorker } from './jobs/template-poller.job';
 

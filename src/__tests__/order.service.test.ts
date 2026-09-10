@@ -163,7 +163,7 @@ describe('OrderService - Unit Tests', () => {
       expect(mockOrderInstance.save).toHaveBeenCalled();
       expect(whatsAppService.sendTemplate).toHaveBeenCalledWith(
         '919876543210',
-        'cod_conversion_en',
+        'cod_convert_en',
         'en',
         expect.any(Array),
         expect.any(Object)

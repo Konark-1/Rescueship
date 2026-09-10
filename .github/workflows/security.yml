@@ -41,11 +41,35 @@ jobs:
       - name: Install Dependencies
         run: npm ci
 
+      - name: Build
+        run: npm run build
+
       - name: Audit NPM Dependencies
-        run: npm audit --audit-level=high --production
+        run: npm audit --audit-level=high
 
       - name: Run Jest Test Suite
         run: npm test
+
+      - name: Start API server (adversarial probes need a live server)
+        run: |
+          node dist/index.js &
+          # wait for the health check
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/health >/dev/null; then break; fi
+            sleep 2
+          done
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          MONGODB_URI: mongodb://localhost:27017/rescueship_ci
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
+          JWT_SECRET: ci_test_jwt_secret_key_production_32chars_minimum
+          ENCRYPTION_KEY: ci_test_encryption_key_32chars_length
+          WHATSAPP_APP_SECRET: ci_test_whatsapp_app_secret
+          RAZORPAY_WEBHOOK_SECRET: ci_test_razorpay_webhook_secret
+          SHOPIFY_API_SECRET: ci_test_shopify_api_secret
+          DELHIVERY_WEBHOOK_SECRET: ci_test_delhivery_webhook_secret_key
 
       - name: Run Adversarial Security Verification Probes
         run: npx ts-node scripts/verify-adversarial-fixes.ts

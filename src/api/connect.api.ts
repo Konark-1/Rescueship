@@ -17,6 +17,7 @@ import { encryptionService } from '../services/encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
+import { frontendOrigin } from '../config/env';
 import { credentialValidationLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
@@ -91,10 +92,52 @@ router.post('/shopify/token', authenticateToken, credentialValidationLimiter, st
 router.get('/shopify/callback', async (req: Request, res: Response) => {
   try {
     await shopifyOAuthService.handleCallback(req.query as Record<string, string>);
-    res.redirect(`${process.env.FRONTEND_URL}/onboarding?connected=shopify`);
+    res.redirect(`${frontendOrigin()}/onboarding?connected=shopify`);
   } catch (e: any) {
     logger.error('Shopify callback failed', { error: e.message });
-    res.redirect(`${process.env.FRONTEND_URL}/onboarding?error=shopify`);
+    res.redirect(`${frontendOrigin()}/onboarding?error=shopify`);
+  }
+});
+
+// GET /api/connect/shopify/metrics — pulls order analytics for the billing loss calculator
+router.get('/shopify/metrics', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const merchantId = req.merchant!.merchantId;
+    const m = await Merchant.findById(merchantId).lean();
+    const shopify = (m as any)?.shopify;
+    const connected = (m as any)?.connections?.shopify?.status === 'connected';
+
+    if (!connected || !shopify) {
+      return res.json({ available: false });
+    }
+
+    const { Order: OrderModel } = await import('../models');
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    const recentOrders = await OrderModel.find({
+      merchantId,
+      createdAt: { $gte: thirtyDaysAgo },
+    }).select('totalPrice paymentMethod').lean();
+
+    if (recentOrders.length > 0) {
+      const totalOrders = recentOrders.length;
+      const totalVal = recentOrders.reduce((sum: number, o: any) => sum + (Number(o.totalPrice) || 0), 0);
+      const aov = Math.round(totalVal / totalOrders) || 1200;
+      const codOrders = recentOrders.filter((o: any) => /cod|cash/i.test(o.paymentMethod || '')).length;
+      const codPct = +(codOrders / totalOrders).toFixed(2) || 0.70;
+      return res.json({ available: true, monthlyOrders: totalOrders, aov, codPct, storeDomain: shopify.shopDomain });
+    }
+
+    return res.json({
+      available: true,
+      monthlyOrders: 850,
+      aov: 1350,
+      codPct: 0.72,
+      storeDomain: shopify.shopDomain,
+      estimated: true,
+    });
+  } catch (e: any) {
+    logger.error('Failed to fetch shopify metrics', { error: e.message });
+    return res.json({ available: false });
   }
 });
 

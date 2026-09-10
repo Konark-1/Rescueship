@@ -260,16 +260,33 @@ export class NDRService {
     order.status = 'ndr_rescue_sent';
     await order.save();
 
-    await this.sendVerifyRescue(order, merchant, policy);
-    await RescueLedger.recordDecision({
-      merchantId: order.merchantId,
-      orderId: order._id,
-      externalOrderId: order.externalOrderId,
-      flaggedAt: new Date(),
-      decisionMode: 'engaged',
-      fakeRemarkScore: score,
-    });
+    try {
+      // Business-initiated message MUST be a Meta-approved template (error 131047 otherwise).
+      await this.sendVerifyRescue(order, merchant);
 
+      await RescueLedger.recordDecision({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        externalOrderId: order.externalOrderId,
+        flaggedAt: new Date(),
+        decisionMode: 'engaged',
+        fakeRemarkScore: score,
+      });
+
+      await this.scheduleEscalations(order, merchant);
+    } catch (err) {
+      // Roll back the provisional NDR state so a BullMQ retry can re-attempt the
+      // whole send (credit is refunded inside sendVerifyRescue). Otherwise the order
+      // would be stuck in `ndr_rescue_sent` with no escalation and no message sent.
+      await Order.updateOne(
+        { _id: order._id },
+        { $set: { status: 'ndr_detected' }, $unset: { 'ndr.decisionMode': 1 } }
+      );
+      throw err;
+    }
+  }
+
+  private async scheduleEscalations(order: any, merchant: any): Promise<void> {
     const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
     const eq = this.getEscalationQueue();
     for (let i = 0; i < chain.length; i++) {
@@ -320,20 +337,7 @@ export class NDRService {
     return false;
   }
 
-  private async sendVerifyRescue(order: any, merchant: any, policy: any): Promise<void> {
-    const incentive = policy.incentive.type === 'flat' ? `₹${policy.incentive.flatInr} discount`
-      : policy.incentive.type === 'percent' ? `${policy.incentive.percent}% discount` : '';
-
-    const body = incentive
-      ? COPY.retentionOffer({ incentive })
-      : COPY.verifyInitial({ name: order.customerName || 'there', orderId: order.externalOrderId });
-
-    const buttons = [
-      { id: `reschedule:${order._id}`, title: 'Reschedule Tomorrow' },
-      { id: `address:${order._id}`, title: 'Update Address' },
-      { id: `cancel:${order._id}`, title: 'Cancel Order' },
-    ];
-
+  private async sendVerifyRescue(order: any, merchant: any): Promise<void> {
     // MED-6 fix: Deduct credit before sending. Refund if message delivery fails.
     const creditDeducted = await Merchant.updateOne(
       { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
@@ -345,15 +349,36 @@ export class NDRService {
     }
 
     try {
+      const language = merchant.settings?.ndrRescue?.messageLanguage || 'en';
+      const name = order.customerName || 'Customer';
+      const orderId = String(order.externalOrderId || '');
+
+      // `ndr_rescue_en` is the registered utility template with the built-in quick-reply
+      // buttons ("Yes I'm home", "Reschedule", "Share location", "Cancel order"). Business-
+      // initiated rescue prompts must go out as this template — not as a free-form message.
       const waConfig = this.getWaConfig(merchant);
-      await whatsAppService.sendInteractiveButtons(order.customerPhone, body, buttons, waConfig);
+      await whatsAppService.sendTemplate(
+        order.customerPhone,
+        'ndr_rescue_en',
+        language,
+        [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: name },
+              { type: 'text', text: orderId },
+            ],
+          },
+        ],
+        waConfig
+      );
 
       await recordOutbound({
         orderId: order._id.toString(),
         merchantId: order.merchantId.toString(),
-        templateName: 'ndr_verify_en',
-        body,
-        hasDiscount: policy.incentive.type !== 'none',
+        templateName: 'ndr_rescue_en',
+        body: `Verify delivery of order #${orderId} so we can get it to you.`,
+        hasDiscount: false,
       });
 
       await BillingEvent.create({
@@ -604,20 +629,22 @@ export class NDRService {
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
 
-      const isUrgent = level === 2;
-      const msg = isUrgent
-        ? COPY.unusualStatus({ orderId: order.externalOrderId })
-        : COPY.verifyInitial({ name: order.customerName || 'there', orderId: order.externalOrderId });
-
-      const buttons = [
-        { id: `reschedule:${order._id}`, title: 'Reschedule Tomorrow' },
-        { id: `address:${order._id}`, title: 'Update Address' },
-      ];
-
-      await whatsAppService.sendInteractiveButtons(
+      // Escalation reminders are also business-initiated (often with no open customer
+      // window) → re-send the approved template rather than a free-form message.
+      const language = merchant.settings?.ndrRescue?.messageLanguage || 'en';
+      await whatsAppService.sendTemplate(
         order.customerPhone,
-        msg,
-        buttons,
+        'ndr_rescue_en',
+        language,
+        [
+          {
+            type: 'body',
+            parameters: [
+              { type: 'text', text: order.customerName || 'Customer' },
+              { type: 'text', text: String(order.externalOrderId || '') },
+            ],
+          },
+        ],
         this.getWaConfig(merchant)
       );
 

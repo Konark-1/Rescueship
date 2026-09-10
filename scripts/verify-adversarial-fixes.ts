@@ -14,10 +14,17 @@ async function runSecurityAuditProbes() {
   console.log('🔒 ==========================================\n');
 
   await mongoose.connect(config.mongodb.uri);
-  const testMerchant = (await Merchant.findOne({ 'billing.plan': 'scale' })) || (await Merchant.findOne());
+  let testMerchant = await Merchant.findOne({ 'billing.plan': 'scale' }) || await Merchant.findOne();
   if (!testMerchant) {
-    console.error('❌ No test merchant found in database');
-    process.exit(1);
+    // Seed one so the probe suite can run in a clean CI sandbox.
+    testMerchant = await Merchant.create({
+      name: 'CI Security Probe Merchant',
+      email: `ci_probe_${Date.now()}@rescueship.invalid`,
+      password: 'CIProbePassword123!',
+      platform: 'custom',
+      billing: { plan: 'scale', status: 'active', activatedAt: new Date(), rescueCredits: 1000 },
+    } as any);
+    console.log('ℹ️  Seeded CI probe merchant', testMerchant._id.toString());
   }
   const merchantId = testMerchant._id.toString();
   const token = generateToken(merchantId, testMerchant.tokenVersion ?? 1);

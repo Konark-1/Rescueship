@@ -21,17 +21,16 @@ import { Merchant, ProcessedPayment } from '../models';
 import { emailService } from './email.service';
 import { logger } from '../utils/logger';
 
-export type Tier = 'starter' | 'growth' | 'scale';
+export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
 export type Cycle = 'quarterly' | 'semi' | 'annual';
 
-const BASE: Record<Tier, number> = { starter: 2999, growth: 8999, scale: 19999 };
-export const LIMIT: Record<Tier, number> = { starter: 2000, growth: 10000, scale: 50000 };
+const BASE: Record<Tier, number> = { starter: 1199, growth: 2899, scale: 5499, fleet: 9499 };
+export const LIMIT: Record<Tier, number> = { starter: 1000, growth: 5000, scale: 12000, fleet: 25000 };
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
-const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.30 };
-const INTRO_OFF = 0.4;
+const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.20 };
 const PERIOD: Record<Cycle, 'monthly' | 'quarterly' | 'yearly'> = { quarterly: 'monthly', semi: 'monthly', annual: 'monthly' };
 
-export const TIERS: readonly Tier[] = ['starter', 'growth', 'scale'];
+export const TIERS: readonly Tier[] = ['starter', 'growth', 'scale', 'fleet'];
 export const CYCLES: readonly Cycle[] = ['quarterly', 'semi', 'annual'];
 /** Accept legacy 'semi_annual' stored values / old clients and map onto the canonical key. */
 export function normalizeCycle(c: unknown): Cycle | null {
@@ -42,10 +41,18 @@ export const isTier = (v: unknown): v is Tier => typeof v === 'string' && (TIERS
 export const isCycle = (v: unknown): v is Cycle => typeof v === 'string' && (CYCLES as readonly string[]).includes(v);
 
 export function priceFor(tier: Tier, cycle: Cycle) {
-  const base = BASE[tier];
-  const introMonthly = Math.round(base * (1 - INTRO_OFF));
-  const renewMonthly = Math.round(base * (1 - DISC[cycle]));
-  return { introMonthly, renewMonthly, introUpfront: introMonthly * 3, renewalCharge: renewMonthly * MONTHS[cycle], months: MONTHS[cycle] };
+  const base = BASE[tier] ?? BASE.starter;
+  const disc = DISC[cycle] ?? 0;
+  const months = MONTHS[cycle] ?? 3;
+  const monthly = Math.round(base * (1 - disc));
+  const upfront = monthly * months;
+  return {
+    introMonthly: monthly,
+    renewMonthly: monthly,
+    introUpfront: upfront,
+    renewalCharge: upfront,
+    months,
+  };
 }
 
 /** True when real Razorpay credentials are configured (no dummy placeholders). */
@@ -82,7 +89,7 @@ export class SubscriptionService {
 
       // (2) renewal subscription — first charge at the renewal date
       const planId = await this.ensurePlan(tier, cycle, p.renewMonthly);
-      const startAt = Math.floor(Date.now() / 1000) + 90 * 24 * 3600; // ~1 quarter from now
+      const startAt = Math.floor(Date.now() / 1000) + (MONTHS[cycle] || 3) * 30 * 24 * 3600;
       const subscription = await rz.post('/subscriptions', {
         plan_id: planId, total_count: 12, quantity: 1, start_at: startAt,
         notes: { merchantId, tier, cycle, kind: 'renewal' },
@@ -180,7 +187,8 @@ export class SubscriptionService {
     }
 
     const now = new Date();
-    const renewal = new Date(now.getTime() + 90 * 24 * 3600 * 1000);
+    const renewalMonths = MONTHS[cycle] || 3;
+    const renewal = new Date(now.getTime() + renewalMonths * 30 * 24 * 3600 * 1000);
     const prev = await Merchant.findOneAndUpdate(
       { _id: merchantId, 'billing.introOrderId': orderId },
       { $set: {

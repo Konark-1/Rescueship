@@ -139,3 +139,306 @@
   .bl-row__pick { display: none; }
   .bl-manifest__head { flex-direction: column; align-items: flex-start; }
 }
+
+/* ── 90-Day Guarantee Banner ── */
+.bl-guarantee-hero {
+  position: relative;
+  z-index: 2;
+  max-width: 1180px;
+  margin: 0 auto 2.25rem;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12) 0%, rgba(16, 185, 129, 0.08) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 16px;
+  padding: 1.25rem 1.75rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+.bl-guarantee-hero__icon {
+  font-size: 2.2rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  border-radius: 14px;
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+}
+.bl-guarantee-hero__content { flex: 1; }
+.bl-guarantee-hero__title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.bl-guarantee-hero__badge {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(52, 211, 153, 0.18);
+  color: var(--emerald);
+  padding: 0.2rem 0.6rem;
+  border-radius: 100px;
+  font-weight: 600;
+}
+.bl-guarantee-hero__body {
+  font-size: 0.88rem;
+  color: var(--text-2);
+  line-height: 1.5;
+  margin-bottom: 0.2rem;
+}
+.bl-guarantee-hero__sub {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  line-height: 1.4;
+}
+.bl-guarantee-hero__pill {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--indigo-soft);
+  background: rgba(99, 102, 241, 0.15);
+  padding: 0.3rem 0.75rem;
+  border-radius: 8px;
+  white-space: nowrap;
+  border: 1px solid rgba(99, 102, 241, 0.25);
+}
+
+/* ── Parameters Card (Left rail) ── */
+.bl-params-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  margin: 1.5rem 0;
+}
+.bl-params-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.bl-params-card__head span {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.bl-params-card__btn {
+  font-size: 0.76rem;
+  color: var(--indigo-soft);
+  font-weight: 600;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+.bl-params-card__btn:hover {
+  background: rgba(99, 102, 241, 0.12);
+}
+.bl-params-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.6rem;
+}
+.bl-param-item {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+}
+.bl-param-item small {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-bottom: 0.15rem;
+}
+.bl-param-item strong {
+  font-family: var(--font-mono);
+  font-size: 0.88rem;
+  color: var(--text-1);
+}
+
+/* ── Incomplete Onboarding Banner ── */
+.bl-incomplete-banner {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.8rem;
+  color: #fbbf24;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.bl-incomplete-banner a, .bl-incomplete-banner button {
+  color: #fff;
+  font-weight: 600;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: inherit;
+}
+
+/* ── Step-by-Step Questionnaire Modal ── */
+.bl-quiz-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  background: rgba(4, 5, 10, 0.82);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+.bl-quiz-box {
+  position: relative;
+  width: min(600px, 100%);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: clamp(1.75rem, 5vw, 2.5rem);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+.bl-quiz-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+.bl-quiz-progress {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--indigo-soft);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.bl-quiz-close {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  color: var(--text-3);
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+.bl-quiz-close:hover { color: var(--text-1); }
+.bl-quiz-title {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 0.5rem;
+}
+.bl-quiz-sub {
+  font-size: 0.85rem;
+  color: var(--text-3);
+  line-height: 1.5;
+  margin-bottom: 1.75rem;
+}
+.bl-quiz-val-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+}
+.bl-quiz-val-n {
+  font-family: var(--font-display);
+  font-size: 2.8rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.bl-quiz-val-unit {
+  font-size: 1rem;
+  color: var(--text-3);
+}
+.bl-quiz-slider-wrap {
+  margin-bottom: 2rem;
+}
+.bl-quiz-slider {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  outline: none;
+}
+.bl-quiz-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--indigo);
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.6);
+}
+.bl-quiz-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+.bl-quiz-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.bl-quiz-btn {
+  padding: 0.75rem 1.6rem;
+  border-radius: 100px;
+  font-weight: 600;
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.bl-quiz-btn--primary {
+  background: var(--indigo);
+  color: #fff;
+  border: none;
+}
+.bl-quiz-btn--primary:hover { background: #5558e6; }
+.bl-quiz-btn--subtle {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+.bl-quiz-btn--subtle:hover { color: var(--text-1); border-color: rgba(255, 255, 255, 0.2); }
+.bl-shopify-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  color: #34d399;
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  padding: 0.25rem 0.65rem;
+  border-radius: 100px;
+  margin-bottom: 0.75rem;
+}
+

@@ -109,11 +109,10 @@ export const App: React.FC = () => {
               </DashboardLayoutWrapper>
             </ProtectedRoute>
           } />
+          {/* Billing — accessible during onboarding (not gated by DashboardLayoutWrapper) */}
           <Route path="/billing" element={
             <ProtectedRoute>
-              <DashboardLayoutWrapper>
-                <BillingPage />
-              </DashboardLayoutWrapper>
+              <BillingPage />
             </ProtectedRoute>
           } />
           <Route path="/audit-logs" element={

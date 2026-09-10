@@ -78,7 +78,9 @@ function registerShutdownHandler(): void {
         error: err instanceof Error ? err.message : String(err),
       });
     }
-    process.exit(0);
+    // No process.exit here: the app owns exit via its graceful shutdown path, and forcing
+    // an exit would race in-flight worker/Redis teardown. Standalone scripts terminate
+    // naturally once the last handle closes.
   };
 
   process.on('SIGINT', () => gracefulShutdown('SIGINT'));

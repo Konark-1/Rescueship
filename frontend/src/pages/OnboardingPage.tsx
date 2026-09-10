@@ -223,8 +223,20 @@ export default function OnboardingPage() {
             <button className="ob-foot__skip" onClick={handleSkip} disabled={busy === 'skip'}>
               {busy === 'skip' ? 'Opening dashboard…' : currentIndex >= STATIONS.length - 1 ? 'Finish later → dashboard' : 'Skip for now'}
             </button>
-            <button className="ob-foot__go" disabled={!allGreen || busy === 'finalize'} onClick={() => allGreen && !state?.paid ? nav('/billing') : goLive()}>
-              {allGreen ? (!state?.paid ? 'Subscribe to go live →' : 'Go live →') : `${STATIONS.filter((s) => !done(s.key)).length} station${STATIONS.filter((s) => !done(s.key)).length === 1 ? '' : 's'} to go`}
+            <button
+              className="ob-foot__go"
+              disabled={!allGreen || busy === 'finalize'}
+              onClick={() => {
+                if (allGreen && !state?.paid) {
+                  nav('/billing?from=onboarding');
+                } else if (allGreen && state?.paid) {
+                  goLive();
+                }
+              }}
+            >
+              {allGreen
+                ? (!state?.paid ? 'Next: Calculate savings & select plan →' : 'Go live →')
+                : `${STATIONS.filter((s) => !done(s.key)).length} station${STATIONS.filter((s) => !done(s.key)).length === 1 ? '' : 's'} to go`}
             </button>
           </footer>
         </main>

@@ -16,7 +16,8 @@ services:
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     env_file:
-      - .env.production
+      - path: .env.production
+        required: false
     depends_on:
       mongo:
         condition: service_healthy

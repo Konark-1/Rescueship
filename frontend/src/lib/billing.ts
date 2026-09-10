@@ -5,48 +5,83 @@
  */
 const API = import.meta.env.VITE_API_URL || '';
 
-export type Tier = 'starter' | 'growth' | 'scale';
-export type Cycle = 'quarterly' | 'semi' | 'annual';
+export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
+export type Cycle = 'quarterly' | 'annual';
+
+export interface StoreMetrics {
+  aov: number;          // Average Order Value (e.g. 1200)
+  codPct: number;       // COD percentage 0..1 (e.g. 0.70)
+  courierRto: number;   // 2-way courier RTO cost (e.g. 140)
+  wastedCac: number;    // Wasted CAC + packaging (e.g. 250)
+}
+
+export const DEFAULT_METRICS: StoreMetrics = {
+  aov: 1200,
+  codPct: 0.70,
+  courierRto: 140,
+  wastedCac: 250,
+};
 
 export const TIERS: { key: Tier; name: string; orders: number; base: number; blurb: string }[] = [
-  { key: 'starter', name: 'Starter', orders: 2000,  base: 2999,  blurb: 'For brands feeling the first RTO sting.' },
-  { key: 'growth',  name: 'Growth',  orders: 10000, base: 8999,  blurb: 'Where recovery becomes a line item you watch grow.' },
-  { key: 'scale',   name: 'Scale',   orders: 50000, base: 19999, blurb: 'For ops teams that refuse to lose a single order.' },
+  { key: 'starter', name: 'Starter', orders: 1000,  base: 1199, blurb: 'For early D2C brands feeling the first RTO sting.' },
+  { key: 'growth',  name: 'Growth',  orders: 5000,  base: 2899, blurb: 'Where recovery becomes a line item you watch grow.' },
+  { key: 'scale',   name: 'Scale',   orders: 12000, base: 5499, blurb: 'For scaling brands that refuse to lose orders.' },
+  { key: 'fleet',   name: 'Fleet',   orders: 25000, base: 9499, blurb: 'For high-volume ops with multi-carrier delivery.' },
 ];
+
 export const CYCLES: { key: Cycle; label: string; months: number; discount: number; tag: string }[] = [
-  { key: 'quarterly', label: 'Quarterly',   months: 3,  discount: 0,    tag: '' },
-  { key: 'semi',      label: 'Semi-Annual', months: 6,  discount: 0.15, tag: '−15%' },
-  { key: 'annual',    label: 'Annual',      months: 12, discount: 0.30, tag: '−30%' },
+  { key: 'quarterly', label: 'Quarterly', months: 3,  discount: 0,    tag: '90-Day Guarantee' },
+  { key: 'annual',    label: 'Annual',    months: 12, discount: 0.20, tag: '−20%' },
 ];
-export const INTRO_OFF = 0.4;          // first quarter only
-export const RTO_RATE = 0.15, RTO_COST = 430, RESCUE_RATE = 0.6;
 
 export const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
 export function priceFor(tier: Tier, cycle: Cycle) {
-  const base = TIERS.find((t) => t.key === tier)!.base;
-  const disc = CYCLES.find((c) => c.key === cycle)!.discount;
-  const introMonthly = Math.round(base * (1 - INTRO_OFF));
-  const renewMonthly = Math.round(base * (1 - disc));
-  const months = CYCLES.find((c) => c.key === cycle)!.months;
+  const t = TIERS.find((item) => item.key === tier) || TIERS[0];
+  const c = CYCLES.find((item) => item.key === cycle) || CYCLES[0];
+  const monthly = Math.round(t.base * (1 - c.discount));
+  const upfront = monthly * c.months;
+
   return {
-    introMonthly,
-    renewMonthly,
-    introUpfront: introMonthly * 3,                 // first quarter, charged now
-    renewalCharge: renewMonthly * months,           // recurring charge at renewal
-    months,
+    monthly,
+    upfront,
+    introMonthly: monthly,     // Kept for backward compatibility
+    renewMonthly: monthly,     // Kept for backward compatibility
+    introUpfront: upfront,     // Kept for backward compatibility
+    renewalCharge: upfront,    // Kept for backward compatibility
+    months: c.months,
   };
 }
 
-export function lossFor(volume: number) {
-  const loss = Math.round(volume * RTO_RATE * RTO_COST);
-  const saved = Math.round(loss * RESCUE_RATE);
-  const rescuesPerMonth = Math.round(volume * RTO_RATE * RESCUE_RATE);
-  return { loss, saved, rescuesPerMonth, rescuesPerWeek: +(rescuesPerMonth / 4.33).toFixed(1) };
+export function lossFor(volume: number, metrics: Partial<StoreMetrics> = {}) {
+  const m = { ...DEFAULT_METRICS, ...metrics };
+  const costPerFailed = m.courierRto + m.wastedCac;
+  // Blended RTO rate: COD orders face ~25% RTO; Prepaid face ~3%
+  const blendedRtoRate = (m.codPct * 0.25) + ((1 - m.codPct) * 0.03);
+  const failedDeliveries = Math.round(volume * blendedRtoRate);
+  const loss = Math.round(failedDeliveries * costPerFailed);
+  const rescueRate = 0.60; // projected 60% rescue rate
+  const saved = Math.round(loss * rescueRate);
+  const rescuesPerMonth = Math.round(failedDeliveries * rescueRate);
+  const rescuesPerWeek = +(rescuesPerMonth / 4.33).toFixed(1);
+
+  return {
+    loss,
+    saved,
+    rescuesPerMonth,
+    rescuesPerWeek,
+    failedDeliveries,
+    costPerFailed,
+    blendedRtoRate,
+    codOrders: Math.round(volume * m.codPct),
+  };
 }
 
 export function recommendedTier(volume: number): Tier {
-  return volume <= 2000 ? 'starter' : volume <= 10000 ? 'growth' : 'scale';
+  if (volume <= 1000) return 'starter';
+  if (volume <= 5000) return 'growth';
+  if (volume <= 12000) return 'scale';
+  return 'fleet';
 }
 
 const call = async (token: string, path: string, body?: any) => {
