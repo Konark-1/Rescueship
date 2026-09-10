@@ -15,8 +15,10 @@ const REQUIRED_VARS: EnvRequirement[] = [
   { key: 'PORT', required: true, description: 'Server port (default: 3000)' },
   { key: 'NODE_ENV', required: true, description: 'Environment: development | production' },
   { key: 'MONGODB_URI', required: true, description: 'MongoDB connection string' },
-  { key: 'REDIS_HOST', required: true, description: 'Redis host' },
-  { key: 'REDIS_PORT', required: true, description: 'Redis port' },
+  ...(process.env.REDIS_URL ? [] : [
+    { key: 'REDIS_HOST', required: true, description: 'Redis host' },
+    { key: 'REDIS_PORT', required: true, description: 'Redis port' },
+  ]),
   { key: 'JWT_SECRET', required: true, description: 'JWT signing secret (min 32 chars)' },
   { key: 'ENCRYPTION_KEY', required: true, description: 'AES-256 encryption key (min 32 chars)' },
   { key: 'FRONTEND_URL', required: true, description: 'Frontend origin for CORS' },

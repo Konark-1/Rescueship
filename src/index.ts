@@ -79,6 +79,17 @@ const allowedOrigins = Array.from(
   ])
 );
 
+const isOriginAllowed = (origin: string): boolean => {
+  if (allowedOrigins.includes(origin)) return true;
+  // Allow all Netlify deployments (*.netlify.app)
+  if (/^https:\/\/([a-zA-Z0-9_-]+\.)?netlify\.app$/.test(origin)) return true;
+  // Allow Render deployments (*.onrender.com)
+  if (/^https:\/\/([a-zA-Z0-9_-]+\.)?onrender\.com$/.test(origin)) return true;
+  // Allow Cloudflare tunnels
+  if (/^https:\/\/([a-zA-Z0-9_-]+\.)?trycloudflare\.com$/.test(origin)) return true;
+  return false;
+};
+
 app.use(
   helmet({
     contentSecurityPolicy: {
@@ -123,7 +134,7 @@ app.use(
       // Allow requests with no origin (server-to-server, mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
       
-      if (allowedOrigins.includes(origin)) {
+      if (isOriginAllowed(origin)) {
         return callback(null, true);
       }
       
