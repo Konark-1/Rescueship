@@ -377,6 +377,7 @@ export default function LandingPage() {
   const [rescuedCount, setRescuedCount] = useState(387);
   const [orders, setOrders] = useState<OrderCard[]>(ORDER_BOARD);
 
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [storeUrl, setStoreUrl] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -470,7 +471,7 @@ export default function LandingPage() {
       const res = await fetch(`${API}/api/plg/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, storeUrl }),
+        body: JSON.stringify({ name, email, storeUrl }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
@@ -627,14 +628,20 @@ export default function LandingPage() {
               transition={{ duration: 0.6, delay: 1.25, ease: [0.16, 1, 0.3, 1] }}
               style={{ willChange: 'transform, opacity' }}>
               <div className="lp-pass__row">
+                <label className="lp-pass__label">Full name</label>
+                <input className="lp-pass__input" type="text" placeholder="John Doe"
+                  autoComplete="name" spellCheck={false}
+                  value={name} onChange={(e) => setName(e.target.value)} required />
+              </div>
+              <div className="lp-pass__row">
                 <label className="lp-pass__label">Work email</label>
                 <input className="lp-pass__input" type="email" placeholder="founder@yourbrand.com"
                   autoComplete="email" spellCheck={false}
                   value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="lp-pass__row">
-                <label className="lp-pass__label">Shopify or store domain</label>
-                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com (or yourbrand.in)"
+                <label className="lp-pass__label">Shopify store domain</label>
+                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com"
                   autoComplete="url" spellCheck={false}
                   value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
               </div>

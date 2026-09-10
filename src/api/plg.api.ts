@@ -37,12 +37,13 @@ function normalizeStoreHost(input: unknown): string | undefined {
 router.post('/signup', passwordResetLimiter, async (req: Request, res: Response) => {
   const genericResponse = { success: true, message: 'Check your email for the onboarding link and setup call details.' };
   try {
-    const { email, storeUrl } = req.body ?? {};
+    const { name, email, storeUrl } = req.body ?? {};
 
     if (!email || typeof email !== 'string' || !email.includes('@') || email.length > 254) {
       return res.status(400).json({ success: false, error: 'Valid email required' });
     }
     const cleanEmail = email.toLowerCase().trim();
+    const cleanName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : undefined;
     const storeHost = normalizeStoreHost(storeUrl);
     if (storeUrl !== undefined && storeUrl !== '' && !storeHost) {
       return res.status(400).json({ success: false, error: 'Store URL must be a valid domain, e.g. shop.example.com' });
@@ -51,7 +52,7 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
     const rawToken = crypto.randomBytes(32).toString('base64url');
     const tokenHash = hashToken(rawToken);
     const expiresAt = new Date(Date.now() + ONBOARDING_TOKEN_TTL_MS);
-    let merchantName = storeHost ? storeHost.split('.')[0] : cleanEmail.split('@')[0];
+    let merchantName = cleanName || (storeHost ? storeHost.split('.')[0] : cleanEmail.split('@')[0]);
 
     const existing = await Merchant.findOne({ email: cleanEmail }).select('name password googleId onboarding onboardingStatus');
     if (existing) {
@@ -63,18 +64,26 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
         void emailService.sendEmail({
           to: cleanEmail,
           subject: 'Your RescueShip account already exists',
-          text: `Hello ${existing.name},\n\nSomeone (probably you) requested onboarding for this email, but an account already exists. Sign in at ${frontendOrigin()}/login, or use "Forgot password" if you need to set one.\n\nIf this wasn't you, no action is needed.\n\n— RescueShip Team`,
+          text: `Hello ${cleanName || existing.name},\n\nSomeone (probably you) requested onboarding for this email, but an account already exists. Sign in at ${frontendOrigin()}/login, or use "Forgot password" if you need to set one.\n\nIf this wasn't you, no action is needed.\n\n— RescueShip Team`,
         }).catch(() => {});
         return res.json(genericResponse);
       }
       await Merchant.updateOne(
         { _id: existing._id },
-        { $set: { 'onboarding.status': existing.onboarding?.status || 'invited', 'onboarding.token': tokenHash, 'onboarding.tokenExpiresAt': expiresAt, 'onboarding.invitedAt': new Date() } }
+        {
+          $set: {
+            name: cleanName || existing.name || merchantName,
+            'onboarding.status': existing.onboarding?.status || 'invited',
+            'onboarding.token': tokenHash,
+            'onboarding.tokenExpiresAt': expiresAt,
+            'onboarding.invitedAt': new Date(),
+          },
+        }
       );
-      merchantName = existing.name || merchantName;
+      merchantName = cleanName || existing.name || merchantName;
     } else {
       await new Merchant({
-        name: merchantName.slice(0, 120),
+        name: merchantName,
         email: cleanEmail,
         // No password: the merchant sets one via the authenticated change-password / reset flow.
         platform: 'custom',
@@ -87,7 +96,7 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
     }
 
     const onboardingUrl = `${frontendOrigin()}/onboard?token=${rawToken}`;
-    logger.info('[PLG] Manifest signup: onboarding link issued', { email: cleanEmail, storeHost: storeHost || 'N/A' });
+    logger.info('[PLG] Manifest signup: onboarding link issued', { name: merchantName, email: cleanEmail, storeHost: storeHost || 'N/A' });
 
     // 1. Return immediate success response to user
     res.json(genericResponse);
@@ -95,9 +104,10 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
     // 2. Dispatch merchant confirmation & operator alert asynchronously in background
     Promise.allSettled([
       emailService.sendManifestConfirmationEmail(cleanEmail, storeHost, onboardingUrl, merchantName),
-      emailService.notifyOwner(`New Integration Request: ${cleanEmail} (${storeHost || 'Store'})`, {
+      emailService.notifyOwner(`New Integration Request: ${merchantName} (${cleanEmail})`, {
+        'Merchant Name': merchantName,
         'Merchant Email': cleanEmail,
-        'Store Domain': storeHost || 'Not provided',
+        'Shopify Store Domain': storeHost || 'Not provided',
         'Requested At': new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
         'Onboarding Portal Link': onboardingUrl,
         'Next Step': 'Reach out to merchant within 24-48 hours to assist with setup',
