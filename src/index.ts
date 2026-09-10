@@ -181,8 +181,18 @@ if (process.env.NODE_ENV !== 'production' && process.env.ENABLE_DEMO_MODE === 't
   app.use(express.static(path.join(__dirname, 'public')));
 }
 
+// Root welcome endpoint
+app.get('/', (_req, res) => {
+  res.status(200).json({
+    service: 'RescueShip Core API',
+    status: 'online',
+    health: '/health',
+    version: '1.0.0',
+  });
+});
+
 // Health check endpoint
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'healthy',
     timestamp: new Date(),
