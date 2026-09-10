@@ -311,21 +311,23 @@ export class EmailService {
   ): Promise<boolean> {
     const setupCallUrl = process.env.SETUP_CALL_URL || '';
     const store = storeUrl || 'your store';
-    const subject = `⚓ Welcome aboard, ${merchantName} — your rescue engine is being provisioned`;
-    const text = `Hello ${merchantName},\n\nThanks for signing up RescueShip for ${store}. Here's what happens next:\n\n1. Open your personal onboarding link (valid 7 days):\n${onboardingUrl}\n\n2. Connect your store, WhatsApp Business, courier account and payment gateway — each takes ~2 minutes and is validated live.\n\n3. Run the sandbox test rescues, graduate, and go live. From then on every failed delivery (NDR) and COD order is rescued automatically on WhatsApp.\n${setupCallUrl ? `\nPrefer a guided setup? Book a free 20-minute call and we'll set everything up with you: ${setupCallUrl}\n` : ''}\n— RescueShip Team`;
-    const html = `<div style="font-family: sans-serif; line-height: 1.6; max-width: 560px;">
-      <h2>⚓ Welcome aboard, ${esc(merchantName)}!</h2>
-      <p>Thanks for signing up RescueShip for <strong>${esc(store)}</strong>. RescueShip automatically converts COD orders to prepaid and rescues failed deliveries (NDRs) over WhatsApp — recovering the revenue most D2C brands lose to RTO.</p>
-      <p><strong>Your next 3 steps:</strong></p>
-      <ol>
-        <li>Open your personal onboarding link (valid 7 days):<br />
-          <a href="${onboardingUrl}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin: 8px 0;">Start onboarding</a></li>
-        <li>Connect your store, WhatsApp Business, courier and payment gateway — each validated live in ~2 minutes.</li>
-        <li>Run sandbox test rescues, graduate, and go live.</li>
-      </ol>
-      ${setupCallUrl ? `<p>Prefer a guided setup? <a href="${setupCallUrl}" style="background-color: #059669; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Book your free setup call</a> — we'll configure everything with you inside your own portal.</p>` : ''}
-      <hr />
-      <p style="font-size: 12px; color: #666;">RescueShip Team</p>
+    const subject = `⚓ We received your RescueShip request for ${store} — We'll contact you within 24-48 hours`;
+    const text = `Hello ${merchantName},\n\nThank you for requesting to integrate RescueShip for ${store}!\n\nWe have received your request. Our onboarding team is reviewing your details and someone will reach out to you within 24 to 48 hours to help you connect your store, configure your WhatsApp NDR rescue engine, and guide you through setup.\n\nIf you prefer to start connecting your accounts right away, you can use your self-serve onboarding link (valid for 7 days):\n${onboardingUrl}\n${setupCallUrl ? `\nPrefer to pick a specific time for a call? Book your free 20-minute setup call here: ${setupCallUrl}\n` : ''}\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 580px; color: #1e293b; padding: 20px;">
+      <h2 style="color: #0f172a; margin-top: 0;">⚓ We've received your RescueShip integration request!</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>Thank you for requesting to integrate RescueShip for <strong>${esc(store)}</strong>.</p>
+      <div style="background: #f0fdf4; border-left: 4px solid #16a34a; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+        <strong style="color: #15803d; font-size: 15px;">⏳ What happens next:</strong>
+        <p style="margin: 6px 0 0 0; color: #166534; font-size: 14px;">Our onboarding team is reviewing your store details. <strong>Someone will contact you within 24 to 48 hours</strong> to help connect your store, set up your WhatsApp numbers, and configure automated NDR rescue.</p>
+      </div>
+      <p>If you would like to start connecting your store, WhatsApp Business, courier and payment gateway right now, you can open your self-serve portal:</p>
+      <p style="margin: 24px 0;">
+        <a href="${onboardingUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Open Setup Portal</a>
+      </p>
+      ${setupCallUrl ? `<p style="font-size: 14px; color: #475569;">Prefer to schedule a direct screen-share call? <a href="${setupCallUrl}" style="color: #2563eb; text-decoration: underline;">Book a free 20-minute onboarding call</a>.</p>` : ''}
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+      <p style="font-size: 12px; color: #94a3b8; margin-bottom: 0;">RescueShip Team · Autonomous NDR Recovery for D2C Brands</p>
     </div>`;
 
     return this.sendEmail({ to: email, subject, text, html });

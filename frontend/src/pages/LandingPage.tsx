@@ -618,8 +618,8 @@ export default function LandingPage() {
               initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}>
               <CheckmarkIcon className="lp-pass__check" />
-              <p className="lp-pass__done-t">You’re on the manifest.</p>
-              <p className="lp-pass__done-s">Check your inbox — your test rescue is on its way.</p>
+              <p className="lp-pass__done-t">Integration request received!</p>
+              <p className="lp-pass__done-s">Check your inbox — our team will contact you within 24–48 hours to set up your store.</p>
             </motion.div>
           ) : (
             <motion.form className="lp-pass" onSubmit={handleSignup}

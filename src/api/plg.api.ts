@@ -92,11 +92,13 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
     // 1. Merchant email carries the ONLY copy of the raw token.
     await emailService.sendManifestConfirmationEmail(cleanEmail, storeHost, onboardingUrl, merchantName);
 
-    // 2. Ops notification WITHOUT the login-capable link.
-    await emailService.notifyOwner('New signup — setup assisted onboarding', {
-      email: cleanEmail,
-      storeUrl: storeHost || 'not provided',
-      note: 'User completed the landing-page signup. Reach out for their setup call if needed.',
+    // 2. Ops notification to operator
+    await emailService.notifyOwner(`New Integration Request: ${cleanEmail} (${storeHost || 'Store'})`, {
+      'Merchant Email': cleanEmail,
+      'Store Domain': storeHost || 'Not provided',
+      'Requested At': new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+      'Onboarding Portal Link': onboardingUrl,
+      'Next Step': 'Reach out to merchant within 24-48 hours to assist with setup',
     });
 
     res.json(genericResponse);
