@@ -61,7 +61,9 @@ const redisOptions: RedisOptions = {
  * Use this everywhere a Redis / BullMQ connection is needed so we maintain
  * a single connection pool.
  */
-export const redisConnection: Redis = new Redis(redisOptions);
+export const redisConnection: Redis = process.env.REDIS_URL
+  ? new Redis(process.env.REDIS_URL, redisOptions)
+  : new Redis(redisOptions);
 
 /* ------------------------------------------------------------------ */
 /*  Event listeners                                                    */
