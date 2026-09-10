@@ -95,7 +95,7 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
       }).save();
     }
 
-    const onboardingUrl = `${frontendOrigin()}/onboard?token=${rawToken}`;
+    const onboardingUrl = `${frontendOrigin()}/register?email=${encodeURIComponent(cleanEmail)}&name=${encodeURIComponent(merchantName)}`;
     logger.info('[PLG] Manifest signup: onboarding link issued', { name: merchantName, email: cleanEmail, storeHost: storeHost || 'N/A' });
 
     // 1. Return immediate success response to user

@@ -640,8 +640,8 @@ export default function LandingPage() {
                   value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="lp-pass__row">
-                <label className="lp-pass__label">Shopify store domain</label>
-                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com"
+                <label className="lp-pass__label">Shopify / WooCommerce store domain</label>
+                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com (or yourstore.com)"
                   autoComplete="url" spellCheck={false}
                   value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
               </div>

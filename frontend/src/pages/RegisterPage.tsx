@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
@@ -25,8 +25,9 @@ const itemVariants = {
 };
 
 const RegisterPage: React.FC = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const [name, setName] = useState(searchParams.get('name') || '');
+  const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState('');
