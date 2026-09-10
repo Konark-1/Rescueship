@@ -1,4 +1,6 @@
 import nodemailer from 'nodemailer';
+import { OAuth2Client } from 'google-auth-library';
+import axios from 'axios';
 import { logger } from '../utils/logger';
 
 export interface EmailOptions {
@@ -22,6 +24,9 @@ export class EmailService {
   private static instance: EmailService;
   private transporter: nodemailer.Transporter | null = null;
   private isSmtpConfigured: boolean = false;
+  private oauth2Client: OAuth2Client | null = null;
+  private gmailUser: string | null = null;
+  private isGmailApiConfigured: boolean = false;
 
   private constructor() {
     this.initTransporter();
@@ -35,6 +40,23 @@ export class EmailService {
   }
 
   private initTransporter(): void {
+    // 1. Check Gmail REST API (Port 443 / HTTPS - bypasses cloud SMTP blocks)
+    const clientId = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+    const clientSecret = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+    const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+    const gUser = process.env.GMAIL_USER || process.env.SMTP_USER || 'konarkofficial@gmail.com';
+
+    if (clientId && clientSecret && refreshToken) {
+      this.oauth2Client = new OAuth2Client(clientId, clientSecret);
+      this.oauth2Client.setCredentials({ refresh_token: refreshToken });
+      this.gmailUser = gUser;
+      this.isGmailApiConfigured = true;
+      logger.info('EmailService initialized with Gmail REST API (HTTPS port 443)', { user: gUser });
+    } else {
+      this.isGmailApiConfigured = false;
+    }
+
+    // 2. Fallback to Nodemailer SMTP
     const host = process.env.SMTP_HOST || 'smtp.gmail.com';
     const port = parseInt(process.env.SMTP_PORT || '465', 10);
     const user = process.env.SMTP_USER;
@@ -57,17 +79,22 @@ export class EmailService {
       logger.info('EmailService initialized with SMTP transport (IPv4)', { host, port, user, secure: isSecure });
     } else {
       this.isSmtpConfigured = false;
-      logger.info('EmailService initialized with fallback logging (SMTP credentials not fully provided)');
+      if (!this.isGmailApiConfigured) {
+        logger.info('EmailService initialized with fallback logging (credentials not fully provided)');
+      }
     }
   }
 
   public getStatus() {
     return {
+      isGmailApiConfigured: this.isGmailApiConfigured,
+      gmailUser: this.gmailUser,
       isSmtpConfigured: this.isSmtpConfigured,
       host: process.env.SMTP_HOST || null,
       port: process.env.SMTP_PORT || null,
       user: process.env.SMTP_USER || null,
       hasPass: !!process.env.SMTP_PASS,
+      hasRefreshToken: !!process.env.GMAIL_REFRESH_TOKEN,
       from: process.env.SMTP_FROM || null,
       ownerNotifyEmail: process.env.OWNER_NOTIFY_EMAIL || null,
     };
@@ -77,26 +104,88 @@ export class EmailService {
     this.initTransporter();
   }
 
-  public async verifyConnection(): Promise<{ ok: boolean; error?: string; host?: string; port?: number }> {
+  public async verifyConnection(): Promise<{ ok: boolean; transport: string; error?: string; host?: string; port?: number }> {
+    // Check Gmail API first
+    if (this.isGmailApiConfigured && this.oauth2Client) {
+      try {
+        const tokenRes = await this.oauth2Client.getAccessToken();
+        const token = typeof tokenRes === 'string' ? tokenRes : tokenRes?.token;
+        if (!token) throw new Error('Failed to retrieve access token from refresh token');
+        return { ok: true, transport: 'gmail_api_https' };
+      } catch (err: any) {
+        return { ok: false, transport: 'gmail_api_https', error: err.message };
+      }
+    }
+
     if (!this.transporter) {
-      return { ok: false, error: 'Transporter not initialized' };
+      return { ok: false, transport: 'none', error: 'No email transport configured' };
     }
     const host = process.env.SMTP_HOST || 'smtp.gmail.com';
     const port = parseInt(process.env.SMTP_PORT || '465', 10);
     try {
       await this.transporter.verify();
-      return { ok: true, host, port };
+      return { ok: true, transport: 'smtp', host, port };
     } catch (err: any) {
-      return { ok: false, error: `${err.name}: ${err.message} (code: ${err.code || 'N/A'}, command: ${err.command || 'N/A'})`, host, port };
+      return { ok: false, transport: 'smtp', error: `${err.name}: ${err.message} (code: ${err.code || 'N/A'})`, host, port };
     }
   }
 
   /**
-   * Send email using SMTP transporter or fallback to logging.
+   * Send email using Gmail REST API (HTTPS port 443) or SMTP transport or fallback to logging.
    */
   public async sendEmail(options: EmailOptions): Promise<boolean> {
-    const from = process.env.SMTP_FROM || 'noreply@rescueship.io';
+    const from = process.env.SMTP_FROM || `"RescueShip" <${this.gmailUser || 'konarkofficial@gmail.com'}>`;
 
+    // 1. Gmail REST API over HTTPS (Port 443 - zero block on Render free tier)
+    if (this.isGmailApiConfigured && this.oauth2Client) {
+      try {
+        const tokenRes = await this.oauth2Client.getAccessToken();
+        const accessToken = typeof tokenRes === 'string' ? tokenRes : tokenRes?.token;
+        if (!accessToken) {
+          throw new Error('Could not obtain Gmail access token from refresh token');
+        }
+
+        const utf8Subject = `=?utf-8?B?${Buffer.from(options.subject).toString('base64')}?=`;
+        const emailContent = [
+          `From: ${from}`,
+          `To: ${options.to}`,
+          `Subject: ${utf8Subject}`,
+          'MIME-Version: 1.0',
+          'Content-Type: text/html; charset=utf-8',
+          'Content-Transfer-Encoding: 7bit',
+          '',
+          options.html || options.text || '',
+        ].join('\r\n');
+
+        const raw = Buffer.from(emailContent)
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '');
+
+        await axios.post(
+          'https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send',
+          { raw },
+          {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 12000,
+          }
+        );
+
+        logger.info('Email sent successfully via Gmail REST API (HTTPS)', { to: options.to, subject: options.subject });
+        return true;
+      } catch (err: any) {
+        logger.error('Gmail REST API dispatch failed, trying SMTP fallback', {
+          error: err.response?.data?.error?.message || err.message,
+          to: options.to,
+        });
+      }
+    }
+
+    // 2. SMTP Transport
     if (this.isSmtpConfigured && this.transporter) {
       try {
         const info = await this.transporter.sendMail({
@@ -113,10 +202,10 @@ export class EmailService {
         this.logEmailFallback(from, options);
         return false;
       }
-    } else {
-      this.logEmailFallback(from, options);
-      return true;
     }
+
+    this.logEmailFallback(from, options);
+    return true;
   }
 
   private logEmailFallback(from: string, options: EmailOptions): void {
