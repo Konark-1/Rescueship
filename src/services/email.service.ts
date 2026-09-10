@@ -76,6 +76,20 @@ export class EmailService {
     this.initTransporter();
   }
 
+  public async verifyConnection(): Promise<{ ok: boolean; error?: string; host?: string; port?: number }> {
+    if (!this.transporter) {
+      return { ok: false, error: 'Transporter not initialized' };
+    }
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT || '465', 10);
+    try {
+      await this.transporter.verify();
+      return { ok: true, host, port };
+    } catch (err: any) {
+      return { ok: false, error: `${err.name}: ${err.message} (code: ${err.code || 'N/A'}, command: ${err.command || 'N/A'})`, host, port };
+    }
+  }
+
   /**
    * Send email using SMTP transporter or fallback to logging.
    */

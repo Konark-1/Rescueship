@@ -190,13 +190,17 @@ router.get('/email-status', (_req: Request, res: Response) => {
 router.get('/test-email', async (req: Request, res: Response) => {
   const to = (req.query.to as string) || process.env.OWNER_NOTIFY_EMAIL || 'konarkofficial@gmail.com';
   try {
+    const verify = await emailService.verifyConnection();
+    if (!verify.ok) {
+      return res.status(500).json({ success: false, verify });
+    }
     const success = await emailService.sendEmail({
       to,
       subject: '🧪 RescueShip Production Live SMTP Test',
       text: `Live SMTP test sent successfully at ${new Date().toISOString()} from RescueShip on Render.`,
       html: `<h3>🧪 RescueShip Production Live SMTP Test</h3><p>Live SMTP test sent successfully at <strong>${new Date().toISOString()}</strong> from RescueShip on Render.</p>`,
     });
-    res.json({ success, sentTo: to, status: success ? 'delivered' : 'failed' });
+    res.json({ success, verify, sentTo: to, status: success ? 'delivered' : 'failed' });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
