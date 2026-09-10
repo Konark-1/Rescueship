@@ -1,4 +1,4 @@
-﻿# Netlify Configuration for RescueShip Frontend
+# Netlify Configuration for RescueShip Frontend
 
 [build]
   # The frontend app lives in the frontend/ subdirectory
