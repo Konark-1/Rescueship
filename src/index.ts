@@ -4,6 +4,11 @@ import path from 'path';
 // Load .env at the absolute beginning
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
+import dns from 'dns';
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
+
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';

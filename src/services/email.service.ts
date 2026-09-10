@@ -48,12 +48,13 @@ export class EmailService {
         port,
         secure: isSecure,
         auth: { user, pass: cleanPass },
+        family: 4,
         connectionTimeout: 10000,
         greetingTimeout: 10000,
         socketTimeout: 15000,
-      });
+      } as any);
       this.isSmtpConfigured = true;
-      logger.info('EmailService initialized with SMTP transport', { host, port, user, secure: isSecure });
+      logger.info('EmailService initialized with SMTP transport (IPv4)', { host, port, user, secure: isSecure });
     } else {
       this.isSmtpConfigured = false;
       logger.info('EmailService initialized with fallback logging (SMTP credentials not fully provided)');
