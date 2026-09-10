@@ -35,28 +35,25 @@ export class EmailService {
   }
 
   private initTransporter(): void {
-    const host = process.env.SMTP_HOST;
-    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    const port = parseInt(process.env.SMTP_PORT || '465', 10);
     const user = process.env.SMTP_USER;
     const pass = process.env.SMTP_PASS;
 
     if (host && user && pass) {
-      const isGmail = host.includes('gmail');
-      this.transporter = nodemailer.createTransport(
-        isGmail
-          ? {
-              service: 'gmail',
-              auth: { user, pass: pass.replace(/\s+/g, '') }, // remove spaces if user pasted app password with spaces
-            }
-          : {
-              host,
-              port,
-              secure: port === 465,
-              auth: { user, pass },
-            }
-      );
+      const cleanPass = pass.replace(/\s+/g, '');
+      const isSecure = port === 465;
+      this.transporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: isSecure,
+        auth: { user, pass: cleanPass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 15000,
+      });
       this.isSmtpConfigured = true;
-      logger.info('EmailService initialized with SMTP transport', { host, port, user, isGmail });
+      logger.info('EmailService initialized with SMTP transport', { host, port, user, secure: isSecure });
     } else {
       this.isSmtpConfigured = false;
       logger.info('EmailService initialized with fallback logging (SMTP credentials not fully provided)');

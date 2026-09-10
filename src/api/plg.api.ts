@@ -89,19 +89,27 @@ router.post('/signup', passwordResetLimiter, async (req: Request, res: Response)
     const onboardingUrl = `${frontendOrigin()}/onboard?token=${rawToken}`;
     logger.info('[PLG] Manifest signup: onboarding link issued', { email: cleanEmail, storeHost: storeHost || 'N/A' });
 
-    // 1. Merchant email carries the ONLY copy of the raw token.
-    await emailService.sendManifestConfirmationEmail(cleanEmail, storeHost, onboardingUrl, merchantName);
-
-    // 2. Ops notification to operator
-    await emailService.notifyOwner(`New Integration Request: ${cleanEmail} (${storeHost || 'Store'})`, {
-      'Merchant Email': cleanEmail,
-      'Store Domain': storeHost || 'Not provided',
-      'Requested At': new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
-      'Onboarding Portal Link': onboardingUrl,
-      'Next Step': 'Reach out to merchant within 24-48 hours to assist with setup',
-    });
-
+    // 1. Return immediate success response to user
     res.json(genericResponse);
+
+    // 2. Dispatch merchant confirmation & operator alert asynchronously in background
+    Promise.allSettled([
+      emailService.sendManifestConfirmationEmail(cleanEmail, storeHost, onboardingUrl, merchantName),
+      emailService.notifyOwner(`New Integration Request: ${cleanEmail} (${storeHost || 'Store'})`, {
+        'Merchant Email': cleanEmail,
+        'Store Domain': storeHost || 'Not provided',
+        'Requested At': new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
+        'Onboarding Portal Link': onboardingUrl,
+        'Next Step': 'Reach out to merchant within 24-48 hours to assist with setup',
+      })
+    ]).then(([merchantRes, ownerRes]) => {
+      logger.info('[PLG] Integration request emails dispatched', {
+        merchantEmail: merchantRes.status,
+        operatorAlert: ownerRes.status,
+      });
+    }).catch(dispatchErr => {
+      logger.error('[PLG] Background email dispatch error', { error: dispatchErr.message });
+    });
   } catch (err: any) {
     logger.error('[PLG] Signup failed', { error: err.message });
     res.status(500).json({ success: false, error: 'Something went wrong. Try again.' });
@@ -177,6 +185,21 @@ router.post('/activate', passwordResetLimiter, async (req: Request, res: Respons
 
 router.get('/email-status', (_req: Request, res: Response) => {
   res.json(emailService.getStatus());
+});
+
+router.get('/test-email', async (req: Request, res: Response) => {
+  const to = (req.query.to as string) || process.env.OWNER_NOTIFY_EMAIL || 'konarkofficial@gmail.com';
+  try {
+    const success = await emailService.sendEmail({
+      to,
+      subject: '🧪 RescueShip Production Live SMTP Test',
+      text: `Live SMTP test sent successfully at ${new Date().toISOString()} from RescueShip on Render.`,
+      html: `<h3>🧪 RescueShip Production Live SMTP Test</h3><p>Live SMTP test sent successfully at <strong>${new Date().toISOString()}</strong> from RescueShip on Render.</p>`,
+    });
+    res.json({ success, sentTo: to, status: success ? 'delivered' : 'failed' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 export default router;
