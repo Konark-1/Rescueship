@@ -466,14 +466,15 @@ export default function LandingPage() {
     if (!email || !storeUrl) return;
     setSubmitting(true); setError(null);
     try {
-      const res = await fetch('/api/plg/signup', {
+      const API = import.meta.env.VITE_API_URL || '';
+      const res = await fetch(`${API}/api/plg/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, storeUrl }),
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
-        throw new Error(d.message || 'Signup failed. Try again.');
+        throw new Error(d.error || d.message || 'Signup failed. Try again.');
       }
       setSubmitted(true);
     } catch (err: any) { setError(err.message); }
@@ -632,8 +633,8 @@ export default function LandingPage() {
                   value={email} onChange={(e) => setEmail(e.target.value)} required />
               </div>
               <div className="lp-pass__row">
-                <label className="lp-pass__label">Store URL</label>
-                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com"
+                <label className="lp-pass__label">Shopify or store domain</label>
+                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com (or yourbrand.in)"
                   autoComplete="url" spellCheck={false}
                   value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
               </div>
