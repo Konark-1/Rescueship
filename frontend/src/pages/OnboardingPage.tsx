@@ -541,11 +541,16 @@ function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, temp
               <Field label="WABA ID (WhatsApp Business Account)"><input className="ob-input" placeholder="987654321098765" value={wabaId} onChange={(e) => setWabaId(e.target.value)} required /></Field>
               <Field label="Access token"><input className="ob-input" type="password" placeholder="EAAG…" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required /></Field>
               <div className="ob-steps">
-                <p className="ob-steps__title">How to find these (5 min):</p>
+                <p className="ob-steps__title">How to find these (3 min):</p>
                 <ol className="ob-steps__list">
-                  <li>Open <a href="https://business.facebook.com/wa/manage/phone-numbers" target="_blank" rel="noopener noreferrer">WhatsApp Manager → Phone numbers</a> — copy the <strong>Phone number ID</strong></li>
-                  <li>Go to <a href="https://business.facebook.com/wa/manage/account-overview" target="_blank" rel="noopener noreferrer">Account overview</a> — copy the <strong>WABA ID</strong></li>
-                  <li>Open <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">Business Settings → System users</a> → create a system user → add the WhatsApp app with <strong>whatsapp_business_messaging</strong> + <strong>whatsapp_business_management</strong> permissions → generate a permanent access token</li>
+                  <li><strong>Fastest (All-in-one):</strong> Open <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer">Meta App Dashboard</a> → WhatsApp → API Setup to find your Phone number ID, WABA ID, and access token together.</li>
+                  <li>Or via Meta Business Suite:
+                    <ul style={{ marginTop: '4px', paddingLeft: '16px', listStyleType: 'circle' }}>
+                      <li><a href="https://business.facebook.com/latest/whatsapp_manager/phone-numbers/" target="_blank" rel="noopener noreferrer">WhatsApp Manager → Phone numbers</a> — copy the <strong>Phone number ID</strong></li>
+                      <li><a href="https://business.facebook.com/latest/whatsapp_manager/overview/" target="_blank" rel="noopener noreferrer">Account overview</a> — copy the <strong>WABA ID</strong></li>
+                      <li><a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">Business Settings → System users</a> — generate a permanent token with <code>whatsapp_business_messaging</code></li>
+                    </ul>
+                  </li>
                 </ol>
               </div>
               <button className="ob-btn" disabled={busy === 'whatsapp' || !manualValid}>{busy === 'whatsapp' ? 'Validating…' : 'Validate & connect'}</button>
