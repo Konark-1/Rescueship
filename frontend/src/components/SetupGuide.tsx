@@ -101,21 +101,22 @@ const GUIDES: StationGuide[] = [
         title: 'Choose manual (your keys)',
         body: 'On the WhatsApp station, pick "Manual (your keys)". You\'ll paste three values from your own Meta Business account — no RescueShip app config is required.',
         links: [
-          { label: 'Open Meta Business Suite', url: 'https://business.facebook.com/latest/whatsapp_manager' },
-          { label: 'Open Meta Developer Apps', url: 'https://developers.facebook.com/apps' },
+          { label: 'Open Meta Developer Apps (1-Screen Copy)', url: 'https://developers.facebook.com/apps' },
+          { label: 'Open Meta Business Settings', url: 'https://business.facebook.com/settings/whatsapp-business-accounts' },
         ],
       },
       {
         title: 'Find your Phone number ID + WABA ID',
-        body: 'Open Meta Business Suite → WhatsApp Manager → Account tools. Your "Phone number ID" is the number customers will message; the "WABA ID" is your WhatsApp Business Account ID. Copy both numeric IDs.',
+        body: 'Option A (Recommended): In Meta for Developers → Your App → WhatsApp → API Setup, both the Phone number ID and WhatsApp Business Account ID (WABA ID) are displayed side-by-side with copy buttons. Option B: In Meta Business Settings → Accounts → WhatsApp accounts, find your WABA ID and launch WhatsApp Manager.',
         links: [
-          { label: '→ WhatsApp Manager phone numbers', url: 'https://business.facebook.com/latest/whatsapp_manager/phone-numbers/' },
-          { label: '→ WhatsApp Manager account overview', url: 'https://business.facebook.com/latest/whatsapp_manager/overview/' },
+          { label: '→ Meta Developer Apps (1-Screen Copy)', url: 'https://developers.facebook.com/apps' },
+          { label: '→ Business Settings: WhatsApp accounts', url: 'https://business.facebook.com/settings/whatsapp-business-accounts' },
+          { label: '→ Standalone WhatsApp Manager', url: 'https://business.facebook.com/wa/manage/home/' },
         ],
       },
       {
         title: 'Create a system-user token',
-        body: 'In Meta Business Settings → Users → System users, create (or reuse) a system user. Add the WhatsApp app and give it whatsapp_business_messaging + whatsapp_business_management permissions. Generate a permanent access token and copy it. Paste all three values, then "Validate & connect".',
+        body: 'In Meta Business Settings → Users → System users, create (or reuse) a system user. Add the WhatsApp app and give it whatsapp_business_messaging + whatsapp_business_management permissions. Generate a permanent access token and copy it. Paste all three values, then "Validate & connect". (For immediate testing, you can also copy the temporary access token from API Setup).',
         links: [
           { label: '→ Open Business Settings → System users', url: 'https://business.facebook.com/settings/system-users' },
           { label: 'Read: System user tokens guide', url: 'https://developers.facebook.com/documentation/business-messaging/whatsapp/get-started' },
@@ -126,7 +127,7 @@ const GUIDES: StationGuide[] = [
         title: 'Wait for template approval',
         body: 'We auto-register the rescue + COD templates under your number and poll Meta for approval (usually 1-30 minutes). You\'ll see the status right here.',
         links: [
-          { label: '→ View your message templates', url: 'https://business.facebook.com/latest/whatsapp_manager/message-templates/' },
+          { label: '→ View message templates in WhatsApp Manager', url: 'https://business.facebook.com/wa/manage/home/' },
         ],
         commonErrors: [
           '"Could not verify these WhatsApp credentials" → the token lacks whatsapp_business_messaging / whatsapp_business_management permissions, or the IDs don\'t belong to the token',

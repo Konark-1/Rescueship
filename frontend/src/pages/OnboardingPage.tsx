@@ -548,11 +548,11 @@ function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, temp
               <div className="ob-steps">
                 <p className="ob-steps__title">How to find these (3 min):</p>
                 <ol className="ob-steps__list">
-                  <li><strong>Fastest (All-in-one):</strong> Open <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer">Meta App Dashboard</a> → WhatsApp → API Setup to find your Phone number ID, WABA ID, and access token together.</li>
-                  <li>Or via Meta Business Suite:
+                  <li><strong>Recommended (1-Screen Copy):</strong> Open <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer">Meta App Dashboard</a> → click your App → <strong>WhatsApp → API Setup</strong>. You'll find your <strong>Phone number ID</strong>, <strong>WABA ID</strong>, and <strong>Access token</strong> all on one screen with copy buttons.</li>
+                  <li><strong>Alternative (Business Portfolio Settings):</strong>
                     <ul style={{ marginTop: '4px', paddingLeft: '16px', listStyleType: 'circle' }}>
-                      <li><a href="https://business.facebook.com/latest/whatsapp_manager/phone-numbers/" target="_blank" rel="noopener noreferrer">WhatsApp Manager → Phone numbers</a> — copy the <strong>Phone number ID</strong></li>
-                      <li><a href="https://business.facebook.com/latest/whatsapp_manager/overview/" target="_blank" rel="noopener noreferrer">Account overview</a> — copy the <strong>WABA ID</strong></li>
+                      <li><a href="https://business.facebook.com/settings/whatsapp-business-accounts" target="_blank" rel="noopener noreferrer">Business Settings → WhatsApp accounts</a> — copy the <strong>Account ID (WABA ID)</strong></li>
+                      <li><a href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noopener noreferrer">Standalone WhatsApp Manager</a> — view your <strong>Phone number ID</strong></li>
                       <li><a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">Business Settings → System users</a> — generate a permanent token with <code>whatsapp_business_messaging</code></li>
                     </ul>
                   </li>
