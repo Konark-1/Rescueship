@@ -41,7 +41,7 @@ const GUIDES: StationGuide[] = [
         title: 'Know your setup',
         body: 'You connect Shopify with a key + secret you generate inside your own admin — no RescueShip Partner app is involved. Takes about 2 minutes. Steps below cover creating the app and copying both values.',
         links: [
-          { label: 'Read the full Shopify guide', url: 'https://shopify.dev/docs/apps/build/quickstart' },
+          { label: 'Read the full Shopify guide', url: 'https://shopify.dev/docs/apps/build' },
         ],
       },
       {
@@ -56,7 +56,7 @@ const GUIDES: StationGuide[] = [
         body: 'On the Apps page, click the "Develop apps" button at the top right. Then click "Create an app", type the name "RescueShip", and press Create app.',
         linksBuilder: (storeUrl?: string) => [
           { label: '→ Open Shopify App Development', url: shopAdmin(storeUrl || '', '/admin/apps/development') },
-          { label: 'Read: Create an app', url: 'https://shopify.dev/docs/apps/build/quickstart#create-an-app' },
+          { label: 'Read: Create an app', url: 'https://shopify.dev/docs/apps/build' },
         ],
       },
       {
@@ -71,7 +71,7 @@ const GUIDES: StationGuide[] = [
         title: 'Install and copy your key + secret',
         body: 'Open the "API credentials" tab → click "Install app" → confirm. Copy the "Admin API access token" (starts with shpat_… — this is your consumer key) and the "API secret key" (starts with shpss_… — this is your consumer secret). Note: Shopify shows the token once. Paste both here together with your store address (your-brand.myshopify.com). Alternatively, use the "One-click connect" option to authorize automatically without copying keys.',
         links: [
-          { label: 'Read: Access tokens explained', url: 'https://shopify.dev/docs/apps/build/authentication/access-tokens' },
+          { label: 'Read: Access tokens explained', url: 'https://shopify.dev/docs/apps/build/authentication-authorization/access-tokens' },
         ],
         commonErrors: [
           'Key rejected (401) → you entered the 32-character Client ID instead of the Admin API access token (must start with shpat_…)',
@@ -146,16 +146,16 @@ const GUIDES: StationGuide[] = [
         links: [
           { label: 'Shiprocket dashboard', url: 'https://app.shiprocket.in/' },
           { label: 'Delhivery dashboard', url: 'https://www.delhivery.com/' },
-          { label: 'ClickPost dashboard', url: 'https://www.clickpost.in/' },
+          { label: 'ClickPost dashboard', url: 'https://www.clickpost.ai/' },
         ],
       },
       {
         title: 'Paste your API key',
         body: 'Shiprocket: Settings → API → Generate token. Delhivery: Account → API Key. ClickPost: Settings → Developer → API Key.',
         links: [
-          { label: 'Shiprocket API docs', url: 'https://shiprocket.github.io/api-docs/' },
-          { label: 'Delhivery API docs', url: 'https://www.delhivery.com/api-documentation' },
-          { label: 'ClickPost API docs', url: 'https://docs.clickpost.in/' },
+          { label: 'Shiprocket API docs', url: 'https://apidocs.shiprocket.in/' },
+          { label: 'Delhivery One portal', url: 'https://one.delhivery.com/' },
+          { label: 'ClickPost API docs', url: 'https://docs.clickpost.ai/' },
         ],
       },
       {
@@ -178,14 +178,14 @@ const GUIDES: StationGuide[] = [
         body: 'Select Razorpay or Cashfree. This is for YOUR subscription payment to RescueShip, not customer payments.',
         links: [
           { label: 'Razorpay dashboard', url: 'https://dashboard.razorpay.com/' },
-          { label: 'Cashfree dashboard', url: 'https://dashboard.cashfree.com/' },
+          { label: 'Cashfree merchant dashboard', url: 'https://merchant.cashfree.com/' },
         ],
       },
       {
         title: 'Enter API credentials',
         body: 'Razorpay: Dashboard → Settings → API Keys → Generate. You need Key ID and Key Secret.',
         links: [
-          { label: 'Razorpay API key docs', url: 'https://razorpay.com/docs/payments/dashboard/settings/api-keys/' },
+          { label: 'Razorpay API key docs', url: 'https://razorpay.com/docs/payments/dashboard/account-settings/api-keys' },
           { label: 'Cashfree API key docs', url: 'https://docs.cashfree.com/docs/api-keys' },
         ],
       },
