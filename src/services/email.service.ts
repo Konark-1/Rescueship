@@ -506,6 +506,28 @@ export class EmailService {
       logger.error('Failed to send owner notification', { subject, error: err.message });
     }
   }
+
+  /**
+   * Send a confirmation email to a merchant (e.g. after they request assisted setup).
+   * Silently no-ops if the merchant has no email. Never throws.
+   */
+  public async notifyMerchant(to: string, subject: string, body: string): Promise<void> {
+    if (!to) return;
+    try {
+      await this.sendEmail({
+        to,
+        subject: `[RescueShip] ${subject}`,
+        text: body,
+        html: `<div style="font-family: sans-serif; line-height: 1.6; max-width: 520px; margin: 0 auto;">
+          <p>${body.replace(/\n/g, '<br/>')}</p>
+          <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #9ca3af;">RescueShip · rescueship.io</p>
+        </div>`,
+      });
+    } catch (err: any) {
+      logger.error('Failed to send merchant email', { to, subject, error: err.message });
+    }
+  }
 }
 
 export const emailService = EmailService.getInstance();

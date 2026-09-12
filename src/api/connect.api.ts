@@ -3,11 +3,13 @@
  * Everything a merchant needs to wire themselves, with live state.
  */
 import { Router, Request, Response } from 'express';
+import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { metaEmbeddedSignupService } from '../services/meta-embedded-signup.service';
 import { metaTemplateService } from '../services/meta-template.service';
 import { shopifyOAuthService } from '../services/shopify-oauth.service';
+import { woocommerceConnectService } from '../services/woocommerce-connect.service';
 import { carrierConnectService } from '../services/carrier-connect.service';
 import { paymentConnectService } from '../services/payment-connect.service';
 import { whatsAppService } from '../services/whatsapp.service';
@@ -27,12 +29,16 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
   try {
     const m = await Merchant.findById(req.merchant!.merchantId).lean();
     const c = (m as any).connections || {};
-    const allGreen = ['shopify', 'whatsapp', 'carrier', 'payment'].every((k) => c[k]?.status === 'connected');
+    // The "store" requirement is platform-agnostic: Shopify OR WooCommerce (either path
+    // counts as the store being wired). The other three stations are always required.
+    const storeConnected = c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected';
+    const allGreen = storeConnected && ['whatsapp', 'carrier', 'payment'].every((k) => c[k]?.status === 'connected');
     res.json({
       storeName: (m as any).storeName || (m as any).shopify?.shopDomain || null,
       ownerPhone: (m as any).ownerPhone || null,
       connections: {
         shopify: c.shopify || { status: 'disconnected' },
+        woocommerce: c.woocommerce || { status: 'disconnected' },
         whatsapp: c.whatsapp || { status: 'disconnected' },
         carrier: c.carrier || { status: 'disconnected' },
         payment: c.payment || { status: 'disconnected' },
@@ -45,6 +51,7 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
         shopifyOAuth: shopifyOAuthService.isConfigured(),
         shopifyToken: true,
         shopifyDemo: shopifyOAuthService.isDemoAvailable(),
+        woocommerce: true,
         whatsappEmbedded: !!(process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_CONFIG_ID),
       },
       paid: !!(m as any).billing?.plan && (m as any).billing.plan !== 'free_trial' && ((m as any).billing.status === 'active' || !!(m as any).billing.activatedAt),
@@ -65,7 +72,14 @@ router.get('/shopify/url', authenticateToken, async (req: AuthenticatedRequest, 
   if (shopifyOAuthService.isDemoAvailable()) {
     return res.json({ demo: true });
   }
-  try { res.json({ url: shopifyOAuthService.authorizeUrl(req.merchant!.merchantId, shop) }); }
+  try {
+    const rawOrigin = req.get('origin') || req.get('referer');
+    let origin: string | undefined = undefined;
+    if (rawOrigin) {
+      try { origin = new URL(rawOrigin).origin; } catch { origin = rawOrigin; }
+    }
+    res.json({ url: shopifyOAuthService.authorizeUrl(req.merchant!.merchantId, shop, origin) });
+  }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
@@ -90,12 +104,21 @@ router.post('/shopify/token', authenticateToken, credentialValidationLimiter, st
 });
 // Hit by Shopify (no JWT) — verifies hmac+state, then bounces the browser to the wizard.
 router.get('/shopify/callback', async (req: Request, res: Response) => {
+  let targetOrigin = frontendOrigin();
   try {
-    await shopifyOAuthService.handleCallback(req.query as Record<string, string>);
-    res.redirect(`${frontendOrigin()}/onboarding?connected=shopify`);
+    if (req.query.state && typeof req.query.state === 'string') {
+      try {
+        const decoded = jwt.decode(req.query.state) as any;
+        if (decoded?.returnOrigin) targetOrigin = decoded.returnOrigin;
+      } catch { /* ignore */ }
+    }
+    const result = await shopifyOAuthService.handleCallback(req.query as Record<string, string>);
+    if (result?.returnOrigin) targetOrigin = result.returnOrigin;
+    logger.info('Shopify OAuth handshake successful', { shop: result.shop, targetOrigin });
+    res.redirect(`${targetOrigin}/onboarding?connected=shopify`);
   } catch (e: any) {
     logger.error('Shopify callback failed', { error: e.message });
-    res.redirect(`${frontendOrigin()}/onboarding?error=shopify`);
+    res.redirect(`${targetOrigin}/onboarding?error=shopify`);
   }
 });
 
@@ -116,11 +139,11 @@ router.get('/shopify/metrics', authenticateToken, async (req: AuthenticatedReque
     const recentOrders = await OrderModel.find({
       merchantId,
       createdAt: { $gte: thirtyDaysAgo },
-    }).select('totalPrice paymentMethod').lean();
+    }).select('orderValue paymentMethod').lean();
 
     if (recentOrders.length > 0) {
       const totalOrders = recentOrders.length;
-      const totalVal = recentOrders.reduce((sum: number, o: any) => sum + (Number(o.totalPrice) || 0), 0);
+      const totalVal = recentOrders.reduce((sum: number, o: any) => sum + (Number(o.orderValue) || 0), 0);
       const aov = Math.round(totalVal / totalOrders) || 1200;
       const codOrders = recentOrders.filter((o: any) => /cod|cash/i.test(o.paymentMethod || '')).length;
       const codPct = +(codOrders / totalOrders).toFixed(2) || 0.70;
@@ -139,6 +162,103 @@ router.get('/shopify/metrics', authenticateToken, async (req: AuthenticatedReque
     logger.error('Failed to fetch shopify metrics', { error: e.message });
     return res.json({ available: false });
   }
+});
+
+// ── Store metrics (platform-agnostic: Shopify OR WooCommerce) ──
+// Feeds the billing RTO/loss calculator. Derived from the Order collection, so it
+// works identically for WooCommerce and Shopify; store identity just picks the label.
+router.get('/store/metrics', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const merchantId = req.merchant!.merchantId;
+    const m = await Merchant.findById(merchantId).lean();
+    const c = (m as any).connections || {};
+    const shopConnected = c.shopify?.status === 'connected';
+    const wcConnected = c.woocommerce?.status === 'connected';
+    if (!shopConnected && !wcConnected) return res.json({ available: false });
+
+    const storeDomain = shopConnected
+      ? (m as any).shopify?.shopDomain || (m as any).platformConfig?.shopifyDomain || 'Shopify'
+      : (m as any).connections?.woocommerce?.url || (m as any).platformConfig?.woocommerceUrl || 'WooCommerce';
+
+    const { Order: OrderModel } = await import('../models');
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 3600 * 1000);
+    const recentOrders = await OrderModel.find({ merchantId, createdAt: { $gte: thirtyDaysAgo } }).select('orderValue paymentMethod').lean();
+
+    if (recentOrders.length > 0) {
+      const totalOrders = recentOrders.length;
+      const totalVal = recentOrders.reduce((sum: number, o: any) => sum + (Number(o.orderValue) || 0), 0);
+      const aov = Math.round(totalVal / totalOrders) || 1200;
+      const codOrders = recentOrders.filter((o: any) => /cod|cash/i.test(o.paymentMethod || '')).length;
+      const codPct = Math.max(0, Math.min(1, +(codOrders / totalOrders).toFixed(2)));
+      return res.json({ available: true, monthlyOrders: totalOrders, aov, codPct, storeDomain });
+    }
+
+    return res.json({ available: true, monthlyOrders: 850, aov: 1350, codPct: 0.72, storeDomain, estimated: true });
+  } catch (e: any) {
+    logger.error('Failed to fetch store metrics', { error: e.message });
+    return res.json({ available: false });
+  }
+});
+
+// ── WooCommerce ──  (outbound credential validation → strict limiter)
+router.post('/woocommerce', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  const { url, consumerKey, consumerSecret } = req.body;
+  if (typeof url !== 'string' || typeof consumerKey !== 'string' || typeof consumerSecret !== 'string' || !url || !consumerKey || !consumerSecret) {
+    return res.status(400).json({ error: 'url, consumerKey and consumerSecret required' });
+  }
+  try { res.json(await woocommerceConnectService.connect(req.merchant!.merchantId, { url, consumerKey, consumerSecret })); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+// ── WhatsApp (Manual connect) ──
+// No Meta Embedded Signup / app config needed. The merchant pastes credentials they
+// already have from their own Meta Business account (WhatsApp Manager → API setup).
+router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  const { phoneNumberId, wabaId, accessToken } = req.body;
+  if (typeof phoneNumberId !== 'string' || typeof wabaId !== 'string' || typeof accessToken !== 'string' || !phoneNumberId || !wabaId || !accessToken) {
+    return res.status(400).json({ error: 'phoneNumberId, wabaId and accessToken required' });
+  }
+  const phone = phoneNumberId.trim();
+  const waba = wabaId.trim();
+  const token = accessToken.trim();
+  if (!/^\d{6,32}$/.test(phone)) return res.status(400).json({ error: 'Invalid phoneNumberId (numeric ID).' });
+  if (!/^\d{6,32}$/.test(waba)) return res.status(400).json({ error: 'Invalid WABA ID (numeric ID).' });
+
+  // Ownership check: the token must read BOTH the phone number and its WABA, so a
+  // merchant can never claim a number they don't own (blocks inbound-routing hijack).
+  try {
+    await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(phone)}`, {
+      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,display_phone_number' }, timeout: 8000,
+    });
+    await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(waba)}`, {
+      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,name' }, timeout: 8000,
+    });
+  } catch (e: any) {
+    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, code: e.response?.data?.error?.code });
+    return res.status(400).json({ error: 'Could not verify these WhatsApp credentials — check the phone number ID, WABA ID and access token (and that the token has whatsapp_business_messaging + whatsapp_business_management permissions).' });
+  }
+
+  const other = await Merchant.findOne({ _id: { $ne: req.merchant!.merchantId }, 'whatsappConfig.phoneNumberId': phone }).select('_id');
+  if (other) return res.status(409).json({ error: 'This WhatsApp number is already connected to another account.' });
+
+  const merchant = await Merchant.findById(req.merchant!.merchantId);
+  if (!merchant) return res.status(404).json({ error: 'not found' });
+  (merchant as any).whatsappConfig = {
+    ...((merchant as any).whatsappConfig || {}),
+    phoneNumberId: phone,
+    wabaId: waba,
+    accessToken: encryptionService.encrypt(token),
+  };
+  (merchant as any).connections = {
+    ...((merchant as any).connections || {}),
+    whatsapp: { status: 'templates_pending', connectedAt: new Date(), lastError: null },
+  };
+  await merchant.save();
+
+  // fire-and-forget template submission + approval polling
+  void metaTemplateService.submitAll(req.merchant!.merchantId).catch((e: any) => logger.warn('Manual WhatsApp template submit failed', { error: e.message }));
+
+  res.json({ status: 'templates_pending', phoneNumberId: phone, wabaId: waba });
 });
 
 // ── WhatsApp (Embedded Signup) ──
@@ -236,6 +356,11 @@ router.post('/assisted-setup/request', authenticateToken, standardMerchantLimite
         phone: (m as any).ownerPhone || 'not set',
         note: 'Merchant asked for hands-on setup. Contact them or wait for their booking.',
       });
+      await emailService.notifyMerchant(
+        m.email,
+        'We got your setup request',
+        `Hi ${m.name || 'there'},\n\nWe received your request for a guided setup call. Our team will reach out within 24 hours to walk you through connecting your store, WhatsApp number, and courier — step by step.\n\nIf you'd like to start sooner, reply to this email with your availability.\n\nBest,\nRescueShip`,
+      );
     }
 
     res.json({ ok: true, setupCallUrl: process.env.SETUP_CALL_URL || null });
@@ -266,7 +391,8 @@ router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, re
   const plan = (m as any).billing?.plan;
   const paid = !!plan && plan !== 'free_trial';
 
-  if (!['shopify', 'whatsapp', 'carrier', 'payment'].every((k) => c[k]?.status === 'connected'))
+  if (!(c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected') ||
+      !['whatsapp', 'carrier', 'payment'].every((k) => c[k]?.status === 'connected'))
     return res.status(400).json({ error: 'All four connections must be green to go live.' });
   if (!paid)
     return res.status(400).json({ error: 'Subscribe to a plan to go live.', next: '/billing' });

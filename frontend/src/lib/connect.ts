@@ -24,7 +24,9 @@ export const connectApi = {
   shopifyUrl: (t: string, shop: string) => call(t, `/shopify/url?shop=${encodeURIComponent(shop)}`),
   shopifyDemoConnect: (t: string, shop: string) => call(t, '/shopify/demo-connect', { shop }),
   shopifyToken: (t: string, shop: string, accessToken: string, apiSecret: string) => call(t, '/shopify/token', { shop, accessToken, apiSecret }),
+  woocommerce: (t: string, url: string, consumerKey: string, consumerSecret: string) => call(t, '/woocommerce', { url, consumerKey, consumerSecret }),
   whatsappSignup: (t: string, code: string, businessId?: string) => call(t, '/whatsapp/signup', { code, businessId }),
+  whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string) => call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken }),
   whatsappTemplates: (t: string) => call(t, '/whatsapp/templates/status'),
   testPulse: (t: string) => call(t, '/whatsapp/test-pulse', {}),
   carrier: (t: string, creds: any) => call(t, '/carrier', creds),
@@ -34,4 +36,5 @@ export const connectApi = {
   requestAssistedSetup: (t: string) => call(t, '/assisted-setup/request', {}),
   skip: (t: string) => call(t, '/skip', {}),
   shopifyMetrics: (t: string) => call(t, '/shopify/metrics'),
+  storeMetrics: (t: string) => call(t, '/store/metrics'),
 };

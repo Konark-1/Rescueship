@@ -39,7 +39,7 @@ export default function BillingPage() {
 
   // Store metrics for customized RTO calculation
   const [metrics, setMetrics] = useState<StoreMetrics>(DEFAULT_METRICS);
-  const [shopifySource, setShopifySource] = useState<string | null>(null);
+  const [storeSource, setStoreSource] = useState<string | null>(null);
   const [onboardingState, setOnboardingState] = useState<any>(null);
 
   // Step-by-step Questionnaire state
@@ -62,7 +62,7 @@ export default function BillingPage() {
       if (s?.setupCallUrl) setSetupCallUrl(s.setupCallUrl);
     }).catch(() => {});
 
-    connectApi.shopifyMetrics(token).then((m: any) => {
+    connectApi.storeMetrics(token).then((m: any) => {
       if (m?.available) {
         setMetrics((prev) => ({
           ...prev,
@@ -72,7 +72,7 @@ export default function BillingPage() {
         if (m.monthlyOrders) {
           setVolume(m.monthlyOrders);
         }
-        setShopifySource(m.storeDomain || 'Shopify');
+        setStoreSource(m.storeDomain || 'your store');
       }
     }).catch(() => {});
   }, [token]);
@@ -454,9 +454,9 @@ export default function BillingPage() {
 
               {quizStep === 1 && (
                 <div>
-                  {shopifySource && (
+                  {storeSource && (
                     <div className="bl-shopify-pill">
-                      <span>🛍️</span> Synced from {shopifySource}
+                      <span>🛍️</span> Synced from {storeSource}
                     </div>
                   )}
                   <h2 className="bl-quiz-title">What is your Average Order Value (AOV)?</h2>
@@ -488,7 +488,7 @@ export default function BillingPage() {
 
               {quizStep === 2 && (
                 <div>
-                  {shopifySource && (
+                  {storeSource && (
                     <div className="bl-shopify-pill">
                       <span>🛍️</span> Analyzed from store payment gateways
                     </div>

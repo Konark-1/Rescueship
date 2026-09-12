@@ -415,6 +415,11 @@ export class OrderService {
       // Shopify credentials may live under `merchant.shopify` (OAuth / direct-token connect)
       // or the legacy `platformConfig` (manual settings). Prefer the connect flow's copy.
       const shopifyCreds = merchant ? this.resolveShopifyCredentials(merchant) : null;
+      const wcCreds = merchant ? this.resolveWooCommerceCredentials(merchant) : null;
+      if (order && merchant && order.platform === 'woocommerce' && wcCreds) {
+        await this.syncWooCommerceOrder(order, wcCreds);
+        return;
+      }
       if (order && merchant && order.platform === 'shopify' && shopifyCreds) {
         const domain = shopifyCreds.domain;
 
@@ -495,6 +500,52 @@ export class OrderService {
       return { domain: String(pc.shopifyDomain).toLowerCase(), encryptedToken: pc.shopifyAccessToken };
     }
     return null;
+  }
+
+  /** Resolve + decrypt the WooCommerce REST API credentials stored by the connect flow / settings. */
+  private resolveWooCommerceCredentials(merchant: any): { url: string; key: string; secret: string } | null {
+    const pc = merchant?.platformConfig;
+    if (!pc?.woocommerceUrl || !pc?.woocommerceKey || !pc?.woocommerceSecret) return null;
+    let key: string, secret: string;
+    try {
+      key = encryptionService.decrypt(pc.woocommerceKey);
+      secret = encryptionService.decrypt(pc.woocommerceSecret);
+    } catch {
+      logger.error('Stored WooCommerce credentials cannot be decrypted; merchant must reconnect WooCommerce', { merchantId: merchant?._id });
+      return null;
+    }
+    return { url: String(pc.woocommerceUrl).replace(/\/+$/, ''), key, secret };
+  }
+
+  /** After a successful prepaid conversion, mark the WooCommerce order paid + attach a note. */
+  private async syncWooCommerceOrder(order: any, creds: { url: string; key: string; secret: string }): Promise<void> {
+    const externalOrderId = String(order.externalOrderId || '');
+    if (!/^[0-9]+$/.test(externalOrderId)) {
+      logger.warn('Aborting WooCommerce sync: invalid externalOrderId', { externalOrderId });
+      return;
+    }
+    const discount = order.codConversion?.incentiveOffered || 0;
+    const netAmount = (order.orderValue - discount).toString();
+    const auth = { username: creds.key, password: creds.secret };
+
+    // Mark the order paid (WooCommerce 'processing' is the standard paid-but-unshipped state)
+    // and store a transaction reference tying it to the RescueShip conversion.
+    await axios.put(
+      `${creds.url}/wp-json/wc/v3/orders/${externalOrderId}`,
+      { status: 'processing', transaction_id: `rs_${externalOrderId}` },
+      { auth, timeout: 10000 }
+    );
+
+    // Append a note documenting the conversion (refund-protection context for the merchant).
+    await axios.post(
+      `${creds.url}/wp-json/wc/v3/orders/${externalOrderId}/notes`,
+      { note: `RescueShip Prepaid Conversion: ₹${discount} discount applied. Net paid by customer: ₹${netAmount}. Maximum refund eligibility: ₹${netAmount}.` },
+      { auth, timeout: 10000 }
+    ).catch((err: any) => {
+      logger.warn('Failed to add WooCommerce order note', { orderId: externalOrderId, error: err.message });
+    });
+
+    logger.info('Synced prepaid conversion to WooCommerce', { orderId: externalOrderId, netAmount, discount });
   }
 }
 

@@ -3,12 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
-import SetupGuide from '../components/SetupGuide';
 import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
-  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'One-click consent or paste a token from your own Shopify admin — either way, your store is fully isolated.' },
+  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify — paste the key + secret from your own admin app. WooCommerce — paste your REST API keys. Either way, your store stays fully isolated.' },
   { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your own Business number. Customers message the brand, not us.' },
   { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — your existing API key.' },
   { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — for COD → prepaid links.' },
@@ -31,6 +30,7 @@ export default function OnboardingPage() {
   const [log, setLog] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [assist, setAssist] = useState<'idle' | 'busy' | 'done'>('idle');
+  const [wcManual, setWcManual] = useState<{ webhookUrl: string; webhookSecret: string } | null>(null);
   const pollRef = useRef<any>(null);
 
   const requestAssist = async () => {
@@ -46,8 +46,43 @@ export default function OnboardingPage() {
   const push = (line: string) => setLog((l) => [...l.slice(-5), line]);
   const refresh = async () => { const s = await connectApi.state(token!); setState(s); return s; };
 
-  useEffect(() => { refresh(); return () => clearInterval(pollRef.current); }, [token]);
-  useEffect(() => { if (params.get('connected') === 'shopify') { push('✓ store connected · webhooks registered'); refresh(); } if (params.get('error')) setErr('Store connection was cancelled or failed.'); }, [params]);
+  const advanceToNext = (fromStation?: Key) => {
+    const currentKey = fromStation || active;
+    const idx = STATIONS.findIndex((s) => s.key === currentKey);
+    if (idx >= 0 && idx < STATIONS.length - 1) {
+      const nextKey = STATIONS[idx + 1].key;
+      setTimeout(() => {
+        setActive(nextKey);
+        setErr(null);
+      }, 700);
+    }
+  };
+
+  useEffect(() => {
+    refresh().then((s: any) => {
+      if (s?.connections) {
+        const isStoreConnected = s.connections.shopify?.status === 'connected' || s.connections.woocommerce?.status === 'connected';
+        if (isStoreConnected) {
+          const nextIncomplete = STATIONS.find((st) => {
+            if (st.key === 'shopify') return false;
+            return s.connections[st.key]?.status !== 'connected';
+          });
+          if (nextIncomplete) {
+            setActive(nextIncomplete.key);
+          }
+        }
+      }
+    });
+    return () => clearInterval(pollRef.current);
+  }, [token]);
+
+  useEffect(() => {
+    if (params.get('connected') === 'shopify') {
+      push('✓ store connected · webhooks registered');
+      refresh().then(() => advanceToNext('shopify'));
+    }
+    if (params.get('error')) setErr('Store connection was cancelled or failed.');
+  }, [params]);
 
   // poll template approval while pending
   useEffect(() => {
@@ -57,29 +92,36 @@ export default function OnboardingPage() {
     }
   }, [state?.connections?.whatsapp?.status]);
 
-  const done = (k: Key) => state?.connections?.[k]?.status === 'connected';
-  const statusOf = (k: Key) => state?.connections?.[k]?.status || 'disconnected';
+  const storeDone = () => state?.connections?.shopify?.status === 'connected' || state?.connections?.woocommerce?.status === 'connected';
+  const done = (k: Key) => k === 'shopify' ? storeDone() : state?.connections?.[k]?.status === 'connected';
+  const statusOf = (k: Key) => k === 'shopify' ? (storeDone() ? 'connected' : (state?.connections?.shopify?.status || 'disconnected')) : (state?.connections?.[k]?.status || 'disconnected');
   const currentIndex = STATIONS.findIndex((s) => s.key === active);
   const allGreen = !!state?.ready;
 
   // ── actions ──
-  const connectShopify = async (shop: string) => {
-    setBusy('shopify'); setErr(null); push(`› building install link for ${shop}…`);
+  const handleOAuthConnect = async (shop: string) => {
+    setBusy('shopify');
+    setErr(null);
+    push(`› generating one-click connect link for ${shop}…`);
     try {
-      const r = await connectApi.shopifyUrl(token!, shop);
-      if (r?.demo) {
-        // Dev sandbox: no Partner app configured locally, so we simulate the connection
-        push('› demo mode: connecting store locally (no Shopify app needed on localhost)…');
+      const res = await connectApi.shopifyUrl(token!, shop);
+      if (res?.url) {
+        push('› redirecting to Shopify to authorize…');
+        window.location.href = res.url;
+      } else if (res?.demo) {
         await connectApi.shopifyDemoConnect(token!, shop);
-        push(`✓ ${shop} connected (demo) — on production this goes through Shopify's consent screen`);
-        refresh(); setBusy(null);
-        return;
+        push(`✓ ${shop} connected (demo mode)`);
+        await refresh();
+        advanceToNext('shopify');
+        setBusy(null);
       }
-      push('› redirecting to Shopify…');
-      window.location.href = r.url;
+    } catch (e: any) {
+      setErr(e.message);
+      push('✗ connection failed');
+      setBusy(null);
     }
-    catch (e: any) { setErr(e.message); setBusy(null); }
   };
+
   const loadFbSdk = () => new Promise<void>((res) => {
     if (window.FB) return res();
     window.fbAsyncInit = () => res();
@@ -95,18 +137,64 @@ export default function OnboardingPage() {
         const code = resp?.authResponse?.code || resp?.code;
         if (!code) { setErr('Signup was cancelled.'); setBusy(null); return; }
         push('› exchanging signup code for a permanent token…');
-        connectApi.whatsappSignup(token!, code, resp?.authResponse?.business_id).then(() => { push('✓ WhatsApp connected · submitting templates'); refresh(); setBusy(null); }).catch((e: any) => { setErr(e.message); setBusy(null); });
+        connectApi.whatsappSignup(token!, code, resp?.authResponse?.business_id).then(async () => {
+          push('✓ WhatsApp connected · submitting templates');
+          await refresh();
+          advanceToNext('whatsapp');
+          setBusy(null);
+        }).catch((e: any) => { setErr(e.message); setBusy(null); });
       }, { config_id: META_CONFIG_ID, response_type: 'code', override_default_response_type: true });
     } catch (e: any) { setErr(e.message); setBusy(null); }
   };
+  const connectWhatsAppManual = async (phoneNumberId: string, wabaId: string, accessToken: string) => {
+    setBusy('whatsapp'); setErr(null); push('› validating WhatsApp credentials…');
+    try {
+      await connectApi.whatsappManual(token!, phoneNumberId, wabaId, accessToken);
+      push('✓ WhatsApp connected · submitting templates');
+      await refresh();
+      advanceToNext('whatsapp');
+      setBusy(null);
+    }
+    catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
+  };
   const connectCarrier = async (provider: string, email: string, password: string, apiToken: string, apiKey: string) => {
     setBusy('carrier'); setErr(null); push(`› validating ${provider} credentials…`);
-    try { await connectApi.carrier(token!, { provider, email, password, apiToken, apiKey }); push(`✓ ${provider} validated`); refresh(); setBusy(null); }
+    try {
+      await connectApi.carrier(token!, { provider, email, password, apiToken, apiKey });
+      push(`✓ ${provider} validated`);
+      await refresh();
+      advanceToNext('carrier');
+      setBusy(null);
+    }
     catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
+  };
+  const connectWooCommerce = async (url: string, consumerKey: string, consumerSecret: string) => {
+    setBusy('shopify'); setErr(null); setWcManual(null); push(`› validating ${url}…`);
+    try {
+      const r = await connectApi.woocommerce(token!, url, consumerKey, consumerSecret);
+      if (r?.needsManualWebhook) {
+        setWcManual({ webhookUrl: r.webhookUrl, webhookSecret: r.webhookSecret });
+        push('⚠ connected, but webhook was not auto-registered — add it manually below');
+      } else {
+        push(`✓ ${url} connected · webhooks registered`);
+      }
+      await refresh();
+      if (!r?.needsManualWebhook) {
+        advanceToNext('shopify');
+      }
+      setBusy(null);
+    }
+    catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
   const connectPayment = async (gateway: string, keyId: string, keySecret: string) => {
     setBusy('payment'); setErr(null); push(`› validating ${gateway} keys…`);
-    try { await connectApi.payment(token!, gateway, keyId, keySecret); push(`✓ ${gateway} validated`); refresh(); setBusy(null); }
+    try {
+      await connectApi.payment(token!, gateway, keyId, keySecret);
+      push(`✓ ${gateway} validated`);
+      await refresh();
+      advanceToNext('payment');
+      setBusy(null);
+    }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
   const pulse = async () => { setBusy('pulse'); setErr(null); push('› sending test rescue to your number…'); try { await connectApi.testPulse(token!); push('✓ test rescue sent — check your phone'); refresh(); setBusy(null); } catch (e: any) { setErr(e.message); setBusy(null); } };
@@ -182,7 +270,7 @@ export default function OnboardingPage() {
           {/* Guided setup card */}
           <div className="ob-assist">
             <p className="ob-assist__title">Need a hand?</p>
-            <p className="ob-assist__sub">Every step above is self-serve — or let us do it with you on a free 20-minute call.</p>
+            <p className="ob-assist__sub">Every step above is self-serve — or we'll do it with you on a free 20-minute call.</p>
             <div className="ob-assist__actions">
               {state?.setupCallUrl && (
                 <a className="ob-assist__btn ob-assist__btn--primary" href={state.setupCallUrl} target="_blank" rel="noopener noreferrer">
@@ -194,7 +282,7 @@ export default function OnboardingPage() {
                 onClick={requestAssist}
                 disabled={assist !== 'idle'}
               >
-                {assist === 'done' ? '✓ We\'ll reach out to you' : assist === 'busy' ? 'Sending…' : 'Set it up for me'}
+                {assist === 'done' ? '✓ Request sent — check your email' : assist === 'busy' ? 'Sending…' : 'Send me a setup guide'}
               </button>
             </div>
           </div>
@@ -206,12 +294,35 @@ export default function OnboardingPage() {
             <motion.section key={active} className="ob-card" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
-                <SetupGuide station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : active === 'payment' ? 'payments' : 'whatsapp'} />
               </div>
               <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
 
-              {active === 'shopify' && <ShopifyForm onConnect={connectShopify} onTokenConnect={(shop: string, accessToken: string, apiSecret: string) => { setBusy('shopify'); setErr(null); push('› validating Shopify token with your store…'); connectApi.shopifyToken(token!, shop, accessToken, apiSecret).then(() => { push(`✓ ${shop} connected via API token`); refresh(); setBusy(null); }).catch((e: any) => { setErr(e.message); push('✗ token rejected — nothing saved'); setBusy(null); }); }} busy={busy === 'shopify'} done={done('shopify')} shop={state?.connections?.shopify?.shopDomain} caps={state?.capabilities} />}
-              {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} metaReady={META_SIGNUP_READY} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
+              {active === 'shopify' && (
+                <StoreForm
+                  onTokenConnect={(shop: string, accessToken: string, apiSecret: string) => {
+                    setBusy('shopify');
+                    setErr(null);
+                    push('› validating Shopify key with your store…');
+                    connectApi.shopifyToken(token!, shop, accessToken, apiSecret).then(() => {
+                      push(`✓ ${shop} connected via API key`);
+                      refresh().then(() => advanceToNext('shopify'));
+                      setBusy(null);
+                    }).catch((e: any) => {
+                      setErr(e.message);
+                      push('✗ key rejected — nothing saved');
+                      setBusy(null);
+                    });
+                  }}
+                  onOAuthConnect={handleOAuthConnect}
+                  onConnectWooCommerce={connectWooCommerce}
+                  busy={busy === 'shopify'}
+                  storeDone={storeDone()}
+                  shop={state?.connections?.shopify?.shopDomain}
+                  wcUrl={state?.connections?.woocommerce?.url}
+                  wcManual={wcManual}
+                />
+              )}
+              {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onManualConnect={connectWhatsAppManual} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} metaReady={META_SIGNUP_READY} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
 
@@ -248,62 +359,197 @@ export default function OnboardingPage() {
 /* ── station forms (compact, real) ── */
 function Field({ label, children }: any) { return <label className="ob-field"><span>{label}</span>{children}</label>; }
 
-function ShopifyForm({ onConnect, onTokenConnect, busy, done, shop, caps }: any) {
-  const [mode, setMode] = useState<'oauth' | 'token'>(caps?.shopifyOAuth ? 'oauth' : 'token');
-  const [v, setV] = useState('');
-  const [accessToken, setAccessToken] = useState('');
-  const [apiSecret, setApiSecret] = useState('');
-  const showOAuth = caps?.shopifyOAuth !== false; // mirror server truth
-  const shopValid = v.trim().includes('.myshopify.com');
-
-  return done ? <Done provider={`Connected · ${shop}`} /> : (
+function StoreForm({ onTokenConnect, onOAuthConnect, onConnectWooCommerce, busy, storeDone, shop, wcUrl, wcManual }: any) {
+  const [platform, setPlatform] = useState<'shopify' | 'woocommerce'>(shop ? 'shopify' : wcUrl ? 'woocommerce' : 'shopify');
+  const [showChange, setShowChange] = useState(false);
+  if (storeDone && !showChange) {
+    return (
+      <div className="ob-form">
+        <Done provider={`Connected · ${shop || wcUrl || 'store'}`} />
+        {wcManual && <ManualWebhook info={wcManual} />}
+        <button
+          type="button"
+          className="ob-btn ob-btn--ghost"
+          style={{ marginTop: 'var(--space-2)' }}
+          onClick={() => setShowChange(true)}
+        >
+          🔄 Reconnect or change store
+        </button>
+      </div>
+    );
+  }
+  return (
     <div className="ob-form">
       <div className="ob-seg">
-        {showOAuth && <button type="button" className={mode === 'oauth' ? 'on' : ''} onClick={() => setMode('oauth')}>One-click connect</button>}
-        <button type="button" className={mode === 'token' ? 'on' : ''} onClick={() => setMode('token')}>API token</button>
+        <button type="button" className={platform === 'shopify' ? 'on' : ''} onClick={() => setPlatform('shopify')}>Shopify</button>
+        <button type="button" className={platform === 'woocommerce' ? 'on' : ''} onClick={() => setPlatform('woocommerce')}>WooCommerce</button>
+      </div>
+      {platform === 'shopify'
+        ? <ShopifyForm onTokenConnect={onTokenConnect} onOAuthConnect={onOAuthConnect} busy={busy} defaultShop={shop} />
+        : <WooCommerceForm onConnect={onConnectWooCommerce} busy={busy} />}
+      {wcManual && <ManualWebhook info={wcManual} />}
+    </div>
+  );
+}
+
+function ManualWebhook({ info }: { info: { webhookUrl: string; webhookSecret: string } }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => { try { await navigator.clipboard.writeText(`${info.webhookUrl}\nSecret: ${info.webhookSecret}`); setCopied(true); setTimeout(() => setCopied(false), 1500); } catch { /* clipboard unavailable */ } };
+  return (
+    <div className="ob-note ob-note--warn">
+      <strong>Add the webhook manually</strong> — in WordPress go to <strong>WooCommerce → Settings → Advanced → Webhooks → Add webhook</strong>, set Topic to <strong>Order created</strong>, Status <strong>Active</strong>, paste this Delivery URL and Secret, then Save.
+      <div className="ob-mono">
+        <code>{info.webhookUrl}</code>
+      </div>
+      <div className="ob-mono">
+        <code>Secret: {info.webhookSecret}</code>
+      </div>
+      <button type="button" className="ob-btn ob-btn--ghost" onClick={copy}>{copied ? 'Copied ✓' : 'Copy URL + secret'}</button>
+    </div>
+  );
+}
+
+function WooCommerceForm({ onConnect, busy }: any) {
+  const [url, setUrl] = useState('');
+  const [consumerKey, setConsumerKey] = useState('');
+  const [consumerSecret, setConsumerSecret] = useState('');
+  const urlValid = /^https:\/\/.+/i.test(url.trim());
+  return (
+    <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(url.trim(), consumerKey.trim(), consumerSecret.trim()); }}>
+      <Field label="Store URL"><input className="ob-input" placeholder="https://yourstore.com" value={url} onChange={(e) => setUrl(e.target.value)} required /></Field>
+      <Field label="Consumer key"><input className="ob-input" placeholder="ck_…" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} required /></Field>
+      <Field label="Consumer secret"><input className="ob-input" type="password" placeholder="cs_…" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} required /></Field>
+      <div className="ob-steps">
+        <p className="ob-steps__title">How to get these (2 min):</p>
+        <ol className="ob-steps__list">
+          <li>In WordPress admin, go to <strong>WooCommerce → Settings → Advanced → REST API</strong></li>
+          <li>Click <strong>Add key</strong> → set Permissions to <strong>Read/Write</strong> → Generate</li>
+          <li>Copy the <strong>Consumer key</strong> (ck_…) and <strong>Consumer secret</strong> (cs_…)</li>
+          <li>If the REST API page is missing, enable it from <a href="https://woocommerce.com/document/woocommerce-rest-api/" target="_blank" rel="noopener noreferrer">WooCommerce REST API docs</a></li>
+        </ol>
+      </div>
+      <button className="ob-btn" disabled={busy || !urlValid || !consumerKey.trim() || !consumerSecret.trim()}>{busy ? 'Validating…' : 'Validate & connect'}</button>
+    </form>
+  );
+}
+
+function ShopifyForm({ onTokenConnect, onOAuthConnect, busy, defaultShop }: any) {
+  const [method, setMethod] = useState<'oauth' | 'manual'>('oauth');
+  const [shop, setShop] = useState(defaultShop || '');
+  const [consumerKey, setConsumerKey] = useState('');
+  const [consumerSecret, setConsumerSecret] = useState('');
+
+  const shopTrimmed = shop.trim().toLowerCase();
+  const shopValid = shopTrimmed.length > 2;
+  const fullShopDomain = shopTrimmed.includes('.myshopify.com')
+    ? shopTrimmed
+    : (shopTrimmed ? `${shopTrimmed.replace(/^https?:\/\//, '').replace(/\/.*$/, '')}.myshopify.com` : '');
+  const shopSlug = shopTrimmed.replace(/^https?:\/\//, '').replace(/\.myshopify\.com.*$/, '').replace(/\/.*$/, '');
+
+  return (
+    <div className="ob-shopify-container">
+      <div className="ob-seg" style={{ marginBottom: 'var(--space-3)' }}>
+        <button type="button" className={method === 'oauth' ? 'on' : ''} onClick={() => setMethod('oauth')}>
+          ⚡ One-click connect (Recommended)
+        </button>
+        <button type="button" className={method === 'manual' ? 'on' : ''} onClick={() => setMethod('manual')}>
+          🔑 Manual app keys
+        </button>
       </div>
 
-      <Field label="Store address"><input className="ob-input" placeholder="your-brand.myshopify.com" value={v} onChange={(e) => setV(e.target.value)} required /></Field>
-
-      {mode === 'oauth' ? (
-        <form onSubmit={(e) => { e.preventDefault(); onConnect(v.trim()); }}>
-          <p className="ob-note">Type your store and we'll send you to <strong>Shopify's own consent screen</strong> — approve <strong>RescueShip</strong> there. Our single Partner app serves every merchant; your token, orders and data stay yours alone. No API keys, no Partner account needed from you.</p>
-          <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>WooCommerce or custom platform? <strong>Skip this station</strong> — Settings → Platform in your dashboard covers those.</p>
-          <button className="ob-btn" disabled={busy || !shopValid}>{busy ? 'Redirecting…' : 'Connect Shopify'}</button>
+      {method === 'oauth' ? (
+        <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onOAuthConnect(fullShopDomain); }}>
+          <Field label="Store address">
+            <input
+              className="ob-input"
+              placeholder="your-brand.myshopify.com"
+              value={shop}
+              onChange={(e) => setShop(e.target.value)}
+              required
+            />
+          </Field>
+          <div className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.82rem', lineHeight: '1.5' }}>
+            <p style={{ margin: '0 0 var(--space-1) 0' }}>
+              <strong>Zero setup required:</strong> Enter your store handle or domain above and click <em>Connect with Shopify</em>. You will be redirected directly to your Shopify store to approve order access in 1 click, and then automatically returned here.
+            </p>
+          </div>
+          <button className="ob-btn" disabled={busy || !shopValid}>
+            {busy ? 'Opening Shopify login…' : 'Connect with Shopify →'}
+          </button>
         </form>
       ) : (
-        <form onSubmit={(e) => { e.preventDefault(); onTokenConnect(v.trim(), accessToken.trim(), apiSecret.trim()); }}>
-          <Field label="Admin API access token">
-            <input className="ob-input" type="password" placeholder="shpat_…" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required />
+        <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onTokenConnect(fullShopDomain, consumerKey.trim(), consumerSecret.trim()); }}>
+          <Field label="Store address">
+            <input className="ob-input" placeholder="your-brand.myshopify.com" value={shop} onChange={(e) => setShop(e.target.value)} required />
           </Field>
-          <Field label="API secret key (for webhook verification)">
-            <input className="ob-input" type="password" placeholder="shpss_…" value={apiSecret} onChange={(e) => setApiSecret(e.target.value)} required />
+          <Field label="Consumer key (Admin API access token)">
+            <input className="ob-input" type="password" placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxx" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} required />
           </Field>
-          <p className="ob-note">In your Shopify admin: <strong>left sidebar → Apps → Develop apps</strong> (top right) → <strong>Create an app</strong> (name it anything) → <strong>Configuration → Configure Admin API scopes</strong> → tick <strong>read_orders, write_orders, read_fulfillments, write_fulfillments</strong> → Save → <strong>Install app</strong> → copy the <strong>Admin API access token</strong> and the <strong>API secret key</strong> (under API credentials) and paste both here. (Ignore <strong>Sales channels</strong> in the sidebar — that's for marketplaces, not this.) We test the token against your store, register your webhooks automatically, and store it encrypted (AES-256). Works in every environment — no one needs a Partner account.</p>
-          <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>Steps also in the <strong>Setup Guide</strong> (top right) with screenshots-level detail.</p>
-          <button className="ob-btn" disabled={busy || !shopValid || !accessToken.trim() || !apiSecret.trim()}>{busy ? 'Validating with Shopify…' : 'Validate & connect'}</button>
+          <Field label="Consumer secret (API secret key)">
+            <input className="ob-input" type="password" placeholder="shpss_xxxxxxxxxxxxxxxxxxxxxxxx" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} required />
+          </Field>
+          <div className="ob-steps">
+            <p className="ob-steps__title">How to get these in modern Shopify (2026):</p>
+            <ol className="ob-steps__list">
+              <li>{shopSlug
+                ? <>Open <a href={`https://admin.shopify.com/store/${shopSlug}/apps`} target="_blank" rel="noopener noreferrer">Apps</a> in your Shopify admin sidebar, or go to <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noopener noreferrer">Shopify Dev Dashboard</a></>
+                : <>Open <strong>Apps</strong> in your Shopify admin sidebar, or go to <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noopener noreferrer">Shopify Dev Dashboard</a></>}</li>
+              <li>Under <strong>Develop apps</strong> (or Dev Dashboard), create or open your app (name it "RescueShip").</li>
+              <li>Go to <strong>Configuration → Admin API</strong>, click <strong>Configure</strong>, and tick: <code>read_orders, write_orders, read_fulfillments, write_fulfillments, read_products</code> → Save.</li>
+              <li>Go to <strong>API credentials</strong>, click <strong>Install app</strong>, then click <strong>Reveal token once</strong> to copy your <strong>Admin API access token</strong> (starts with <code>shpat_…</code>).</li>
+              <li>Copy your <strong>API secret key</strong> (starts with <code>shpss_…</code>).</li>
+            </ol>
+            <p style={{ marginTop: 'var(--space-2)', fontSize: '0.74rem', color: 'var(--amber)' }}>
+              ⚠️ <strong>Important:</strong> Do NOT enter your 32-character Client ID in the access token field. Shopify requires the Admin API access token starting with <code>shpat_</code>.
+            </p>
+          </div>
+          <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>No RescueShip keys involved — just the key + secret you generate in your own admin.</p>
+          <button className="ob-btn" disabled={busy || !shopValid || !consumerKey.trim() || !consumerSecret.trim()}>{busy ? 'Validating…' : 'Validate & connect'}</button>
         </form>
       )}
     </div>
   );
 }
 
-function WhatsAppPanel({ onConnect, onPulse, busy, status, templates, ownerPhone, metaReady, onSetPhone }: any) {
+function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, templates, ownerPhone, metaReady, onSetPhone }: any) {
   const [phone, setPhone] = useState(ownerPhone || '');
   const [name, setName] = useState('');
+  const [manual, setManual] = useState(!metaReady);
+  const [phoneId, setPhoneId] = useState('');
+  const [wabaId, setWabaId] = useState('');
+  const [accessToken, setAccessToken] = useState('');
   const connected = status === 'connected' || status === 'templates_pending' || status === 'templates_rejected';
+  const oneClickReady = metaReady;
+  const manualValid = /^\d{6,32}$/.test(phoneId.trim()) && /^\d{6,32}$/.test(wabaId.trim()) && accessToken.trim().length > 0;
   return (
     <div className="ob-form">
       {!connected ? (
         <>
-          <p className="ob-note">Opens Meta's signup in a popup. Log into <strong>your</strong> Business account, pick the WhatsApp number customers will message, and grant access. We receive a permanent token — you never share a password.</p>
-          {metaReady ? (
-            <button className="ob-btn" disabled={busy === 'whatsapp'} onClick={onConnect}>{busy === 'whatsapp' ? 'Connecting…' : 'Connect WhatsApp number'}</button>
-          ) : (
+          <div className="ob-seg">
+            {oneClickReady && <button type="button" className={!manual ? 'on' : ''} onClick={() => setManual(false)}>One-click</button>}
+            <button type="button" className={manual ? 'on' : ''} onClick={() => setManual(true)}>Manual (your keys)</button>
+          </div>
+
+          {!manual && oneClickReady ? (
             <>
-              <button className="ob-btn" disabled title="One-click WhatsApp connect is being enabled on this deployment">Connect WhatsApp number</button>
-              <p className="ob-note" style={{ color: 'var(--amber)' }}>One-click connect is being enabled on this deployment right now. Use <strong>Set it up for me</strong> on the left and we'll connect your number with you on a short call — nothing else on this page is blocked.</p>
+              <p className="ob-note">Opens Meta's signup in a popup. Log into <strong>your</strong> Business account, pick the WhatsApp number customers will message, and grant access. We receive a permanent token — you never share a password.</p>
+              <button className="ob-btn" disabled={busy === 'whatsapp'} onClick={onConnect}>{busy === 'whatsapp' ? 'Connecting…' : 'Connect WhatsApp number'}</button>
             </>
+          ) : (
+            <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onManualConnect(phoneId.trim(), wabaId.trim(), accessToken.trim()); }}>
+              <Field label="Phone number ID"><input className="ob-input" placeholder="123456789012345" value={phoneId} onChange={(e) => setPhoneId(e.target.value)} required /></Field>
+              <Field label="WABA ID (WhatsApp Business Account)"><input className="ob-input" placeholder="987654321098765" value={wabaId} onChange={(e) => setWabaId(e.target.value)} required /></Field>
+              <Field label="Access token"><input className="ob-input" type="password" placeholder="EAAG…" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required /></Field>
+              <div className="ob-steps">
+                <p className="ob-steps__title">How to find these (5 min):</p>
+                <ol className="ob-steps__list">
+                  <li>Open <a href="https://business.facebook.com/wa/manage/phone-numbers" target="_blank" rel="noopener noreferrer">WhatsApp Manager → Phone numbers</a> — copy the <strong>Phone number ID</strong></li>
+                  <li>Go to <a href="https://business.facebook.com/wa/manage/account-overview" target="_blank" rel="noopener noreferrer">Account overview</a> — copy the <strong>WABA ID</strong></li>
+                  <li>Open <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">Business Settings → System users</a> → create a system user → add the WhatsApp app with <strong>whatsapp_business_messaging</strong> + <strong>whatsapp_business_management</strong> permissions → generate a permanent access token</li>
+                </ol>
+              </div>
+              <button className="ob-btn" disabled={busy === 'whatsapp' || !manualValid}>{busy === 'whatsapp' ? 'Validating…' : 'Validate & connect'}</button>
+            </form>
           )}
         </>
       ) : (

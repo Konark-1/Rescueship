@@ -16,6 +16,8 @@ export interface IMerchant extends Document {
     woocommerceUrl?: string;
     woocommerceKey?: string;
     woocommerceSecret?: string;
+    /** HMAC secret used to verify inbound WooCommerce webhooks (distinct from the API consumer secret). */
+    woocommerceWebhookSecret?: string;
     customApiSecret?: string;
     customWebhookUrl?: string;
   };
@@ -76,6 +78,7 @@ export interface IMerchant extends Document {
     whatsapp?: { status: 'disconnected' | 'connecting' | 'connected' | 'templates_pending' | 'templates_rejected' | 'error'; connectedAt?: Date; lastError?: string };
     carrier?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; provider?: string; lastError?: string };
     payment?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; gateway?: string; lastError?: string };
+    woocommerce?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; url?: string; lastError?: string };
   };
   /** apiSecret: encrypted custom-app API secret (direct-token connect) used to verify webhook HMACs. */
   shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; scope?: string; webhooksRegistered?: boolean };
@@ -171,6 +174,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       woocommerceUrl: { type: String },
       woocommerceKey: { type: String },
       woocommerceSecret: { type: String },
+      woocommerceWebhookSecret: { type: String },
       customApiSecret: { type: String },
       customWebhookUrl: { type: String },
     },

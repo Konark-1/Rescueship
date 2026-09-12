@@ -49,6 +49,7 @@ function toSettingsDto(m: any) {
       woocommerceUrl: pc.woocommerceUrl,
       woocommerceKey: present(pc.woocommerceKey),
       woocommerceSecret: present(pc.woocommerceSecret),
+      woocommerceWebhookSecret: present(pc.woocommerceWebhookSecret),
       customApiSecret: present(pc.customApiSecret),
       customWebhookUrl: pc.customWebhookUrl,
     },

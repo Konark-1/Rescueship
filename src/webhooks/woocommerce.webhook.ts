@@ -23,17 +23,20 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
     return;
   }
 
-  const merchant = await Merchant.findById(merchantIdStr).select('_id platformConfig.woocommerceSecret');
+  const merchant = await Merchant.findById(merchantIdStr).select('_id platformConfig.woocommerceSecret platformConfig.woocommerceWebhookSecret');
   if (!merchant) {
     res.status(401).json({ error: 'Invalid WooCommerce signature' });
     return;
   }
 
-  // Per-merchant secret; fail closed if missing or undecryptable (never use ciphertext as key).
+  // Per-merchant webhook HMAC secret. Prefer the dedicated webhook secret (set by the
+  // connect flow); fall back to the consumer secret for legacy manual setups.
+  const pc = merchant.platformConfig || {};
+  const secretCipher = pc.woocommerceWebhookSecret || pc.woocommerceSecret;
   let secret: string | undefined;
-  if (merchant.platformConfig?.woocommerceSecret) {
+  if (secretCipher) {
     try {
-      secret = encryptionService.decrypt(merchant.platformConfig.woocommerceSecret);
+      secret = encryptionService.decrypt(secretCipher);
     } catch {
       logger.error('WooCommerce secret cannot be decrypted; merchant must re-save platform settings', { merchantId: merchantIdStr });
     }

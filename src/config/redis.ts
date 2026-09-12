@@ -115,7 +115,7 @@ redisConnection.on('end', () => {
  * await connectRedis();
  * ```
  */
-export async function connectRedis(): Promise<void> {
+export async function connectRedis(): Promise<boolean> {
   try {
     logger.info('🔌  Connecting to Redis…', {
       target: process.env.REDIS_URL ? 'Cloud REDIS_URL' : `${config.redis.host}:${config.redis.port}`,
@@ -127,8 +127,18 @@ export async function connectRedis(): Promise<void> {
 
     // Verify with a PING
     const pong = await redisConnection.ping();
-    if (pong === 'PONG') {
-      logger.info('✅  Redis PING successful');
+    if (pong !== 'PONG') {
+      return false;
+    }
+
+    // Verify read/write capability to catch quota limits (e.g. Upstash 500k monthly limit)
+    try {
+      await redisConnection.set('rescueship:health', '1', 'EX', 10);
+      logger.info('✅  Redis PING and write verification successful');
+      return true;
+    } catch (writeErr: any) {
+      logger.warn('⚠️  Redis connected but write/quota failed — pausing background queues', { error: writeErr.message });
+      return false;
     }
   } catch (err) {
     logger.error('Failed to connect to Redis', {
@@ -136,6 +146,7 @@ export async function connectRedis(): Promise<void> {
     });
     // Don't throw — ioredis retry strategy will keep trying in the background
   }
+  return false;
 }
 
 /**

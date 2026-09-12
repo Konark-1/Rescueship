@@ -293,12 +293,16 @@ async function bootstrap() {
     await ensureIndexes();
 
     // 2. Connect Redis
-    await connectRedis();
+    const redisHealthy = await connectRedis();
 
-    // 3. Start BullMQ Workers
-    startAllWorkers();
-    startQualityMonitorWorker();
-    startTemplatePollerWorker();
+    // 3. Start BullMQ Workers only when Redis is healthy and under quota
+    if (redisHealthy) {
+      startAllWorkers();
+      startQualityMonitorWorker();
+      startTemplatePollerWorker();
+    } else {
+      logger.warn('⚠️  Redis is currently unavailable or has exceeded quota. Core API is running, BullMQ background queues are safely paused.');
+    }
 
     // 4. Start Server
     const server = app.listen(PORT, () => {
