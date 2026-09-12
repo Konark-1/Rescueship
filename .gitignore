@@ -1,6 +1,22 @@
+# Secrets, Environment Files & Keys
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+CREDENTIALS.md
+credentials.md
+secrets.json
+
+# Build & Dependencies
 node_modules/
 dist/
-.env
-*.log
-.DS_Store
+dist-ssr/
 coverage/
+
+# Logs & System
+*.log
+logs/
+.DS_Store
+Thumbs.db
