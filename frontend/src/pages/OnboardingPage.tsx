@@ -685,56 +685,68 @@ function WhatsAppPanel({
         <>
           <div className="ob-wa-status">
             <span className={`ob-pill ${status === 'connected' ? 'ok' : (status === 'templates_rejected' || status === 'token_expired') ? 'bad' : 'wait'}`}>
-              {status === 'connected' ? '● live' : status === 'token_expired' ? '● token expired' : status === 'templates_rejected' ? '● template issue' : '◌ templates pending'}
+              {status === 'connected' ? '● live' : status === 'token_expired' ? '● token expired' : status === 'templates_rejected' ? '● action needed' : '◌ templates pending'}
             </span>
             {templates?.length > 0 && (
               <ul className="ob-tpl">
-                {templates.map((t: any) => (
-                  <li key={t.name}>
-                    <code>{t.name}</code>
-                    <span className={`ob-tpl__s ${t.status === 'APPROVED' ? 'ok' : t.status === 'REJECTED' ? 'bad' : 'wait'}`}>{t.status}</span>
-                    {t.rejectedReason && <em>{t.rejectedReason}</em>}
-                  </li>
-                ))}
+                {templates.map((t: any) => {
+                  const friendlyNames: Record<string, string> = {
+                    ndr_rescue_en: 'Delivery verification message',
+                    cod_confirm_en: 'COD confirmation message',
+                    cod_convert_en: 'Prepaid conversion offer',
+                    address_pin_en: 'Address location request',
+                    rescue_done_en: 'Delivery confirmed update',
+                    rs_test_pulse_en: 'Test recovery message',
+                  };
+                  const label = friendlyNames[t.name] || t.name;
+                  return (
+                    <li key={t.name}>
+                      <span style={{ fontWeight: 500 }}>{label}</span>
+                      <span className={`ob-tpl__s ${t.status === 'APPROVED' ? 'ok' : t.status === 'REJECTED' ? 'bad' : 'wait'}`}>
+                        {t.status === 'APPROVED' ? 'Ready' : t.status === 'REJECTED' ? 'Needs sync' : 'Pending'}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
 
           {status === 'token_expired' && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', margin: '12px 0' }}>
-              <p style={{ margin: 0, fontWeight: 600, color: '#991b1b', fontSize: '0.9rem' }}>⚠️ Meta Access Token Expired</p>
-              <p style={{ margin: '4px 0 10px 0', fontSize: '0.8rem', color: '#7f1d1d' }}>
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '14px 16px', margin: '14px 0' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: '#991b1b', fontSize: '0.92rem' }}>Meta Access Token Expired</p>
+              <p style={{ margin: '6px 0 12px 0', fontSize: '0.82rem', color: '#7f1d1d', lineHeight: 1.4 }}>
                 Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.
               </p>
-              <button type="button" className="ob-btn" style={{ fontSize: '0.82rem', padding: '6px 14px' }} onClick={() => setEditingCreds(true)}>
+              <button type="button" className="ob-btn" style={{ fontSize: '0.82rem', padding: '7px 16px' }} onClick={() => setEditingCreds(true)}>
                 🔑 Update Access Token
               </button>
             </div>
           )}
 
           {status === 'templates_rejected' && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 16px', margin: '12px 0' }}>
-              <p style={{ margin: 0, fontWeight: 600, color: '#92400e', fontSize: '0.9rem' }}>🛠️ Meta Format Fixed & Ready</p>
-              <p style={{ margin: '4px 0 10px 0', fontSize: '0.8rem', color: '#78350f' }}>
-                Meta requires variable examples and maximum 3 quick replies. Click <strong>Fix & Resubmit Templates</strong> to delete the rejected records and register the verified schema.
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '14px 16px', margin: '14px 0' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: '#92400e', fontSize: '0.92rem' }}>Templates Ready to Sync</p>
+              <p style={{ margin: '6px 0 12px 0', fontSize: '0.82rem', color: '#78350f', lineHeight: 1.4 }}>
+                Click below to sync recovery messages with Meta. If your token expired, click Update Token.
               </p>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
                   className="ob-btn"
-                  style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+                  style={{ fontSize: '0.82rem', padding: '7px 16px' }}
                   disabled={busy === 'resubmit_templates'}
                   onClick={onResubmitTemplates}
                 >
-                  {busy === 'resubmit_templates' ? 'Resubmitting…' : '↻ Fix & Resubmit Templates'}
+                  {busy === 'resubmit_templates' ? 'Syncing…' : '↻ Resubmit Templates'}
                 </button>
                 <button
                   type="button"
                   className="ob-btn ob-btn--ghost"
-                  style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+                  style={{ fontSize: '0.82rem', padding: '7px 16px' }}
                   onClick={() => setEditingCreds(true)}
                 >
-                  ⚙️ Update Token / Credentials
+                  🔑 Update Access Token
                 </button>
               </div>
             </div>

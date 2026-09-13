@@ -186,12 +186,12 @@ export class MetaTemplateService {
             whatsapp: {
               ...((merchant as any).connections?.whatsapp || {}),
               status: 'token_expired',
-              lastError: 'WhatsApp access token expired. Please update your token.',
+              lastError: 'Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.',
             },
           };
           merchant.markModified('connections');
           await merchant.save();
-          throw new Error('WhatsApp access token has expired. Please update your token in WhatsApp setup.');
+          throw new Error('Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.');
         }
 
         // If duplicate / already exists and we didn't delete first, try deleting and recreating once
@@ -300,7 +300,7 @@ export class MetaTemplateService {
           whatsapp: {
             ...((merchant as any).connections?.whatsapp || {}),
             status: 'token_expired',
-            lastError: 'WhatsApp access token expired. Please update your token in WhatsApp settings.',
+            lastError: 'Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.',
           },
         };
         merchant.markModified('connections');
@@ -308,7 +308,7 @@ export class MetaTemplateService {
         return {
           status: 'token_expired',
           templates: (merchant as any).whatsappConfig?.templates || [],
-          error: 'WhatsApp access token expired. Please enter a fresh token in WhatsApp setup.',
+          error: 'Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.',
         };
       }
       throw e;
