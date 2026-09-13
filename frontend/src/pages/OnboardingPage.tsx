@@ -99,8 +99,26 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (state?.connections?.whatsapp?.status === 'templates_pending') {
       push('› templates submitted · awaiting Meta approval');
-      pollRef.current = setInterval(async () => { const s = await connectApi.whatsappTemplates(token!); if (s.status === 'connected') { push('✓ all templates approved'); clearInterval(pollRef.current); refresh(); } else if (s.status === 'templates_rejected') { push('⚠ a template was rejected — see reasons below'); clearInterval(pollRef.current); refresh(); } }, 4000);
+      pollRef.current = setInterval(async () => {
+        try {
+          const s = await connectApi.whatsappTemplates(token!);
+          if (s.status === 'connected') {
+            push('✓ all templates approved');
+            clearInterval(pollRef.current);
+            refresh();
+          } else if (s.status === 'templates_rejected') {
+            push('⚠ a template was rejected — click Fix & Resubmit below');
+            clearInterval(pollRef.current);
+            refresh();
+          } else if (s.status === 'token_expired') {
+            push('⚠ WhatsApp token expired — please update your token');
+            clearInterval(pollRef.current);
+            refresh();
+          }
+        } catch { /* ignore */ }
+      }, 4000);
     }
+    return () => clearInterval(pollRef.current);
   }, [state?.connections?.whatsapp?.status]);
 
   const storeDone = () => state?.connections?.shopify?.status === 'connected' || state?.connections?.woocommerce?.status === 'connected';
@@ -167,6 +185,21 @@ export default function OnboardingPage() {
       setBusy(null);
     }
     catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
+  };
+  const handleResubmitTemplates = async () => {
+    setBusy('resubmit_templates');
+    setErr(null);
+    push('› deleting rejected templates & resubmitting compliant templates…');
+    try {
+      await connectApi.resubmitWhatsAppTemplates(token!);
+      push('✓ templates resubmitted to Meta — awaiting approval');
+      await refresh();
+      setBusy(null);
+    } catch (e: any) {
+      setErr(e.message);
+      push(`✗ resubmission failed: ${e.message}`);
+      setBusy(null);
+    }
   };
   const connectCarrier = async (provider: string, email: string, password: string, apiToken: string, apiKey: string) => {
     setBusy('carrier'); setErr(null); push(`› validating ${provider} credentials…`);
@@ -358,12 +391,14 @@ export default function OnboardingPage() {
                   onConnect={connectWhatsApp}
                   onManualConnect={connectWhatsAppManual}
                   onPulse={pulse}
+                  onResubmitTemplates={handleResubmitTemplates}
                   busy={busy}
                   status={statusOf('whatsapp')}
                   templates={state?.templates}
                   ownerPhone={state?.ownerPhone}
                   metaReady={META_SIGNUP_READY}
                   onNext={() => advanceToNext('whatsapp')}
+                  connectionDetails={state?.connections?.whatsapp}
                 />
               )}
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
@@ -554,58 +589,157 @@ function ShopifyForm({ onTokenConnect, onOAuthConnect, busy, defaultShop }: any)
   );
 }
 
-function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, templates, ownerPhone, metaReady, onNext }: any) {
+function WhatsAppPanel({
+  onConnect,
+  onManualConnect,
+  onPulse,
+  onResubmitTemplates,
+  busy,
+  status,
+  templates,
+  ownerPhone,
+  metaReady,
+  onNext,
+  connectionDetails,
+}: any) {
   const [phone, setPhone] = useState(ownerPhone || '');
   const [name, setName] = useState('');
   const [manual, setManual] = useState(!metaReady);
-  const [phoneId, setPhoneId] = useState('');
-  const [wabaId, setWabaId] = useState('');
+  const [phoneId, setPhoneId] = useState(connectionDetails?.phoneNumberId || '');
+  const [wabaId, setWabaId] = useState(connectionDetails?.wabaId || '');
   const [accessToken, setAccessToken] = useState('');
-  const connected = status === 'connected' || status === 'templates_pending' || status === 'templates_rejected';
+  const [editingCreds, setEditingCreds] = useState(false);
+
+  useEffect(() => {
+    if (connectionDetails?.phoneNumberId && !phoneId) setPhoneId(connectionDetails.phoneNumberId);
+    if (connectionDetails?.wabaId && !wabaId) setWabaId(connectionDetails.wabaId);
+  }, [connectionDetails]);
+
+  const hasConnection = status === 'connected' || status === 'templates_pending' || status === 'templates_rejected' || status === 'token_expired';
+  const connected = hasConnection && !editingCreds;
   const oneClickReady = metaReady;
   const manualValid = /^\d{6,32}$/.test(phoneId.trim()) && /^\d{6,32}$/.test(wabaId.trim()) && accessToken.trim().length > 0;
+
   return (
     <div className="ob-form">
       {!connected ? (
         <>
-          <div className="ob-seg">
-            {oneClickReady && <button type="button" className={!manual ? 'on' : ''} onClick={() => setManual(false)}>One-click</button>}
-            <button type="button" className={manual ? 'on' : ''} onClick={() => setManual(true)}>Manual (your keys)</button>
-          </div>
+          {editingCreds && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Update WhatsApp Credentials</span>
+              <button
+                type="button"
+                className="ob-btn ob-btn--ghost"
+                style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                onClick={() => setEditingCreds(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
 
-          {!manual && oneClickReady ? (
+          {!editingCreds && (
+            <div className="ob-seg">
+              {oneClickReady && <button type="button" className={!manual ? 'on' : ''} onClick={() => setManual(false)}>One-click</button>}
+              <button type="button" className={manual ? 'on' : ''} onClick={() => setManual(true)}>Manual (your keys)</button>
+            </div>
+          )}
+
+          {!manual && oneClickReady && !editingCreds ? (
             <>
               <p className="ob-note">Opens Meta's signup in a popup. Log into <strong>your</strong> Business account, pick the WhatsApp number customers will message, and grant access. We receive a permanent token — you never share a password.</p>
               <button className="ob-btn" disabled={busy === 'whatsapp'} onClick={onConnect}>{busy === 'whatsapp' ? 'Connecting…' : 'Connect WhatsApp number'}</button>
             </>
           ) : (
-            <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onManualConnect(phoneId.trim(), wabaId.trim(), accessToken.trim()); }}>
+            <form className="ob-form" onSubmit={(e) => {
+              e.preventDefault();
+              onManualConnect(phoneId.trim(), wabaId.trim(), accessToken.trim());
+              setEditingCreds(false);
+            }}>
               <Field label="Phone number ID"><input className="ob-input" placeholder="123456789012345" value={phoneId} onChange={(e) => setPhoneId(e.target.value)} required /></Field>
               <Field label="WABA ID (WhatsApp Business Account)"><input className="ob-input" placeholder="987654321098765" value={wabaId} onChange={(e) => setWabaId(e.target.value)} required /></Field>
-              <Field label="Access token"><input className="ob-input" type="password" placeholder="EAAG…" value={accessToken} onChange={(e) => setAccessToken(e.target.value)} required /></Field>
+              <Field label="Access token">
+                <input
+                  className="ob-input"
+                  type="password"
+                  placeholder="EAAG… (paste fresh temporary token or permanent System User token)"
+                  value={accessToken}
+                  onChange={(e) => setAccessToken(e.target.value)}
+                  required
+                />
+              </Field>
               <div className="ob-steps">
-                <p className="ob-steps__title">How to find these (3 min):</p>
+                <p className="ob-steps__title">How to get a fresh or permanent token:</p>
                 <ol className="ob-steps__list">
-                  <li><strong>Recommended (1-Screen Copy):</strong> Open <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer">Meta App Dashboard</a> → click your App → <strong>WhatsApp → API Setup</strong>. You'll find your <strong>Phone number ID</strong>, <strong>WABA ID</strong>, and <strong>Access token</strong> all on one screen with copy buttons.</li>
-                  <li><strong>Alternative (Business Portfolio Settings):</strong>
-                    <ul style={{ marginTop: '4px', paddingLeft: '16px', listStyleType: 'circle' }}>
-                      <li><a href="https://business.facebook.com/settings/whatsapp-business-accounts" target="_blank" rel="noopener noreferrer">Business Settings → WhatsApp accounts</a> — copy the <strong>Account ID (WABA ID)</strong></li>
-                      <li><a href="https://business.facebook.com/wa/manage/home/" target="_blank" rel="noopener noreferrer">Standalone WhatsApp Manager</a> — view your <strong>Phone number ID</strong></li>
-                      <li><a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">Business Settings → System users</a> — generate a permanent token with <code>whatsapp_business_messaging</code></li>
-                    </ul>
-                  </li>
+                  <li><strong>Fastest (Meta App Dashboard):</strong> Open <a href="https://developers.facebook.com/apps" target="_blank" rel="noopener noreferrer">Meta App Dashboard</a> → click your App → <strong>WhatsApp → API Setup</strong>. Copy your <strong>Access token</strong> (valid 24h for testing).</li>
+                  <li><strong>Permanent Token (Never Expires):</strong> Open <a href="https://business.facebook.com/settings/system-users" target="_blank" rel="noopener noreferrer">Business Settings → System Users</a> → Create System User → Assign WhatsApp asset → Generate Token with <code>whatsapp_business_messaging</code>.</li>
                 </ol>
               </div>
-              <button className="ob-btn" disabled={busy === 'whatsapp' || !manualValid}>{busy === 'whatsapp' ? 'Validating…' : 'Validate & connect'}</button>
+              <button className="ob-btn" disabled={busy === 'whatsapp' || !manualValid}>
+                {busy === 'whatsapp' ? 'Validating…' : editingCreds ? 'Update & Reconnect' : 'Validate & connect'}
+              </button>
             </form>
           )}
         </>
       ) : (
         <>
           <div className="ob-wa-status">
-            <span className={`ob-pill ${status === 'connected' ? 'ok' : status === 'templates_rejected' ? 'bad' : 'wait'}`}>{status === 'connected' ? '● live' : status === 'templates_rejected' ? '● template issue' : '◌ templates pending'}</span>
-            {templates?.length > 0 && <ul className="ob-tpl">{templates.map((t: any) => <li key={t.name}><code>{t.name}</code><span className={`ob-tpl__s ${t.status === 'APPROVED' ? 'ok' : t.status === 'REJECTED' ? 'bad' : 'wait'}`}>{t.status}</span>{t.rejectedReason && <em>{t.rejectedReason}</em>}</li>)}</ul>}
+            <span className={`ob-pill ${status === 'connected' ? 'ok' : (status === 'templates_rejected' || status === 'token_expired') ? 'bad' : 'wait'}`}>
+              {status === 'connected' ? '● live' : status === 'token_expired' ? '● token expired' : status === 'templates_rejected' ? '● template issue' : '◌ templates pending'}
+            </span>
+            {templates?.length > 0 && (
+              <ul className="ob-tpl">
+                {templates.map((t: any) => (
+                  <li key={t.name}>
+                    <code>{t.name}</code>
+                    <span className={`ob-tpl__s ${t.status === 'APPROVED' ? 'ok' : t.status === 'REJECTED' ? 'bad' : 'wait'}`}>{t.status}</span>
+                    {t.rejectedReason && <em>{t.rejectedReason}</em>}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          {status === 'token_expired' && (
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '12px 16px', margin: '12px 0' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: '#991b1b', fontSize: '0.9rem' }}>⚠️ Meta Access Token Expired</p>
+              <p style={{ margin: '4px 0 10px 0', fontSize: '0.8rem', color: '#7f1d1d' }}>
+                Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.
+              </p>
+              <button type="button" className="ob-btn" style={{ fontSize: '0.82rem', padding: '6px 14px' }} onClick={() => setEditingCreds(true)}>
+                🔑 Update Access Token
+              </button>
+            </div>
+          )}
+
+          {status === 'templates_rejected' && (
+            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px 16px', margin: '12px 0' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: '#92400e', fontSize: '0.9rem' }}>🛠️ Meta Format Fixed & Ready</p>
+              <p style={{ margin: '4px 0 10px 0', fontSize: '0.8rem', color: '#78350f' }}>
+                Meta requires variable examples and maximum 3 quick replies. Click <strong>Fix & Resubmit Templates</strong> to delete the rejected records and register the verified schema.
+              </p>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="ob-btn"
+                  style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+                  disabled={busy === 'resubmit_templates'}
+                  onClick={onResubmitTemplates}
+                >
+                  {busy === 'resubmit_templates' ? 'Resubmitting…' : '↻ Fix & Resubmit Templates'}
+                </button>
+                <button
+                  type="button"
+                  className="ob-btn ob-btn--ghost"
+                  style={{ fontSize: '0.82rem', padding: '6px 14px' }}
+                  onClick={() => setEditingCreds(true)}
+                >
+                  ⚙️ Update Token / Credentials
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="ob-pulse">
             <Field label="Your mobile (for the test)"><input className="ob-input" placeholder="+91 9XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
             <Field label="Store name (optional)"><input className="ob-input" placeholder="Mamaearth" value={name} onChange={(e) => setName(e.target.value)} /></Field>
@@ -618,6 +752,17 @@ function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, temp
               </button>
             </div>
             <p className="ob-note">Fires a real message to your number — the proof that recovery works, before any customer order depends on it.</p>
+          </div>
+
+          <div style={{ marginTop: '14px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+            <button
+              type="button"
+              className="ob-btn ob-btn--ghost"
+              style={{ fontSize: '0.78rem', padding: '6px 12px', color: 'var(--text-2)' }}
+              onClick={() => setEditingCreds(true)}
+            >
+              🔄 Reconnect or update WhatsApp credentials
+            </button>
           </div>
         </>
       )}

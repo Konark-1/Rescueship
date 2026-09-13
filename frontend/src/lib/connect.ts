@@ -28,6 +28,7 @@ export const connectApi = {
   whatsappSignup: (t: string, code: string, businessId?: string) => call(t, '/whatsapp/signup', { code, businessId }),
   whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string) => call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken }),
   whatsappTemplates: (t: string) => call(t, '/whatsapp/templates/status'),
+  resubmitWhatsAppTemplates: (t: string) => call(t, '/whatsapp/templates/resubmit', {}),
   testPulse: (t: string) => call(t, '/whatsapp/test-pulse', {}),
   carrier: (t: string, creds: any) => call(t, '/carrier', creds),
   payment: (t: string, gateway: string, keyId: string, keySecret: string) => call(t, '/payment', { gateway, keyId, keySecret }),

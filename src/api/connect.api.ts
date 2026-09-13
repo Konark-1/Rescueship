@@ -39,7 +39,11 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
       connections: {
         shopify: c.shopify || { status: 'disconnected' },
         woocommerce: c.woocommerce || { status: 'disconnected' },
-        whatsapp: c.whatsapp || { status: 'disconnected' },
+        whatsapp: {
+          ...(c.whatsapp || { status: 'disconnected' }),
+          phoneNumberId: (m as any).whatsappConfig?.phoneNumberId || null,
+          wabaId: (m as any).whatsappConfig?.wabaId || null,
+        },
         carrier: c.carrier || { status: 'disconnected' },
         payment: c.payment || { status: 'disconnected' },
       },
@@ -285,6 +289,15 @@ router.post('/whatsapp/signup', authenticateToken, async (req: AuthenticatedRequ
 router.get('/whatsapp/templates/status', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   try { res.json(await metaTemplateService.pollStatus(req.merchant!.merchantId)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+router.post('/whatsapp/templates/resubmit', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const results = await metaTemplateService.resubmitAll(req.merchant!.merchantId);
+    res.json({ ok: true, templates: results, status: 'templates_pending' });
+  } catch (e: any) {
+    logger.error('WhatsApp template resubmit failed', { error: e.message });
+    res.status(400).json({ error: e.message });
+  }
 });
 
 // Self-serve proof: send a real rescue to the merchant's own number.
