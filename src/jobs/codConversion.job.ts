@@ -83,6 +83,10 @@ codConversionWorker.on('completed', (job: Job) => {
   logger.info(`Job ${job.id} completed successfully in cod-conversion queue`);
 });
 
+codConversionWorker.on('error', (err: Error) => {
+  logger.warn('cod-conversion worker Redis error', { error: err.message });
+});
+
 codConversionWorker.on('failed', (job: Job | undefined, err: Error) => {
   logger.error(`Job ${job?.id} failed in cod-conversion queue`, { error: err.message });
 });

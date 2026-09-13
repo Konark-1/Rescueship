@@ -134,6 +134,10 @@ export function startTemplatePollerWorker(): Worker {
     { connection: redisConnection as any, concurrency: 5 }
   );
 
+  worker.on('error', (err) => {
+    logger.warn('[TemplatePoller] Worker Redis error', { error: err.message });
+  });
+
   logger.info('[TemplatePoller] Worker started');
   return worker;
 }

@@ -41,6 +41,10 @@ ndrRescueWorker.on('completed', (job: Job) => {
   logger.info(`Job ${job.id} completed successfully in ndr-rescue queue`);
 });
 
+ndrRescueWorker.on('error', (err: Error) => {
+  logger.warn('ndr-rescue worker Redis error', { error: err.message });
+});
+
 ndrRescueWorker.on('failed', (job: Job | undefined, err: Error) => {
   logger.error(`Job ${job?.id} failed in ndr-rescue queue`, { error: err.message });
 });

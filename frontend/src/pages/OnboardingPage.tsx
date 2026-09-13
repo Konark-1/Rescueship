@@ -59,6 +59,16 @@ export default function OnboardingPage() {
     }
   };
 
+  const isStationDone = (k: Key, conns?: any) => {
+    const c = conns || state?.connections;
+    if (k === 'shopify') return c?.shopify?.status === 'connected' || c?.woocommerce?.status === 'connected';
+    if (k === 'whatsapp') {
+      const ws = c?.whatsapp?.status;
+      return ws === 'connected' || ws === 'templates_pending';
+    }
+    return c?.[k]?.status === 'connected';
+  };
+
   useEffect(() => {
     refresh().then((s: any) => {
       if (s?.connections) {
@@ -66,7 +76,7 @@ export default function OnboardingPage() {
         if (isStoreConnected) {
           const nextIncomplete = STATIONS.find((st) => {
             if (st.key === 'shopify') return false;
-            return s.connections[st.key]?.status !== 'connected';
+            return !isStationDone(st.key, s.connections);
           });
           if (nextIncomplete) {
             setActive(nextIncomplete.key);
@@ -94,7 +104,7 @@ export default function OnboardingPage() {
   }, [state?.connections?.whatsapp?.status]);
 
   const storeDone = () => state?.connections?.shopify?.status === 'connected' || state?.connections?.woocommerce?.status === 'connected';
-  const done = (k: Key) => k === 'shopify' ? storeDone() : state?.connections?.[k]?.status === 'connected';
+  const done = (k: Key) => isStationDone(k);
   const statusOf = (k: Key) => k === 'shopify' ? (storeDone() ? 'connected' : (state?.connections?.shopify?.status || 'disconnected')) : (state?.connections?.[k]?.status || 'disconnected');
   const currentIndex = STATIONS.findIndex((s) => s.key === active);
   const allGreen = !!state?.ready;
@@ -198,7 +208,23 @@ export default function OnboardingPage() {
     }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
-  const pulse = async () => { setBusy('pulse'); setErr(null); push('› sending test rescue to your number…'); try { await connectApi.testPulse(token!); push('✓ test rescue sent — check your phone'); refresh(); setBusy(null); } catch (e: any) { setErr(e.message); setBusy(null); } };
+  const pulse = async (targetPhone?: string, storeName?: string) => {
+    setBusy('pulse');
+    setErr(null);
+    push('› sending test rescue to your number…');
+    try {
+      if (targetPhone) {
+        await connectApi.ownerPhone(token!, targetPhone, storeName || '');
+      }
+      await connectApi.testPulse(token!);
+      push('✓ test rescue sent — check your phone');
+      await refresh();
+      setBusy(null);
+    } catch (e: any) {
+      setErr(e.message);
+      setBusy(null);
+    }
+  };
   const goLive = async () => {
     setBusy('finalize');
     try {
@@ -327,7 +353,19 @@ export default function OnboardingPage() {
                   wcManual={wcManual}
                 />
               )}
-              {active === 'whatsapp' && <WhatsAppPanel onConnect={connectWhatsApp} onManualConnect={connectWhatsAppManual} onPulse={pulse} busy={busy} status={statusOf('whatsapp')} templates={state?.templates} ownerPhone={state?.ownerPhone} metaReady={META_SIGNUP_READY} onSetPhone={(p: string, n: string) => connectApi.ownerPhone(token!, p, n).then(refresh)} />}
+              {active === 'whatsapp' && (
+                <WhatsAppPanel
+                  onConnect={connectWhatsApp}
+                  onManualConnect={connectWhatsAppManual}
+                  onPulse={pulse}
+                  busy={busy}
+                  status={statusOf('whatsapp')}
+                  templates={state?.templates}
+                  ownerPhone={state?.ownerPhone}
+                  metaReady={META_SIGNUP_READY}
+                  onNext={() => advanceToNext('whatsapp')}
+                />
+              )}
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
 
@@ -516,7 +554,7 @@ function ShopifyForm({ onTokenConnect, onOAuthConnect, busy, defaultShop }: any)
   );
 }
 
-function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, templates, ownerPhone, metaReady, onSetPhone }: any) {
+function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, templates, ownerPhone, metaReady, onNext }: any) {
   const [phone, setPhone] = useState(ownerPhone || '');
   const [name, setName] = useState('');
   const [manual, setManual] = useState(!metaReady);
@@ -571,7 +609,14 @@ function WhatsAppPanel({ onConnect, onManualConnect, onPulse, busy, status, temp
           <div className="ob-pulse">
             <Field label="Your mobile (for the test)"><input className="ob-input" placeholder="+91 9XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
             <Field label="Store name (optional)"><input className="ob-input" placeholder="Mamaearth" value={name} onChange={(e) => setName(e.target.value)} /></Field>
-            <button className="ob-btn ob-btn--ghost" disabled={!phone || busy === 'pulse'} onClick={() => { onSetPhone(phone, name); onPulse(); }}>{busy === 'pulse' ? 'Sending…' : '📲 Send me a test rescue'}</button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
+              <button className="ob-btn ob-btn--ghost" disabled={!phone || busy === 'pulse'} onClick={() => onPulse(phone, name)}>
+                {busy === 'pulse' ? 'Sending…' : '📲 Send me a test rescue'}
+              </button>
+              <button className="ob-btn" type="button" onClick={onNext}>
+                Continue to Courier setup →
+              </button>
+            </div>
             <p className="ob-note">Fires a real message to your number — the proof that recovery works, before any customer order depends on it.</p>
           </div>
         </>

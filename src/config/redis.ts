@@ -137,16 +137,17 @@ export async function connectRedis(): Promise<boolean> {
       logger.info('✅  Redis PING and write verification successful');
       return true;
     } catch (writeErr: any) {
-      logger.warn('⚠️  Redis connected but write/quota failed — pausing background queues', { error: writeErr.message });
+      logger.warn('⚠️  Redis connected but write/quota failed (e.g. Upstash limit) — pausing background queues', { error: writeErr.message });
+      try { redisConnection.disconnect(); } catch { /* ignore */ }
       return false;
     }
-  } catch (err) {
-    logger.error('Failed to connect to Redis', {
+  } catch (err: any) {
+    logger.warn('⚠️  Redis connection/verification failed (quota or network error) — pausing background queues', {
       error: err instanceof Error ? err.message : String(err),
     });
-    // Don't throw — ioredis retry strategy will keep trying in the background
+    try { redisConnection.disconnect(); } catch { /* ignore */ }
+    return false;
   }
-  return false;
 }
 
 /**

@@ -26,6 +26,10 @@ escalationWorker.on('completed', (job: Job) => {
   logger.info(`Job ${job.id} completed successfully in escalation queue`);
 });
 
+escalationWorker.on('error', (err: Error) => {
+  logger.warn('escalation worker Redis error', { error: err.message });
+});
+
 escalationWorker.on('failed', (job: Job | undefined, err: Error) => {
   logger.error(`Job ${job?.id} failed in escalation queue`, { error: err.message });
 });

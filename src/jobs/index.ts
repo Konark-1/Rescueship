@@ -15,8 +15,8 @@ export * from './deadLetter.job';
 export * from './monthlyReset.job';
 export * from './reconciliation.job';
 
-const monthlyResetWorker = setupMonthlyResetWorker();
-const reconciliationWorker = setupReconciliationWorker();
+let monthlyResetWorker: any = null;
+let reconciliationWorker: any = null;
 
 /**
  * Start all BullMQ workers safely without re-running active workers.
@@ -25,6 +25,9 @@ const reconciliationWorker = setupReconciliationWorker();
 export function startAllWorkers(): void {
   logger.info('🚀  Starting all BullMQ workers…');
   
+  if (!monthlyResetWorker) monthlyResetWorker = setupMonthlyResetWorker();
+  if (!reconciliationWorker) reconciliationWorker = setupReconciliationWorker();
+
   const workers = [
     codConversionWorker,
     ndrRescueWorker,
@@ -33,9 +36,12 @@ export function startAllWorkers(): void {
     deadLetterWorker,
     monthlyResetWorker,
     reconciliationWorker,
-  ];
+  ].filter(Boolean);
 
   for (const worker of workers) {
+    worker.on('error', (err: Error) => {
+      logger.warn(`BullMQ worker ${worker.name || 'unknown'} Redis warning`, { error: err.message });
+    });
     if (!worker.isRunning()) {
       worker.run();
     }

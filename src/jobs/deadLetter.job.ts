@@ -23,6 +23,10 @@ deadLetterWorker.on('completed', (job: Job) => {
   logger.info(`Job ${job.id} completed in dead-letter queue`);
 });
 
+deadLetterWorker.on('error', (err: Error) => {
+  logger.warn('dead-letter worker Redis error', { error: err.message });
+});
+
 deadLetterWorker.on('failed', (job: Job | undefined, err: Error) => {
   logger.error(`Job ${job?.id} failed inside dead-letter queue itself!`, { error: err.message });
 });

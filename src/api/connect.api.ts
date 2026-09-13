@@ -234,8 +234,12 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
       headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,name' }, timeout: 8000,
     });
   } catch (e: any) {
-    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, code: e.response?.data?.error?.code });
-    return res.status(400).json({ error: 'Could not verify these WhatsApp credentials — check the phone number ID, WABA ID and access token (and that the token has whatsapp_business_messaging + whatsapp_business_management permissions).' });
+    const metaErr = e.response?.data?.error;
+    const msg = metaErr?.message || e.message;
+    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, error: metaErr || e.message });
+    return res.status(400).json({
+      error: `Could not verify WhatsApp credentials: ${msg}. Check your Phone number ID, WABA ID, and make sure your access token has whatsapp_business_messaging permissions.`,
+    });
   }
 
   const other = await Merchant.findOne({ _id: { $ne: req.merchant!.merchantId }, 'whatsappConfig.phoneNumberId': phone }).select('_id');

@@ -168,6 +168,10 @@ export function startQualityMonitorWorker(): Worker {
     { connection: redisConnection as any, concurrency: 3 }
   );
 
+  worker.on('error', (err) => {
+    logger.warn('[QualityMonitor] Worker Redis error', { error: err.message });
+  });
+
   // Schedule: every 6 hours
   qualityMonitorQueue.add(
     'check-all',

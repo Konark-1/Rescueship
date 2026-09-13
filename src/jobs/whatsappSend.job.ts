@@ -30,6 +30,10 @@ whatsappSendWorker.on('completed', (job: Job) => {
   logger.info(`Job ${job.id} completed successfully in whatsapp-send queue`);
 });
 
+whatsappSendWorker.on('error', (err: Error) => {
+  logger.warn('whatsapp-send worker Redis error', { error: err.message });
+});
+
 whatsappSendWorker.on('failed', (job: Job | undefined, err: Error) => {
   logger.error(`Job ${job?.id} failed in whatsapp-send queue`, { error: err.message });
 });

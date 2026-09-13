@@ -43,6 +43,10 @@ export function setupReconciliationWorker(): Worker {
     { connection: redisConnection as any, autorun: false }
   );
 
+  worker.on('error', (err) => {
+    logger.warn('Reconciliation worker Redis error', { error: err.message });
+  });
+
   worker.on('failed', (job, err) => {
     logger.error('Reconciliation job failed', { jobId: job?.id, error: err.message });
   });

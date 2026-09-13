@@ -15,8 +15,12 @@ export const setupMonthlyResetWorker = () => {
       logger.info('Monthly order limit reset completed', { modifiedCount: result.modifiedCount });
       return { resetCount: result.modifiedCount };
     },
-    { connection: redisConnection as any }
+    { connection: redisConnection as any, autorun: false }
   );
+
+  worker.on('error', (err) => {
+    logger.warn('Monthly reset worker Redis error', { error: err.message });
+  });
 
   worker.on('failed', (job, err) => {
     logger.error('Monthly reset worker failed', { jobId: job?.id, error: err.message });
