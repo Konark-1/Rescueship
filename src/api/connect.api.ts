@@ -29,10 +29,24 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
   try {
     const m = await Merchant.findById(req.merchant!.merchantId).lean();
     const c = (m as any).connections || {};
+
+    let waStatus = c.whatsapp?.status;
+    let templates = (m as any).whatsappConfig?.templates || [];
+    if (waStatus === 'templates_pending') {
+      try {
+        const polled = await metaTemplateService.pollStatus(req.merchant!.merchantId);
+        waStatus = polled.status;
+        templates = polled.templates;
+        if (c.whatsapp) c.whatsapp.status = waStatus;
+      } catch (pollErr: any) {
+        logger.debug('pollStatus during GET /state skipped', { error: pollErr.message });
+      }
+    }
+
     // The "store" requirement is platform-agnostic: Shopify OR WooCommerce (either path
     // counts as the store being wired). The other three stations are always required.
     const storeConnected = c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected';
-    const allGreen = storeConnected && ['whatsapp', 'carrier', 'payment'].every((k) => c[k]?.status === 'connected');
+    const allGreen = storeConnected && ['whatsapp', 'carrier', 'payment'].every((k) => (k === 'whatsapp' ? waStatus === 'connected' : c[k]?.status === 'connected'));
     res.json({
       storeName: (m as any).storeName || (m as any).shopify?.shopDomain || null,
       ownerPhone: (m as any).ownerPhone || null,
@@ -41,13 +55,14 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
         woocommerce: c.woocommerce || { status: 'disconnected' },
         whatsapp: {
           ...(c.whatsapp || { status: 'disconnected' }),
+          status: waStatus || c.whatsapp?.status || 'disconnected',
           phoneNumberId: (m as any).whatsappConfig?.phoneNumberId || null,
           wabaId: (m as any).whatsappConfig?.wabaId || null,
         },
         carrier: c.carrier || { status: 'disconnected' },
         payment: c.payment || { status: 'disconnected' },
       },
-        templates: (m as any).whatsappConfig?.templates || [],
+      templates,
       onboarding: (m as any).onboarding || { completedAt: null },
       ready: allGreen,
       // Which store-connect paths this deployment can offer right now
@@ -314,12 +329,25 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
   try { decryptedToken = encryptionService.decrypt(waCfg.accessToken); }
   catch { return res.status(400).json({ error: 'WhatsApp credentials need to be reconnected.' }); }
   try {
-    // Always the merchant's own number/token — never the platform WABA.
-    await whatsAppService.sendTemplate(
-      phone, 'rs_test_pulse_en', 'en',
-      [{ type: 'body', parameters: [{ type: 'text', text: (m as any).storeName || 'your store' }] }],
-      { phoneNumberId: waCfg.phoneNumberId, accessToken: decryptedToken, businessAccountId: waCfg.businessAccountId, templateMap: waCfg.templateMap } as any
-    );
+    const registeredName = waCfg.templateMap?.['rs_test_pulse_en'] || 'rs_test_pulse_v2_en';
+    const templates: any[] = waCfg.templates || [];
+    const pulseTpl = templates.find((t: any) => t.name === registeredName);
+    const isApproved = pulseTpl?.status === 'APPROVED';
+
+    if (isApproved) {
+      await whatsAppService.sendTemplate(
+        phone, 'rs_test_pulse_en', 'en',
+        [{ type: 'body', parameters: [{ type: 'text', text: (m as any).storeName || 'your store' }] }],
+        { phoneNumberId: waCfg.phoneNumberId, accessToken: decryptedToken, businessAccountId: waCfg.businessAccountId, templateMap: waCfg.templateMap } as any
+      );
+    } else {
+      // While custom templates are awaiting Meta review, use Meta's pre-approved hello_world template
+      await whatsAppService.sendTemplate(
+        phone, 'hello_world', 'en_US',
+        [],
+        { phoneNumberId: waCfg.phoneNumberId, accessToken: decryptedToken, businessAccountId: waCfg.businessAccountId } as any
+      );
+    }
     await Merchant.findByIdAndUpdate(m._id, { $set: { 'onboarding.testRescueSentAt': new Date() } });
     res.json({ ok: true, to: phone });
   } catch (e: any) {
@@ -332,6 +360,20 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
 router.post('/carrier', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try { res.json(await carrierConnectService.validateAndSave(req.merchant!.merchantId, req.body)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+
+router.post('/carrier/disconnect', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+  const merchant = await Merchant.findById(req.merchant!.merchantId);
+  if (!merchant) return res.status(404).json({ error: 'not found' });
+  (merchant as any).carrierConfig = undefined;
+  if ((merchant as any).connections) {
+    (merchant as any).connections.carrier = { status: 'disconnected', lastError: null };
+    merchant.markModified('connections');
+  }
+  merchant.markModified('carrierConfig');
+  await merchant.save();
+  logger.info('Carrier disconnected', { merchantId: req.merchant!.merchantId });
+  res.json({ ok: true, status: 'disconnected' });
 });
 
 // Per-merchant carrier webhook URL + secret (paste into carrier panel).

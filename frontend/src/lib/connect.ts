@@ -31,6 +31,7 @@ export const connectApi = {
   resubmitWhatsAppTemplates: (t: string) => call(t, '/whatsapp/templates/resubmit', {}),
   testPulse: (t: string) => call(t, '/whatsapp/test-pulse', {}),
   carrier: (t: string, creds: any) => call(t, '/carrier', creds),
+  carrierDisconnect: (t: string) => call(t, '/carrier/disconnect', {}),
   payment: (t: string, gateway: string, keyId: string, keySecret: string) => call(t, '/payment', { gateway, keyId, keySecret }),
   ownerPhone: (t: string, ownerPhone: string, storeName?: string) => call(t, '/owner-phone', { ownerPhone, storeName }),
   finalize: (t: string) => call(t, '/finalize', {}),

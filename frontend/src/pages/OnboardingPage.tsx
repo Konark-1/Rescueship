@@ -98,10 +98,22 @@ export default function OnboardingPage() {
   // poll template approval while pending
   useEffect(() => {
     if (state?.connections?.whatsapp?.status === 'templates_pending') {
-      push('› templates submitted · awaiting Meta approval');
       pollRef.current = setInterval(async () => {
         try {
           const s = await connectApi.whatsappTemplates(token!);
+          if (s?.templates?.length) {
+            setState((prev: any) => prev ? {
+              ...prev,
+              templates: s.templates,
+              connections: {
+                ...prev.connections,
+                whatsapp: {
+                  ...prev.connections?.whatsapp,
+                  status: s.status,
+                }
+              }
+            } : prev);
+          }
           if (s.status === 'connected') {
             push('✓ all templates approved');
             clearInterval(pollRef.current);
@@ -221,6 +233,19 @@ export default function OnboardingPage() {
     }
     catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
   };
+  const handleDisconnectCarrier = async () => {
+    setBusy('carrier'); setErr(null); push('› disconnecting courier…');
+    try {
+      await connectApi.carrierDisconnect(token!);
+      push('✓ courier disconnected');
+      await refresh();
+      setBusy(null);
+    } catch (e: any) {
+      setErr(e.message);
+      push(`✗ disconnect failed: ${e.message}`);
+      setBusy(null);
+    }
+  };
   const connectWooCommerce = async (url: string, consumerKey: string, consumerSecret: string) => {
     setBusy('shopify'); setErr(null); setWcManual(null); push(`› validating ${url}…`);
     try {
@@ -320,12 +345,13 @@ export default function OnboardingPage() {
                   <span className="ob-node__line" data-fill={i < currentIndex || isDone ? '1' : '0'} />
                   <span className="ob-node__dot">
                     {isDone ? <svg viewBox="0 0 24 24" className="ob-check"><path d="M5 13l4 4L19 7" /></svg>
+                      : (s.key === 'whatsapp' && st === 'templates_pending') ? <svg viewBox="0 0 24 24" className="ob-check" style={{ stroke: '#38bdf8' }}><path d="M5 13l4 4L19 7" /></svg>
                       : pending ? <span className="ob-spin" /> : <span className="ob-node__n">{i + 1}</span>}
                     {isActive && <span className="ob-marker" aria-hidden="true">🛵</span>}
                   </span>
                   <span className="ob-node__text">
                     <strong>{s.label}</strong>
-                    <em>{isDone ? 'connected' : pending ? 'in progress' : 'awaiting'}</em>
+                    <em>{isDone ? 'connected' : pending ? (s.key === 'whatsapp' ? 'verified · in review' : 'in progress') : 'awaiting'}</em>
                   </span>
                 </button>
               );
@@ -410,7 +436,7 @@ export default function OnboardingPage() {
                   connectionDetails={state?.connections?.whatsapp}
                 />
               )}
-              {active === 'carrier' && <CarrierForm onConnect={connectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
+              {active === 'carrier' && <CarrierForm onConnect={connectCarrier} onDisconnect={handleDisconnectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
 
               {err && <p className="ob-err">⚠ {err}</p>}
@@ -767,8 +793,17 @@ function WhatsAppPanel({
             </div>
           )}
 
+          {status === 'templates_pending' && (
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '14px 16px', margin: '14px 0' }}>
+              <p style={{ margin: 0, fontWeight: 600, color: '#1e40af', fontSize: '0.92rem' }}>Meta Template Review in Progress</p>
+              <p style={{ margin: '6px 0 0 0', fontSize: '0.82rem', color: '#1e3a8a', lineHeight: 1.45 }}>
+                Your WhatsApp credentials are verified. Meta is reviewing your 6 message templates (usually takes 5–30 minutes). You can continue to Courier & Payments setup now — your templates will activate automatically once approved.
+              </p>
+            </div>
+          )}
+
           <div className="ob-pulse">
-            <Field label="Your mobile (for the test)"><input className="ob-input" placeholder="+91 9XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+            <Field label="Your mobile (for the test message)"><input className="ob-input" placeholder="+91 9XXXXXXXXX" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
             <Field label="Store name (optional)"><input className="ob-input" placeholder="Mamaearth" value={name} onChange={(e) => setName(e.target.value)} /></Field>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
               <button className="ob-btn ob-btn--ghost" disabled={!phone || busy === 'pulse'} onClick={() => onPulse(phone, name)}>
@@ -778,7 +813,11 @@ function WhatsAppPanel({
                 Continue to Courier setup →
               </button>
             </div>
-            <p className="ob-note">Fires a real message to your number — the proof that recovery works, before any customer order depends on it.</p>
+            {!phone ? (
+              <p className="ob-note" style={{ color: 'var(--text-3)' }}>Enter your mobile number above to enable the test rescue button.</p>
+            ) : (
+              <p className="ob-note">Fires a real message to your number — the proof that recovery works, before any customer order depends on it.</p>
+            )}
           </div>
 
           <div style={{ marginTop: '14px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
@@ -797,10 +836,25 @@ function WhatsAppPanel({
   );
 }
 
-function CarrierForm({ onConnect, busy, done, provider }: any) {
+function CarrierForm({ onConnect, onDisconnect, busy, done, provider }: any) {
   const [p, setP] = useState<'shiprocket' | 'delhivery' | 'clickpost'>('shiprocket');
   const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [apiToken, setApiToken] = useState(''); const [apiKey, setApiKey] = useState('');
-  return done ? <Done provider={`Connected · ${provider}`} /> : (
+  return done ? (
+    <div>
+      <Done provider={`Connected · ${provider}`} />
+      <div style={{ marginTop: '14px', textAlign: 'center' }}>
+        <button
+          type="button"
+          className="ob-btn ob-btn--ghost"
+          style={{ fontSize: '0.82rem', padding: '7px 16px', color: 'var(--text-2)' }}
+          disabled={busy}
+          onClick={onDisconnect}
+        >
+          {busy ? 'Disconnecting…' : '🔄 Disconnect or change courier'}
+        </button>
+      </div>
+    </div>
+  ) : (
     <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(p, email, password, apiToken, apiKey); }}>
       <div className="ob-seg">{(['shiprocket', 'delhivery', 'clickpost'] as const).map((x) => <button type="button" key={x} className={p === x ? 'on' : ''} onClick={() => setP(x)}>{x}</button>)}</div>
       {p === 'shiprocket' ? (<><Field label="Email"><input className="ob-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field><Field label="Password"><input className="ob-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field></>)
