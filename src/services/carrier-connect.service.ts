@@ -34,7 +34,13 @@ async function validateDelhivery(c: CarrierCreds) {
 }
 async function validateClickpost(c: CarrierCreds) {
   const apiKey = assertStr(c.apiKey, 'apiKey');
-  await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { key: apiKey }, timeout: HTTP_TIMEOUT_MS }); // 401 throws
+  const res = await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { key: apiKey }, timeout: HTTP_TIMEOUT_MS });
+  if (typeof res.data !== 'object' || !res.data || (typeof res.data === 'string' && res.data.includes('<html'))) {
+    throw new Error('Invalid ClickPost API key or service response.');
+  }
+  if (res.data?.meta?.success === false) {
+    throw new Error(res.data?.meta?.message || 'Invalid ClickPost API key.');
+  }
 }
 
 /** Where the carrier should POST NDR events for this merchant. */
