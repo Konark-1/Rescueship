@@ -150,12 +150,16 @@ export async function enqueueTemplatePolls(
   wabaId: string,
   templates: Array<{ name: string }>
 ): Promise<void> {
-  for (const tpl of templates) {
-    await templatePollerQueue.add(
-      `poll-${tpl.name}`,
-      { merchantId, templateName: tpl.name, wabaId, pollCount: 1, maxPolls: 48 } as TemplatePollPayload,
-      { delay: 30_000, removeOnComplete: true, removeOnFail: true, jobId: makeJobId('tplpoll', merchantId, tpl.name, 1) }
-    );
+  try {
+    for (const tpl of templates) {
+      await templatePollerQueue.add(
+        `poll-${tpl.name}`,
+        { merchantId, templateName: tpl.name, wabaId, pollCount: 1, maxPolls: 48 } as TemplatePollPayload,
+        { delay: 30_000, removeOnComplete: true, removeOnFail: true, jobId: makeJobId('tplpoll', merchantId, tpl.name, 1) }
+      );
+    }
+    logger.info(`[TemplatePoller] Enqueued ${templates.length} template polls for ${merchantId}`);
+  } catch (err: any) {
+    logger.warn('[TemplatePoller] Enqueue skipped (Redis unavailable or quota limit reached)', { error: err.message });
   }
-  logger.info(`[TemplatePoller] Enqueued ${templates.length} template polls for ${merchantId}`);
 }

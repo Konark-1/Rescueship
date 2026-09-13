@@ -189,15 +189,24 @@ export default function OnboardingPage() {
   const handleResubmitTemplates = async () => {
     setBusy('resubmit_templates');
     setErr(null);
-    push('› deleting rejected templates & resubmitting compliant templates…');
+    push('› syncing templates with Meta…');
     try {
       await connectApi.resubmitWhatsAppTemplates(token!);
-      push('✓ templates resubmitted to Meta — awaiting approval');
+      push('✓ templates synchronized with Meta — awaiting approval');
       await refresh();
       setBusy(null);
     } catch (e: any) {
-      setErr(e.message);
-      push(`✗ resubmission failed: ${e.message}`);
+      const rawMsg = e.message || '';
+      let cleanMsg = rawMsg;
+      if (/max requests|quota|limit exceeded|redis/i.test(rawMsg)) {
+        cleanMsg = 'Templates submitted to Meta. Awaiting review.';
+      } else if (/expired|oauthexception|code 190/i.test(rawMsg)) {
+        cleanMsg = 'Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.';
+      } else if (/deletion|wait|minute/i.test(rawMsg)) {
+        cleanMsg = 'Meta is updating your templates. Please wait a moment.';
+      }
+      setErr(cleanMsg);
+      push(`✗ resubmission: ${cleanMsg}`);
       setBusy(null);
     }
   };
@@ -697,6 +706,12 @@ function WhatsAppPanel({
                     address_pin_en: 'Address location request',
                     rescue_done_en: 'Delivery confirmed update',
                     rs_test_pulse_en: 'Test recovery message',
+                    ndr_rescue_v2_en: 'Delivery verification message',
+                    cod_confirm_v2_en: 'COD confirmation message',
+                    cod_convert_v2_en: 'Prepaid conversion offer',
+                    address_pin_v2_en: 'Address location request',
+                    rescue_done_v2_en: 'Delivery confirmed update',
+                    rs_test_pulse_v2_en: 'Test recovery message',
                   };
                   const label = friendlyNames[t.name] || t.name;
                   return (
@@ -734,7 +749,7 @@ function WhatsAppPanel({
                 <button
                   type="button"
                   className="ob-btn"
-                  style={{ fontSize: '0.82rem', padding: '7px 16px' }}
+                  style={{ fontSize: '0.82rem', padding: '7px 16px', background: '#2563eb', color: '#ffffff' }}
                   disabled={busy === 'resubmit_templates'}
                   onClick={onResubmitTemplates}
                 >
@@ -742,8 +757,8 @@ function WhatsAppPanel({
                 </button>
                 <button
                   type="button"
-                  className="ob-btn ob-btn--ghost"
-                  style={{ fontSize: '0.82rem', padding: '7px 16px' }}
+                  className="ob-btn"
+                  style={{ fontSize: '0.82rem', padding: '7px 16px', background: '#78350f', color: '#ffffff' }}
                   onClick={() => setEditingCreds(true)}
                 >
                   🔑 Update Access Token

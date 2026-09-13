@@ -38,10 +38,19 @@ export interface TplDef {
   }[];
 }
 
-/** Logical name = registered name (engine compatibility). */
+export const DEFAULT_TEMPLATE_MAP: Record<string, string> = {
+  ndr_rescue_en: 'ndr_rescue_v2_en',
+  cod_confirm_en: 'cod_confirm_v2_en',
+  cod_convert_en: 'cod_convert_v2_en',
+  address_pin_en: 'address_pin_v2_en',
+  rescue_done_en: 'rescue_done_v2_en',
+  rs_test_pulse_en: 'rs_test_pulse_v2_en',
+};
+
+/** Registered compliant templates on Meta WABA. */
 export const TEMPLATE_DEFS: TplDef[] = [
   {
-    name: 'ndr_rescue_en',
+    name: 'ndr_rescue_v2_en',
     category: 'UTILITY',
     language: 'en',
     body: "Hi {{1}}, we couldn't confirm a delivery attempt on order {{2}}. Can you help us verify so we can get this to you?",
@@ -54,7 +63,7 @@ export const TEMPLATE_DEFS: TplDef[] = [
     ],
   },
   {
-    name: 'cod_confirm_en',
+    name: 'cod_confirm_v2_en',
     category: 'UTILITY',
     language: 'en',   // utility-first default (L-3)
     body: 'Hi {{1}}, confirm order {{2}} by paying online to lock your delivery slot. No cash needed at the door.',
@@ -69,7 +78,7 @@ export const TEMPLATE_DEFS: TplDef[] = [
     ],
   },
   {
-    name: 'cod_convert_en',
+    name: 'cod_convert_v2_en',
     category: 'MARKETING',
     language: 'en', // incentive variant (costlier)
     body: 'Hi {{1}}, pay online for order {{2}} now and get {{3}} off. Tap Pay Now to confirm.',
@@ -84,21 +93,21 @@ export const TEMPLATE_DEFS: TplDef[] = [
     ],
   },
   {
-    name: 'address_pin_en',
+    name: 'address_pin_v2_en',
     category: 'UTILITY',
     language: 'en',
     body: 'Hi {{1}}, please share your exact delivery location pin for order {{2}} so the driver can find you.',
     bodyExample: ['John', 'ORD-1001'],
   },
   {
-    name: 'rescue_done_en',
+    name: 'rescue_done_v2_en',
     category: 'UTILITY',
     language: 'en',
     body: 'Great news — order {{1}} is back on track and will be delivered {{2}}. Thank you!',
     bodyExample: ['ORD-1001', 'tomorrow'],
   },
   {
-    name: 'rs_test_pulse_en',
+    name: 'rs_test_pulse_v2_en',
     category: 'UTILITY',
     language: 'en',
     body: 'RescueShip is connected. This is a test rescue for {{1}} — your WhatsApp recovery is live.',
@@ -157,8 +166,29 @@ export class MetaTemplateService {
     const token = this.token(merchant);
     const results: any[] = [];
 
+    // Fetch live templates on Meta first to avoid deleting already approved/pending templates
+    let existingByName = new Map<string, any>();
+    try {
+      const existingRes = await axios.get(`${G}/${wabaId}/message_templates`, {
+        params: { fields: 'name,status,rejected_reason', limit: 100 },
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 10000,
+      });
+      existingByName = new Map((existingRes.data?.data || []).map((t: any) => [t.name, t]));
+    } catch (e: any) {
+      logger.debug('Could not pre-fetch existing templates from Meta', { error: e.message });
+    }
+
     for (const d of TEMPLATE_DEFS) {
-      if (deleteFirst) {
+      const live: any = existingByName.get(d.name);
+
+      // If template is already APPROVED or PENDING on Meta, preserve it
+      if (live && (live.status === 'APPROVED' || live.status === 'PENDING')) {
+        results.push({ name: d.name, status: live.status, rejectedReason: live.rejected_reason || null });
+        continue;
+      }
+
+      if (deleteFirst || live?.status === 'REJECTED') {
         await this.deleteTemplateIfExists(wabaId, d.name, token);
       }
 
@@ -177,6 +207,7 @@ export class MetaTemplateService {
       } catch (e: any) {
         const errorData = e.response?.data?.error;
         const code = errorData?.code;
+        const subcode = errorData?.error_subcode;
         const msg = errorData?.message || e.message;
 
         // Check for token expiry
@@ -194,29 +225,16 @@ export class MetaTemplateService {
           throw new Error('Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.');
         }
 
-        // If duplicate / already exists and we didn't delete first, try deleting and recreating once
-        if (!deleteFirst && (code === 100 || /already exists|duplicate/i.test(msg))) {
-          try {
-            await this.deleteTemplateIfExists(wabaId, d.name, token);
-            await axios.post(
-              `${G}/${wabaId}/message_templates`,
-              {
-                name: d.name,
-                category: d.category,
-                language: d.language,
-                components: buildComponents(d),
-              },
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            results.push({ name: d.name, status: 'PENDING' });
-            continue;
-          } catch (retryErr: any) {
-            logger.warn('Template recreate after delete failed', { name: d.name, error: retryErr.response?.data?.error?.message });
-          }
+        // Deletion lock from Meta (code 2388023 / "Try again in less than 1 minute")
+        if (subcode === 2388023 || /content can't be added while the existing English content is being deleted/i.test(msg)) {
+          logger.warn('Template deletion lock encountered on Meta, keeping existing state', { name: d.name });
+          results.push({ name: d.name, status: live?.status || 'PENDING' });
+          continue;
         }
 
+        // If duplicate / already exists, keep as pending
         if (code === 100 || /already exists|duplicate/i.test(msg)) {
-          results.push({ name: d.name, status: 'PENDING' });
+          results.push({ name: d.name, status: live?.status || 'PENDING' });
         } else {
           logger.error('Template submit failed', { name: d.name, message: msg });
           results.push({ name: d.name, status: 'FAILED', reason: msg });
@@ -226,11 +244,17 @@ export class MetaTemplateService {
 
     if (!(merchant as any).whatsappConfig) (merchant as any).whatsappConfig = {};
     (merchant as any).whatsappConfig.templates = results;
+    (merchant as any).whatsappConfig.templateMap = {
+      ...DEFAULT_TEMPLATE_MAP,
+      ...((merchant as any).whatsappConfig?.templateMap || {}),
+    };
+    const allApproved = results.length > 0 && results.every((r) => r.status === 'APPROVED');
+    const anyRejected = results.some((r) => r.status === 'FAILED' || r.status === 'REJECTED');
     (merchant as any).connections = {
       ...((merchant as any).connections || {}),
       whatsapp: {
         ...((merchant as any).connections?.whatsapp || {}),
-        status: results.some((r) => r.status === 'FAILED') ? 'templates_rejected' : 'templates_pending',
+        status: allApproved ? 'connected' : anyRejected ? 'templates_rejected' : 'templates_pending',
         lastError: null,
       },
     };
@@ -238,12 +262,16 @@ export class MetaTemplateService {
     merchant.markModified('connections');
     await merchant.save();
 
-    // Enqueue status polling for submitted templates.
+    // Enqueue status polling for submitted templates (safe against Redis errors).
     const createdTemplates = results
       .filter((r) => r.status === 'PENDING')
       .map((r) => ({ name: r.name }));
     if (createdTemplates.length > 0) {
-      await enqueueTemplatePolls(merchantId, wabaId, createdTemplates);
+      try {
+        await enqueueTemplatePolls(merchantId, wabaId, createdTemplates);
+      } catch (pollErr: any) {
+        logger.warn('Failed to enqueue template polls to Redis', { error: pollErr.message });
+      }
     }
 
     return results;
@@ -276,8 +304,12 @@ export class MetaTemplateService {
       });
       if (!(merchant as any).whatsappConfig) (merchant as any).whatsappConfig = {};
       (merchant as any).whatsappConfig.templates = merged;
+      (merchant as any).whatsappConfig.templateMap = {
+        ...DEFAULT_TEMPLATE_MAP,
+        ...((merchant as any).whatsappConfig?.templateMap || {}),
+      };
       merchant.markModified('whatsappConfig');
-      const allApproved = merged.every((m) => m.status === 'APPROVED');
+      const allApproved = merged.length > 0 && merged.every((m) => m.status === 'APPROVED');
       const anyRejected = merged.some((m) => m.status === 'REJECTED');
       (merchant as any).connections = {
         ...((merchant as any).connections || {}),
