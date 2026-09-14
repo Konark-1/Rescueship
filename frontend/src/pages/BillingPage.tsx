@@ -126,9 +126,13 @@ export default function BillingPage() {
               try {
                 await connectApi.finalize(token!);
                 updateUser({ onboardingStatus: 'completed' });
+                nav('/dashboard');
               } catch {
-                // If finalize fails (e.g. sandbox check), proceed gracefully
+                nav('/dashboard');
               }
+            } else {
+              // Smoothly proceed to Step 2: Connect store integrations!
+              nav('/onboarding?subscribed=true');
             }
           } catch (e: any) {
             setErr(e.message);
@@ -224,6 +228,17 @@ export default function BillingPage() {
       <div className="bl-col-sweep" aria-hidden="true" />
       <Topbar onExit={() => nav(allGreen ? '/dashboard' : '/onboarding')} />
 
+      {/* ── STEP 1 OF 2 PROGRESSION BANNER ── */}
+      {!allGreen && (
+        <section className="bl-step-banner">
+          <div className="bl-step-banner__pill">Step 1 of 2 · Upfront Transparency</div>
+          <h2 className="bl-step-banner__title">Calculate Your Projected Savings &amp; Lock In Your Plan</h2>
+          <p className="bl-step-banner__sub">
+            Know your numbers and lock in your 90-Day Money-Back Guarantee before doing the integration work. Once subscribed, you&apos;ll connect your store, WhatsApp, and courier in Step 2.
+          </p>
+        </section>
+      )}
+
       {/* ── 90-DAY GUARANTEE HERO BANNER ── */}
       <section className="bl-guarantee-hero" aria-label="90-Day Pays-For-Itself Guarantee">
         <div className="bl-guarantee-hero__icon">🛡️</div>
@@ -244,8 +259,8 @@ export default function BillingPage() {
         </div>
       </section>
 
-      {/* ── INCOMPLETE ONBOARDING STATUS REMINDER (If visited before all 4 stations are connected) ── */}
-      {!allGreen && (
+      {/* ── INTEGRATION STATUS REMINDER (If returning from partial setup) ── */}
+      {!allGreen && connectedCount > 0 && (
         <div className="bl-incomplete-banner" style={{ maxWidth: '1180px', margin: '0 auto 2rem' }}>
           <span>
             ⚡ Integrations in progress ({connectedCount}/4 connected). You can pick your plan and lock in your 90-day guarantee now, and complete integrations anytime.
@@ -345,6 +360,34 @@ export default function BillingPage() {
             </motion.span>
             deliveries a week — saving approx <strong>{inr(loss.saved)}/mo</strong>.
           </p>
+
+          {/* ── SHOWCASE: THE MULTIPLE SAVED ADDRESSES CRISIS ── */}
+          <div className="bl-crisis-showcase">
+            <div className="bl-crisis-showcase__head">
+              <span className="bl-crisis-showcase__icon">📍</span>
+              <div>
+                <strong>The &ldquo;Multiple Saved Addresses&rdquo; Crisis</strong>
+                <span className="bl-crisis-showcase__badge">38% of Indian RTOs</span>
+              </div>
+            </div>
+            <p className="bl-crisis-showcase__body">
+              Shoppers frequently order using old saved addresses (old flat, office on a Sunday) or vague landmarks. Couriers fail deliveries as &ldquo;incomplete address&rdquo;.
+            </p>
+            <div className="bl-crisis-showcase__flow">
+              <div className="bl-crisis-step">
+                <span className="bl-crisis-step__num">1</span>
+                <span><strong>Instant WhatsApp trigger</strong> catches the NDR before the parcel starts its return journey.</span>
+              </div>
+              <div className="bl-crisis-step">
+                <span className="bl-crisis-step__num">2</span>
+                <span><strong>Customer drops live GPS pin</strong> via WhatsApp 📎 Attach in 5 seconds without typing.</span>
+              </div>
+              <div className="bl-crisis-step">
+                <span className="bl-crisis-step__num">3</span>
+                <span><strong>AI syncs verified address</strong> straight to your carrier (Shiprocket / Delhivery) for immediate reattempt.</span>
+              </div>
+            </div>
+          </div>
         </aside>
 
         {/* ── RIGHT: THE MANIFEST OF 4 TIERS & CHECKOUT ── */}
@@ -423,7 +466,7 @@ export default function BillingPage() {
               onMouseLeave={mag.onMouseLeave}
               onClick={() => setDrawer(true)}
             >
-              Subscribe & go live <span className="bl-subscribe__arrow">→</span>
+              {allGreen ? 'Subscribe & go live' : 'Lock In Plan & Connect Store'} <span className="bl-subscribe__arrow">→</span>
             </button>
           </div>
           {err && <p className="bl-err">⚠ {err}</p>}
@@ -652,7 +695,7 @@ export default function BillingPage() {
                 onMouseMove={mag.onMouseMove}
                 onMouseLeave={mag.onMouseLeave}
               >
-                {paying ? 'Opening secure checkout…' : <>Pay {inr(price.upfront)} & activate <span className="bl-subscribe__arrow">→</span></>}
+                {paying ? 'Opening secure checkout…' : <>{allGreen ? `Pay ${inr(price.upfront)} & activate` : `Lock In ${tierMeta.name} (${inr(price.upfront)}) & Connect Store`} <span className="bl-subscribe__arrow">→</span></>}
               </button>
               {err && <p className="bl-err">⚠ {err}</p>}
             </motion.aside>

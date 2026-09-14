@@ -63,11 +63,8 @@ const RegisterPage: React.FC = () => {
       });
       const { token, merchant } = response.data;
       login(token, merchant);
-      if (merchant?.onboardingStatus === 'pending') {
-        navigate('/onboarding');
-      } else {
-        navigate('/dashboard');
-      }
+      // New signups calculate savings and lock in their plan first
+      navigate('/billing?from=auth');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const d = err.response?.data;
@@ -91,8 +88,13 @@ const RegisterPage: React.FC = () => {
       const response = await api.post('/api/auth/google', { credential: credentialResponse.credential });
       const { token, merchant } = response.data;
       login(token, merchant);
-      // Respect where they left off — returning merchants go straight to the dashboard
-      navigate(merchant?.onboardingStatus === 'pending' ? '/onboarding' : '/dashboard');
+      // Respect where they left off — returning merchants go straight to dashboard or onboarding
+      if (merchant?.onboardingStatus === 'completed') {
+        navigate('/dashboard');
+      } else {
+        const hasActivePlan = merchant?.billing?.plan && merchant?.billing?.plan !== 'free_trial' && merchant?.billing?.status === 'active';
+        navigate(hasActivePlan ? '/onboarding' : '/billing?from=auth');
+      }
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || 'Google registration failed');
     }

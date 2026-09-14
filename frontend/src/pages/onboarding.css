@@ -143,3 +143,79 @@
   .ob-marker { display: none; }
   .ob-feed { display: none; }
 }
+
+/* ── STEP 2 PROGRESSION BANNER ── */
+.ob-step-banner {
+  max-width: 1200px;
+  margin: 1.25rem auto 0;
+  padding: 1.2rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 14px;
+  gap: 1.5rem;
+}
+.ob-step-banner__left h2 {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  color: var(--text-1);
+  margin: 0.35rem 0 0.25rem 0;
+  font-weight: 700;
+}
+.ob-step-banner__left p {
+  font-size: 0.84rem;
+  color: var(--text-3);
+  margin: 0;
+}
+.ob-step-pill {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #818cf8;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  padding: 2px 10px;
+  border-radius: 999px;
+}
+.ob-plan-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  padding: 0.6rem 1.1rem;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+.ob-plan-badge__status {
+  font-size: 0.7rem;
+  color: #34d399;
+  font-weight: 600;
+}
+.ob-plan-badge strong {
+  font-size: 0.95rem;
+  color: var(--text-1);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.ob-plan-badge small {
+  font-size: 0.72rem;
+  color: var(--text-3);
+}
+@media (max-width: 860px) {
+  .ob-step-banner {
+    flex-direction: column;
+    align-items: flex-start;
+    margin: 1rem 1rem 0;
+    padding: 1rem;
+  }
+  .ob-plan-badge {
+    align-items: flex-start;
+    width: 100%;
+  }
+}

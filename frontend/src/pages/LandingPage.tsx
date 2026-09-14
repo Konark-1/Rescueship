@@ -31,12 +31,12 @@ const FEED_SCRIPT: { t: string; msg: string; cls?: string }[] = [
   { t: '14:34:51', msg: 'customer confirmed re-delivery' },
   { t: '14:34:51', msg: 'ORDER RESCUED · ₹1,240 recovered', cls: 'rescued' },
   { t: '14:41:12', msg: 'NDR received · AWB 7719004523 · Delhivery', cls: 'ndr' },
-  { t: '14:41:12', msg: 'reason: door locked · attempt 1/3' },
-  { t: '14:41:13', msg: 'fake-remark score: 0.87 · flagging', cls: 'warn' },
+  { t: '14:41:12', msg: 'reason: incomplete address / wrong landmark · attempt 1/3' },
+  { t: '14:41:13', msg: 'multiple saved addresses detected · initiating GPS pin flow', cls: 'warn' },
   { t: '14:41:14', msg: 'dispatching rescue → ndr_rescue_en', cls: 'action' },
   { t: '14:41:15', msg: 'WhatsApp delivered ✓', cls: 'ok' },
-  { t: '14:43:02', msg: 'customer shared GPS pin ✓', cls: 'ok' },
-  { t: '14:43:03', msg: 'address synced → carrier API', cls: 'action' },
+  { t: '14:43:02', msg: 'customer shared 1-tap GPS pin on WhatsApp ✓', cls: 'ok' },
+  { t: '14:43:03', msg: 'verified GPS address synced → Delhivery API', cls: 'action' },
   { t: '14:43:03', msg: 'ORDER RESCUED · ₹890 recovered', cls: 'rescued' },
   { t: '14:52:30', msg: 'NDR received · AWB JNE-8823174 · carrier-webhook', cls: 'ndr' },
   { t: '14:52:31', msg: 'reason: out of station · attempt 1/3' },
@@ -68,8 +68,8 @@ const LOSS_PARTS = [
 const SPINE_STEPS = [
   { n: '01', t: 'NDR intercepted', d: 'A courier logs a failed remark. We catch it in real-time via webhook — before the package starts its return journey.' },
   { n: '02', t: 'WhatsApp rescue dispatched', d: 'Your customer gets a branded message: confirm they’re home, reschedule, drop a GPS pin, or cancel. Their choice, your brand.' },
-  { n: '03', t: 'Address synced to carrier', d: 'Corrected address or pin pushed straight to the driver app via carrier API. No phone calls. No manual entry.' },
-  { n: '04', t: 'Revenue recovered', d: 'Order delivered. COD optionally converted to prepaid via payment link. You keep the money.' },
+  { n: '03', t: 'Multiple addresses & GPS resolved', d: 'Shoppers often order with old or multiple saved addresses. RescueShip prompts for a 1-tap live GPS pin, parses with AI, and pushes verified coordinates straight to the courier driver.' },
+  { n: '04', t: 'Revenue recovered', d: 'Order delivered on reattempt. COD optionally converted to prepaid via payment link. You keep the money.' },
 ];
 
 /* ═══ Scroll reel — the same order, told in motion (desktop only) ═══ */

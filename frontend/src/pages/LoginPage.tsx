@@ -32,7 +32,8 @@ const LoginPage: React.FC = () => {
       const { token, merchant } = response.data;
       login(token, merchant);
       if (merchant?.onboardingStatus === 'pending') {
-        navigate('/onboarding');
+        const hasActivePlan = merchant?.billing?.plan && merchant?.billing?.plan !== 'free_trial' && merchant?.billing?.status === 'active';
+        navigate(hasActivePlan ? '/onboarding' : '/billing?from=auth');
       } else {
         navigate('/dashboard');
       }
@@ -59,7 +60,8 @@ const LoginPage: React.FC = () => {
       const { token, merchant } = response.data;
       login(token, merchant);
       if (merchant.onboardingStatus === 'pending') {
-        navigate('/onboarding');
+        const hasActivePlan = merchant?.billing?.plan && merchant?.billing?.plan !== 'free_trial' && merchant?.billing?.status === 'active';
+        navigate(hasActivePlan ? '/onboarding' : '/billing?from=auth');
       } else {
         navigate('/dashboard');
       }

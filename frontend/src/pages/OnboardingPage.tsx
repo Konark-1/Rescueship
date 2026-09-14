@@ -3,15 +3,16 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
+import { billingApi } from '../lib/billing';
 import SetupGuide from '../components/SetupGuide';
 import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
   { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify — paste the key + secret from your own admin app. WooCommerce — paste your REST API keys. Either way, your store stays fully isolated.' },
-  { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your own Business number. Customers message the brand, not us.' },
-  { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — your existing API key.' },
-  { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — for COD → prepaid links.' },
+  { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your official WhatsApp Cloud API. Enables autonomous GPS pin sharing and AI address fix when buyers order with multiple/confusing addresses.' },
+  { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — automatically syncs corrected GPS addresses and schedules reattempts with your driver.' },
+  { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — generates instant payment links with discounts to convert risky COD orders to prepaid.' },
 ];
 
 declare global { interface Window { FB: any; fbAsyncInit?: () => void; } }
@@ -32,11 +33,16 @@ export default function OnboardingPage() {
   const [err, setErr] = useState<string | null>(null);
   const [assist, setAssist] = useState<'idle' | 'busy' | 'done'>('idle');
   const [wcManual, setWcManual] = useState<{ webhookUrl: string; webhookSecret: string } | null>(null);
+  const [planInfo, setPlanInfo] = useState<any>(null);
   const pollRef = useRef<any>(null);
 
   useEffect(() => {
     if (!token) {
       nav('/login', { replace: true });
+    } else {
+      billingApi.status(token).then((b) => {
+        if (b?.active || b?.plan) setPlanInfo(b);
+      }).catch(() => {});
     }
   }, [token, nav]);
 
@@ -360,6 +366,22 @@ export default function OnboardingPage() {
         )}
       </header>
 
+      {/* ── STEP 2 OF 2 HEADER BANNER ── */}
+      <div className="ob-step-banner">
+        <div className="ob-step-banner__left">
+          <span className="ob-step-pill">Step 2 of 2 · Integration Wiring</span>
+          <h2>Connect Your 4 Stations</h2>
+          <p>Wire your store, WhatsApp, and courier to arm autonomous NDR rescues &amp; GPS address correction.</p>
+        </div>
+        <div className="ob-step-banner__right">
+          <div className="ob-plan-badge">
+            <span className="ob-plan-badge__status">🛡️ 90-Day Guarantee Protected</span>
+            <strong>Plan: {planInfo?.plan ? planInfo.plan.toUpperCase() : 'LOCKED IN'}</strong>
+            <small>{planInfo?.renewMonthly ? `₹${Number(planInfo.renewMonthly).toLocaleString('en-IN')}/mo` : 'Subscription Active'}</small>
+          </div>
+        </div>
+      </div>
+
       <div className="ob-shell">
         {/* ── the route / spine ── */}
         <aside className="ob-spine">
@@ -481,15 +503,15 @@ export default function OnboardingPage() {
               className="ob-foot__go"
               disabled={!allGreen || busy === 'finalize'}
               onClick={() => {
-                if (allGreen && !state?.paid) {
+                if (allGreen && !state?.paid && !planInfo?.active) {
                   nav('/billing?from=onboarding');
-                } else if (allGreen && state?.paid) {
+                } else if (allGreen) {
                   goLive();
                 }
               }}
             >
               {allGreen
-                ? (!state?.paid ? 'Next: Calculate savings & select plan →' : 'Go live →')
+                ? (busy === 'finalize' ? 'Activating rescues…' : '🚀 Activate live rescues →')
                 : `${STATIONS.filter((s) => !done(s.key)).length} station${STATIONS.filter((s) => !done(s.key)).length === 1 ? '' : 's'} to go`}
             </button>
           </footer>
