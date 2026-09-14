@@ -17,14 +17,31 @@ export class PaymentConnectService {
     }
 
     if (gateway === 'razorpay') {
-      await axios.get('https://api.razorpay.com/v1/plans?count=1', { auth: { username: keyId, password: keySecret }, timeout: 10000 }); // 401 throws
+      try {
+        await axios.get('https://api.razorpay.com/v1/orders?count=1', {
+          auth: { username: keyId.trim(), password: keySecret.trim() },
+          timeout: 10000,
+        });
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          throw new Error('Invalid Razorpay Key ID or Key Secret. Please check your credentials from the Razorpay Dashboard.');
+        }
+        throw new Error(err.response?.data?.error?.description || err.message || 'Razorpay connection failed');
+      }
     } else {
       // Validate against the same environment the runtime will charge through.
       const base = config.server.nodeEnv === 'production' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
-      await axios.get(`${base}/orders?limit=1`, {
-        headers: { 'x-client-id': keyId, 'x-client-secret': keySecret, 'x-api-version': config.cashfree.apiVersion || '2023-08-01' },
-        timeout: 10000,
-      });
+      try {
+        await axios.get(`${base}/orders?limit=1`, {
+          headers: { 'x-client-id': keyId.trim(), 'x-client-secret': keySecret.trim(), 'x-api-version': config.cashfree.apiVersion || '2023-08-01' },
+          timeout: 10000,
+        });
+      } catch (err: any) {
+        if (err.response?.status === 401) {
+          throw new Error('Invalid Cashfree App ID or Secret Key. Please check your credentials from the Cashfree Dashboard.');
+        }
+        throw new Error(err.response?.data?.message || err.message || 'Cashfree connection failed');
+      }
     }
 
     const merchant = await Merchant.findById(merchantId);
