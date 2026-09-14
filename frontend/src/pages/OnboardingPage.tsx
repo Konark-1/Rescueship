@@ -22,7 +22,7 @@ const META_APP_ID = import.meta.env.VITE_META_APP_ID || '';
 const META_SIGNUP_READY = Boolean(META_APP_ID && META_CONFIG_ID);
 
 export default function OnboardingPage() {
-  const { token } = useAuth();
+  const { token, user, logout } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
   const [state, setState] = useState<any>(null);
@@ -34,10 +34,17 @@ export default function OnboardingPage() {
   const [wcManual, setWcManual] = useState<{ webhookUrl: string; webhookSecret: string } | null>(null);
   const pollRef = useRef<any>(null);
 
+  useEffect(() => {
+    if (!token) {
+      nav('/login', { replace: true });
+    }
+  }, [token, nav]);
+
   const requestAssist = async () => {
+    if (!token) return;
     setAssist('busy'); setErr(null);
     try {
-      const r = await connectApi.requestAssistedSetup(token!);
+      const r = await connectApi.requestAssistedSetup(token);
       setAssist('done');
       push('✓ guided setup requested — the rescue team will reach out');
       if (r?.setupCallUrl) window.open(r.setupCallUrl, '_blank', 'noopener');
@@ -45,7 +52,12 @@ export default function OnboardingPage() {
   };
 
   const push = (line: string) => setLog((l) => [...l.slice(-5), line]);
-  const refresh = async () => { const s = await connectApi.state(token!); setState(s); return s; };
+  const refresh = async () => {
+    if (!token) return null;
+    const s = await connectApi.state(token);
+    setState(s);
+    return s;
+  };
 
   const advanceToNext = (fromStation?: Key) => {
     const currentKey = fromStation || active;
@@ -328,6 +340,24 @@ export default function OnboardingPage() {
         <a href="/" className="ob-brand"><span>⚓</span> RescueShip</a>
         <div className="ob-topbar"><motion.div className="ob-topbar__fill" style={{ width: `${(STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100}%` }} /></div>
         <span className="ob-topbar__pct">{Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}% ready</span>
+        {user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+              {user.email}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                logout();
+                nav('/login', { replace: true });
+              }}
+              className="ob-btn ob-btn--ghost"
+              style={{ fontSize: '0.76rem', padding: '5px 12px', border: '1px solid var(--border)' }}
+            >
+              Log out
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="ob-shell">
