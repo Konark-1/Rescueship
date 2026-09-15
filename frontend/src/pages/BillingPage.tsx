@@ -339,14 +339,19 @@ export default function BillingPage() {
                   onChange={(e) => setVolume(+e.target.value)}
                 />
                 <div className="bl-vol-chips">
-                  {[1000, 5000, 12000, 25000].map((v) => (
+                  {[
+                    { label: 'Up to 1k', target: 1000, active: volume <= 1000 },
+                    { label: '1k – 5k', target: 5000, active: volume > 1000 && volume <= 5000 },
+                    { label: '5k – 12k', target: 12000, active: volume > 5000 && volume <= 12000 },
+                    { label: '12k – 25k', target: 25000, active: volume > 12000 },
+                  ].map((chip) => (
                     <button
-                      key={v}
+                      key={chip.target}
                       type="button"
-                      className={`bl-chip ${volume === v ? 'is-active' : ''}`}
-                      onClick={() => setVolume(v)}
+                      className={`bl-chip ${chip.active ? 'is-active' : ''}`}
+                      onClick={() => setVolume(chip.target)}
                     >
-                      {v >= 1000 ? `${v / 1000}k` : v} orders
+                      {chip.label}
                     </button>
                   ))}
                 </div>
