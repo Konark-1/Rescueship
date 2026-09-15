@@ -17,9 +17,9 @@ export interface StoreMetrics {
 
 export const DEFAULT_METRICS: StoreMetrics = {
   aov: 1200,
-  codPct: 0.70,
-  courierRto: 140,
-  wastedCac: 250,
+  codPct: 0.65,
+  courierRto: 130,
+  wastedCac: 120,
 };
 
 export const TIERS: { key: Tier; name: string; orders: number; base: number; blurb: string }[] = [
@@ -56,11 +56,12 @@ export function priceFor(tier: Tier, cycle: Cycle) {
 export function lossFor(volume: number, metrics: Partial<StoreMetrics> = {}) {
   const m = { ...DEFAULT_METRICS, ...metrics };
   const costPerFailed = m.courierRto + m.wastedCac;
-  // Blended RTO rate: COD orders face ~25% RTO; Prepaid face ~3%
-  const blendedRtoRate = (m.codPct * 0.25) + ((1 - m.codPct) * 0.03);
+  // Realistic blended RTO rate: COD orders face ~18% RTO; Prepaid face ~2.5%
+  const blendedRtoRate = (m.codPct * 0.18) + ((1 - m.codPct) * 0.025);
   const failedDeliveries = Math.round(volume * blendedRtoRate);
   const loss = Math.round(failedDeliveries * costPerFailed);
-  const rescueRate = 0.60; // projected 60% rescue rate
+  // Realistic, conservative rescue rate: 32% (not every customer responds or accepts re-attempt)
+  const rescueRate = 0.32;
   const saved = Math.round(loss * rescueRate);
   const rescuesPerMonth = Math.round(failedDeliveries * rescueRate);
   const rescuesPerWeek = +(rescuesPerMonth / 4.33).toFixed(1);

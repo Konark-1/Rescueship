@@ -251,7 +251,7 @@ export default function BillingPage() {
             Use RescueShip risk-free for your first 3 months. If your total RTO savings over 90 days don&apos;t beat our subscription fee, we&apos;ll refund your entire trial.
           </p>
           <p className="bl-guarantee-hero__sub">
-            Every returned order burns ₹350+. It only takes a handful of rescued deliveries a month for the platform to completely pay for itself. We take all the risk so you can protect your margins.
+            Every returned order burns ₹250+ in dead courier &amp; packaging fees. It only takes a handful of rescued deliveries a month for the platform to completely pay for itself. We take all the risk so you can protect your margins.
           </p>
         </div>
         <div className="bl-guarantee-hero__pill">
@@ -614,8 +614,8 @@ export default function BillingPage() {
                     />
                     <div className="bl-quiz-slider-ticks">
                       <span>₹50 (Organic)</span>
-                      <span>₹250 (Typical D2C)</span>
-                      <span>₹600 (High CAC)</span>
+                      <span>₹120 (Standard D2C)</span>
+                      <span>₹400 (High CAC)</span>
                     </div>
                   </div>
                 </div>
