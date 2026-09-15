@@ -23,10 +23,10 @@ export const DEFAULT_METRICS: StoreMetrics = {
 };
 
 export const TIERS: { key: Tier; name: string; orders: number; base: number; blurb: string }[] = [
-  { key: 'starter', name: 'Starter', orders: 1000,  base: 1199, blurb: 'For early D2C brands feeling the first RTO sting.' },
-  { key: 'growth',  name: 'Growth',  orders: 5000,  base: 2899, blurb: 'Where recovery becomes a line item you watch grow.' },
-  { key: 'scale',   name: 'Scale',   orders: 12000, base: 5499, blurb: 'For scaling brands that refuse to lose orders.' },
-  { key: 'fleet',   name: 'Fleet',   orders: 25000, base: 9499, blurb: 'For high-volume ops with multi-carrier delivery.' },
+  { key: 'starter', name: 'Starter', orders: 1000,  base: 1299,  blurb: 'For early D2C brands feeling the first RTO sting.' },
+  { key: 'growth',  name: 'Growth',  orders: 5000,  base: 3499,  blurb: 'Where recovery becomes a line item you watch grow.' },
+  { key: 'scale',   name: 'Scale',   orders: 12000, base: 7999,  blurb: 'For scaling brands that refuse to lose orders.' },
+  { key: 'fleet',   name: 'Fleet',   orders: 25000, base: 14999, blurb: 'For high-volume ops with multi-carrier delivery.' },
 ];
 
 export const CYCLES: { key: Cycle; label: string; months: number; discount: number; tag: string }[] = [

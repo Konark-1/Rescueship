@@ -24,7 +24,7 @@ import { logger } from '../utils/logger';
 export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
 export type Cycle = 'quarterly' | 'semi' | 'annual';
 
-const BASE: Record<Tier, number> = { starter: 1199, growth: 2899, scale: 5499, fleet: 9499 };
+const BASE: Record<Tier, number> = { starter: 1299, growth: 3499, scale: 7999, fleet: 14999 };
 export const LIMIT: Record<Tier, number> = { starter: 1000, growth: 5000, scale: 12000, fleet: 25000 };
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
 const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.20 };
