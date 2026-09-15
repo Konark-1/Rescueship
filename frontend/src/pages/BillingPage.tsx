@@ -1,8 +1,21 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence, useInView } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  ShieldCheck,
+  Check,
+  ArrowRight,
+  SlidersHorizontal,
+  MapPin,
+  Lock,
+  CheckCircle2,
+  X,
+  Compass,
+  AlertTriangle,
+  RefreshCw,
+  ExternalLink,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useMagnetic } from '../hooks/useMagnetic';
 import type { Tier, Cycle, StoreMetrics } from '../lib/billing';
 import {
   TIERS,
@@ -22,7 +35,6 @@ export default function BillingPage() {
   const { token, user, updateUser } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
-  const mag = useMagnetic(0.22);
 
   const [volume, setVolume] = useState<number>(() => {
     const q = params.get('v');
@@ -31,9 +43,8 @@ export default function BillingPage() {
   });
   const [tier, setTier] = useState<Tier>(() => recommendedTier(volume));
   const [cycle, setCycle] = useState<Cycle>('quarterly');
-  const [drawer, setDrawer] = useState(false);
   const [paying, setPaying] = useState(false);
-  const [active, setActive] = useState<any>(null); // set after success / if already subscribed
+  const [active, setActive] = useState<any>(null);
   const [setupCallUrl, setSetupCallUrl] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -42,9 +53,8 @@ export default function BillingPage() {
   const [storeSource, setStoreSource] = useState<string | null>(null);
   const [onboardingState, setOnboardingState] = useState<any>(null);
 
-  // Step-by-step Questionnaire state
-  const [showQuiz, setShowQuiz] = useState<boolean>(() => params.get('from') === 'onboarding');
-  const [quizStep, setQuizStep] = useState<number>(1);
+  // Parameters modal
+  const [showTuner, setShowTuner] = useState(false);
 
   useEffect(() => {
     localStorage.setItem('rs_volume', String(volume));
@@ -53,28 +63,37 @@ export default function BillingPage() {
 
   useEffect(() => {
     if (!token) return;
-    billingApi.status(token).then((s) => {
-      if (s.active) setActive(s);
-    }).catch(() => {});
+    billingApi
+      .status(token)
+      .then((s) => {
+        if (s.active) setActive(s);
+      })
+      .catch(() => {});
 
-    connectApi.state(token).then((s: any) => {
-      setOnboardingState(s);
-      if (s?.setupCallUrl) setSetupCallUrl(s.setupCallUrl);
-    }).catch(() => {});
+    connectApi
+      .state(token)
+      .then((s: any) => {
+        setOnboardingState(s);
+        if (s?.setupCallUrl) setSetupCallUrl(s.setupCallUrl);
+      })
+      .catch(() => {});
 
-    connectApi.storeMetrics(token).then((m: any) => {
-      if (m?.available) {
-        setMetrics((prev) => ({
-          ...prev,
-          aov: m.aov || prev.aov,
-          codPct: typeof m.codPct === 'number' ? m.codPct : prev.codPct,
-        }));
-        if (m.monthlyOrders) {
-          setVolume(m.monthlyOrders);
+    connectApi
+      .storeMetrics(token)
+      .then((m: any) => {
+        if (m?.available) {
+          setMetrics((prev) => ({
+            ...prev,
+            aov: m.aov || prev.aov,
+            codPct: typeof m.codPct === 'number' ? m.codPct : prev.codPct,
+          }));
+          if (m.monthlyOrders) {
+            setVolume(m.monthlyOrders);
+          }
+          setStoreSource(m.storeDomain || 'your store');
         }
-        setStoreSource(m.storeDomain || 'your store');
-      }
-    }).catch(() => {});
+      })
+      .catch(() => {});
   }, [token]);
 
   const loss = useMemo(() => lossFor(volume, metrics), [volume, metrics]);
@@ -82,13 +101,6 @@ export default function BillingPage() {
   const cycleMeta = CYCLES.find((c) => c.key === cycle)!;
   const tierMeta = TIERS.find((t) => t.key === tier)!;
 
-  // The geometry argument: how thin the price slice is vs the loss
-  const pricePct = loss.loss > 0 ? Math.max(2, Math.min(100, (price.monthly / loss.loss) * 100)) : 100;
-
-  const barRef = useRef<HTMLDivElement>(null);
-  const barIn = useInView(barRef, { once: true, margin: '-60px' });
-
-  // Connected stations tally
   const connectedCount = useMemo(() => {
     if (!onboardingState?.connections) return 0;
     return ['shopify', 'whatsapp', 'carrier', 'payment'].filter(
@@ -103,7 +115,7 @@ export default function BillingPage() {
     setErr(null);
     try {
       const ok = await loadRazorpay();
-      if (!ok) throw new Error('Payment SDK failed to load. Check your connection.');
+      if (!ok) throw new Error('Payment SDK failed to load. Check your internet connection.');
       const order = await billingApi.checkout(token!, tier, cycle);
       const rz = new (window as any).Razorpay({
         key: order.keyId,
@@ -114,14 +126,12 @@ export default function BillingPage() {
         amount: order.amountInr,
         currency: order.currency || 'INR',
         prefill: { email: user?.email, contact: (user as any)?.phone },
-        theme: { color: '#6366f1' },
+        theme: { color: '#4f46e5' },
         handler: async (resp: any) => {
           try {
             const verified = await billingApi.verify(token!, { ...resp, tier, cycle });
             setActive(verified);
-            setDrawer(false);
 
-            // If all 4 integrations were ready, finalize onboarding right away
             if (allGreen) {
               try {
                 await connectApi.finalize(token!);
@@ -131,7 +141,6 @@ export default function BillingPage() {
                 nav('/dashboard');
               }
             } else {
-              // Smoothly proceed to Step 2: Connect store integrations!
               nav('/onboarding?subscribed=true');
             }
           } catch (e: any) {
@@ -148,7 +157,7 @@ export default function BillingPage() {
     }
   };
 
-  /* ── STATE 1: ALREADY ACTIVE SUBSCRIPTION ── */
+  /* ── STATE 1: ALREADY SUBSCRIBED RECEIPT ── */
   if (active) {
     const formattedStartDate = active.activatedAt
       ? new Date(active.activatedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
@@ -158,621 +167,503 @@ export default function BillingPage() {
       : '—';
 
     return (
-      <div className="bl">
-        <div className="bl-paper" aria-hidden="true" />
-        <div className="bl-grain" aria-hidden="true" />
-        <Topbar onExit={() => nav(allGreen ? '/dashboard' : '/onboarding')} />
+      <div className="bl-page">
+        <div className="bl-glow" />
+        <div className="bl-container">
+          <header className="bl-nav">
+            <a href="/" className="bl-nav__brand">
+              <span className="bl-nav__logo-icon"><Compass size={16} /></span>
+              <span>RescueShip</span>
+            </a>
+            <button className="bl-nav__back" onClick={() => nav(allGreen ? '/dashboard' : '/onboarding')}>
+              ← {allGreen ? 'Dashboard' : 'Continue Onboarding'}
+            </button>
+          </header>
 
-        <motion.div
-          className="bl-receipt"
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <svg viewBox="0 0 24 24" className="bl-receipt__check">
-            <path d="M5 13l4 4L19 7" />
-          </svg>
-          <p className="bl-receipt__kicker">Plan active · 90-day guarantee protected</p>
-          <h1>{active.plan} <em>· active</em></h1>
+          <motion.div
+            className="bl-receipt-card"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+          >
+            <span className="bl-receipt-card__status">
+              <CheckCircle2 size={14} /> Plan active · 90-day guarantee protected
+            </span>
+            <h1 className="bl-receipt-card__title">{active.plan} Tier</h1>
+            <p className="bl-receipt-card__sub">
+              Your automated WhatsApp NDR rescue service is active and monitoring store logistics.
+            </p>
 
-          <div className="bl-receipt__rows">
-            <Row k="Current Plan" v={`${active.plan.toUpperCase()} (up to ${Number(active.limit).toLocaleString('en-IN')} orders/mo)`} />
-            <Row k="Subscription Rate" v={`${inr(active.renewMonthly)}/mo · ${active.cycle || 'quarterly'}`} />
-            <Row k="Start Date" v={formattedStartDate} />
-            <Row k="End / Renewal Date" v={formattedEndDate} accent />
-            <Row k="Meta / WhatsApp API Costs" v="100% Paid by RescueShip" />
-          </div>
-
-          {!allGreen && (
-            <div className="bl-incomplete-banner" style={{ marginTop: '1.5rem' }}>
-              <span>⚠️ Integrations in progress ({connectedCount}/4 connected). Finish connecting your store and courier to begin live rescues.</span>
-              <button onClick={() => nav('/onboarding')}>Go to Onboarding →</button>
-            </div>
-          )}
-
-          {setupCallUrl && (
-            <div className="bl-callout">
-              <p className="bl-callout__title">📞 Free guided setup call</p>
-              <p className="bl-callout__sub">
-                Your plan is live — let's finish the store, WhatsApp, courier, and payment wiring together in 15 minutes.
-              </p>
-              <div className="bl-callout__actions">
-                <a className="bl-callout__btn" href={setupCallUrl} target="_blank" rel="noopener noreferrer">
-                  Book your setup call →
-                </a>
-                <button className="bl-link bl-link--mute" onClick={() => nav(allGreen ? '/dashboard' : '/onboarding')}>
-                  {allGreen ? 'Go to dashboard' : 'Continue self-setup'}
-                </button>
+            <div className="bl-receipt-card__table">
+              <div className="bl-receipt-card__row">
+                <span>Coverage Capacity</span>
+                <span>Up to {Number(active.limit).toLocaleString('en-IN')} orders/mo</span>
+              </div>
+              <div className="bl-receipt-card__row">
+                <span>Billing Rate</span>
+                <span>{inr(active.renewMonthly)}/mo ({active.cycle || 'quarterly'})</span>
+              </div>
+              <div className="bl-receipt-card__row">
+                <span>Start Date</span>
+                <span>{formattedStartDate}</span>
+              </div>
+              <div className="bl-receipt-card__row">
+                <span>Next Renewal</span>
+                <span>{formattedEndDate}</span>
+              </div>
+              <div className="bl-receipt-card__row">
+                <span>Meta WhatsApp API Surcharges</span>
+                <span style={{ color: '#34d399' }}>100% Paid by RescueShip</span>
               </div>
             </div>
-          )}
 
-          <div className="bl-receipt__foot">
-            <button className="bl-link" onClick={() => nav('/dashboard')}>
-              Open dashboard →
-            </button>
-            <button className="bl-link bl-link--mute" onClick={() => nav('/settings')}>
-              Settings & logs
-            </button>
-          </div>
-        </motion.div>
+            <div className="bl-receipt-card__actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {setupCallUrl && (
+                <a
+                  className="bl-btn-secondary"
+                  href={setupCallUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', textDecoration: 'none', width: '100%', padding: '0.8rem' }}
+                >
+                  <ExternalLink size={15} /> Book Free 15-Min Guided Setup Call
+                </a>
+              )}
+              <button className="bl-btn-primary" style={{ width: '100%' }} onClick={() => nav(allGreen ? '/dashboard' : '/onboarding')}>
+                {allGreen ? 'Open Dashboard →' : 'Complete Remaining Integrations →'}
+              </button>
+            </div>
+          </motion.div>
+        </div>
       </div>
     );
   }
 
-  /* ── STATE 2: NOT SUBSCRIBED — SLIDER + QUESTIONS + PLAN MANIFEST ── */
+  /* ── STATE 2: PLAN SELECTION & CALCULATOR ── */
+  const cycleIdx = CYCLES.findIndex((c) => c.key === cycle);
+
   return (
-    <div className="bl">
-      <div className="bl-paper" aria-hidden="true" />
-      <div className="bl-grain" aria-hidden="true" />
-      <div className="bl-col-sweep" aria-hidden="true" />
-      <Topbar onExit={() => nav(allGreen ? '/dashboard' : '/onboarding')} />
+    <div className="bl-page">
+      <div className="bl-glow" />
 
-      {/* ── STEP 1 OF 2 PROGRESSION BANNER ── */}
-      {!allGreen && (
-        <section className="bl-step-banner">
-          <div className="bl-step-banner__pill">Step 1 of 2 · Upfront Transparency</div>
-          <h2 className="bl-step-banner__title">Calculate Your Projected Savings &amp; Lock In Your Plan</h2>
-          <p className="bl-step-banner__sub">
-            Know your numbers and lock in your 90-Day Money-Back Guarantee before doing the integration work. Once subscribed, you&apos;ll connect your store, WhatsApp, and courier in Step 2.
-          </p>
-        </section>
-      )}
-
-      {/* ── 90-DAY GUARANTEE HERO BANNER ── */}
-      <section className="bl-guarantee-hero" aria-label="90-Day Pays-For-Itself Guarantee">
-        <div className="bl-guarantee-hero__icon">🛡️</div>
-        <div className="bl-guarantee-hero__content">
-          <div className="bl-guarantee-hero__title">
-            The 90-Day &ldquo;Pays-For-Itself&rdquo; Guarantee
-            <span className="bl-guarantee-hero__badge">Zero Risk</span>
-          </div>
-          <p className="bl-guarantee-hero__body">
-            Use RescueShip risk-free for your first 3 months. If your total RTO savings over 90 days don&apos;t beat our subscription fee, we&apos;ll refund your entire trial.
-          </p>
-          <p className="bl-guarantee-hero__sub">
-            Every returned order burns ₹250+ in dead courier &amp; packaging fees. It only takes a handful of rescued deliveries a month for the platform to completely pay for itself. We take all the risk so you can protect your margins.
-          </p>
-        </div>
-        <div className="bl-guarantee-hero__pill">
-          ✓ Meta API Costs 100% Paid by Us
-        </div>
-      </section>
-
-      {/* ── INTEGRATION STATUS REMINDER (If returning from partial setup) ── */}
-      {!allGreen && connectedCount > 0 && (
-        <div className="bl-incomplete-banner" style={{ maxWidth: '1180px', margin: '0 auto 2rem' }}>
-          <span>
-            ⚡ Integrations in progress ({connectedCount}/4 connected). You can pick your plan and lock in your 90-day guarantee now, and complete integrations anytime.
-          </span>
-          <button onClick={() => nav('/onboarding')}>Return to Onboarding →</button>
-        </div>
-      )}
-
-      <div className="bl-shell">
-        {/* ── LEFT: YOUR POSITION — ORDERS SLIDER, PARAMETERS CARD & LOSS ENGINE ── */}
-        <aside className="bl-position">
-          <p className="bl-kicker">Your position this month</p>
-
-          <div className="bl-vol">
-            <label htmlFor="volume-range-input">Monthly orders</label>
-            <input
-              id="volume-range-input"
-              aria-label="Monthly orders volume"
-              type="range"
-              min={500}
-              max={50000}
-              step={500}
-              value={volume}
-              onChange={(e) => setVolume(+e.target.value)}
-            />
-            <span className="bl-vol__n">{volume.toLocaleString('en-IN')}</span>
-          </div>
-
-          {/* Dynamic Parameters Summary Card with link to step-by-step questions */}
-          <div className="bl-params-card">
-            <div className="bl-params-card__head">
-              <span>RTO Cost Parameters</span>
-              <button
-                type="button"
-                className="bl-params-card__btn"
-                onClick={() => { setQuizStep(1); setShowQuiz(true); }}
-              >
-                Tune with questions ✏️
-              </button>
-            </div>
-            <div className="bl-params-grid">
-              <div className="bl-param-item">
-                <small>Average Order (AOV)</small>
-                <strong>₹{metrics.aov.toLocaleString('en-IN')}</strong>
-              </div>
-              <div className="bl-param-item">
-                <small>Cash on Delivery (COD)</small>
-                <strong>{Math.round(metrics.codPct * 100)}%</strong>
-              </div>
-              <div className="bl-param-item">
-                <small>Courier 2-Way RTO</small>
-                <strong>₹{metrics.courierRto}</strong>
-              </div>
-              <div className="bl-param-item">
-                <small>Wasted Ad CAC + Box</small>
-                <strong>₹{metrics.wastedCac}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="bl-loss">
-            <span className="bl-loss__cur">₹</span>
-            <span className="bl-loss__n">{Math.round(loss.loss).toLocaleString('en-IN')}</span>
-            <span className="bl-loss__lbl">
-              at risk · estimated {loss.failedDeliveries.toLocaleString('en-IN')} failed deliveries (@ ₹{loss.costPerFailed}/return)
+      <div className="bl-container">
+        {/* Navigation Bar */}
+        <header className="bl-nav">
+          <a href="/" className="bl-nav__brand">
+            <span className="bl-nav__logo-icon"><Compass size={16} /></span>
+            <span>RescueShip</span>
+          </a>
+          <div className="bl-nav__meta">
+            <span className="bl-nav__step-pill">
+              Step 1 of 2 · Plan & Guarantee
             </span>
+            <button className="bl-nav__back" onClick={() => nav('/onboarding')}>
+              ← Back to Onboarding
+            </button>
           </div>
+        </header>
 
-          {/* The proportional rule — the visual geometry */}
-          <div className="bl-rule" ref={barRef}>
-            <div className="bl-rule__track">
-              <motion.div
-                className="bl-rule__loss"
-                initial={{ width: 0 }}
-                animate={barIn ? { width: '100%' } : {}}
-                transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
-              />
-              <motion.div
-                className="bl-rule__price"
-                initial={{ width: 0 }}
-                animate={barIn ? { width: `${pricePct}%` } : { width: `${pricePct}%` }}
-                key={`${tier}-${cycle}`}
-                transition={{ type: 'spring', stiffness: 120, damping: 18 }}
-              />
-            </div>
-            <div className="bl-rule__legend">
-              <span><i className="dot dot--loss" /> your monthly loss</span>
-              <span><i className="dot dot--price" /> {tierMeta.name} · {inr(price.monthly)}/mo</span>
-            </div>
-            <LossTooltip metrics={metrics} />
+        {/* Hero Section */}
+        <section className="bl-hero">
+          <div className="bl-hero__badge">
+            <ShieldCheck size={14} />
+            <span>90-Day &ldquo;Pays-For-Itself&rdquo; Guarantee · Zero Risk</span>
           </div>
-
-          <p className="bl-pace">
-            At this volume, RescueShip rescues roughly
-            <motion.span className="bl-pace__n" key={loss.rescuesPerWeek} initial={{ opacity: 0.3 }} animate={{ opacity: 1 }}>
-              {' '}{loss.rescuesPerWeek}{' '}
-            </motion.span>
-            deliveries a week — saving approx <strong>{inr(loss.saved)}/mo</strong>.
+          <h1 className="bl-hero__title">
+            Stop losing capital on courier delivery failures.
+          </h1>
+          <p className="bl-hero__sub">
+            RescueShip intercepts courier NDRs in real-time, verifying customer addresses and re-attempt schedules via WhatsApp. Select your order volume below to lock in protection.
           </p>
 
-          {/* ── SHOWCASE: THE MULTIPLE SAVED ADDRESSES CRISIS ── */}
-          <div className="bl-crisis-showcase">
-            <div className="bl-crisis-showcase__head">
-              <span className="bl-crisis-showcase__icon">📍</span>
-              <div>
-                <strong>The &ldquo;Multiple Saved Addresses&rdquo; Crisis</strong>
-                <span className="bl-crisis-showcase__badge">38% of Indian RTOs</span>
-              </div>
-            </div>
-            <p className="bl-crisis-showcase__body">
-              Shoppers frequently order using old saved addresses (old flat, office on a Sunday) or vague landmarks. Couriers fail deliveries as &ldquo;incomplete address&rdquo;.
-            </p>
-            <div className="bl-crisis-showcase__flow">
-              <div className="bl-crisis-step">
-                <span className="bl-crisis-step__num">1</span>
-                <span><strong>Instant WhatsApp trigger</strong> catches the NDR before the parcel starts its return journey.</span>
-              </div>
-              <div className="bl-crisis-step">
-                <span className="bl-crisis-step__num">2</span>
-                <span><strong>Customer drops live GPS pin</strong> via WhatsApp 📎 Attach in 5 seconds without typing.</span>
-              </div>
-              <div className="bl-crisis-step">
-                <span className="bl-crisis-step__num">3</span>
-                <span><strong>AI syncs verified address</strong> straight to your carrier (Shiprocket / Delhivery) for immediate reattempt.</span>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* ── RIGHT: THE MANIFEST OF 4 TIERS & CHECKOUT ── */}
-        <main className="bl-manifest">
-          <header className="bl-manifest__head">
-            <h1>Pick the line<br /><em>you stop losing.</em></h1>
-            <CycleSwitch value={cycle} onChange={setCycle} />
-          </header>
-
-          <div className="bl-rows">
-            {TIERS.map((t, i) => {
-              const p = priceFor(t.key, cycle);
-              const chosen = t.key === tier;
-              const rec = t.key === recommendedTier(volume);
+          {/* Billing Cycle Switcher */}
+          <div className="bl-cycle-wrap">
+            <motion.div
+              className="bl-cycle-pill"
+              layout
+              transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+              style={{
+                left: cycleIdx === 0 ? '0.3rem' : 'calc(50% + 0.15rem)',
+                width: 'calc(50% - 0.45rem)',
+              }}
+            />
+            {CYCLES.map((c) => {
+              const activeState = cycle === c.key;
               return (
-                <motion.button
-                  key={t.key}
+                <button
+                  key={c.key}
                   type="button"
-                  className={`bl-row ${chosen ? 'is-chosen' : ''} ${rec ? 'is-rec' : ''}`}
-                  onClick={() => setTier(t.key)}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: '-40px' }}
-                  transition={{ duration: 0.5, delay: i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+                  className={`bl-cycle-btn ${activeState ? 'is-active' : ''}`}
+                  onClick={() => setCycle(c.key)}
                 >
-                  <span className="bl-row__rail" aria-hidden="true">
-                    {rec && <span className="bl-row__anchor">⚓</span>}
-                  </span>
-                  <span className="bl-row__main">
-                    <span className="bl-row__name">
-                      {t.name}
-                      {rec && <em className="bl-row__rec">recommended for you</em>}
-                    </span>
-                    <span className="bl-row__cap">
-                      up to {t.orders.toLocaleString('en-IN')} orders/mo · {t.blurb}
-                    </span>
-                  </span>
-                  <span className="bl-row__price">
-                    <span className="bl-row__intro">
-                      {inr(p.monthly)}<small>/mo</small>
-                    </span>
-                    <span className="bl-row__renew">
-                      {cycle === 'quarterly' ? 'Quarterly trial' : 'Annual billing'}
-                      {cycleMeta.tag && <b> · {cycleMeta.tag}</b>}
-                    </span>
-                  </span>
-                  <span className="bl-row__pick" aria-hidden="true">
-                    {chosen ? (
-                      <svg viewBox="0 0 24 24" className="bl-row__check">
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      <span className="bl-row__radio" />
-                    )}
-                  </span>
-                </motion.button>
+                  <span>{c.label}</span>
+                  {c.tag && <span className="bl-cycle-badge">{c.tag}</span>}
+                </button>
               );
             })}
           </div>
+        </section>
 
-          <p className="bl-manifest__note">
-            No per-rescue commissions. No WhatsApp messaging surcharges (paid 100% by us). Cancel anytime before renewal.
-            Enterprise volume (25k+ orders/mo)? <button type="button" className="bl-link" onClick={() => nav('/register')}>Talk to team</button>
-          </p>
+        {/* Main 2-Column Architecture */}
+        <div className="bl-layout">
+          {/* ── LEFT: ECONOMIC TELEMETRY & PROOF ── */}
+          <aside className="bl-engine">
+            {/* Interactive Calculator Card */}
+            <div className="bl-card">
+              <div className="bl-card__header">
+                <span className="bl-card__title">
+                  <SlidersHorizontal size={15} color="#818cf8" />
+                  Monthly Order Economics
+                </span>
+                <button
+                  type="button"
+                  className="bl-card__btn-subtle"
+                  onClick={() => setShowTuner(true)}
+                >
+                  Tune parameters
+                </button>
+              </div>
 
-          <div className="bl-manifest__cta">
-            <div className="bl-manifest__total">
-              <span>Due today <small>({cycleMeta.label}, 90-Day Guarantee)</small></span>
-              <strong>{inr(price.upfront)}</strong>
+              <div className="bl-vol-box">
+                <div className="bl-vol-label">
+                  <span>Your Monthly Order Volume</span>
+                  <span className="bl-vol-number">{volume.toLocaleString('en-IN')}</span>
+                </div>
+                <input
+                  type="range"
+                  className="bl-vol-slider"
+                  min={500}
+                  max={25000}
+                  step={500}
+                  value={volume}
+                  onChange={(e) => setVolume(+e.target.value)}
+                />
+                <div className="bl-vol-chips">
+                  {[1000, 5000, 12000, 25000].map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`bl-chip ${volume === v ? 'is-active' : ''}`}
+                      onClick={() => setVolume(v)}
+                    >
+                      {v >= 1000 ? `${v / 1000}k` : v} orders
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Economic Outcome Split Cells */}
+              <div className="bl-econ-grid">
+                <div className="bl-econ-cell bl-econ-cell--loss">
+                  <div className="bl-econ-label">
+                    <span>Estimated RTO Loss</span>
+                  </div>
+                  <div className="bl-econ-value">₹{loss.loss.toLocaleString('en-IN')}</div>
+                  <p className="bl-econ-desc">
+                    ~{loss.failedDeliveries} failed shipments without real-time rescue
+                  </p>
+                </div>
+
+                <div className="bl-econ-cell bl-econ-cell--saved">
+                  <div className="bl-econ-label">
+                    <span>Projected Recovery</span>
+                  </div>
+                  <div className="bl-econ-value">₹{loss.saved.toLocaleString('en-IN')}</div>
+                  <p className="bl-econ-desc">
+                    ~<strong>{loss.rescuesPerMonth} rescued</strong> /month (~{loss.rescuesPerWeek}/wk)
+                  </p>
+                </div>
+              </div>
+
+              <div className="bl-econ-foot">
+                <span>Cost basis: ₹{loss.costPerFailed}/return (Courier + Packaging)</span>
+                <span>Net ROI: <strong>{+(loss.saved / price.monthly).toFixed(1)}x Plan Value</strong></span>
+              </div>
             </div>
-            <button
-              type="button"
-              className="bl-subscribe"
-              ref={mag.ref as any}
-              onMouseMove={mag.onMouseMove}
-              onMouseLeave={mag.onMouseLeave}
-              onClick={() => setDrawer(true)}
-            >
-              {allGreen ? 'Subscribe & go live' : 'Lock In Plan & Connect Store'} <span className="bl-subscribe__arrow">→</span>
-            </button>
-          </div>
-          {err && <p className="bl-err">⚠ {err}</p>}
-        </main>
+
+            {/* Feature Spotlight: Address Correction */}
+            <div className="bl-spotlight">
+              <div className="bl-spotlight__head">
+                <div className="bl-spotlight__icon-wrap">
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <h3 className="bl-spotlight__title">Automated WhatsApp Address Correction</h3>
+                  <span className="bl-spotlight__badge">Solves 38% of all Indian RTOs</span>
+                </div>
+              </div>
+              <p className="bl-spotlight__body">
+                Customers frequently order with outdated saved addresses, missing flat numbers, or incomplete landmarks. RescueShip intercepts the delivery failure instantly before return transit starts:
+              </p>
+              <div className="bl-spotlight__steps">
+                <div className="bl-spotlight__step">
+                  <span className="bl-spotlight__step-num">1</span>
+                  <span><strong>Instant WhatsApp Ping:</strong> Shopper receives automated WhatsApp message within 60s of courier NDR.</span>
+                </div>
+                <div className="bl-spotlight__step">
+                  <span className="bl-spotlight__step-num">2</span>
+                  <span><strong>Live GPS Pin Drop:</strong> Customer drops WhatsApp location pin without typing long confusing instructions.</span>
+                </div>
+                <div className="bl-spotlight__step">
+                  <span className="bl-spotlight__step-num">3</span>
+                  <span><strong>Carrier API Push:</strong> Validated coordinates sync directly into Shiprocket &amp; Delhivery for immediate reattempt.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Guarantee Assurance */}
+            <div className="bl-guarantee-card">
+              <ShieldCheck size={24} className="bl-guarantee-card__icon" />
+              <div>
+                <h4 className="bl-guarantee-card__title">The 90-Day &ldquo;Pays-For-Itself&rdquo; Commitment</h4>
+                <p className="bl-guarantee-card__text">
+                  Use RescueShip for 90 days. If your documented RTO savings do not exceed what you spent on our platform fee, our support team will refund your entire subscription immediately. Zero risk.
+                </p>
+              </div>
+            </div>
+          </aside>
+
+          {/* ── RIGHT: TIERS & CHECKOUT ── */}
+          <main className="bl-plans-pane">
+            <div className="bl-tiers-list">
+              {TIERS.map((t) => {
+                const isSelected = t.key === tier;
+                const isRec = t.key === recommendedTier(volume);
+                const p = priceFor(t.key, cycle);
+
+                return (
+                  <div
+                    key={t.key}
+                    role="button"
+                    tabIndex={0}
+                    className={`bl-tier-card ${isSelected ? 'is-selected' : ''}`}
+                    onClick={() => setTier(t.key)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setTier(t.key); }}
+                  >
+                    <div className="bl-tier-card__left">
+                      <div className="bl-tier-card__radio">
+                        {isSelected ? <div className="bl-tier-card__radio-dot" /> : null}
+                      </div>
+                      <div className="bl-tier-card__info">
+                        <div className="bl-tier-card__title-row">
+                          <span className="bl-tier-card__name">{t.name}</span>
+                          {isRec && <span className="bl-tier-card__badge">Recommended for you</span>}
+                        </div>
+                        <p className="bl-tier-card__volume">
+                          Up to {t.orders.toLocaleString('en-IN')} orders/mo · {t.blurb}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bl-tier-card__right">
+                      <span className="bl-tier-card__price">
+                        {inr(p.monthly)}<small>/mo</small>
+                      </span>
+                      <span className="bl-tier-card__subtext">
+                        {cycle === 'quarterly' ? `Billed ${inr(p.upfront)} / 3 mos` : `Billed ${inr(p.upfront)} annually`}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Direct Checkout Panel */}
+            <div className="bl-checkout-panel">
+              <h3 className="bl-checkout-panel__title">Subscription Summary</h3>
+
+              <div className="bl-checkout-summary">
+                <div className="bl-summary-row">
+                  <span>Selected Tier</span>
+                  <span>{tierMeta.name} Plan ({tierMeta.orders.toLocaleString('en-IN')} orders/mo)</span>
+                </div>
+                <div className="bl-summary-row">
+                  <span>Billing Commitment</span>
+                  <span>{cycleMeta.label} ({cycleMeta.months} months)</span>
+                </div>
+                <div className="bl-summary-row is-free">
+                  <span>Meta WhatsApp API Platform Fees</span>
+                  <span>100% Paid by RescueShip</span>
+                </div>
+                <div className="bl-summary-row is-free">
+                  <span>Platform Setup &amp; Onboarding Support</span>
+                  <span>Included Free</span>
+                </div>
+              </div>
+
+              <div className="bl-checkout-total">
+                <div className="bl-checkout-total__label">
+                  <span>Due today</span>
+                  <small>Protected by 90-Day Money-Back Guarantee</small>
+                </div>
+                <span className="bl-checkout-total__amount">{inr(price.upfront)}</span>
+              </div>
+
+              <button
+                type="button"
+                className="bl-btn-checkout"
+                disabled={paying}
+                onClick={pay}
+              >
+                {paying ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" />
+                    Opening secure Razorpay checkout…
+                  </>
+                ) : (
+                  <>
+                    {allGreen
+                      ? `Subscribe & Activate (${inr(price.upfront)})`
+                      : `Lock In ${tierMeta.name} (${inr(price.upfront)}) & Connect Store`}
+                    <ArrowRight size={18} />
+                  </>
+                )}
+              </button>
+
+              {err && (
+                <div style={{ color: '#fb7185', fontSize: '0.8rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <AlertTriangle size={15} /> {err}
+                </div>
+              )}
+
+              <div className="bl-checkout-trust">
+                <span><Lock size={12} /> 256-Bit Encrypted</span>
+                <span><ShieldCheck size={12} /> Razorpay Verified</span>
+                <span><Check size={12} /> UPI / Cards / NetBanking</span>
+              </div>
+            </div>
+          </main>
+        </div>
       </div>
 
-      {/* ── STEP-BY-STEP QUESTIONNAIRE MODAL ── */}
+      {/* ── PARAMETER TUNING MODAL ── */}
       <AnimatePresence>
-        {showQuiz && (
+        {showTuner && (
           <motion.div
-            className="bl-quiz-overlay"
+            className="bl-modal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => setShowQuiz(false)}
+            onClick={() => setShowTuner(false)}
           >
             <motion.div
-              className="bl-quiz-box"
-              initial={{ scale: 0.94, opacity: 0, y: 16 }}
+              className="bl-modal"
+              initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 16 }}
+              exit={{ scale: 0.95, opacity: 0, y: 10 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="bl-quiz-top">
-                <span className="bl-quiz-progress">Step {quizStep} of 4 · RTO Cost Calculator</span>
-                <button type="button" className="bl-quiz-close" onClick={() => setShowQuiz(false)} aria-label="Close">✕</button>
+              <div className="bl-modal__head">
+                <div>
+                  <h3 className="bl-modal__title">Custom Store Economics</h3>
+                  {storeSource && (
+                    <span style={{ fontSize: '0.72rem', color: '#818cf8', display: 'block', marginTop: '2px' }}>
+                      Auto-synced from {storeSource}
+                    </span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="bl-modal__close"
+                  onClick={() => setShowTuner(false)}
+                >
+                  <X size={16} />
+                </button>
               </div>
 
-              {quizStep === 1 && (
-                <div>
-                  {storeSource && (
-                    <div className="bl-shopify-pill">
-                      <span>🛍️</span> Synced from {storeSource}
-                    </div>
-                  )}
-                  <h2 className="bl-quiz-title">What is your Average Order Value (AOV)?</h2>
-                  <p className="bl-quiz-sub">
-                    When high-ticket orders return to origin, inventory lockup and lost margins are twice as severe.
-                  </p>
-                  <div className="bl-quiz-val-display">
-                    <span className="bl-quiz-val-unit">₹</span>
-                    <span className="bl-quiz-val-n">{metrics.aov.toLocaleString('en-IN')}</span>
+              <div className="bl-modal__fields">
+                <div className="bl-field">
+                  <div className="bl-field__label">
+                    <span>Average Order Value (AOV)</span>
+                    <span className="bl-field__val">₹{metrics.aov.toLocaleString('en-IN')}</span>
                   </div>
-                  <div className="bl-quiz-slider-wrap">
-                    <input
-                      type="range"
-                      className="bl-quiz-slider"
-                      min={400}
-                      max={10000}
-                      step={100}
-                      value={metrics.aov}
-                      onChange={(e) => setMetrics((m) => ({ ...m, aov: +e.target.value }))}
-                    />
-                    <div className="bl-quiz-slider-ticks">
-                      <span>₹400</span>
-                      <span>₹5,000</span>
-                      <span>₹10,000</span>
-                    </div>
-                  </div>
+                  <input
+                    type="range"
+                    className="bl-field__slider"
+                    min={400}
+                    max={8000}
+                    step={100}
+                    value={metrics.aov}
+                    onChange={(e) => setMetrics((m) => ({ ...m, aov: +e.target.value }))}
+                  />
+                  <p className="bl-field__sub">Typical ticket size per checkout on your store.</p>
                 </div>
-              )}
 
-              {quizStep === 2 && (
-                <div>
-                  {storeSource && (
-                    <div className="bl-shopify-pill">
-                      <span>🛍️</span> Analyzed from store payment gateways
-                    </div>
-                  )}
-                  <h2 className="bl-quiz-title">What % of your orders are Cash on Delivery (COD)?</h2>
-                  <p className="bl-quiz-sub">
-                    In India, COD orders face 20–35% RTO, whereas prepaid orders only experience 2–4%. COD is the #1 driver of failed deliveries.
-                  </p>
-                  <div className="bl-quiz-val-display">
-                    <span className="bl-quiz-val-n">{Math.round(metrics.codPct * 100)}</span>
-                    <span className="bl-quiz-val-unit">%</span>
+                <div className="bl-field">
+                  <div className="bl-field__label">
+                    <span>Cash on Delivery (COD) Share</span>
+                    <span className="bl-field__val">{Math.round(metrics.codPct * 100)}%</span>
                   </div>
-                  <div className="bl-quiz-slider-wrap">
-                    <input
-                      type="range"
-                      className="bl-quiz-slider"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={metrics.codPct}
-                      onChange={(e) => setMetrics((m) => ({ ...m, codPct: +e.target.value }))}
-                    />
-                    <div className="bl-quiz-slider-ticks">
-                      <span>0% (All Prepaid)</span>
-                      <span>50%</span>
-                      <span>100% (All COD)</span>
-                    </div>
-                  </div>
+                  <input
+                    type="range"
+                    className="bl-field__slider"
+                    min={0}
+                    max={1}
+                    step={0.05}
+                    value={metrics.codPct}
+                    onChange={(e) => setMetrics((m) => ({ ...m, codPct: +e.target.value }))}
+                  />
+                  <p className="bl-field__sub">COD orders experience the highest incidence of courier return attempts.</p>
                 </div>
-              )}
 
-              {quizStep === 3 && (
-                <div>
-                  <h2 className="bl-quiz-title">What is your two-way courier RTO charge?</h2>
-                  <p className="bl-quiz-sub">
-                    The combined forward shipping + reverse return shipping fee billed by Shiprocket, Delhivery, or BlueDart when an order fails.
-                  </p>
-                  <div className="bl-quiz-val-display">
-                    <span className="bl-quiz-val-unit">₹</span>
-                    <span className="bl-quiz-val-n">{metrics.courierRto}</span>
+                <div className="bl-field">
+                  <div className="bl-field__label">
+                    <span>Two-Way Courier RTO Fee</span>
+                    <span className="bl-field__val">₹{metrics.courierRto}</span>
                   </div>
-                  <div className="bl-quiz-slider-wrap">
-                    <input
-                      type="range"
-                      className="bl-quiz-slider"
-                      min={60}
-                      max={300}
-                      step={10}
-                      value={metrics.courierRto}
-                      onChange={(e) => setMetrics((m) => ({ ...m, courierRto: +e.target.value }))}
-                    />
-                    <div className="bl-quiz-slider-ticks">
-                      <span>₹60 (Local)</span>
-                      <span>₹140 (National avg)</span>
-                      <span>₹300 (Heavy/Air)</span>
-                    </div>
-                  </div>
+                  <input
+                    type="range"
+                    className="bl-field__slider"
+                    min={70}
+                    max={250}
+                    step={10}
+                    value={metrics.courierRto}
+                    onChange={(e) => setMetrics((m) => ({ ...m, courierRto: +e.target.value }))}
+                  />
+                  <p className="bl-field__sub">Combined forward + reverse freight charged by carrier on undelivered returns.</p>
                 </div>
-              )}
 
-              {quizStep === 4 && (
-                <div>
-                  <h2 className="bl-quiz-title">Wasted Ad Spend (CAC) + Packaging Damage per Return?</h2>
-                  <p className="bl-quiz-sub">
-                    Meta/Google ad dollars spent to acquire the customer, plus damaged packaging boxes and inspection labor.
-                  </p>
-                  <div className="bl-quiz-val-display">
-                    <span className="bl-quiz-val-unit">₹</span>
-                    <span className="bl-quiz-val-n">{metrics.wastedCac}</span>
+                <div className="bl-field">
+                  <div className="bl-field__label">
+                    <span>Wasted Ad CAC + Box Damage</span>
+                    <span className="bl-field__val">₹{metrics.wastedCac}</span>
                   </div>
-                  <div className="bl-quiz-slider-wrap">
-                    <input
-                      type="range"
-                      className="bl-quiz-slider"
-                      min={50}
-                      max={600}
-                      step={25}
-                      value={metrics.wastedCac}
-                      onChange={(e) => setMetrics((m) => ({ ...m, wastedCac: +e.target.value }))}
-                    />
-                    <div className="bl-quiz-slider-ticks">
-                      <span>₹50 (Organic)</span>
-                      <span>₹120 (Standard D2C)</span>
-                      <span>₹400 (High CAC)</span>
-                    </div>
-                  </div>
+                  <input
+                    type="range"
+                    className="bl-field__slider"
+                    min={50}
+                    max={400}
+                    step={10}
+                    value={metrics.wastedCac}
+                    onChange={(e) => setMetrics((m) => ({ ...m, wastedCac: +e.target.value }))}
+                  />
+                  <p className="bl-field__sub">Sunk Meta/Google ad spend and repackaging materials lost on failed shipments.</p>
                 </div>
-              )}
+              </div>
 
-              <div className="bl-quiz-foot">
-                {quizStep > 1 ? (
-                  <button type="button" className="bl-quiz-btn bl-quiz-btn--subtle" onClick={() => setQuizStep((s) => s - 1)}>
-                    ← Back
-                  </button>
-                ) : (
-                  <button type="button" className="bl-quiz-btn bl-quiz-btn--subtle" onClick={() => setShowQuiz(false)}>
-                    Use Defaults
-                  </button>
-                )}
-
-                {quizStep < 4 ? (
-                  <button type="button" className="bl-quiz-btn bl-quiz-btn--primary" onClick={() => setQuizStep((s) => s + 1)}>
-                    Next Question →
-                  </button>
-                ) : (
-                  <button type="button" className="bl-quiz-btn bl-quiz-btn--primary" onClick={() => setShowQuiz(false)}>
-                    Apply & View Plans →
-                  </button>
-                )}
+              <div className="bl-modal__actions">
+                <button
+                  type="button"
+                  className="bl-btn-secondary"
+                  onClick={() => {
+                    setMetrics(DEFAULT_METRICS);
+                    setShowTuner(false);
+                  }}
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  className="bl-btn-primary"
+                  onClick={() => setShowTuner(false)}
+                >
+                  Apply &amp; Recalculate
+                </button>
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* ── CHECKOUT DRAWER ── */}
-      <AnimatePresence>
-        {drawer && (
-          <motion.div
-            className="bl-drawer-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => !paying && setDrawer(false)}
-          >
-            <motion.aside
-              className="bl-drawer"
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', stiffness: 220, damping: 26 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button type="button" className="bl-drawer__x" onClick={() => !paying && setDrawer(false)} aria-label="Close">
-                ✕
-              </button>
-              <p className="bl-kicker">Checkout · 90-Day Guarantee</p>
-              <h2>{tierMeta.name} · {cycleMeta.label}</h2>
-
-              <div className="bl-drawer__ledger">
-                <Row k={`${tierMeta.name} Plan (${tierMeta.orders.toLocaleString('en-IN')} orders/mo)`} v={`${inr(price.monthly)}/mo`} />
-                <Row k="Billing Cycle" v={`${cycleMeta.label} (${cycleMeta.months} months)`} />
-                <Row k="Meta / WhatsApp Conversation Costs" v="100% Paid by RescueShip" accent />
-                <Row k="Guarantee" v="100% Refund if savings < subscription fee" accent />
-                <div className="bl-drawer__due">
-                  <span>Total Due Today</span>
-                  <strong>{inr(price.upfront)}</strong>
-                </div>
-              </div>
-
-              <p className="bl-drawer__fine">
-                Protected by the 90-Day &ldquo;Pays-For-Itself&rdquo; Guarantee. If your total RTO savings over the 3-month trial don&apos;t exceed your subscription fee, contact us for a full refund. Secured by Razorpay · encrypted at rest.
-              </p>
-
-              <button
-                type="button"
-                className="bl-subscribe bl-subscribe--full"
-                disabled={paying}
-                onClick={pay}
-                ref={mag.ref as any}
-                onMouseMove={mag.onMouseMove}
-                onMouseLeave={mag.onMouseLeave}
-              >
-                {paying ? 'Opening secure checkout…' : <>{allGreen ? `Pay ${inr(price.upfront)} & activate` : `Lock In ${tierMeta.name} (${inr(price.upfront)}) & Connect Store`} <span className="bl-subscribe__arrow">→</span></>}
-              </button>
-              {err && <p className="bl-err">⚠ {err}</p>}
-            </motion.aside>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-/* ── SMALL HELPER PIECES ── */
-function Topbar({ onExit }: { onExit: () => void }) {
-  return (
-    <header className="bl-top">
-      <a href="/" className="bl-brand">
-        <span>⚓</span> RescueShip
-      </a>
-      <span className="bl-top__crumb">Onboarding <i>/</i> <strong>Billing & Guarantee</strong></span>
-      <button type="button" className="bl-top__exit" onClick={onExit}>← back</button>
-    </header>
-  );
-}
-
-function Row({ k, v, accent, mute }: { k: string; v: string; accent?: boolean; mute?: boolean }) {
-  return (
-    <div className={`bl-ledger-row ${accent ? 'accent' : ''} ${mute ? 'mute' : ''}`}>
-      <span>{k}</span>
-      <span>{v}</span>
-    </div>
-  );
-}
-
-function CycleSwitch({ value, onChange }: { value: Cycle; onChange: (c: Cycle) => void }) {
-  const idx = CYCLES.findIndex((c) => c.key === value);
-  return (
-    <div className="bl-cycle" role="tablist" aria-label="Billing cycle">
-      <motion.span
-        className="bl-cycle__knob"
-        layout
-        transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-        style={{ left: `calc(${idx} * (100% / 2))`, width: `calc(100% / 2)` }}
-      />
-      {CYCLES.map((c) => (
-        <button
-          key={c.key}
-          type="button"
-          role="tab"
-          aria-selected={value === c.key}
-          className={value === c.key ? 'on' : ''}
-          onClick={() => onChange(c.key)}
-        >
-          {c.label}{c.tag && <em>{c.tag}</em>}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-function LossTooltip({ metrics }: { metrics: StoreMetrics }) {
-  const parts = [
-    ['Wasted CAC + Packaging', metrics.wastedCac],
-    ['Two-way courier RTO shipping', metrics.courierRto],
-  ] as const;
-
-  return (
-    <div className="bl-tip" role="note">
-      <span className="bl-tip__h">Cost breakdown per failed delivery</span>
-      {parts.map(([l, a]) => (
-        <span key={l} className="bl-tip__r">
-          <i>{l}</i>
-          <b>₹{a}</b>
-        </span>
-      ))}
-      <span className="bl-tip__r" style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '0.3rem', marginTop: '0.2rem' }}>
-        <i>Total cost per return</i>
-        <b style={{ color: 'var(--rose)' }}>₹{metrics.courierRto + metrics.wastedCac}</b>
-      </span>
     </div>
   );
 }
