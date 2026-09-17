@@ -331,6 +331,8 @@ export default function BillingPage() {
                 </div>
                 <input
                   type="range"
+                  id="bl-vol-slider"
+                  aria-label="Your monthly order volume"
                   className="bl-vol-slider"
                   min={500}
                   max={25000}

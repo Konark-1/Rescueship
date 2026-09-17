@@ -504,13 +504,7 @@ export class NDRService {
             }
             await order.save();
 
-            const eq = this.getEscalationQueue();
-            const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
-            for (let i = 0; i < chain.length; i++) {
-              const jobId = makeJobId('escalation', order._id.toString(), i + 1);
-              const job = await eq.getJob(jobId);
-              if (job) await job.remove();
-            }
+            await this.cancelEscalationJobs(order, merchant);
 
             await Merchant.findByIdAndUpdate(order.merchantId, {
               $inc: { 'billing.totalRescues': 1 },
@@ -549,13 +543,39 @@ export class NDRService {
         }
         await order.save();
 
-        const eq = this.getEscalationQueue();
-        const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
-        for (let i = 0; i < chain.length; i++) {
-          const jobId = makeJobId('escalation', order._id.toString(), i + 1);
-          const job = await eq.getJob(jobId);
-          if (job) await job.remove();
+        await this.cancelEscalationJobs(order, merchant);
+
+        // Notify carrier immediately to abort re-attempts and initiate RTO early to save freight
+        if (order.carrier && order.awb) {
+          try {
+            await logisticsService.cancelDelivery(
+              order.carrier,
+              {
+                awb: order.awb,
+                reason: 'Customer cancelled order via WhatsApp NDR',
+              },
+              carrierConfig
+            );
+            await AuditLog.create({
+              merchantId: order.merchantId,
+              orderId: order._id,
+              action: 'carrier_cancellation_dispatched',
+              source: 'ndr_service',
+              payload: { carrier: order.carrier, awb: order.awb },
+              status: 'success',
+            });
+          } catch (carrierErr: any) {
+            logger.warn('Carrier cancellation notification warning', { awb: order.awb, error: carrierErr?.message });
+          }
         }
+
+        // Realtime feed notification: emit order cancelled with ₹160 freight saved
+        realtimeService.emitOrderCancelled(
+          order.merchantId.toString(),
+          order.externalOrderId,
+          160,
+          'Customer opted out via WhatsApp'
+        );
 
         const coupon = (merchant as any).settings?.ndrRescue?.returnCoupon || 'COMEBACK150';
         const cancelMsg = COPY.cancelled({ orderId: order.externalOrderId, coupon });
@@ -679,6 +699,21 @@ export class NDRService {
     if (r.includes('refused') || r.includes('reject') || r.includes('cancel')) return 'refused';
     if (r.includes('unreachable') || r.includes('busy') || r.includes('network')) return 'phone_unreachable';
     return 'other';
+  }
+
+  private async cancelEscalationJobs(order: any, merchant: any): Promise<void> {
+    if (process.env.NODE_ENV === 'test') return;
+    try {
+      const eq = this.getEscalationQueue();
+      const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
+      for (let i = 0; i < chain.length; i++) {
+        const jobId = makeJobId('escalation', order._id.toString(), i + 1);
+        const job = await eq.getJob(jobId);
+        if (job) await job.remove();
+      }
+    } catch (err: any) {
+      logger.warn('Failed to cancel escalation jobs from Redis queue', { orderId: order._id, error: err?.message });
+    }
   }
 
   private getWaConfig(merchant: any) {

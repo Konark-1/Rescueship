@@ -27,6 +27,11 @@ export interface AddressUpdateParams {
   customerName?: string;
 }
 
+export interface CancelParams {
+  awb: string;
+  reason?: string;
+}
+
 export interface RescheduleResult {
   success: boolean;
   message: string;
@@ -183,6 +188,35 @@ export class LogisticsService {
     carrierConfig?: CarrierConfig
   ): Promise<RescheduleResult> {
     return this.updateDeliveryAddress(carrier, params, carrierConfig);
+  }
+
+  /**
+   * Cancel delivery and request immediate RTO on the carrier to abort return transit
+   */
+  public async cancelDelivery(
+    carrier: CarrierType,
+    params: CancelParams,
+    carrierConfig?: CarrierConfig
+  ): Promise<RescheduleResult> {
+    logger.info('Cancelling delivery / requesting RTO on carrier', { carrier, awb: params.awb });
+
+    if (carrier === 'shiprocket') {
+      return this.cancelShiprocket(params, carrierConfig);
+    } else if (carrier === 'clickpost') {
+      return this.cancelClickPost(params, carrierConfig);
+    } else if (carrier === 'delhivery') {
+      return this.cancelDelhivery(params, carrierConfig);
+    } else {
+      throw new Error(`Unsupported carrier: ${carrier}`);
+    }
+  }
+
+  public async requestRto(
+    carrier: CarrierType,
+    params: CancelParams,
+    carrierConfig?: CarrierConfig
+  ): Promise<RescheduleResult> {
+    return this.cancelDelivery(carrier, params, carrierConfig);
   }
 
   /* ----------------- Carrier Implementations ----------------- */
@@ -405,6 +439,108 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Delhivery address update failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelShiprocket(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
+      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
+
+      const payload = {
+        awb: params.awb,
+        action: 'rto',
+        comments: sanitizeString(params.reason, 150, 'Customer requested order cancellation via WhatsApp NDR'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      return {
+        success: response.data.status === 200 || response.data.success || false,
+        message: response.data.message || 'Cancelled delivery and initiated RTO on Shiprocket',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Shiprocket cancel / RTO request failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelClickPost(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
+      if (!apiToken) {
+        throw new Error('ClickPost API Token is not configured');
+      }
+
+      const url = 'https://api.clickpost.in/v1/ndr-update/';
+      const payload = {
+        awb: params.awb,
+        action: 'RTO',
+        meta: {
+          reason: sanitizeString(params.reason, 150, 'Customer cancelled order on WhatsApp'),
+        },
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiToken}`,
+        },
+      });
+      return {
+        success: response.data.meta?.status === 'success',
+        message: response.data.meta?.message || 'Cancelled delivery and initiated RTO on ClickPost',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('ClickPost cancel / RTO request failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelDelhivery(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiToken = carrierConfig?.apiToken;
+      if (!apiToken) {
+        throw new Error('Delhivery API Token is not configured');
+      }
+
+      const isProd = config.server.nodeEnv === 'production';
+      const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
+      const url = `${baseUrl}/api/p/update`;
+
+      const payload = {
+        data: [
+          {
+            waybill: params.awb,
+            act: 'RTO',
+          },
+        ],
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          Authorization: `Token ${apiToken}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 15000,
+      });
+      const first = Array.isArray(response.data?.data) ? response.data.data[0] : response.data;
+      const ok = response.data?.status === 'success' || first?.status === true || first?.status === 'success' || response.data?.request_id !== undefined;
+      return {
+        success: !!ok,
+        message: first?.message || response.data?.message || 'Cancelled delivery and initiated RTO on Delhivery',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Delhivery cancel / RTO request failed', { awb: params.awb, error: error.response?.data || error.message });
       return { success: false, message: error.message, carrierResponse: error.response?.data };
     }
   }

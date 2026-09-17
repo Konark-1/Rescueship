@@ -16,6 +16,7 @@ import { encryptionService } from './encryption.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { logger } from '../utils/logger';
 import { config } from '../config/env';
+import { geminiService } from './gemini.service';
 
 export type AddressMode = 'location_pin' | 'text_address' | 'both';
 
@@ -24,6 +25,13 @@ export interface LocationData {
   longitude: number;
   name?: string;
   address?: string;
+}
+
+export interface ExtractedAddressDetails {
+  cleanAddress: string;
+  landmark?: string;
+  driverNote?: string;
+  pincode?: string;
 }
 
 export class AddressCorrectionService {
@@ -261,14 +269,22 @@ export class AddressCorrectionService {
     const waConfig = this.getWaConfig(merchant);
 
     try {
-      const pincode = this.extractPincode(text);
+      const extracted = await this.extractAddressDetails(text);
+      const pincode = extracted.pincode || this.extractPincode(text);
       const gpsCoords = (order.ndr as any)?.gpsCoordinates;
       const geocodedAddress = (order.ndr as any)?.geocodedAddress || order.ndr?.addressUpdate?.geocodedAddress;
 
-      let fullAddress = text.substring(0, 200);
-      if (geocodedAddress) {
-        fullAddress = `${text} | GPS: ${geocodedAddress}`;
+      let fullAddress = extracted.cleanAddress.substring(0, 150);
+      if (extracted.landmark) {
+        fullAddress += ` [Landmark: ${extracted.landmark}]`;
       }
+      if (extracted.driverNote) {
+        fullAddress += ` [Note: ${extracted.driverNote}]`;
+      }
+      if (geocodedAddress) {
+        fullAddress = `${fullAddress.slice(0, 140)} | GPS: ${geocodedAddress}`;
+      }
+      fullAddress = fullAddress.slice(0, 200);
 
       await this.pushAddressToCarrier(order, merchant, {
         address: fullAddress,
@@ -281,6 +297,8 @@ export class AddressCorrectionService {
       if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
       order.ndr.addressUpdate.collectionState = 'complete';
       order.ndr.addressUpdate.textAddress = text;
+      (order.ndr.addressUpdate as any).landmark = extracted.landmark;
+      (order.ndr.addressUpdate as any).driverNote = extracted.driverNote;
       order.status = 'ndr_rescued';
       if (typeof order.save === 'function') await order.save();
 
@@ -294,11 +312,28 @@ export class AddressCorrectionService {
               'ndr.customerProvidedAddress': text,
               'ndr.addressUpdate.collectionState': 'complete',
               'ndr.addressUpdate.textAddress': text,
+              'ndr.addressUpdate.landmark': extracted.landmark,
+              'ndr.addressUpdate.driverNote': extracted.driverNote,
               status: 'ndr_rescued',
             },
           }
         );
       }
+
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'address_extracted_and_synced',
+        source: 'address_correction_service',
+        payload: {
+          rawText: text,
+          landmark: extracted.landmark,
+          driverNote: extracted.driverNote,
+          pincode,
+          carrier: order.carrier,
+        },
+        status: 'success',
+      });
 
       const confirmMsg = '✅ Thank you! Your address has been updated and the courier has been notified. 🚚';
       await whatsAppService.sendInteractiveButtons(order.customerPhone, confirmMsg, [], waConfig);
@@ -371,6 +406,75 @@ export class AddressCorrectionService {
   private async requestTextAddress(order: any, lang: string, waConfig?: any): Promise<void> {
     const msg = '📝 Please reply with your complete updated address including building details and 6-digit pincode.';
     await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
+  }
+
+  /**
+   * Disambiguates and parses colloquial Hindi/Hinglish/English Indian residential instructions,
+   * separating landmarks and rider instructions from the street address.
+   */
+  public async extractAddressDetails(rawText: string): Promise<ExtractedAddressDetails> {
+    const pincode = this.extractPincode(rawText);
+    let cleanAddress = rawText.trim();
+    let landmark: string | undefined;
+    let driverNote: string | undefined;
+
+    // 1. If Gemini AI is configured, attempt intelligent extraction
+    if (geminiService.isConfigured()) {
+      try {
+        const prompt = `You are an Indian logistics address parser. Analyze this colloquial delivery instruction message:
+"${rawText}"
+
+Extract:
+1. landmark: The physical landmark or floor/building reference (in English, concise, e.g. "Behind Shiv Mandir, 2nd floor").
+2. driverNote: Special instruction for the courier delivery rider (e.g. "Call at gate, doorbell broken").
+3. cleanAddress: The base address without conversational fluff.
+
+Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No markdown code fences.`;
+        const res = await geminiService.ask(prompt);
+        const cleanedJson = res.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const parsed = JSON.parse(cleanedJson);
+        if (parsed.landmark) landmark = String(parsed.landmark).slice(0, 100);
+        if (parsed.driverNote) driverNote = String(parsed.driverNote).slice(0, 150);
+        if (parsed.cleanAddress) cleanAddress = String(parsed.cleanAddress).slice(0, 200);
+        return { cleanAddress, landmark, driverNote, pincode };
+      } catch (err) {
+        logger.warn('Gemini address extraction fallback to heuristic parser', { error: (err as any)?.message });
+      }
+    }
+
+    // 2. Fallback Heuristic & Regex Parser for Indian Colloquialisms
+    const landmarkPatterns = [
+      /(?:behind|near|opp(?:osite)?|beside|next to|front of|ke peeche|ke paas|ke samne|mandir|masjid|gurudwara|hospital|school|park|tower|building|apartment|flat|floor)\s+[^,.]+/i,
+      /(?:\d+(?:st|nd|rd|th)?\s+floor|ground\s+floor|second\s+floor|first\s+floor|third\s+floor)/i,
+    ];
+
+    for (const pattern of landmarkPatterns) {
+      const match = rawText.match(pattern);
+      if (match) {
+        landmark = match[0].trim();
+        break;
+      }
+    }
+
+    const driverNotePatterns = [
+      /(?:call\s*(?:karna|karo|kar lena|on reaching|at gate)|ring\s*(?:bell|phone)|doorbell\s*(?:broken|kharab)|bell\s*kharab|gate\s*pe\s*call)[^,.]*/i,
+      /(?:don't ring|do not ring|handover to security|leave at door|reception)[^,.]*/i,
+    ];
+
+    for (const pattern of driverNotePatterns) {
+      const match = rawText.match(pattern);
+      if (match) {
+        driverNote = match[0].trim();
+        break;
+      }
+    }
+
+    return {
+      cleanAddress,
+      landmark,
+      driverNote,
+      pincode,
+    };
   }
 
   private extractPincode(text: string): string | undefined {

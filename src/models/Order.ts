@@ -52,6 +52,8 @@ export interface IOrder extends Document {
       longitude?: number;
       textAddress?: string;
       geocodedAddress?: string;
+      landmark?: string;
+      driverNote?: string;
       collectionState?: 'idle' | 'awaiting_location' | 'awaiting_text' | 'complete';
     };
   };
@@ -121,6 +123,8 @@ const OrderSchema = new Schema<IOrder>(
         longitude: { type: Number, default: null },
         textAddress: { type: String, default: null },
         geocodedAddress: { type: String, default: null },
+        landmark: { type: String, default: null },
+        driverNote: { type: String, default: null },
         collectionState: {
           type: String,
           enum: ['idle', 'awaiting_location', 'awaiting_text', 'complete', null],

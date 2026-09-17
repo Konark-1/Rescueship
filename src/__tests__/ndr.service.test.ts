@@ -154,5 +154,65 @@ describe('NDRService - 3-Mode Address Correction', () => {
         expect.any(Object)
       );
     });
+
+    it('should extract Indian colloquial landmark and driver note from customer text', async () => {
+      const { addressCorrectionService } = require('../services/address-correction.service');
+      const rawText = 'Bhaiya mandir ke peeche jo white building hai, 2nd floor pe aa jao. Gate pe call kar lena bell kharab hai.';
+      const extracted = await addressCorrectionService.extractAddressDetails(rawText);
+
+      expect(extracted.landmark).toBeDefined();
+      expect(extracted.landmark?.toLowerCase()).toContain('mandir');
+      expect(extracted.driverNote).toBeDefined();
+      expect(extracted.driverNote?.toLowerCase()).toMatch(/call|bell/);
+    });
+  });
+
+  describe('handleCustomerResponse - cancel action (Abort Return Transit)', () => {
+    it('should dispatch carrier cancellation and initiate RTO to save return freight', async () => {
+      const mockSave = jest.fn().mockResolvedValue(true);
+      const mockOrder: any = {
+        _id: 'order_cancel_1',
+        externalOrderId: 'ORD-CANCEL-1',
+        merchantId: 'merchant123',
+        customerPhone: '919876543210',
+        status: 'ndr_rescue_sent',
+        carrier: 'delhivery',
+        awb: 'DLV9921004182',
+        ndr: {
+          rescueMessagesSent: 1,
+        },
+        save: mockSave,
+      };
+
+      (Order.findOne as jest.Mock).mockResolvedValue(mockOrder);
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: 'merchant123',
+        whatsappConfig: { phoneNumberId: 'ph123' },
+        settings: { ndrRescue: { returnCoupon: 'COMEBACK150' } },
+        carrierConfig: { provider: 'delhivery', apiToken: 'test_token' },
+      });
+      const { encryptionService } = require('../services/encryption.service');
+      jest.spyOn(encryptionService, 'decrypt').mockImplementation((val: any) => val || 'decrypted_token');
+      (logisticsService.cancelDelivery as jest.Mock).mockResolvedValue({ success: true, message: 'Cancelled' });
+      (whatsAppService.sendInteractiveButtons as jest.Mock).mockResolvedValue({});
+
+      await ndrService.handleCustomerResponse('9876543210', 'cancel:order_cancel_1', mockOrder);
+
+      expect(mockOrder.status).toBe('rto');
+      expect(mockOrder.ndr.resolution).toBe('cancelled');
+      expect(logisticsService.cancelDelivery).toHaveBeenCalledWith(
+        'delhivery',
+        expect.objectContaining({
+          awb: 'DLV9921004182',
+        }),
+        expect.any(Object)
+      );
+      expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
+        '919876543210',
+        expect.stringContaining('COMEBACK150'),
+        [],
+        expect.any(Object)
+      );
+    });
   });
 });

@@ -12,12 +12,14 @@
 
   /* ── Brand Colors ── */
   --indigo: #4f46e5;
+  --indigo-dark: #3730a3;
   --indigo-soft: #818cf8;
   --violet: #a78bfa;
   --emerald: #10b981;
   --amber: #f59e0b;
   --rose: #f43f5e;
   --danger: #ef4444;
+  --cyan: #38bdf8;
 
   /* ── Semantic Brand Opacities (Zero Raw RGBA in Page Styles) ── */
   --indigo-04: rgba(99, 102, 241, 0.04);
@@ -39,6 +41,7 @@
   --emerald-15: rgba(52, 211, 153, 0.15);
   --emerald-20: rgba(52, 211, 153, 0.20);
   --emerald-30: rgba(52, 211, 153, 0.30);
+  --emerald-35: rgba(52, 211, 153, 0.35);
 
   --rose-06: rgba(251, 113, 133, 0.06);
   --rose-10: rgba(251, 113, 133, 0.10);
@@ -46,11 +49,14 @@
   --rose-15: rgba(251, 113, 133, 0.15);
   --rose-20: rgba(251, 113, 133, 0.20);
   --rose-25: rgba(251, 113, 133, 0.25);
+  --rose-35: rgba(251, 113, 133, 0.35);
 
   --amber-06: rgba(251, 191, 36, 0.06);
   --amber-10: rgba(251, 191, 36, 0.10);
   --amber-15: rgba(251, 191, 36, 0.15);
   --amber-20: rgba(251, 191, 36, 0.20);
+  --amber-25: rgba(251, 191, 36, 0.25);
+  --amber-30: rgba(251, 191, 36, 0.30);
 
   /* ── Neutral Alpha Scale ── */
   --white-01: rgba(255, 255, 255, 0.015);

@@ -11,7 +11,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger';
 
 export interface RealtimeEvent {
-  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted';
+  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted' | 'order_cancelled';
   merchantId: string;
   payload: Record<string, any>;
   timestamp: string;
@@ -140,6 +140,18 @@ class RealtimeService extends EventEmitter {
       type: 'cod_converted',
       merchantId,
       payload: { orderId, amount },
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  /**
+   * Convenience: Emit Order Cancelled / Return Transit Aborted event with freight saved.
+   */
+  public emitOrderCancelled(merchantId: string, orderId: string, freightSaved: number = 160, reason?: string): void {
+    this.broadcast({
+      type: 'order_cancelled',
+      merchantId,
+      payload: { orderId, freightSaved, reason: reason || 'Cancelled by shopper' },
       timestamp: new Date().toISOString(),
     });
   }
