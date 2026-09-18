@@ -107,7 +107,7 @@ const devFormat = winston.format.combine(
  */
 const prodFormat = winston.format.combine(
   redactFormat,
-  winston.format.timestamp({ format: 'YYYY-MM-DD\'T\'HH:mm:ss.SSSZ' }),
+  winston.format.timestamp(),
   winston.format.errors({ stack: true }),
   winston.format.json(),
 );
