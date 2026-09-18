@@ -12,7 +12,6 @@ interface EnvRequirement {
 }
 
 const REQUIRED_VARS: EnvRequirement[] = [
-  { key: 'PORT', required: true, description: 'Server port (default: 3000)' },
   { key: 'NODE_ENV', required: true, description: 'Environment: development | production' },
   { key: 'MONGODB_URI', required: true, description: 'MongoDB connection string' },
   ...(process.env.REDIS_URL ? [] : [

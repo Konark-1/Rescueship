@@ -306,14 +306,19 @@ async function bootstrap() {
     // 0. Validate Environment
     validateEnvironment();
 
-    // 1. Connect MongoDB
+    // 1. Start Server immediately so health check and port detection pass instantly
+    const server = app.listen(Number(PORT), '0.0.0.0', () => {
+      logger.info(`🚀  RescueShip Engine started on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
+    });
+
+    // 2. Connect MongoDB
     await connectDatabase();
     await ensureIndexes();
 
-    // 2. Connect Redis
+    // 3. Connect Redis
     const redisHealthy = await connectRedis();
 
-    // 3. Start BullMQ Workers only when Redis is healthy and under quota
+    // 4. Start BullMQ Workers only when Redis is healthy and under quota
     if (redisHealthy) {
       startAllWorkers();
       startQualityMonitorWorker();
@@ -321,11 +326,6 @@ async function bootstrap() {
     } else {
       logger.warn('⚠️  Redis is currently unavailable or has exceeded quota. Core API is running, BullMQ background queues are safely paused.');
     }
-
-    // 4. Start Server
-    const server = app.listen(Number(PORT), '0.0.0.0', () => {
-      logger.info(`🚀  RescueShip Engine started on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-    });
 
     // Graceful Shutdown Handler
     const shutdown = async (signal: string) => {
