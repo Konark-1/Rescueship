@@ -1,5 +1,6 @@
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 
 // Load .env at the absolute beginning
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -273,6 +274,23 @@ app.use('/api/realtime', apiLimiter, standardMerchantLimiter, realtimeRouter);
 
 // Export API — stricter per-merchant limit (5 req/min)
 app.use('/api/export', apiLimiter, exportMerchantLimiter, exportRouter);
+
+// Serve frontend static assets in production if available
+const frontendDistPath = path.resolve(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+
+  app.get('*', (req, res, next) => {
+    if (
+      req.path.startsWith('/api') ||
+      req.path.startsWith('/health') ||
+      req.path.startsWith('/webhooks')
+    ) {
+      return next();
+    }
+    res.sendFile(path.join(frontendDistPath, 'index.html'));
+  });
+}
 
 // Global Error Handler
 app.use(globalErrorHandler);

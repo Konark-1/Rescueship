@@ -1,7 +1,26 @@
 import axios from 'axios';
 
+const getBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return '';
+    }
+    if (host.includes('rescueship-frontend')) {
+      return 'https://rescueship.onrender.com';
+    }
+    if (host === 'rescueship.onrender.com') {
+      return '';
+    }
+  }
+  return '';
+};
+
 const api = axios.create({
-  baseURL: '', // Using Vite proxy, so relative paths are correct
+  baseURL: getBaseUrl(),
 });
 
 // Request interceptor to add JWT token
