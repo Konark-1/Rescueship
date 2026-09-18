@@ -323,7 +323,7 @@ async function bootstrap() {
     }
 
     // 4. Start Server
-    const server = app.listen(PORT, () => {
+    const server = app.listen(Number(PORT), '0.0.0.0', () => {
       logger.info(`🚀  RescueShip Engine started on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
     });
 
