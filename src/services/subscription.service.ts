@@ -77,7 +77,7 @@ export class SubscriptionService {
     const p = priceFor(tier, cycle);
 
     let orderId: string;
-    let subscriptionId: string;
+    let subscriptionId: string | undefined;
 
     try {
       // (1) upfront intro order — one-time, charged now
@@ -86,8 +86,13 @@ export class SubscriptionService {
         notes: { merchantId, tier, cycle, kind: 'intro_quarter' },
       });
       orderId = order.data.id;
+    } catch (e: any) {
+      logger.error('Razorpay API order creation failed', { error: e.response?.data || e.message });
+      throw new Error('Payment gateway error. Please verify Razorpay keys or try again shortly.');
+    }
 
-      // (2) renewal subscription — first charge at the renewal date
+    try {
+      // (2) renewal subscription — first charge at the renewal date (if Subscriptions feature is enabled on Razorpay account)
       const planId = await this.ensurePlan(tier, cycle, p.renewMonthly);
       const startAt = Math.floor(Date.now() / 1000) + (MONTHS[cycle] || 3) * 30 * 24 * 3600;
       const subscription = await rz.post('/subscriptions', {
@@ -95,17 +100,22 @@ export class SubscriptionService {
         notes: { merchantId, tier, cycle, kind: 'renewal' },
       });
       subscriptionId = subscription.data.id;
-    } catch (e: any) {
-      logger.error('Razorpay API subscription checkout failed', { error: e.response?.data || e.message });
-      throw new Error('Payment gateway error. Please verify Razorpay keys or try again shortly.');
+    } catch (subErr: any) {
+      logger.warn('Razorpay recurring subscription mandate setup skipped (Subscriptions product not active on Razorpay account), proceeding with upfront order checkout', {
+        error: subErr.response?.data || subErr.message,
+      });
     }
 
-    await Merchant.findByIdAndUpdate(merchantId, { $set: {
+    const billingUpdates: Record<string, any> = {
       'billing.pendingTier': tier, 'billing.pendingCycle': cycle,
-      'billing.introOrderId': orderId, 'billing.razorpaySubscriptionId': subscriptionId,
+      'billing.introOrderId': orderId,
       'billing.renewMonthly': p.renewMonthly,
       'billing.status': 'pending_payment',
-    }});
+    };
+    if (subscriptionId) {
+      billingUpdates['billing.razorpaySubscriptionId'] = subscriptionId;
+    }
+    await Merchant.findByIdAndUpdate(merchantId, { $set: billingUpdates });
 
     return { orderId, subscriptionId, amountInr: p.introUpfront * 100, currency: 'INR', keyId: process.env.RAZORPAY_KEY_ID };
   }

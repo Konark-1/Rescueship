@@ -119,7 +119,7 @@ export default function BillingPage() {
       const order = await billingApi.checkout(token!, tier, cycle);
       const rz = new (window as any).Razorpay({
         key: order.keyId,
-        subscription_id: order.subscriptionId,
+        ...(order.subscriptionId ? { subscription_id: order.subscriptionId } : {}),
         order_id: order.orderId,
         name: 'RescueShip',
         description: `${tierMeta.name} · ${cycleMeta.label} · ${inr(price.monthly)}/mo (90-Day Guarantee)`,
