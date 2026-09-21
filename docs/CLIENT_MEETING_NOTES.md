@@ -139,15 +139,20 @@ sequenceDiagram
 
 ---
 
-### Objection 2: "Nobody clicks links in SMS from unknown numbers, and calling the customer does no good because delivery boys already call."
+### Objection 2: "Nobody clicks links in SMS from unknown numbers, and calling the customer does no good because delivery boys already call. What if the customer doesn't even have WhatsApp?"
 
 > **Your Response**:
 > 
-> *"You are 100% right about SMS links. Click-through rates on SMS links in India are under 3% due to spam and phishing fears. That is why **RescueShip does NOT rely on SMS links**.*
+> *"You are 100% right about SMS links. Click-through rates on SMS links in India are under 3% due to spam and phishing fears. That is why **RescueShip does NOT rely on random SMS links**.*
 > 
-> *1. **Native Interactive Buttons**: On WhatsApp, RescueShip uses Meta's official interactive buttons (`[Reschedule Tomorrow]`, `[Share Location 📍]`, `[Cancel]`). The shopper never leaves WhatsApp or taps a weird URL.*
-> *2. **Verified Brand Identity**: Messages arrive with your store's brand name and logo, not a random SIM card number.*
-> *3. **Asynchronous Communication**: Delivery boys call for 3 seconds while driving or call at 2 PM when customers are in office meetings and reject Truecaller unknown numbers. WhatsApp sits in their inbox. At 6:30 PM, the customer checks their phone, sees your message, and taps 'Tomorrow after 6 PM' in 5 seconds."*
+> *1. **Native WhatsApp Interactive Buttons (Primary Flow)**: On WhatsApp (>92% of Indian online shoppers), RescueShip uses Meta's official interactive buttons (`[Reschedule Tomorrow]`, `[Share Location 📍]`, `[Cancel]`). The shopper never leaves WhatsApp or taps an unknown URL.*
+> *2. **Verified Brand Identity**: Messages arrive with your store's brand name and official Meta green badge / logo, not a random SIM card number.*
+> *3. **Asynchronous Communication**: Delivery boys call for 3 seconds while driving or call at 2 PM when customers are in office meetings and reject Truecaller unknown numbers. WhatsApp sits in their inbox. At 6:30 PM, the customer checks their phone, sees your message, and taps 'Tomorrow after 6 PM' in 5 seconds.*
+> 
+> **What if the customer has SMS only (No WhatsApp on that number)?**
+> - **Official TRAI DLT 6-Character Sender ID**: If RescueShip triggers an SMS fallback, it comes from an official DLT header (e.g. `AX-MYSHOP` or `VM-BRAND`), NEVER a suspicious 10-digit unknown phone number.
+> - **Interactive 1-Tap IVR Dialer Fallback**: Instead of relying on a link, RescueShip can trigger an automated IVR call: *'Hello, your order from [Brand] couldn't be delivered today. Press 1 to deliver tomorrow, Press 2 to cancel.'* No reading, no typing, no suspicious links.
+> - **Merchant High-Priority Dashboard Alert**: High-value orders where both WhatsApp and automated attempts were unreachable are immediately surfaced on the merchant's RescueShip Command Center for manual VIP customer outreach before courier RTO is triggered."*
 
 ---
 
