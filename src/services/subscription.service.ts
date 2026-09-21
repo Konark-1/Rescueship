@@ -211,7 +211,6 @@ export class SubscriptionService {
         'billing.activatedAt': now,
         'billing.status': 'active',
         'billing.currentMonthOrders': 0,
-        'onboarding.completedAt': now,
       }, $unset: { 'billing.pendingTier': 1, 'billing.pendingCycle': 1, 'billing.introOrderId': 1 } }
     );
     logger.info('Plan provisioned via self-serve checkout', { merchantId, tier, cycle, paymentId });

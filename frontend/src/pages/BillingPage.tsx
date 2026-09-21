@@ -32,7 +32,7 @@ import { connectApi } from '../lib/connect';
 import './billing.css';
 
 export default function BillingPage() {
-  const { token, user, updateUser } = useAuth();
+  const { token, user } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -131,18 +131,7 @@ export default function BillingPage() {
           try {
             const verified = await billingApi.verify(token!, { ...resp, tier, cycle });
             setActive(verified);
-
-            if (allGreen) {
-              try {
-                await connectApi.finalize(token!);
-                updateUser({ onboardingStatus: 'completed' });
-                nav('/dashboard');
-              } catch {
-                nav('/dashboard');
-              }
-            } else {
-              nav('/onboarding?subscribed=true');
-            }
+            nav('/onboarding?subscribed=true');
           } catch (e: any) {
             setErr(e.message);
           }
@@ -175,8 +164,8 @@ export default function BillingPage() {
               <span className="bl-nav__logo-icon"><Compass size={16} /></span>
               <span>RescueShip</span>
             </a>
-            <button className="bl-nav__back" onClick={() => nav(allGreen ? '/dashboard' : '/onboarding')}>
-              ← {allGreen ? 'Dashboard' : 'Continue Onboarding'}
+            <button className="bl-nav__back" onClick={() => nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true')}>
+              ← {user?.onboardingStatus === 'completed' ? 'Dashboard' : 'Continue Onboarding'}
             </button>
           </header>
 
@@ -229,8 +218,8 @@ export default function BillingPage() {
                   <ExternalLink size={15} /> Book Free 15-Min Guided Setup Call
                 </a>
               )}
-              <button className="bl-btn-primary" style={{ width: '100%' }} onClick={() => nav(allGreen ? '/dashboard' : '/onboarding')}>
-                {allGreen ? 'Open Dashboard →' : 'Complete Remaining Integrations →'}
+              <button className="bl-btn-primary" style={{ width: '100%' }} onClick={() => nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true')}>
+                {user?.onboardingStatus === 'completed' ? 'Open Dashboard →' : 'Continue to Onboarding →'}
               </button>
             </div>
           </motion.div>

@@ -110,6 +110,9 @@ export default function OnboardingPage() {
       push('✓ store connected · webhooks registered');
       refresh().then(() => advanceToNext('shopify'));
     }
+    if (params.get('subscribed') === 'true') {
+      push('✓ plan activated · 90-day money-back guarantee active');
+    }
     if (params.get('error')) setErr('Store connection was cancelled or failed.');
   }, [params]);
 
