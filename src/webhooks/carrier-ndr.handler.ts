@@ -15,7 +15,7 @@ import { Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import { redisConnection } from '../config/redis';
-import { Order, AuditLog } from '../models';
+import { Order, AuditLog, WebhookEvent, DeliveryAttempt, RescueLedger } from '../models';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
 import { authenticateCarrierWebhook, CarrierProvider } from './carrier-auth';
 import { logger } from '../utils/logger';
@@ -33,6 +33,7 @@ export interface ParsedNdr {
   isNdr: boolean;
   /** Provider event id if the carrier supplies one */
   eventId?: string;
+  attemptTime?: Date;
 }
 
 function str(v: unknown, max = 256): string {
@@ -79,16 +80,89 @@ export function createCarrierNdrHandler(
     }
 
     try {
-      if (!parsed.isNdr) {
-        logger.info(`${provider} status update is not an NDR event, skipping`, { merchantId, awb: parsed.awb, status: parsed.status });
-        res.status(200).json({ status: 'ignored', reason: 'not_failed_delivery' });
-        return;
+      // 1. Durably record raw WebhookEvent
+      try {
+        await WebhookEvent.create({
+          merchantId,
+          source: (provider.toUpperCase() as any),
+          topic: parsed.status,
+          eventId,
+          rawPayload: req.body,
+          processed: true,
+          duplicate: false,
+          processedAt: new Date(),
+        });
+      } catch (logErr: any) {
+        logger.warn('Failed to record WebhookEvent in carrier-ndr handler', { error: logErr?.message });
       }
 
       // Tenant-scoped order lookup: AWB first, then external order id.
-      let order = await Order.findOne({ merchantId, awb: parsed.awb }).select('_id externalOrderId');
+      let order = await Order.findOne({ merchantId, awb: parsed.awb });
       if (!order && parsed.externalOrderId) {
-        order = await Order.findOne({ merchantId, externalOrderId: parsed.externalOrderId }).select('_id externalOrderId');
+        order = await Order.findOne({ merchantId, externalOrderId: parsed.externalOrderId });
+      }
+
+      // Handle non-NDR tracking events (OUT_FOR_DELIVERY, DELIVERED, RTO, RETURNED, etc.)
+      if (!parsed.isNdr) {
+        logger.info(`${provider} tracking status update (non-NDR)`, { merchantId, awb: parsed.awb, status: parsed.status });
+        if (order) {
+          const normStatus = (parsed.status || '').toUpperCase();
+          if (normStatus === 'OUT_FOR_DELIVERY') {
+            order.outForDeliveryAt = parsed.attemptTime || new Date();
+            if (['new', 'shipped'].includes(order.status)) {
+              order.status = 'out_for_delivery';
+            }
+            await order.save();
+          } else if (normStatus === 'DELIVERED') {
+            order.status = 'delivered';
+            if (order.ndr) {
+              order.ndr.resolvedAt = new Date();
+              order.ndr.resolution = 'rescheduled';
+            }
+            await order.save();
+            await RescueLedger.reconcileOutcomes(merchantId.toString()).catch(() => {});
+          } else if (normStatus.includes('RTO_INITIATED') || normStatus === 'RTO') {
+            order.status = 'rto_initiated';
+            if (order.ndr) {
+              order.ndr.resolvedAt = new Date();
+              order.ndr.resolution = 'cancelled';
+            }
+            await order.save();
+          } else if (normStatus === 'RETURNED') {
+            order.status = 'returned';
+            await order.save();
+          }
+        }
+
+        await AuditLog.create({
+          merchantId,
+          orderId: order?._id || null,
+          action: `tracking_${(parsed.status || 'unknown').toLowerCase()}`,
+          source: provider,
+          payload: { awb: parsed.awb, orderId: parsed.externalOrderId, status: parsed.status },
+          status: 'success',
+        });
+
+        await IdempotencyGuard.markProcessed(idemKey);
+        res.status(200).json({ status: 'success', message: `${provider} tracking updated`, currentStatus: parsed.status });
+        return;
+      }
+
+      // Record DeliveryAttempt for failed delivery attempt
+      try {
+        await DeliveryAttempt.create({
+          merchantId,
+          orderId: order?._id || null,
+          awb: parsed.awb,
+          status: parsed.status,
+          remark: parsed.reason,
+          attemptTime: parsed.attemptTime || new Date(),
+          courierCode: provider,
+          isFakeRemark: false,
+          rawWebhook: req.body,
+        });
+      } catch (attemptErr: any) {
+        logger.warn('Failed to record DeliveryAttempt', { error: attemptErr?.message });
       }
 
       await ndrRescueQueue.add(
@@ -101,6 +175,7 @@ export function createCarrierNdrHandler(
             reason: parsed.reason,
             phone: parsed.phone,
             carrier: provider,
+            attemptTime: parsed.attemptTime,
           },
         },
         {

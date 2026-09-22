@@ -238,6 +238,12 @@ export class AddressCorrectionService {
         logger.warn('Text address response rejected: phone mismatch with resolved order', { phone, orderPhone: order.customerPhone });
         return false;
       }
+      const isAwaitingText =
+        order.ndr?.addressUpdate?.collectionState === 'awaiting_text' ||
+        order.ndr?.customerResponse === 'address_update_started';
+      if (!isAwaitingText) {
+        return false;
+      }
     } else {
       order = await Order.findOne({
         customerPhone: normalizedPhone,

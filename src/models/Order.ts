@@ -17,8 +17,12 @@ export interface IOrder extends Document {
     | 'ndr_rescue_sent'
     | 'ndr_pending_review'
     | 'ndr_rescued'
+    | 'out_for_delivery'
     | 'delivered'
-    | 'rto';
+    | 'rto_initiated'
+    | 'rto'
+    | 'returned'
+    | 'cancelled';
   outForDeliveryAt?: Date | null;
   awb?: string | null;
   carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | null;
@@ -81,8 +85,12 @@ const OrderSchema = new Schema<IOrder>(
         'ndr_rescue_sent',
         'ndr_pending_review',
         'ndr_rescued',
+        'out_for_delivery',
         'delivered',
+        'rto_initiated',
         'rto',
+        'returned',
+        'cancelled',
       ],
       default: 'new',
     },

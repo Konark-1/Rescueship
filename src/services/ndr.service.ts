@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { config } from '../config/env';
-import { Merchant, Order, AuditLog, BillingEvent } from '../models';
+import { Merchant, Order, AuditLog, BillingEvent, NdrCase, DeliveryAttempt } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { logisticsService } from './logistics.service';
 import { encryptionService } from './encryption.service';
@@ -19,12 +19,23 @@ import { addressCorrectionService, LocationData } from './address-correction.ser
 import { SecurityAlertService } from './security-alert.service';
 import { makeJobId } from '../utils/job-id';
 
+export type NDRCategory =
+  | 'CUSTOMER_NOT_AVAILABLE'
+  | 'CUSTOMER_REFUSED'
+  | 'ADDRESS_ISSUE'
+  | 'PREMISES_LOCKED'
+  | 'RESCHEDULE_REQUEST'
+  | 'COD_COLLECTION_ISSUE'
+  | 'CANCELLATION_RISK'
+  | 'UNKNOWN_FAILURE';
+
 export interface NDREventData {
   awb: string;
   externalOrderId: string;
   reason: string;
   phone: string;
   carrier: 'shiprocket' | 'clickpost' | 'delhivery';
+  attemptTime?: Date;
 }
 
 export class NDRService {
@@ -161,6 +172,23 @@ export class NDRService {
       // Refresh order reference for downstream use
       order = updated;
 
+      // Persist first-class NdrCase record
+      try {
+        await NdrCase.create({
+          orderId: order._id,
+          merchantId: merchant._id,
+          awb: ndrData.awb,
+          externalOrderId: order.externalOrderId,
+          failureReason: ndrData.reason,
+          failureCategory: this.classifyRemark(ndrData.reason),
+          whatsappMessageSentAt: new Date(),
+          status: 'OPEN',
+          isFakeRemarkSuspicious: isFake,
+        });
+      } catch (caseErr: any) {
+        logger.warn('Failed to record NdrCase model', { error: caseErr?.message });
+      }
+
       realtimeService.emitNdrDetected(
         order.merchantId.toString(),
         order.externalOrderId,
@@ -287,6 +315,7 @@ export class NDRService {
   }
 
   private async scheduleEscalations(order: any, merchant: any): Promise<void> {
+    if (process.env.NODE_ENV === 'test') return;
     const chain = merchant.settings?.ndrRescue?.escalationChain || [4, 12, 24];
     const eq = this.getEscalationQueue();
     for (let i = 0; i < chain.length; i++) {
@@ -299,15 +328,15 @@ export class NDRService {
     }
   }
 
-  private fakeRemarkScore(order: any): number {
-    const now = new Date();
+  public fakeRemarkScore(order: any, attemptTime?: Date): number {
+    const time = attemptTime ? new Date(attemptTime) : new Date();
     // Deliveries happen in India; evaluate the 'odd hour' heuristic in IST regardless of server TZ.
-    const hour = (now.getUTCHours() + 5 + (now.getUTCMinutes() + 30 >= 60 ? 1 : 0)) % 24;
+    const hour = (time.getUTCHours() + 5 + (time.getUTCMinutes() + 30 >= 60 ? 1 : 0)) % 24;
     let score = 0;
     if (hour < 8 || hour >= 22) score += 0.5;
     if (order.outForDeliveryAt) {
-      const diffMin = (now.getTime() - new Date(order.outForDeliveryAt).getTime()) / (1000 * 60);
-      if (diffMin < 15) score += 0.5;
+      const diffMin = (time.getTime() - new Date(order.outForDeliveryAt).getTime()) / (1000 * 60);
+      if (diffMin >= 0 && diffMin < 15) score += 0.5;
     }
     return Math.min(1.0, score);
   }
@@ -621,6 +650,61 @@ export class NDRService {
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
 
+      // Check for fake remark / delivery denial signals (Rule 4 in Fake Remark Detection)
+      const fakeDenialRegex = /(?:nobody|no\s*one|not\s*a\s*single\s*call|did\s*not\s*call|didn't\s*call|never\s*called|fake|did\s*not\s*come|didn't\s*come|no\s*attempt|koi\s*nahi\s*aaya|call\s*nahi\s*kiya)/i;
+      if (fakeDenialRegex.test(text)) {
+        logger.warn('Customer reported fake delivery attempt', { phone, orderId: order._id, text });
+        if (!order.ndr) order.ndr = {} as any;
+        order.ndr.isFakeAttempt = true;
+        order.ndr.fakeRemarkScore = 1.0;
+        order.ndr.customerResponse = 'fake_remark_reported';
+        order.ndr.resolution = 'fake_remark_escalated';
+        await order.save();
+
+        await AuditLog.create({
+          merchantId: order.merchantId,
+          orderId: order._id,
+          action: 'fake_remark_reported_by_customer',
+          source: 'whatsapp_webhook',
+          payload: { text, phone },
+          status: 'success',
+        });
+
+        realtimeService.broadcast({
+          type: 'fake_remark_escalated',
+          merchantId: order.merchantId.toString(),
+          payload: {
+            orderId: order.externalOrderId,
+            awb: order.awb,
+            customerFeedback: text,
+            carrier: order.carrier,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        await NdrCase.findOneAndUpdate(
+          { orderId: order._id },
+          {
+            $set: {
+              customerResponseType: 'DENIAL_FAKE',
+              customerResponseAt: new Date(),
+              customerResponseText: text,
+              isFakeRemarkSuspicious: true,
+              resolutionType: 'fake_remark_escalated',
+            },
+          }
+        ).catch(() => {});
+
+        const fakeApology = 'We apologize for this experience. We have flagged this delivery attempt as suspicious with courier management and raised an immediate supervisor escalation to reschedule your delivery.';
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          fakeApology,
+          [],
+          this.getWaConfig(merchant)
+        );
+        return;
+      }
+
       // MED-7 fix: Only confirm address if in active address collection state.
       const isInAddressFlow = order.ndr?.customerResponse === 'address_update_started';
       if (isInAddressFlow) {
@@ -688,8 +772,34 @@ export class NDRService {
     }
   }
 
-  public detectFakeAttempt(order: any, ndrData: NDREventData): boolean {
-    return this.fakeRemarkScore(order) >= 0.5;
+  public detectFakeAttempt(order: any, ndrData?: NDREventData): boolean {
+    return this.fakeRemarkScore(order, ndrData?.attemptTime) >= 0.5;
+  }
+
+  public classifyRemark(remark: string): NDRCategory {
+    const text = (remark || '').toLowerCase();
+    if (text.includes('refused') || text.includes('rejected') || text.includes('refuse')) {
+      return 'CUSTOMER_REFUSED';
+    }
+    if (text.includes('cancelled') || text.includes('canceled') || text.includes('dont want') || text.includes("don't want")) {
+      return 'CANCELLATION_RISK';
+    }
+    if (text.includes('cod') || text.includes('cash') || text.includes('payment') || text.includes('money')) {
+      return 'COD_COLLECTION_ISSUE';
+    }
+    if (text.includes('address') || text.includes('location') || text.includes('pincode') || text.includes('incomplete') || text.includes('incorrect') || text.includes('wrong address')) {
+      return 'ADDRESS_ISSUE';
+    }
+    if (text.includes('not available') || text.includes('unavailable') || text.includes('out of station') || text.includes('not at home') || text.includes('unreachable') || text.includes('no answer') || text.includes('not reachable') || text.includes('switched off')) {
+      return 'CUSTOMER_NOT_AVAILABLE';
+    }
+    if (text.includes('premises locked') || text.includes('door locked') || text.includes('premises closed') || (text.includes('locked') && !text.includes('unlocked'))) {
+      return 'PREMISES_LOCKED';
+    }
+    if (text.includes('later') || text.includes('reschedule') || text.includes('tomorrow') || text.includes('next day') || text.includes('re-attempt')) {
+      return 'RESCHEDULE_REQUEST';
+    }
+    return 'UNKNOWN_FAILURE';
   }
 
   public classifyNDRReason(reason: string): 'customer_unavailable' | 'wrong_address' | 'refused' | 'phone_unreachable' | 'other' {

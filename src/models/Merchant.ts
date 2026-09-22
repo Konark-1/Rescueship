@@ -52,6 +52,16 @@ export interface IMerchant extends Document {
       messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
       fakeAttemptDetection: boolean;
     };
+    partialPay?: {
+      enabled: boolean;
+      trigger?: 'AFTER_FAILED_ATTEMPT' | 'HIGH_RISK_COD' | 'MANUAL';
+      type?: 'FIXED' | 'PERCENTAGE';
+      amount?: number;
+      applyTo?: string[];
+      minOrderValue?: number;
+      maxOrderValue?: number;
+      messageApprovedByMerchant?: boolean;
+    };
   };
   billing: {
     plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'enterprise';
@@ -204,6 +214,20 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         escalationChain: { type: [Number], default: [4, 12, 24] },
         messageLanguage: { type: String, enum: ['en', 'hi', 'ta', 'te', 'bn', 'mr'], default: 'en' },
         fakeAttemptDetection: { type: Boolean, default: false },
+      },
+      partialPay: {
+        enabled: { type: Boolean, default: false },
+        trigger: {
+          type: String,
+          enum: ['AFTER_FAILED_ATTEMPT', 'HIGH_RISK_COD', 'MANUAL'],
+          default: 'AFTER_FAILED_ATTEMPT',
+        },
+        type: { type: String, enum: ['FIXED', 'PERCENTAGE'], default: 'FIXED' },
+        amount: { type: Number, default: 49 },
+        applyTo: { type: [String], default: ['COD'] },
+        minOrderValue: { type: Number, default: 499 },
+        maxOrderValue: { type: Number, default: 5000 },
+        messageApprovedByMerchant: { type: Boolean, default: false },
       },
     },
     billing: {

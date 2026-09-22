@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
 import { config } from '../config/env';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
-import { AuditLog, Merchant } from '../models';
+import { AuditLog, Merchant, Order, WebhookEvent } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
@@ -126,7 +126,35 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
       gateways.some((g) => g.includes('cod') || g.includes('cash'));
 
     if (!isCOD) {
-      logger.info('Shopify order is prepaid, skipping conversion', { merchantId, orderId: body.id });
+      logger.info('Shopify order is prepaid, storing order record and skipping conversion', { merchantId, orderId: body.id });
+      const phone = body.customer?.phone || body.billing_address?.phone || body.shipping_address?.phone || '';
+      try {
+        await Order.create({
+          merchantId,
+          externalOrderId: String(body.id),
+          platform: 'shopify',
+          customerPhone: phone || '0000000000',
+          customerName: `${body.customer?.first_name || ''} ${body.customer?.last_name || ''}`.trim() || 'Customer',
+          orderValue: parseFloat(body.total_price) || 0,
+          paymentMethod: 'prepaid',
+          status: 'new',
+        });
+      } catch { /* already exists */ }
+
+      try {
+        await WebhookEvent.create({
+          merchantId,
+          source: 'SHOPIFY',
+          topic,
+          eventId,
+          rawPayload: body,
+          processed: true,
+          duplicate: false,
+          processedAt: new Date(),
+        });
+      } catch { /* ignore */ }
+
+      await IdempotencyGuard.markProcessed(idemKey);
       res.status(200).json({ status: 'ignored', reason: 'prepaid' });
       return;
     }

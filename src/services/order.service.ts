@@ -332,7 +332,15 @@ export class OrderService {
     const expectedAmountInr = Math.max(1, order.orderValue - discount);
     const expectedPaise = Math.round(expectedAmountInr * 100);
 
-    if (!amountPaidPaise || amountPaidPaise < expectedPaise) {
+    const isNdrOrder = (order.status || '').startsWith('ndr_');
+    const partialAmount = (merchant as any).settings?.partialPay?.amount || 49;
+    const expectedPartialPaise = Math.round(partialAmount * 100);
+
+    const isUnderpaid = isNdrOrder
+      ? !amountPaidPaise || (amountPaidPaise < expectedPartialPaise && amountPaidPaise < expectedPaise)
+      : !amountPaidPaise || amountPaidPaise < expectedPaise;
+
+    if (isUnderpaid) {
       logger.error('Payment amount mismatch: payment was missing or underpaid', {
         paymentLinkId,
         expectedPaise,
@@ -350,13 +358,32 @@ export class OrderService {
       return;
     }
 
+    const nextStatus = isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
+
     const updatedOrder = await Order.findOneAndUpdate(
-      { _id: order._id, status: 'cod_conversion_sent' },
+      {
+        _id: order._id,
+        status: {
+          $in: [
+            'cod_conversion_sent',
+            'ndr_detected',
+            'ndr_rescue_sent',
+            'ndr_pending_review',
+            'new',
+            'shipped',
+          ],
+        },
+      },
       {
         $set: {
-          status: 'converted_to_prepaid',
+          status: nextStatus,
           paymentMethod: 'prepaid',
           'codConversion.convertedAt': new Date(),
+          ...(isNdrOrder && {
+            'ndr.resolvedAt': new Date(),
+            'ndr.resolution': 'rescheduled',
+            'ndr.customerResponse': 'paid_online',
+          }),
         },
       },
       { new: true }
@@ -379,12 +406,43 @@ export class OrderService {
 
     await this.markOrderAsPaidOnPlatform(updatedOrder, merchant);
 
+    // If order was in NDR state, trigger courier reattempt automatically
+    if (isNdrOrder && updatedOrder.carrier && updatedOrder.awb) {
+      try {
+        const { logisticsService } = require('./logistics.service');
+        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const cc: any = merchant.carrierConfig || {};
+        let apiToken: string | undefined;
+        try {
+          if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
+          else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
+        } catch { /* proceed */ }
+
+        await logisticsService.rescheduleDelivery(
+          updatedOrder.carrier,
+          {
+            awb: updatedOrder.awb,
+            newDate: tomorrow,
+            reason: 'Customer paid online via WhatsApp NDR link. Reattempt scheduled.',
+          },
+          {
+            provider: updatedOrder.carrier,
+            apiToken,
+            email: process.env.SHIPROCKET_EMAIL,
+            password: process.env.SHIPROCKET_PASSWORD,
+          }
+        );
+      } catch (reattemptErr: any) {
+        logger.warn('Failed to schedule courier reattempt after NDR payment confirmation', { error: reattemptErr?.message });
+      }
+    }
+
     await AuditLog.create({
       merchantId: order.merchantId,
       orderId: order._id,
-      action: 'cod_converted_to_prepaid',
+      action: isNdrOrder ? 'ndr_cod_converted_to_prepaid' : 'cod_converted_to_prepaid',
       source: 'payment_webhook',
-      payload: { paymentLinkId, amountPaidPaise },
+      payload: { paymentLinkId, amountPaidPaise, isNdrOrder },
       status: 'success',
     });
   }
