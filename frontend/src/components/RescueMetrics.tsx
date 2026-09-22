@@ -25,7 +25,7 @@ export const RescueMetrics: React.FC = () => {
       .catch(() => {});
   }, []);
 
-  if (!metrics) return <div className="metrics-loading"><span className="pulse" /> Loading rescue telemetry…</div>;
+  if (!metrics) return <div className="metrics-loading">Loading metrics…</div>;
 
   const ratePct = (metrics.rescueRate * 100).toFixed(1);
   const rateClass = metrics.rescueRate >= 0.3 ? 'is-ok'
@@ -34,8 +34,8 @@ export const RescueMetrics: React.FC = () => {
   return (
     <section className="panel panel--accent metrics-widget">
       <div className="panel__head">
-        <span className="panel__title"><i aria-hidden="true" />Rescue performance</span>
-        <span className="panel__aside">live · /api/metrics/my</span>
+        <span className="panel__title">Rescue performance</span>
+        <span className="panel__aside">All-time</span>
       </div>
 
       <div className="metrics-body">

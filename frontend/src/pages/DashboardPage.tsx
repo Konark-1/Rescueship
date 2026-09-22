@@ -96,7 +96,7 @@ export const DashboardPage: React.FC = () => {
         setFetchError(null);
       } else {
         setData(prev => prev ?? EMPTY_DATA);
-        setFetchError('Live telemetry is unreachable — showing last known state.');
+        setFetchError('Unable to load live analytics — showing cached data.');
       }
 
       if (planRes.status === 'fulfilled' && planRes.value.data) {
@@ -123,9 +123,8 @@ export const DashboardPage: React.FC = () => {
 
   if (loading || !data) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 'var(--space-4)', minHeight: '60vh', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
-        <span className="pulse" />
-        loading telemetry…
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', color: 'var(--text-3)', fontSize: '0.9rem' }}>
+        Loading dashboard…
       </div>
     );
   }
@@ -139,25 +138,23 @@ export const DashboardPage: React.FC = () => {
       {/* Page head */}
       <header className="page-head">
         <div>
-          <p className="page-head__kicker">01 · Overview</p>
-          <h1 className="page-head__title">Command <em>deck</em></h1>
-          <p className="page-head__sub">Live NDR telemetry, conversion performance and rescued revenue for your store.</p>
+          <h1 className="page-head__title">Dashboard</h1>
+          <p className="page-head__sub">Track orders, automated NDR recovery performance, and rescued revenue.</p>
         </div>
         <div className="page-head__actions">
-          <span className={`chip ${isConnected ? '' : 'chip--bad'}`}>
-            <i aria-hidden="true" style={{ background: isConnected ? 'var(--emerald)' : 'var(--rose)' }} />
-            {isConnected ? 'realtime feed · live' : 'reconnecting feed…'}
+          <span className={`badge ${isConnected ? 'badge-success' : 'badge-warning'}`}>
+            {isConnected ? 'Live updates' : 'Reconnecting…'}
           </span>
         </div>
       </header>
 
-      {/* Onboarding skipped — engine is dormant until connections are live */}
+      {/* Onboarding skipped */}
       {onboardingSkipped && (
         <div className="alert alert--bad fade-in-up" role="alert" style={{ borderColor: 'var(--amber)' }}>
           <div className="alert__main">
             <AlertCircle size={20} color="var(--amber)" />
             <div>
-              <p className="alert__title">Setup unfinished — the rescue engine is off</p>
+              <p className="alert__title">Setup unfinished — automated recovery is inactive</p>
               <p className="alert__text">Connect your store, WhatsApp, courier and payments to start recovering RTO revenue. Takes ~10 minutes.</p>
             </div>
           </div>
@@ -171,7 +168,7 @@ export const DashboardPage: React.FC = () => {
           <div className="alert__main">
             <AlertCircle size={20} color="var(--rose)" />
             <div>
-              <p className="alert__title">Telemetry offline</p>
+              <p className="alert__title">Connection issue</p>
               <p className="alert__text">{fetchError}</p>
             </div>
           </div>
@@ -265,7 +262,7 @@ export const DashboardPage: React.FC = () => {
       <section className="dash-grid dash-grid--main">
         <div className="panel fade-in-up">
           <div className="panel__head">
-            <span className="panel__title"><i aria-hidden="true" />Daily conversions</span>
+            <span className="panel__title">Daily conversions</span>
             <span className="panel__aside">last 7 days</span>
           </div>
           <div className="panel__body" style={{ height: 300 }}>
@@ -287,7 +284,7 @@ export const DashboardPage: React.FC = () => {
 
         <div className="panel fade-in-up">
           <div className="panel__head">
-            <span className="panel__title"><i aria-hidden="true" />NDR reasons</span>
+            <span className="panel__title">NDR reasons</span>
             <span className="panel__aside">share of failures</span>
           </div>
           <div className="panel__body" style={{ height: 300 }}>
@@ -319,7 +316,7 @@ export const DashboardPage: React.FC = () => {
       <section className="dash-grid">
         <div className="panel fade-in-up">
           <div className="panel__head">
-            <span className="panel__title"><i aria-hidden="true" />Carrier performance</span>
+            <span className="panel__title">Carrier performance</span>
             <span className="panel__aside">rescued vs. rto</span>
           </div>
           <div className="panel__body" style={{ height: 300 }}>
@@ -339,7 +336,7 @@ export const DashboardPage: React.FC = () => {
 
         <div className="panel fade-in-up" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="panel__head">
-            <span className="panel__title"><i aria-hidden="true" />Recent orders</span>
+            <span className="panel__title">Recent orders</span>
             <button className="btn btn-ghost btn-sm" onClick={() => navigate('/orders')}>View all →</button>
           </div>
           <div className="table-container" tabIndex={0} aria-label="Recent orders table">
@@ -385,7 +382,7 @@ interface StatCardProps {
   live?: boolean;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ tone, label, value, prefix, suffix, sub, icon, live }) => (
+const StatCard: React.FC<StatCardProps> = ({ tone, label, value, prefix, suffix, sub, icon }) => (
   <motion.div
     className={`stat ${tone}`}
     variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}
@@ -398,7 +395,6 @@ const StatCard: React.FC<StatCardProps> = ({ tone, label, value, prefix, suffix,
       {prefix && <small>{prefix}</small>}
       <AnimatedCounter value={value} />
       {suffix && <small>{suffix}</small>}
-      {live && <span className="pulse" style={{ alignSelf: 'center', marginLeft: 'var(--space-2)' }} />}
     </div>
     {sub && <p className="stat__sub">{sub}</p>}
   </motion.div>

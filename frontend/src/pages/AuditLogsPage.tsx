@@ -115,9 +115,8 @@ const AuditLogsPage = () => {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="page-head__kicker">06 · Forensics</p>
-          <h1 className="page-head__title">Audit <em>ledger</em></h1>
-          <p className="page-head__sub">Every webhook, API call and automated message — the full paper trail.</p>
+          <h1 className="page-head__title">Audit Logs</h1>
+          <p className="page-head__sub">Comprehensive log of webhooks, API requests, and automated actions.</p>
         </div>
         <button
           onClick={() => fetchLogs(pagination.page)}
@@ -141,7 +140,7 @@ const AuditLogsPage = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="form-control"
-              style={{ paddingLeft: '2.5rem', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}
+              style={{ paddingLeft: '2.5rem', fontSize: '0.88rem' }}
             />
           </div>
           <TabPill tabs={severityTabs} activeTab={filter} onChange={setFilter} />
@@ -151,7 +150,7 @@ const AuditLogsPage = () => {
       {/* Log table */}
       <div className="panel">
         <div className="panel__head">
-          <span className="panel__title"><i aria-hidden="true" />Event stream</span>
+          <span className="panel__title">Event stream</span>
           <span className="panel__aside">
             {filteredLogs.length} shown · {pagination.total} total
           </span>

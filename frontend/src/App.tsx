@@ -20,7 +20,7 @@ const DocsPage = lazy(() => import('./pages/DocsPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const SandboxPage = lazy(() => import('./pages/SandboxPage'));
 
-// Sleek telemetry module loading fallback
+// Route loading fallback
 const RouteLoadingFallback: React.FC = () => (
   <div style={{
     display: 'flex',
@@ -29,12 +29,9 @@ const RouteLoadingFallback: React.FC = () => (
     minHeight: '100vh',
     backgroundColor: 'var(--bg-void, #050508)',
     color: 'var(--text-3, #9ca3af)',
-    fontFamily: 'var(--font-mono, monospace)',
-    fontSize: '0.85rem',
-    letterSpacing: '0.02em',
+    fontSize: '0.9rem',
   }}>
-    <div className="pulse" style={{ marginRight: '0.75rem', width: '8px', height: '8px', borderRadius: '50%', background: 'var(--indigo, #4f46e5)' }}></div>
-    Initializing module...
+    Loading...
   </div>
 );
 
@@ -52,7 +49,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
         backgroundColor: 'var(--bg-main)',
         color: 'var(--text-secondary)'
       }}>
-        <div className="pulse" style={{ marginRight: '1rem' }}></div>
         Loading session...
       </div>
     );

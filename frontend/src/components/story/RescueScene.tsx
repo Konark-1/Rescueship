@@ -34,7 +34,7 @@ export default function RescueScene({ progress }: { progress: MotionValue<number
     <motion.div className="scene scene--rescue" style={{ opacity: fadeOut }}>
       <div className="rescue-layout">
         <motion.div className="rescue-title" style={{ opacity: titleP }}>
-          <p className="scene-label scene-label--indigo">RescueShip Engine • Activated</p>
+          <p className="scene-label scene-label--indigo">Automated WhatsApp Recovery</p>
           <h2><em className="serif">90 seconds</em> later,<br />your customer gets this:</h2>
         </motion.div>
 

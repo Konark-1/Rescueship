@@ -125,7 +125,7 @@ const RegisterPage: React.FC = () => {
       features={features}
     >
       <h2>Create account</h2>
-      <p className="auth-sub">Spin up your rescue engine</p>
+      <p className="auth-sub">Get started with automated NDR recovery</p>
       {error && !googlePrompt && <div className="error-message">{error}</div>}
 
       {googlePrompt && (

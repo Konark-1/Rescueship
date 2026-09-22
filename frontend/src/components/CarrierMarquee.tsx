@@ -14,15 +14,15 @@ const INTEGRATIONS: Carrier[] = [
   { name: 'WooCommerce', type: 'platform', latency: 'Direct', badge: 'REST v3', desc: 'Live order webhooks & status sync' },
   { name: 'WhatsApp Cloud API', type: 'platform', latency: '< 90s', badge: 'Meta WABA', desc: '1-tap interactive customer prompts' },
   { name: 'Razorpay & Cashfree', type: 'platform', latency: 'Instant', badge: 'UPI Intent', desc: 'COD-to-Prepaid conversion links' },
-  { name: 'Universal Webhook API', type: 'platform', latency: '< 5ms', badge: 'REST JSON', desc: 'Custom courier & ERP intercept mesh' },
+  { name: 'Universal Webhook API', type: 'platform', latency: '< 5ms', badge: 'REST JSON', desc: 'Custom courier & ERP webhooks' },
 ];
 
 export function CarrierMarquee() {
   return (
     <section className="rs-mesh" aria-label="Supported Carriers and Commerce Integrations">
       <div className="rs-mesh__header">
-        <span className="rs-mesh__kicker">autonomous intercept mesh</span>
-        <h3 className="rs-mesh__title">Direct webhook listeners for India’s logistics fleet</h3>
+        <span className="rs-mesh__kicker">Supported Integrations</span>
+        <h3 className="rs-mesh__title">Direct connections with India’s leading logistics network</h3>
         <p className="rs-mesh__sub">
           RescueShip connects directly to India’s courier APIs (Shiprocket, Delhivery, ClickPost for Blue Dart/Shadowfax), commerce platforms (Shopify, WooCommerce), WhatsApp Cloud API, and UPI gateways.
         </p>

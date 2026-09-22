@@ -164,15 +164,10 @@ export default function SandboxPage() {
 
   return (
     <div className="sb">
-      <div className="sb-grid-bg" aria-hidden="true" />
-      <div className="sb-grain" aria-hidden="true" />
-      <div className="sb-scan" aria-hidden="true" />
-
       {/* Header */}
       <header className="sb-top">
         <Link to="/dashboard" className="sb-back">← Dashboard</Link>
         <h1 className="sb-title">Sandbox & Safety</h1>
-        <span className="sb-top__tag">test deck</span>
       </header>
 
       <div className="sb-body">

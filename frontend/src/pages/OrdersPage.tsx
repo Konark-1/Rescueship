@@ -87,9 +87,8 @@ export const OrdersPage: React.FC = () => {
       {/* Page head */}
       <header className="page-head">
         <div>
-          <p className="page-head__kicker">02 · Fleet registry</p>
-          <h1 className="page-head__title">Order <em>manifest</em></h1>
-          <p className="page-head__sub">Every shipment, its live rescue state, and the interception timeline.</p>
+          <h1 className="page-head__title">Orders</h1>
+          <p className="page-head__sub">Monitor shipments, track delivery exceptions, and view recovery progress.</p>
         </div>
         <div className="page-head__actions">
           <ExportButton exportType="orders" label="Export orders" />
@@ -107,7 +106,7 @@ export const OrdersPage: React.FC = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="form-control"
-            style={{ flex: 1, minWidth: '220px', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}
+            style={{ flex: 1, minWidth: '220px', fontSize: '0.88rem' }}
           />
           <TabPill
             tabs={statuses.map(s => ({
@@ -124,13 +123,13 @@ export const OrdersPage: React.FC = () => {
       {/* Table */}
       <div className="panel">
         <div className="panel__head">
-          <span className="panel__title"><i aria-hidden="true" />Shipments</span>
+          <span className="panel__title">Shipments</span>
           <span className="panel__aside">page {page}</span>
         </div>
 
         {loading ? (
-          <div style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-3)' }}>
-            <span className="pulse" /> fetching manifest…
+          <div style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            Loading orders…
           </div>
         ) : (
           <div className="table-container" tabIndex={0} aria-label="Orders table">
@@ -168,10 +167,7 @@ export const OrdersPage: React.FC = () => {
                       <td className="td-main">{order.customerName}</td>
                       <td className="mono" style={{ fontSize: '0.8rem' }}>{order.phone}</td>
                       <td>
-                        <span className={`badge ${getStatusBadge(order.status)}`} style={{ position: 'relative' }}>
-                          {order.status.toLowerCase() === 'ndr initiated' && (
-                            <span className="pulse" style={{ position: 'absolute', top: '-4px', right: '-4px', width: '6px', height: '6px' }} />
-                          )}
+                        <span className={`badge ${getStatusBadge(order.status)}`}>
                           {order.status}
                         </span>
                       </td>

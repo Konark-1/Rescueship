@@ -122,9 +122,8 @@ export default function TemplatesPage() {
     <div className="page">
       <header className="page-head">
         <div>
-          <p className="page-head__kicker">04 · Messaging</p>
-          <h1 className="page-head__title">WhatsApp <em>templates</em></h1>
-          <p className="page-head__sub">Meta-approved messages your rescue engine fires at failed deliveries.</p>
+          <h1 className="page-head__title">WhatsApp Templates</h1>
+          <p className="page-head__sub">Meta-approved message templates used for automated delivery recovery.</p>
         </div>
         <div className="page-head__actions" style={{ display: 'flex', gap: 'var(--space-2)' }}>
           <button className="btn btn-ghost" onClick={fetchTemplates} disabled={loading} aria-label="Refresh templates">

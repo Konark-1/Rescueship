@@ -158,16 +158,6 @@
 
 .app-nav-label { flex: 1; }
 
-.app-nav-idx {
-  font-family: var(--font-mono);
-  font-size: 0.62rem;
-  color: var(--text-3);
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-.app-nav-link:hover .app-nav-idx,
-.app-nav-link--active .app-nav-idx { opacity: 1; }
-
 /* User panel */
 .app-user-panel {
   padding: var(--space-4) var(--space-5);
@@ -257,46 +247,20 @@
 }
 
 .app-header__crumb {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
 }
-.app-header__crumb-root { color: var(--text-3); }
-.app-header__crumb-sep { color: var(--indigo-soft); }
-.app-header__crumb-page { color: var(--text-1); font-weight: 500; }
-.app-header__crumb-page::first-letter { text-transform: lowercase; }
+.app-header__crumb-root { color: var(--text-3); font-weight: 500; }
+.app-header__crumb-sep { color: var(--text-3); opacity: 0.6; }
+.app-header__crumb-page { color: var(--text-1); font-weight: 600; }
 
 .app-header-actions { display: flex; align-items: center; gap: var(--space-3); }
 
-.app-engine-chip { color: var(--emerald); }
-.app-engine-chip i { animation: lp-pulse 2s ease-in-out infinite; }
-@keyframes lp-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--emerald-30); }
-  50% { opacity: 0.5; box-shadow: 0 0 0 3px var(--emerald-10); }
-}
-
-/* ── Content viewport w/ ambient console layers ── */
+/* ── Content viewport ── */
 .app-content { flex: 1; min-width: 0; position: relative; }
-
-.app-ambient { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-
-.app-ambient__grid {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(var(--white-02) 1px, transparent 1px),
-    linear-gradient(90deg, var(--white-02) 1px, transparent 1px);
-  background-size: 46px 46px;
-  mask-image: radial-gradient(110% 70% at 50% 0%, #000 20%, transparent 75%);
-  -webkit-mask-image: radial-gradient(110% 70% at 50% 0%, #000 20%, transparent 75%);
-}
-
-.app-ambient__orb { position: absolute; border-radius: var(--radius-full); filter: blur(90px); opacity: 0.5; }
-.app-ambient__orb--1 { top: -140px; left: 12%; width: 420px; height: 300px; background: radial-gradient(circle, var(--indigo-12), transparent 70%); }
-.app-ambient__orb--2 { top: 30%; right: -10%; width: 380px; height: 380px; background: radial-gradient(circle, var(--emerald-06), transparent 70%); }
 
 .app-content__inner {
   position: relative;
@@ -312,5 +276,4 @@
   .app-main-wrap { margin-left: 0; }
   .app-header { padding: 0 var(--space-4); }
   .app-content__inner { padding: var(--space-5) var(--space-4); }
-  .app-engine-chip { display: none; }
 }

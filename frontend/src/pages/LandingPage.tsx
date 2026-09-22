@@ -13,17 +13,16 @@ import {
 import { CarrierMarquee } from '../components/CarrierMarquee';
 import { SpotlightCard } from '../components/SpotlightCard';
 import { AiAddressDecoder } from '../components/AiAddressDecoder';
-import { TelemetryDrawer } from '../components/TelemetryDrawer';
 import './landing.css';
 
 /* ═══ BOOT SEQUENCE ═══ */
 const BOOT_LINES = [
-  { text: '⚓ rescueship v2.4 — autonomous recovery engine', cls: 'brand' },
-  { text: '› binding webhook listeners ………… ✓', cls: 'ok' },
-  { text: '› connecting carrier APIs ………… ✓', cls: 'ok' },
-  { text: '› loading rescue templates ………… ✓', cls: 'ok' },
-  { text: '› arming intercept pipeline ………… ✓', cls: 'ok' },
-  { text: '✓ system ready — watching for NDRs', cls: 'ready' },
+  { text: 'RescueShip NDR Recovery System', cls: 'brand' },
+  { text: '› connecting courier webhooks ………… ✓', cls: 'ok' },
+  { text: '› syncing carrier APIs ………… ✓', cls: 'ok' },
+  { text: '› loading WhatsApp templates ………… ✓', cls: 'ok' },
+  { text: '› automated recovery pipeline ready ………… ✓', cls: 'ok' },
+  { text: '✓ system active — monitoring deliveries', cls: 'ready' },
 ];
 
 /* ═══ SIMULATED RESCUE FEED — Indian couriers & webhooks ═══ */
@@ -366,7 +365,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       <div className="lp-wa__body" ref={bodyRef}>
         <div className="lp-wa__spacer" aria-hidden="true" />
         {!active && (
-          <div className="lp-wa__idle"><span>⚓</span><p>rescue engine arming…</p></div>
+          <div className="lp-wa__idle"><span>⚓</span><p>Initializing demo…</p></div>
         )}
         {active && log.map(renderItem)}
         {active && typing && (
@@ -417,7 +416,6 @@ export default function LandingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [telemetryOpen, setTelemetryOpen] = useState(false);
 
   useEffect(() => {
     let r = false;
@@ -775,22 +773,7 @@ export default function LandingPage() {
             )}
           </div>
         </div>
-
-        {/* Telemetry Forensic Drawer Trigger Button */}
-        <div className="lp-board__foot">
-          <button
-            type="button"
-            className="lp-board__inspect-btn"
-            onClick={() => setTelemetryOpen(true)}
-            aria-label="Inspect live MongoDB webhook telemetry and audit logs"
-          >
-            <span>⌥</span> Inspect Webhook Telemetry &amp; Audit Stream
-          </button>
-        </div>
       </section>
-
-      {/* FORENSIC TELEMETRY DRAWER (shadcn Sheet style) */}
-      <TelemetryDrawer isOpen={telemetryOpen} onClose={() => setTelemetryOpen(false)} />
 
       {/* COST / LEDGER */}
       <section className="lp-cost">

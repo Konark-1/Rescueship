@@ -75,9 +75,8 @@ rs.messages.send(
 
       <header className="page-head">
         <div>
-          <p className="page-head__kicker">07 · Integrations</p>
-          <h1 className="page-head__title">Developer <em>API</em></h1>
-          <p className="page-head__sub">Wire RescueShip into your stack — REST API, webhooks and SDKs.</p>
+          <h1 className="page-head__title">API Documentation</h1>
+          <p className="page-head__sub">Integrate RescueShip into your stack — REST API, webhooks, and SDKs.</p>
         </div>
       </header>
 

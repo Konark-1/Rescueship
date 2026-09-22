@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingBag, Settings, MessageSquare,
-  CreditCard, FileText, LogOut, Menu, X, Zap, Code
+  CreditCard, FileText, LogOut, Menu, X, Code
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import '../styles/app.css';
@@ -54,16 +54,10 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [showToast, setShowToast] = useState(false);
 
   const handleLogout = () => {
     logout();
     navigate('/login');
-  };
-
-  const handleQuickAction = () => {
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
   };
 
   const currentPage = NAV_SECTIONS.flatMap((s) => s.items).find((i) => i.path === location.pathname);
@@ -112,7 +106,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           <span className="app-brand-icon" aria-hidden="true">⚓</span>
           <span className="app-brand-info">
             <span className="app-brand-title">RescueShip</span>
-            <span className="app-brand-subtitle">NDR · RTO COMMAND</span>
+            <span className="app-brand-subtitle">NDR &amp; RTO Recovery</span>
           </span>
         </Link>
 
@@ -121,7 +115,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           {NAV_SECTIONS.map((section) => (
             <div className="app-nav-section" key={section.label}>
               <p className="app-nav-section__label">{section.label}</p>
-              {section.items.map((item, idx) => {
+              {section.items.map((item) => {
                 const isActive = location.pathname === item.path;
                 return (
                   <Link
@@ -139,7 +133,6 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                     )}
                     <span className="app-nav-icon">{item.icon}</span>
                     <span className="app-nav-label">{item.name}</span>
-                    <span className="app-nav-idx">{String(idx + 1).padStart(2, '0')}</span>
                   </Link>
                 );
               })}
@@ -172,42 +165,22 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <div className="app-main-wrap">
         <header className="app-header">
           <div className="app-header__crumb">
-            <span className="app-header__crumb-root">rescueship</span>
-            <span className="app-header__crumb-sep" aria-hidden="true">//</span>
-            <span className="app-header__crumb-page">{currentPage?.name || 'console'}</span>
+            <span className="app-header__crumb-root">RescueShip</span>
+            <span className="app-header__crumb-sep" aria-hidden="true">/</span>
+            <span className="app-header__crumb-page">{currentPage?.name || 'Dashboard'}</span>
           </div>
 
           <div className="app-header-actions">
-            <span className="chip app-engine-chip">
-              <i aria-hidden="true" />
-              core engine · active
-            </span>
-            <button
-              type="button"
-              onClick={handleQuickAction}
-              className="btn btn-primary btn-sm"
-            >
-              <Zap size={14} aria-hidden="true" /> Scan NDRs
-            </button>
+            <Link to="/settings" className="btn btn-ghost btn-sm">
+              Settings
+            </Link>
           </div>
         </header>
 
         <main className="app-content" id="main-content">
-          <div className="app-ambient" aria-hidden="true">
-            <div className="app-ambient__grid" />
-            <div className="app-ambient__orb app-ambient__orb--1" />
-            <div className="app-ambient__orb app-ambient__orb--2" />
-          </div>
           <div className="app-content__inner">{children}</div>
         </main>
       </div>
-
-      {showToast && (
-        <div className="toast-notification" role="status" aria-live="polite">
-          <Zap size={18} color="var(--indigo)" aria-hidden="true" />
-          <span>Quick NDR scan initiated — checking active orders…</span>
-        </div>
-      )}
     </div>
   );
 };

@@ -97,8 +97,8 @@ export const SettingsPage: React.FC = () => {
     return (
       <div className="page">
         <div className="panel">
-          <div className="panel__body" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', color: 'var(--text-3)', fontFamily: 'var(--font-mono)', fontSize: '0.82rem' }}>
-            <span className="pulse" /> loading configuration…
+          <div className="panel__body" style={{ display: 'flex', alignItems: 'center', color: 'var(--text-3)', fontSize: '0.9rem' }}>
+            Loading settings…
           </div>
         </div>
       </div>
@@ -110,13 +110,12 @@ export const SettingsPage: React.FC = () => {
 
       <header className="page-head">
         <div>
-          <p className="page-head__kicker">03 · Configuration</p>
-          <h1 className="page-head__title">System <em>settings</em></h1>
-          <p className="page-head__sub">Integrations, credentials and the behavior of the rescue engine.</p>
+          <h1 className="page-head__title">Settings</h1>
+          <p className="page-head__sub">Manage store integrations, credentials, and automated recovery preferences.</p>
         </div>
         <div className="page-head__actions">
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : 'Save configuration'}
+            {saving ? 'Saving…' : 'Save settings'}
           </button>
         </div>
       </header>
@@ -126,7 +125,7 @@ export const SettingsPage: React.FC = () => {
         <div className="alert__main">
           <Activity size={20} color={globalPause ? 'var(--rose)' : 'var(--emerald)'} />
           <div>
-            <p className="alert__title">{globalPause ? 'Emergency pause active' : 'Automation engine running'}</p>
+            <p className="alert__title">{globalPause ? 'Emergency pause active' : 'Automated recovery active'}</p>
             <p className="alert__text">
               {globalPause
                 ? 'All WhatsApp messages and carrier API updates are halted.'
@@ -199,7 +198,7 @@ export const SettingsPage: React.FC = () => {
             )}
 
             {activeTab === 'features' && (
-              <TabSection key="features" title="Feature toggles" desc="Global behavior switches for the rescue engine.">
+              <TabSection key="features" title="Feature toggles" desc="Global automation rules and recovery switches.">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                   <label className="toggle-row">
                     <input

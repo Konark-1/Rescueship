@@ -72,12 +72,12 @@ const LoginPage: React.FC = () => {
 
   return (
     <AuthLayout
-      title="Back on deck."
-      accent=" Rescues resumed."
-      subtitle="Real-time NDR monitoring and autonomous revenue recovery, right where you left it."
+      title="Welcome back."
+      accent=" Streamline your recovery."
+      subtitle="Real-time NDR monitoring and automated revenue recovery for your store."
     >
       <h2>Sign in</h2>
-      <p className="auth-sub">Access your command deck</p>
+      <p className="auth-sub">Sign in to your account</p>
       {error && !googlePrompt && <div className="error-message">{error}</div>}
 
       {googlePrompt && (
@@ -157,7 +157,7 @@ const LoginPage: React.FC = () => {
           disabled={loading}
           whileTap={{ scale: 0.98 }}
         >
-          {loading ? 'Authenticating…' : 'Enter command deck'}
+          {loading ? 'Signing in…' : 'Sign In'}
         </motion.button>
       </form>
       <div className="auth-links">
