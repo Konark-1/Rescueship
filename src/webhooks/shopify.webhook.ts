@@ -175,6 +175,31 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
 
     const externalOrderId = String(body.id);
 
+    // Auto-reconcile any quarantined shipments matching fulfillments in this order
+    if (Array.isArray(body.fulfillments)) {
+      for (const f of body.fulfillments) {
+        const awb = f.tracking_number || (f.tracking_numbers && f.tracking_numbers[0]);
+        if (awb) {
+          try {
+            const { Shipment } = require('../models');
+            const quarantined = await Shipment.findOne({ merchantId, awbNumber: awb });
+            if (quarantined) {
+              quarantined.shopifyOrderId = externalOrderId;
+              quarantined.orderNumber = String(body.order_number || body.name || externalOrderId);
+              if (quarantined.isQuarantined) {
+                quarantined.isQuarantined = false;
+                quarantined.quarantineReason = null;
+              }
+              await quarantined.save();
+              logger.info('Auto-reconciled quarantined shipment on Shopify order arrival', { awb, externalOrderId });
+            }
+          } catch (shipmentReconcileErr: any) {
+            logger.warn('Failed to auto-reconcile quarantined shipment', { error: shipmentReconcileErr?.message });
+          }
+        }
+      }
+    }
+
     await codConversionQueue.add(
       'convert-cod',
       {

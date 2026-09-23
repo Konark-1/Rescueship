@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { config } from '../config/env';
-import { Merchant, Order, AuditLog, BillingEvent, NdrCase, DeliveryAttempt } from '../models';
+import { Merchant, Order, AuditLog, BillingEvent, NdrCase, DeliveryAttempt, RescueLedger } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { logisticsService } from './logistics.service';
 import { encryptionService } from './encryption.service';
@@ -12,7 +12,6 @@ import { getMessages, translateReason } from '../i18n/messages';
 import { realtimeService } from './realtime.service';
 import { logger } from '../utils/logger';
 import { getPolicy, RescuePolicy } from '../config/rescue-policy';
-import { RescueLedger } from '../models/RescueLedger';
 import { recordOutbound } from './whatsapp-cost.service';
 import { COPY } from '../i18n/customer-copy';
 import { addressCorrectionService, LocationData } from './address-correction.service';
@@ -144,6 +143,11 @@ export class NDRService {
         }
       }
 
+      if (order && ['delivered', 'returned', 'cancelled', 'lost', 'rto'].includes(order.status as any)) {
+        logger.info('Order is already in terminal state, skipping NDR event', { orderId: order._id, status: order.status, awb: ndrData.awb });
+        return;
+      }
+
       const isFake = this.detectFakeAttempt(order, ndrData);
 
       // HIGH-4 fix: Atomic status transition — prevents duplicate rescue messages
@@ -158,8 +162,8 @@ export class NDRService {
         isFakeAttempt: isFake,
       };
 
-      const updated = await Order.findOneAndUpdate(
-        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'ndr_rescued'] } },
+      const updated: any = await (Order as any).findOneAndUpdate(
+        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'ndr_rescued', 'delivered', 'returned', 'cancelled', 'rto', 'lost'] } },
         { $set: { status: 'ndr_detected', awb: ndrData.awb, carrier: ndrData.carrier, ndr: ndrPayload } },
         { new: true }
       );
@@ -171,6 +175,10 @@ export class NDRService {
 
       // Refresh order reference for downstream use
       order = updated;
+      if (!order) return;
+      if (!order.customerPhone && ndrData.phone) {
+        order.customerPhone = ndrData.phone;
+      }
 
       // Persist first-class NdrCase record
       try {
@@ -179,6 +187,7 @@ export class NDRService {
           merchantId: merchant._id,
           awb: ndrData.awb,
           externalOrderId: order.externalOrderId,
+          customerPhone: order.customerPhone,
           failureReason: ndrData.reason,
           failureCategory: this.classifyRemark(ndrData.reason),
           whatsappMessageSentAt: new Date(),
@@ -228,13 +237,22 @@ export class NDRService {
       }
     }
 
+    order.ndr = order.ndr || {};
+    const saveOrder = async () => {
+      if (typeof order.save === 'function') {
+        await order.save();
+      } else if (order._id) {
+        await Order.findByIdAndUpdate(order._id, { $set: { status: order.status, ndr: order.ndr } });
+      }
+    };
+
     const policy = getPolicy(merchant.rescuePolicy);
     const score = this.fakeRemarkScore(order);
     order.ndr.fakeRemarkScore = score;
 
     if (policy.engage.respectMerchantManualResolve && this.merchantAlreadyResolved(order)) {
       order.ndr.decisionMode = 'manual_skip';
-      await order.save();
+      await saveOrder();
       await RescueLedger.recordDecision({
         merchantId: order.merchantId,
         orderId: order._id,
@@ -250,7 +268,7 @@ export class NDRService {
       order.ndr.holdout = true;
       order.ndr.holdoutReason = 'pilot_control_group';
       order.ndr.decisionMode = 'holdout';
-      await order.save();
+      await saveOrder();
       await RescueLedger.recordDecision({
         merchantId: order.merchantId,
         orderId: order._id,
@@ -266,7 +284,7 @@ export class NDRService {
     if (policy.reviewMode.enabled && this.shouldHoldForReview(order, policy)) {
       order.ndr.decisionMode = 'review';
       order.status = 'ndr_pending_review';
-      await order.save();
+      await saveOrder();
       await RescueLedger.recordDecision({
         merchantId: order.merchantId,
         orderId: order._id,
@@ -286,7 +304,7 @@ export class NDRService {
 
     order.ndr.decisionMode = 'engaged';
     order.status = 'ndr_rescue_sent';
-    await order.save();
+    await saveOrder();
 
     try {
       // Business-initiated message MUST be a Meta-approved template (error 131047 otherwise).
@@ -367,62 +385,26 @@ export class NDRService {
   }
 
   private async sendVerifyRescue(order: any, merchant: any): Promise<void> {
-    // MED-6 fix: Deduct credit before sending. Refund if message delivery fails.
-    const creditDeducted = await Merchant.updateOne(
-      { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
-      { $inc: { 'billing.rescueCredits': -1 } }
-    );
-    if (creditDeducted.modifiedCount === 0) {
-      logger.warn('Insufficient rescue credits to send verify rescue', { merchantId: merchant._id });
-      return;
-    }
+    const { whatsAppDispatcherService } = require('./whatsapp/whatsapp-dispatcher.service');
+    const category = this.classifyRemark(order.ndr?.reason || '');
+    const name = order.customerName || 'Customer';
+    const orderId = String(order.externalOrderId || '');
 
-    try {
-      const language = merchant.settings?.ndrRescue?.messageLanguage || 'en';
-      const name = order.customerName || 'Customer';
-      const orderId = String(order.externalOrderId || '');
+    const dispatchResult = await whatsAppDispatcherService.dispatchNdrRescue({
+      merchantId: merchant._id.toString(),
+      orderId: order._id.toString(),
+      phone: order.customerPhone,
+      category,
+      variables: {
+        customerName: name,
+        externalOrderId: orderId,
+        codAmount: String(order.orderValue || 0),
+      },
+      order,
+    });
 
-      // `ndr_rescue_en` is the registered utility template with the built-in quick-reply
-      // buttons ("Yes I'm home", "Reschedule", "Share location", "Cancel order"). Business-
-      // initiated rescue prompts must go out as this template — not as a free-form message.
-      const waConfig = this.getWaConfig(merchant);
-      await whatsAppService.sendTemplate(
-        order.customerPhone,
-        'ndr_rescue_en',
-        language,
-        [
-          {
-            type: 'body',
-            parameters: [
-              { type: 'text', text: name },
-              { type: 'text', text: orderId },
-            ],
-          },
-        ],
-        waConfig
-      );
-
-      await recordOutbound({
-        orderId: order._id.toString(),
-        merchantId: order.merchantId.toString(),
-        templateName: 'ndr_rescue_en',
-        body: `Verify delivery of order #${orderId} so we can get it to you.`,
-        hasDiscount: false,
-      });
-
-      await BillingEvent.create({
-        merchantId: merchant._id,
-        eventType: 'whatsapp_template_sent',
-        orderId: order._id,
-        creditsCost: 1,
-      });
-    } catch (err: any) {
-      // Refund credit on send failure
-      await Merchant.updateOne(
-        { _id: merchant._id },
-        { $inc: { 'billing.rescueCredits': 1 } }
-      );
-      throw err;
+    if (!dispatchResult.success && !dispatchResult.suppressed) {
+      throw new Error(dispatchResult.error || 'WhatsApp dispatch failed');
     }
   }
 
@@ -526,12 +508,20 @@ export class NDRService {
 
           if (result.success) {
             order.status = 'ndr_rescued';
+            const ndrUpdate: Record<string, any> = { status: 'ndr_rescued' };
             if (order.ndr) {
               order.ndr.customerResponse = 'reschedule';
               order.ndr.resolvedAt = new Date();
               order.ndr.resolution = 'rescheduled';
+              ndrUpdate['ndr.customerResponse'] = 'reschedule';
+              ndrUpdate['ndr.resolvedAt'] = new Date();
+              ndrUpdate['ndr.resolution'] = 'rescheduled';
             }
-            await order.save();
+            if (typeof (order as any).save === 'function') {
+              await (order as any).save();
+            } else {
+              await Order.findByIdAndUpdate(order._id, { $set: ndrUpdate });
+            }
 
             await this.cancelEscalationJobs(order, merchant);
 

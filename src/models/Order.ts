@@ -24,6 +24,7 @@ export interface IOrder extends Document {
     | 'returned'
     | 'cancelled';
   outForDeliveryAt?: Date | null;
+  lastEventTimestamp?: Date | null;
   awb?: string | null;
   carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | null;
   paymentLinkId?: string | null;
@@ -96,6 +97,7 @@ const OrderSchema = new Schema<IOrder>(
     },
     awb: { type: String, default: null, index: true },
     outForDeliveryAt: { type: Date, default: null },
+    lastEventTimestamp: { type: Date, default: null },
     carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', null], default: null },
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },

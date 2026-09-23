@@ -14,7 +14,7 @@
  */
 
 import { Collection } from 'mongodb';
-import { Order, Merchant, AuditLog, BillingEvent, ProcessedPayment } from './index';
+import { Order, Merchant, AuditLog, BillingEvent, ProcessedPayment, Shipment, NdrCase, MessageLog } from './index';
 import { logger } from '../utils/logger';
 
 type IndexSpec = {
@@ -148,6 +148,33 @@ export async function ensureIndexes(): Promise<void> {
       { keys: { merchantId: 1, timestamp: -1 }, options: { name: 'idx_billing_merchant_ts' }, replaces: ['idx_billing_merchant_created'] },
     ]);
     await dropIfExists(BillingEvent.collection as any, 'merchantId_1_eventType_1'); // prefix of the above
+
+    // ─── Shipment ───
+    if (Shipment?.collection) {
+      await run(Shipment.collection as any, [
+        { keys: { merchantId: 1, awbNumber: 1 }, options: { name: 'idx_shipment_merchant_awb_unique', unique: true } },
+        { keys: { merchantId: 1, orderId: 1 }, options: { name: 'idx_shipment_merchant_order' } },
+        { keys: { isQuarantined: 1, createdAt: -1 }, options: { name: 'idx_shipment_quarantine' } },
+      ]);
+    }
+
+    // ─── NdrCase ───
+    if (NdrCase?.collection) {
+      await run(NdrCase.collection as any, [
+        { keys: { merchantId: 1, awb: 1, status: 1 }, options: { name: 'idx_ndr_merchant_awb_status' } },
+        { keys: { merchantId: 1, customerPhone: 1, status: 1 }, options: { name: 'idx_ndr_merchant_phone_status' } },
+        { keys: { status: 1, createdAt: -1 }, options: { name: 'idx_ndr_status_created' } },
+      ]);
+    }
+
+    // ─── MessageLog ───
+    if (MessageLog?.collection) {
+      await run(MessageLog.collection as any, [
+        { keys: { metaMessageId: 1 }, options: { name: 'idx_messagelog_meta_unique', unique: true, sparse: true } },
+        { keys: { merchantId: 1, customerPhone: 1, createdAt: -1 }, options: { name: 'idx_messagelog_merchant_phone_created' } },
+        { keys: { direction: 1, createdAt: -1 }, options: { name: 'idx_messagelog_dir_created' } },
+      ]);
+    }
 
     if (failures === 0) logger.info('✅ All MongoDB indexes ensured successfully');
     else logger.warn(`MongoDB indexes ensured with ${failures} non-fatal failure(s) — see errors above`);

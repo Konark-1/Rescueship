@@ -3,6 +3,7 @@ import { ndrRescueWorker } from './ndrRescue.job';
 import { whatsappSendWorker } from './whatsappSend.job';
 import { escalationWorker } from './escalation.job';
 import { deadLetterWorker } from './deadLetter.job';
+import { ndrLifecycleWorker, scheduleNdrLifecycle } from './ndr-lifecycle.job';
 import { setupMonthlyResetWorker, scheduleMonthlyReset } from './monthlyReset.job';
 import { setupReconciliationWorker, scheduleReconciliation } from './reconciliation.job';
 import { logger } from '../utils/logger';
@@ -14,6 +15,7 @@ export * from './escalation.job';
 export * from './deadLetter.job';
 export * from './monthlyReset.job';
 export * from './reconciliation.job';
+export * from './ndr-lifecycle.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
@@ -34,6 +36,7 @@ export function startAllWorkers(): void {
     whatsappSendWorker,
     escalationWorker,
     deadLetterWorker,
+    ndrLifecycleWorker,
     monthlyResetWorker,
     reconciliationWorker,
   ].filter(Boolean);
@@ -55,6 +58,10 @@ export function startAllWorkers(): void {
     logger.error('Failed to schedule daily outcome reconciliation cron job', { error: err.message });
   });
 
+  scheduleNdrLifecycle().catch((err) => {
+    logger.error('Failed to schedule repeatable NDR lifecycle reconciliation job', { error: err.message });
+  });
+
   logger.info('✅  All BullMQ workers running');
 }
 
@@ -71,6 +78,7 @@ export async function stopAllWorkers(): Promise<void> {
     whatsappSendWorker.close(),
     escalationWorker.close(),
     deadLetterWorker.close(),
+    ndrLifecycleWorker.close(),
     monthlyResetWorker.close(),
     reconciliationWorker.close(),
   ]);

@@ -3,6 +3,7 @@
  * Handles format: +91-9876543210, 09876543210, 919876543210, 9876543210, +91 98765 43210, etc.
  */
 export function normalizeIndianPhone(phone: string): string {
+  if (!phone || typeof phone !== 'string') return '';
   // Remove non-digit characters
   let clean = phone.replace(/\D/g, '');
 

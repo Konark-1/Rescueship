@@ -332,7 +332,7 @@ export class OrderService {
     const expectedAmountInr = Math.max(1, order.orderValue - discount);
     const expectedPaise = Math.round(expectedAmountInr * 100);
 
-    const isNdrOrder = (order.status || '').startsWith('ndr_');
+    const isNdrOrder = (order.status || '').startsWith('ndr_') || order.status === 'rto_initiated';
     const partialAmount = (merchant as any).settings?.partialPay?.amount || 49;
     const expectedPartialPaise = Math.round(partialAmount * 100);
 
@@ -369,6 +369,7 @@ export class OrderService {
             'ndr_detected',
             'ndr_rescue_sent',
             'ndr_pending_review',
+            'rto_initiated',
             'new',
             'shipped',
           ],
@@ -406,7 +407,20 @@ export class OrderService {
 
     await this.markOrderAsPaidOnPlatform(updatedOrder, merchant);
 
-    // If order was in NDR state, trigger courier reattempt automatically
+    // Amend courier COD amount (doorstep balance update)
+    try {
+      const { codAdjustmentService } = require('./courier/cod-adjustment.service');
+      const paidInr = amountPaidPaise / 100;
+      await codAdjustmentService.adjustCodAmount({
+        orderId: updatedOrder._id.toString(),
+        paymentId: paymentLinkId,
+        paidAmountInInr: paidInr,
+      });
+    } catch (codErr: any) {
+      logger.warn('Failed to adjust COD amount with courier after payment', { error: codErr?.message });
+    }
+
+    // If order was in NDR or rto_initiated state, trigger courier reattempt automatically
     if (isNdrOrder && updatedOrder.carrier && updatedOrder.awb) {
       try {
         const { logisticsService } = require('./logistics.service');

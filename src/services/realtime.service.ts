@@ -11,7 +11,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger';
 
 export interface RealtimeEvent {
-  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted' | 'order_cancelled' | 'fake_remark_escalated';
+  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted' | 'order_cancelled' | 'fake_remark_escalated' | 'ndr_case_expired';
   merchantId: string;
   payload: Record<string, any>;
   timestamp: string;

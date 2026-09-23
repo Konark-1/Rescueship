@@ -46,6 +46,17 @@ jest.mock('../models', () => {
       recordDecision: jest.fn().mockResolvedValue({}),
       reconcileOutcomes: jest.fn().mockResolvedValue(1),
     },
+    MessageLog: {
+      create: jest.fn().mockResolvedValue({}),
+      findOne: jest.fn(),
+      countDocuments: jest.fn().mockResolvedValue(0),
+      findOneAndUpdate: jest.fn().mockResolvedValue({}),
+    },
+    Shipment: {
+      create: jest.fn().mockResolvedValue({}),
+      findOne: jest.fn(),
+      find: jest.fn(),
+    },
   };
 });
 
@@ -61,6 +72,18 @@ jest.mock('../services/geocoding.service');
 jest.mock('../services/payment.service');
 jest.mock('../services/whatsapp-cost.service', () => ({
   recordOutbound: jest.fn().mockResolvedValue({}),
+}));
+jest.mock('../config/redis', () => ({
+  redisConnection: {
+    set: jest.fn().mockResolvedValue('OK'),
+    get: jest.fn().mockResolvedValue(null),
+    del: jest.fn().mockResolvedValue(1),
+    exists: jest.fn().mockResolvedValue(0),
+    incr: jest.fn().mockResolvedValue(1),
+    expire: jest.fn().mockResolvedValue(1),
+    on: jest.fn(),
+    status: 'ready',
+  },
 }));
 jest.mock('bullmq');
 
@@ -83,6 +106,7 @@ describe('RescueShip Plan Simulation Test Suite (12 Core Test Cases)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
+    (whatsAppService.sendTemplate as jest.Mock).mockResolvedValue({ messages: [{ id: 'wamid_123' }] });
   });
 
   // Test Case 1: New COD Order

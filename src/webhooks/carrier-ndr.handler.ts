@@ -5,19 +5,19 @@
  *
  * Invariants:
  *   - The merchant is fixed by authentication BEFORE any DB lookup.
- *   - Every Order lookup is scoped by { merchantId } — an AWB or external
- *     order ID belonging to another tenant can never be matched.
+ *   - Every Order lookup is scoped by { merchantId } — cross-tenant isolation.
  *   - Idempotency keys are namespaced by provider + merchant.
- *   - Redis outage → 503 (never a silent 200 ack).
- *   - No environment-specific "first merchant" or fake-phone fallbacks.
+ *   - Terminal states (delivered, returned, cancelled, lost) strictly reject late failure events.
+ *   - Unrecognized AWBs are cleanly routed to Shipment quarantine.
  */
 import { Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import { redisConnection } from '../config/redis';
-import { Order, AuditLog, WebhookEvent, DeliveryAttempt, RescueLedger } from '../models';
+import { Order, AuditLog, WebhookEvent, DeliveryAttempt, RescueLedger, Shipment } from '../models';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
 import { authenticateCarrierWebhook, CarrierProvider } from './carrier-auth';
+import { orderStateMachineService } from '../services/state-machine/order-state-machine.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
 
@@ -49,6 +49,11 @@ export function createCarrierNdrHandler(
     const parsed = parse(req);
     if ('error' in parsed) {
       res.status(400).json({ error: parsed.error });
+      return;
+    }
+
+    if (!parsed.awb) {
+      res.status(400).json({ error: 'Missing required field: AWB' });
       return;
     }
 
@@ -102,35 +107,77 @@ export function createCarrierNdrHandler(
         order = await Order.findOne({ merchantId, externalOrderId: parsed.externalOrderId });
       }
 
-      // Handle non-NDR tracking events (OUT_FOR_DELIVERY, DELIVERED, RTO, RETURNED, etc.)
+      // ─── 2. Shipment Registry Linking & Quarantine ───
+      let shipment = await Shipment.findOne({ merchantId, awbNumber: parsed.awb });
+      if (!shipment) {
+        shipment = await Shipment.create({
+          merchantId,
+          orderId: order?._id || null,
+          awbNumber: parsed.awb,
+          carrier: provider,
+          normalizedStatus: 'awb_generated',
+          rawCarrierStatus: parsed.status,
+          isQuarantined: !order,
+          quarantineReason: !order ? 'UNKNOWN_AWB' : null,
+          quarantinedAt: !order ? new Date() : null,
+        });
+        if (!order) {
+          logger.warn(`Shipment AWB ${parsed.awb} not matched to any order — quarantined`, { merchantId, awb: parsed.awb });
+        }
+      } else {
+        shipment.rawCarrierStatus = parsed.status;
+        if (!shipment.orderId && order) {
+          shipment.orderId = order._id;
+          shipment.isQuarantined = false;
+        }
+        await shipment.save();
+      }
+
+      // ─── 3. Terminal State Rejection Guard ───
+      if (order && orderStateMachineService.isTerminal(order.status)) {
+        logger.info(`Rejecting carrier event: Order is already in terminal state '${order.status}'`, {
+          merchantId,
+          orderId: order._id,
+          awb: parsed.awb,
+          incomingStatus: parsed.status,
+        });
+        await AuditLog.create({
+          merchantId,
+          orderId: order._id,
+          action: 'terminal_state_event_ignored',
+          source: provider,
+          payload: { incomingStatus: parsed.status, terminalStatus: order.status, awb: parsed.awb },
+          status: 'success',
+        });
+        await IdempotencyGuard.markProcessed(idemKey);
+        res.status(200).json({ status: 'ignored', reason: `Order is already terminal: ${order.status}` });
+        return;
+      }
+
+      // ─── 4. Non-NDR Tracking Events (OUT_FOR_DELIVERY, DELIVERED, RTO, RETURNED, etc.) ───
       if (!parsed.isNdr) {
         logger.info(`${provider} tracking status update (non-NDR)`, { merchantId, awb: parsed.awb, status: parsed.status });
         if (order) {
           const normStatus = (parsed.status || '').toUpperCase();
+          let targetStatus: string | null = null;
+
           if (normStatus === 'OUT_FOR_DELIVERY') {
             order.outForDeliveryAt = parsed.attemptTime || new Date();
-            if (['new', 'shipped'].includes(order.status)) {
-              order.status = 'out_for_delivery';
-            }
-            await order.save();
+            targetStatus = 'out_for_delivery';
           } else if (normStatus === 'DELIVERED') {
-            order.status = 'delivered';
-            if (order.ndr) {
-              order.ndr.resolvedAt = new Date();
-              order.ndr.resolution = 'rescheduled';
-            }
-            await order.save();
-            await RescueLedger.reconcileOutcomes(merchantId.toString()).catch(() => {});
+            targetStatus = 'delivered';
           } else if (normStatus.includes('RTO_INITIATED') || normStatus === 'RTO') {
-            order.status = 'rto_initiated';
-            if (order.ndr) {
-              order.ndr.resolvedAt = new Date();
-              order.ndr.resolution = 'cancelled';
-            }
-            await order.save();
+            targetStatus = 'rto_initiated';
           } else if (normStatus === 'RETURNED') {
-            order.status = 'returned';
-            await order.save();
+            targetStatus = 'returned';
+          }
+
+          if (targetStatus && targetStatus !== order.status) {
+            await orderStateMachineService.transitionOrder(order, targetStatus, parsed.attemptTime || new Date());
+          }
+
+          if (targetStatus === 'delivered') {
+            await RescueLedger.reconcileOutcomes(merchantId.toString()).catch(() => {});
           }
         }
 
@@ -148,7 +195,7 @@ export function createCarrierNdrHandler(
         return;
       }
 
-      // Record DeliveryAttempt for failed delivery attempt
+      // ─── 5. Record DeliveryAttempt for Failed Delivery ───
       try {
         await DeliveryAttempt.create({
           merchantId,
@@ -165,6 +212,7 @@ export function createCarrierNdrHandler(
         logger.warn('Failed to record DeliveryAttempt', { error: attemptErr?.message });
       }
 
+      // ─── 6. Queue for NDR Rescue ───
       await ndrRescueQueue.add(
         'ndr-rescue',
         {
@@ -183,7 +231,7 @@ export function createCarrierNdrHandler(
           attempts: 3,
           backoff: { type: 'exponential', delay: 5000 },
           removeOnComplete: true,
-          removeOnFail: true,
+          removeOnFail: false, // DLQ: Keep failed jobs for inspection/replay
         }
       );
 

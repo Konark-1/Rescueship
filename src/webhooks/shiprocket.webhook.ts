@@ -1,6 +1,8 @@
 import { Router, Request } from 'express';
 import { createCarrierNdrHandler, safeStr, ParsedNdr } from './carrier-ndr.handler';
 
+import { normalizeCarrierStatus } from '../services/courier/shipment-status.map';
+
 const router = Router();
 
 export function parseShiprocketWebhook(req: Request): ParsedNdr | { error: string } {
@@ -10,28 +12,13 @@ export function parseShiprocketWebhook(req: Request): ParsedNdr | { error: strin
   if (!awb && !externalOrderId) return { error: 'Missing awb or order_id in payload' };
 
   const rawStatus = safeStr(body.current_status || body.status || body.current_status_id, 64);
-  const statusUpper = rawStatus.toUpperCase().replace(/\s+/g, '_');
   const remark = safeStr(body.ndr_reason || body.remark || body.reason, 256);
 
-  // Check if NDR
+  // Check if NDR via path or status mapping
   const isExplicitNdrPath = (req.path || '').includes('/ndr');
-  const isNdrStatus =
-    statusUpper.includes('UNDELIVERED') ||
-    statusUpper.includes('FAILED') ||
-    statusUpper === '9' ||
-    (statusUpper.includes('NDR') && !statusUpper.includes('RTO'));
-  const isNdr = isExplicitNdrPath || isNdrStatus || (!!remark && !statusUpper.includes('DELIVERED') && !statusUpper.includes('OUT_FOR_DELIVERY'));
-
-  let normalizedStatus = statusUpper || (isNdr ? 'UNDELIVERED' : 'IN_TRANSIT');
-  if (statusUpper.includes('OUT_FOR_DELIVERY') || statusUpper === '17') {
-    normalizedStatus = 'OUT_FOR_DELIVERY';
-  } else if (statusUpper === 'DELIVERED' || statusUpper === '7') {
-    normalizedStatus = 'DELIVERED';
-  } else if (statusUpper.includes('RTO_INITIATED') || statusUpper === 'RTO' || statusUpper === '13') {
-    normalizedStatus = 'RTO_INITIATED';
-  } else if (statusUpper.includes('RETURNED') || statusUpper.includes('RTO_DELIVERED') || statusUpper === '14') {
-    normalizedStatus = 'RETURNED';
-  }
+  const normalized = normalizeCarrierStatus('shiprocket', rawStatus, remark);
+  const isNdr = isExplicitNdrPath || normalized.isNdr;
+  const normalizedStatus = isNdr ? 'UNDELIVERED' : normalized.normalizedStatus.toUpperCase();
 
   const attemptTimeRaw = body.attempt_time || body.current_timestamp || body.scans?.[0]?.date;
   const attemptTime = attemptTimeRaw ? new Date(attemptTimeRaw) : undefined;
