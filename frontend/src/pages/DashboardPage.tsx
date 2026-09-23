@@ -20,6 +20,15 @@ interface DashboardData {
   revenueSaved: number;
   activeNdrCases: number;
   creditsRemaining: number;
+  rtoFeesSaved?: number;
+  estimatedRtoFeePerOrder?: number;
+  dashboardHeaderMessage?: string;
+  roiMultiple?: number;
+  license?: {
+    status: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
+    daysRemaining: number;
+    accessExpiresAt?: string | null;
+  };
 
   dailyConversions: { date: string; conversions: number }[];
   ndrReasons: { name: string; value: number }[];
@@ -85,6 +94,11 @@ export const DashboardPage: React.FC = () => {
             revenueSaved: apiData.revenueSaved ?? apiData.totalRevenueSaved ?? 0,
             activeNdrCases: apiData.activeNdrCases ?? 0,
             creditsRemaining: apiData.creditsRemaining ?? 0,
+            rtoFeesSaved: apiData.rtoFeesSaved ?? 0,
+            estimatedRtoFeePerOrder: apiData.estimatedRtoFeePerOrder ?? 140,
+            dashboardHeaderMessage: apiData.dashboardHeaderMessage ?? `RescueShip has saved you ₹${(apiData.rtoFeesSaved ?? 0).toLocaleString('en-IN')} in RTO fees this month.`,
+            roiMultiple: apiData.roiMultiple ?? 1,
+            license: apiData.license,
             dailyConversions: Array.isArray(apiData.dailyConversions) ? apiData.dailyConversions : [],
             ndrReasons: Array.isArray(apiData.ndrReasons) ? apiData.ndrReasons : [],
             carrierPerformance: Array.isArray(apiData.carrierPerformance) ? apiData.carrierPerformance : [],
@@ -147,6 +161,72 @@ export const DashboardPage: React.FC = () => {
           </span>
         </div>
       </header>
+
+      {/* Golden Metric Anti-Refund ROI Banner */}
+      {data && (
+        <div
+          className="fade-in-up"
+          style={{
+            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '12px',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div
+              style={{
+                width: '42px',
+                height: '42px',
+                borderRadius: '10px',
+                background: 'rgba(16, 185, 129, 0.2)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--emerald)',
+                fontSize: '1.25rem',
+                fontWeight: 700,
+                flexShrink: 0,
+              }}
+            >
+              ₹
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-1)' }}>
+                {data.dashboardHeaderMessage || `RescueShip has saved you ₹${(data.rtoFeesSaved || 0).toLocaleString('en-IN')} in RTO fees this month.`}
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-3)' }}>
+                Calculated at ₹{data.estimatedRtoFeePerOrder || 140} direct reverse-logistics shipping cost saved per rescued shipment (₹70 forward + ₹70 return).
+              </p>
+            </div>
+          </div>
+
+          {data.license && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span
+                className={`badge ${
+                  data.license.status === 'EXPIRED'
+                    ? 'badge-danger'
+                    : data.license.status === 'APPROACHING_EXPIRY'
+                    ? 'badge-warning'
+                    : 'badge-success'
+                }`}
+                style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 600 }}
+              >
+                {data.license.status === 'EXPIRED'
+                  ? '⚠️ License Expired'
+                  : `🛡️ License Active: ${data.license.daysRemaining}d Left`}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Onboarding skipped */}
       {onboardingSkipped && (

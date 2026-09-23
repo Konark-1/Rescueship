@@ -23,6 +23,14 @@ jest.mock('../../src/models', () => ({
       sort: mockSort,
     })),
   },
+  Merchant: {
+    findById: jest.fn().mockReturnValue({
+      lean: jest.fn().mockResolvedValue({
+        settings: { estimatedRtoLossPerOrder: 140 },
+        licenseStatus: 'ACTIVE',
+      }),
+    }),
+  },
 }));
 
 describe('AnalyticsService', () => {

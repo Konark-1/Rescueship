@@ -4,7 +4,7 @@
  * terminal state protection, stale timestamp rejection, and terminal reconciliation.
  */
 
-import { Order, NdrCase, AuditLog } from '../../models';
+import { Order, NdrCase, AuditLog, Merchant } from '../../models';
 import { logger } from '../../utils/logger';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../../config/redis';
@@ -155,6 +155,22 @@ export class OrderStateMachineService {
     const caseStatus = terminalStatus === 'delivered' ? 'DELIVERED' : 'CLOSED';
 
     try {
+      let rtoFeeSaved = 0;
+      if (terminalStatus === 'delivered') {
+        const order = await Order.findById(orderId);
+        if (order) {
+          const hasNdr = await NdrCase.exists({ orderId });
+          if (hasNdr || (order.status as string) === 'ndr_rescued' || order.rtoFeeSaved) {
+            const merchant = await Merchant.findById(order.merchantId);
+            rtoFeeSaved = (merchant as any)?.settings?.estimatedRtoLossPerOrder || 140;
+            if (!order.rtoFeeSaved) {
+              order.rtoFeeSaved = rtoFeeSaved;
+              await order.save();
+            }
+          }
+        }
+      }
+
       await NdrCase.updateMany(
         { orderId, status: { $in: ['OPEN', 'WAITING_CUSTOMER', 'CUSTOMER_RESPONDED', 'ADDRESS_RECEIVED', 'LOCATION_RECEIVED', 'REATTEMPT_REQUESTED'] } },
         {
@@ -162,6 +178,10 @@ export class OrderStateMachineService {
             status: caseStatus,
             outcome: caseOutcome,
             closedAt: new Date(),
+            ...(terminalStatus === 'delivered' && rtoFeeSaved > 0 && {
+              rtoFeeSaved,
+              estimatedLossPrevented: rtoFeeSaved,
+            }),
           },
         }
       );

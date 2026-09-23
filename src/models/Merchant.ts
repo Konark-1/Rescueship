@@ -62,7 +62,12 @@ export interface IMerchant extends Document {
       maxOrderValue?: number;
       messageApprovedByMerchant?: boolean;
     };
+    estimatedRtoLossPerOrder?: number;
   };
+  accessGrantedAt?: Date;
+  accessExpiresAt?: Date;
+  licenseStatus?: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
+  licensePlan?: '90_day_license' | 'annual_license' | 'custom';
   billing: {
     plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'enterprise';
     billingCycle?: 'quarterly' | 'semi' | 'semi_annual' | 'annual';
@@ -229,6 +234,20 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         maxOrderValue: { type: Number, default: 5000 },
         messageApprovedByMerchant: { type: Boolean, default: false },
       },
+      estimatedRtoLossPerOrder: { type: Number, default: 140 },
+    },
+    accessGrantedAt: { type: Date, default: null },
+    accessExpiresAt: { type: Date, default: null, index: true },
+    licenseStatus: {
+      type: String,
+      enum: ['TRIAL', 'ACTIVE', 'APPROACHING_EXPIRY', 'EXPIRED'],
+      default: 'TRIAL',
+      index: true,
+    },
+    licensePlan: {
+      type: String,
+      enum: ['90_day_license', 'annual_license', 'custom'],
+      default: '90_day_license',
     },
     billing: {
       type: {

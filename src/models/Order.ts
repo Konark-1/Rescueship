@@ -29,6 +29,7 @@ export interface IOrder extends Document {
   carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | null;
   paymentLinkId?: string | null;
   paymentLinkUrl?: string | null;
+  rtoFeeSaved?: number;
   codConversion?: {
     messageSentAt?: Date | null;
     incentiveOffered?: number;
@@ -101,6 +102,7 @@ const OrderSchema = new Schema<IOrder>(
     carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', null], default: null },
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },
+    rtoFeeSaved: { type: Number, default: 0 },
     codConversion: {
       messageSentAt: { type: Date, default: null },
       incentiveOffered: { type: Number, default: 0 },

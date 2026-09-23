@@ -1,5 +1,5 @@
 import { Types, PipelineStage } from 'mongoose';
-import { Order } from '../models';
+import { Order, Merchant } from '../models';
 import { logger } from '../utils/logger';
 
 export interface DateRange {
@@ -42,6 +42,16 @@ export interface DashboardData {
   carrierPerformance: CarrierStats[];
   carrierBreakdown?: CarrierStats[]; // Backward compatibility alias
   recentOrders: RecentOrder[];
+  rtoFeesSaved: number;
+  estimatedRtoFeePerOrder: number;
+  dashboardHeaderMessage: string;
+  roiMultiple: number;
+  license?: {
+    status: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
+    accessGrantedAt: Date | null;
+    accessExpiresAt: Date | null;
+    daysRemaining: number;
+  };
 }
 
 export class AnalyticsService {
@@ -147,6 +157,23 @@ export class AnalyticsService {
         ? summary.revenueSaved
         : (totalRescuedAndConverted * 430);
 
+      // Compute Golden Metric (Reverse-Logistics Savings)
+      const merchant = (Merchant && typeof Merchant.findById === 'function') ? await Merchant.findById(mId).lean() : null;
+      const rtoLossPerOrder = (merchant as any)?.settings?.estimatedRtoLossPerOrder || 140;
+      const rtoFeesSaved = (summary.rescuedCount || 0) * rtoLossPerOrder;
+      const dashboardHeaderMessage = `RescueShip has saved you ₹${rtoFeesSaved.toLocaleString('en-IN')} in RTO fees this month.`;
+      const roiMultiple = rtoFeesSaved > 0 ? Number((rtoFeesSaved / 5000).toFixed(1)) : 1;
+
+      const expiresAt = (merchant as any)?.accessExpiresAt ? new Date((merchant as any).accessExpiresAt) : null;
+      let daysRemaining = 0;
+      let licenseStatus: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED' = (merchant as any)?.licenseStatus || 'TRIAL';
+      if (expiresAt) {
+        daysRemaining = Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        if (daysRemaining <= 0) licenseStatus = 'EXPIRED';
+        else if (daysRemaining <= 15) licenseStatus = 'APPROACHING_EXPIRY';
+        else licenseStatus = 'ACTIVE';
+      }
+
       // Additional aggregations for full dashboard specs
       const [dailyConversions, ndrReasons, carrierPerformance, recentOrders] = await Promise.all([
         this.getDailyConversions(merchantId, dateRange),
@@ -166,6 +193,16 @@ export class AnalyticsService {
         conversionRate,
         revenueSaved,
         totalRevenueSaved: revenueSaved,
+        rtoFeesSaved,
+        estimatedRtoFeePerOrder: rtoLossPerOrder,
+        dashboardHeaderMessage,
+        roiMultiple,
+        license: {
+          status: licenseStatus,
+          accessGrantedAt: (merchant as any)?.accessGrantedAt ? new Date((merchant as any).accessGrantedAt) : null,
+          accessExpiresAt: expiresAt,
+          daysRemaining,
+        },
         activeNdrCases: summary.activeNdrCases,
         codToPrepaid: {
           count: summary.conversionCount,

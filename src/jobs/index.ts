@@ -6,6 +6,7 @@ import { deadLetterWorker } from './deadLetter.job';
 import { ndrLifecycleWorker, scheduleNdrLifecycle } from './ndr-lifecycle.job';
 import { setupMonthlyResetWorker, scheduleMonthlyReset } from './monthlyReset.job';
 import { setupReconciliationWorker, scheduleReconciliation } from './reconciliation.job';
+import { setupWeeklyRoiReportWorker, scheduleWeeklyRoiReport } from './weeklyRoiReport.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -16,9 +17,11 @@ export * from './deadLetter.job';
 export * from './monthlyReset.job';
 export * from './reconciliation.job';
 export * from './ndr-lifecycle.job';
+export * from './weeklyRoiReport.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
+let weeklyRoiReportWorker: any = null;
 
 /**
  * Start all BullMQ workers safely without re-running active workers.
@@ -29,6 +32,7 @@ export function startAllWorkers(): void {
   
   if (!monthlyResetWorker) monthlyResetWorker = setupMonthlyResetWorker();
   if (!reconciliationWorker) reconciliationWorker = setupReconciliationWorker();
+  if (!weeklyRoiReportWorker) weeklyRoiReportWorker = setupWeeklyRoiReportWorker();
 
   const workers = [
     codConversionWorker,
@@ -39,6 +43,7 @@ export function startAllWorkers(): void {
     ndrLifecycleWorker,
     monthlyResetWorker,
     reconciliationWorker,
+    weeklyRoiReportWorker,
   ].filter(Boolean);
 
   for (const worker of workers) {
@@ -62,6 +67,10 @@ export function startAllWorkers(): void {
     logger.error('Failed to schedule repeatable NDR lifecycle reconciliation job', { error: err.message });
   });
 
+  scheduleWeeklyRoiReport().catch((err) => {
+    logger.error('Failed to schedule weekly Sunday ROI report cron job', { error: err.message });
+  });
+
   logger.info('✅  All BullMQ workers running');
 }
 
@@ -81,6 +90,7 @@ export async function stopAllWorkers(): Promise<void> {
     ndrLifecycleWorker.close(),
     monthlyResetWorker.close(),
     reconciliationWorker.close(),
+    weeklyRoiReportWorker?.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

@@ -2,7 +2,7 @@ import { Types } from 'mongoose';
 import axios from 'axios';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
-import { Merchant, Order, AuditLog, BillingEvent } from '../models';
+import { Merchant, Order, AuditLog, BillingEvent, NdrCase } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { paymentService } from './payment.service';
 import { encryptionService } from './encryption.service';
@@ -359,6 +359,7 @@ export class OrderService {
     }
 
     const nextStatus = isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
+    const rtoFeeSaved = (merchant as any)?.settings?.estimatedRtoLossPerOrder || 140;
 
     const updatedOrder = await Order.findOneAndUpdate(
       {
@@ -381,6 +382,7 @@ export class OrderService {
           paymentMethod: 'prepaid',
           'codConversion.convertedAt': new Date(),
           ...(isNdrOrder && {
+            rtoFeeSaved,
             'ndr.resolvedAt': new Date(),
             'ndr.resolution': 'rescheduled',
             'ndr.customerResponse': 'paid_online',
@@ -393,6 +395,26 @@ export class OrderService {
     if (!updatedOrder) {
       logger.warn('Order status transition race condition or order already converted', { orderId: order._id });
       return;
+    }
+
+    if (isNdrOrder) {
+      try {
+        await NdrCase.findOneAndUpdate(
+          { orderId: updatedOrder._id, status: { $in: ['OPEN', 'WAITING_CUSTOMER', 'CUSTOMER_RESPONDED'] } },
+          {
+            $set: {
+              status: 'CUSTOMER_RESPONDED',
+              customerResponseType: 'PAYMENT',
+              customerResponseAt: new Date(),
+              resolutionType: 'PAID_PREPAID',
+              rtoFeeSaved,
+              estimatedLossPrevented: rtoFeeSaved,
+            },
+          }
+        );
+      } catch (caseErr: any) {
+        logger.warn('Failed to update NdrCase rtoFeeSaved on payment', { error: caseErr?.message });
+      }
     }
 
     await Merchant.findByIdAndUpdate(order.merchantId, {

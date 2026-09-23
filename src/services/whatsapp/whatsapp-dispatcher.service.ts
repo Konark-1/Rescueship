@@ -81,6 +81,16 @@ export class WhatsAppDispatcherService {
       throw new Error(`Order not found: ${orderId}`);
     }
 
+    // ─── 0. 90-Day License Expiry Gate ───
+    if (merchant.accessExpiresAt && new Date(merchant.accessExpiresAt).getTime() < Date.now()) {
+      logger.warn('WhatsApp send suppressed: Merchant license has expired', {
+        merchantId,
+        orderId,
+        accessExpiresAt: merchant.accessExpiresAt,
+      });
+      return { success: false, suppressed: true, suppressReason: 'License Expired' };
+    }
+
     // ─── 1. Suppression Rules ───
     const terminalStates = ['delivered', 'returned', 'cancelled', 'lost'];
     if (terminalStates.includes(order.status)) {

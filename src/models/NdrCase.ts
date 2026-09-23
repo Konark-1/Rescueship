@@ -33,6 +33,8 @@ export interface INdrCase extends Document {
   carrierReattemptStatus?: 'PENDING' | 'SUCCESS' | 'FAILED' | 'MANUAL_REQUIRED' | null;
   carrierReattemptError?: string | null;
   outcome?: 'DELIVERED' | 'RTO' | 'CANCELLED' | 'PENDING' | null;
+  rtoFeeSaved?: number;
+  estimatedLossPrevented?: number;
   status: NdrCaseStatus;
   isFakeRemarkSuspicious?: boolean;
   closedAt?: Date | null;
@@ -67,6 +69,8 @@ const NdrCaseSchema = new Schema<INdrCase>(
     },
     carrierReattemptError: { type: String, default: null },
     outcome: { type: String, enum: ['DELIVERED', 'RTO', 'CANCELLED', 'PENDING', null], default: 'PENDING' },
+    rtoFeeSaved: { type: Number, default: 0 },
+    estimatedLossPrevented: { type: Number, default: 0 },
     status: {
       type: String,
       enum: [
