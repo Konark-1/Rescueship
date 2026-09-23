@@ -28,6 +28,7 @@ export interface DispatchOptions {
   variables: Record<string, string>;
   isRtoArrest?: boolean;
   order?: any;
+  creditPreDeducted?: boolean;
 }
 
 export interface DispatchResult {
@@ -182,13 +183,15 @@ export class WhatsAppDispatcherService {
     }
 
     // ─── 4. Atomic Credit Deduction ───
-    const creditDeducted = await Merchant.updateOne(
-      { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
-      { $inc: { 'billing.rescueCredits': -1 } }
-    );
-    if (creditDeducted.modifiedCount === 0) {
-      logger.warn('WhatsApp send aborted: Insufficient rescue credits', { merchantId });
-      return { success: false, error: 'Insufficient rescue credits' };
+    if (!options.creditPreDeducted) {
+      const creditDeducted = await Merchant.updateOne(
+        { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
+        { $inc: { 'billing.rescueCredits': -1 } }
+      );
+      if (creditDeducted.modifiedCount === 0) {
+        logger.warn('WhatsApp send aborted: Insufficient rescue credits', { merchantId });
+        return { success: false, error: 'Insufficient rescue credits' };
+      }
     }
 
     // ─── 5. Meta Send with Retry Policy ───

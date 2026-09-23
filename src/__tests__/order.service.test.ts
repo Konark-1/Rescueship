@@ -41,6 +41,7 @@ jest.mock('../models', () => {
       findById: jest.fn(),
       updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
       findByIdAndUpdate: jest.fn(),
+      findOneAndUpdate: jest.fn().mockImplementation(() => Promise.resolve({ _id: '507f1f77bcf86cd799439011', billing: { rescueCredits: 99 } })),
     },
     AuditLog: {
       create: jest.fn(),

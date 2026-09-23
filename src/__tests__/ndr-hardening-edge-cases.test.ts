@@ -322,6 +322,7 @@ describe('RescueShip NDR Production-Hardening (21 Edge Cases)', () => {
     (Order.findOneAndUpdate as jest.Mock)
       .mockResolvedValueOnce({ ...mockOrder, status: 'ndr_detected' })
       .mockResolvedValueOnce({ ...mockOrder, ndr: { decisionMode: 'deciding' } })
+      .mockResolvedValueOnce({ ...mockOrder, status: 'ndr_rescue_sent' })
       .mockResolvedValue(null);
 
     await ndrService.processNDREvent(merchantId, {

@@ -122,6 +122,7 @@ jest.mock('../models', () => {
     RescueLedger: {
       recordDecision: jest.fn().mockResolvedValue({}),
       reconcileOutcomes: jest.fn().mockResolvedValue(1),
+      find: jest.fn().mockReturnValue({ lean: jest.fn().mockResolvedValue([]) }),
     },
   };
 });

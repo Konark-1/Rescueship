@@ -8,7 +8,7 @@
  */
 
 import { Types } from 'mongoose';
-import { Order, NdrCase, Merchant } from '../../models';
+import { Order, NdrCase, Merchant, RescueLedger } from '../../models';
 import { logger } from '../../utils/logger';
 
 export interface MerchantRoiSummary {
@@ -45,6 +45,8 @@ export interface WeeklyReportMetrics {
   convertedPrepaidCount: number;
   rescuedCount: number;
   rtoFeesSaved: number;
+  netFreightSaved: number;
+  metaCostInr: number;
   summaryMessage: string;
 }
 
@@ -183,7 +185,7 @@ export class RoiCalculatorService {
     const reattemptsScheduled = cases.filter((c) => c.status === 'REATTEMPT_REQUESTED' || c.resolutionType === 'rescheduled').length;
     const convertedPrepaidCount = cases.filter((c) => c.customerResponseType === 'PAYMENT').length;
 
-    // Rescued orders in this week
+    // Rescued orders in this week from Order model
     const rescuedOrders = await Order.find({
       merchantId: mId,
       $or: [
@@ -193,12 +195,32 @@ export class RoiCalculatorService {
       updatedAt: { $gte: startDate, $lte: endDate },
     }).select('rtoFeeSaved').lean();
 
-    const rescuedCount = rescuedOrders.length;
-    const rtoFeesSaved = rescuedOrders.reduce((sum, o) => sum + (o.rtoFeeSaved || rtoLossPerOrder), 0);
+    // Attribution & billing records from RescueLedger
+    let ledgerRescuedCount = 0;
+    let totalMetaCost = 0;
+    try {
+      const ledgerRows = await RescueLedger.find({
+        merchantId: mId,
+        flaggedAt: { $gte: startDate, $lte: endDate },
+      }).lean();
+
+      ledgerRescuedCount = ledgerRows.filter(
+        (r: any) => r.rescued === true || r.naturalOutcome === 'delivered' || r.naturalOutcome === 'converted_prepaid'
+      ).length;
+      totalMetaCost = ledgerRows.reduce((sum: number, r: any) => sum + (r.metaCostInr || 0), 0);
+    } catch (ledgerErr: any) {
+      logger.warn('Failed to query RescueLedger for weekly report, falling back to Order records', { error: ledgerErr?.message });
+    }
+
+    const rescuedCount = Math.max(rescuedOrders.length, ledgerRescuedCount);
+    const grossRtoFeesSaved = rescuedOrders.length > 0
+      ? rescuedOrders.reduce((sum, o) => sum + (o.rtoFeeSaved || rtoLossPerOrder), 0)
+      : rescuedCount * rtoLossPerOrder;
+    const netFreightSaved = Math.max(0, grossRtoFeesSaved - Math.round(totalMetaCost));
 
     const summaryMessage =
       `📊 Weekly Rescue Report: We intercepted ${interceptedCount} failed deliveries this week. ` +
-      `By securing location pins and reattempts, we saved you ₹${rtoFeesSaved.toLocaleString('en-IN')} in return shipping costs.`;
+      `By securing location pins and reattempts, we saved you ₹${netFreightSaved.toLocaleString('en-IN')} in return shipping costs.`;
 
     return {
       merchantId,
@@ -212,7 +234,9 @@ export class RoiCalculatorService {
       reattemptsScheduled,
       convertedPrepaidCount,
       rescuedCount,
-      rtoFeesSaved,
+      rtoFeesSaved: grossRtoFeesSaved,
+      netFreightSaved,
+      metaCostInr: totalMetaCost,
       summaryMessage,
     };
   }

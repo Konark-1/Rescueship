@@ -96,6 +96,43 @@ export async function processNdrLifecycle(): Promise<{
 
     // ─── 2. Branch A: Customer has NOT responded ───
     if (!ndrCase.customerResponseType) {
+      // Check 72-Hour Hard Expiry -> Mark EXPIRED and Close
+      if (ageHours >= 72) {
+        logger.info('Auto-expiring stale NDR case unresolved after 72h', {
+          caseId: ndrCase._id,
+          orderId: order._id,
+          ageHours,
+        });
+
+        await NdrCase.findByIdAndUpdate(ndrCase._id, {
+          $set: {
+            status: 'EXPIRED',
+            outcome: 'RTO',
+            closedAt: new Date(),
+          },
+        });
+
+        await AuditLog.create({
+          merchantId: ndrCase.merchantId,
+          orderId: order._id,
+          action: 'ndr_case_expired_72h',
+          source: 'ndr_lifecycle_job',
+          payload: { ageHours, caseId: ndrCase._id },
+          status: 'success',
+        });
+
+        realtimeService.broadcast({
+          type: 'ndr_case_expired',
+          merchantId: ndrCase.merchantId.toString(),
+          payload: { orderId: order.externalOrderId, awb: ndrCase.awb, status: 'EXPIRED' },
+          timestamp: new Date().toISOString(),
+        });
+
+        await cancelJobsByOrderId(order._id.toString());
+        casesClosedNoResponse++;
+        continue;
+      }
+
       // Check 48-Hour Timeout -> Mark NO_RESPONSE and Close
       if (ageHours >= 48) {
         logger.info('Closing stale NDR case after 48h no-response timeout', {
@@ -206,11 +243,68 @@ export async function processNdrLifecycle(): Promise<{
   return { remindersSent, casesClosedNoResponse, casesEscalated };
 }
 
+/**
+ * Explicit daily audit for open NDR cases unresolved after 72 hours.
+ * Directly queries NdrCase where status is OPEN or WAITING_CUSTOMER,
+ * marks them as EXPIRED, sets outcome to RTO, and removes pending BullMQ escalation jobs.
+ */
+export async function expireStaleNdrCases72h(): Promise<{ expiredCount: number }> {
+  logger.info('Running explicit 72h stale NDR case auto-expiry audit');
+  const cutoff = new Date(Date.now() - 72 * 60 * 60 * 1000);
+
+  const staleCases = await NdrCase.find({
+    status: { $in: ['OPEN', 'WAITING_CUSTOMER', 'open'] as any },
+    createdAt: { $lt: cutoff },
+  }).lean();
+
+  let expiredCount = 0;
+  for (const ndrCase of staleCases) {
+    try {
+      await NdrCase.findByIdAndUpdate(ndrCase._id, {
+        $set: {
+          status: 'EXPIRED',
+          outcome: 'RTO',
+          closedAt: new Date(),
+        },
+      });
+
+      await cancelJobsByOrderId(ndrCase.orderId.toString());
+
+      await AuditLog.create({
+        merchantId: ndrCase.merchantId,
+        orderId: ndrCase.orderId,
+        action: 'ndr_case_expired_72h',
+        source: 'ndr_lifecycle_job',
+        payload: { caseId: ndrCase._id, createdAt: ndrCase.createdAt },
+        status: 'success',
+      });
+
+      realtimeService.broadcast({
+        type: 'ndr_case_expired',
+        merchantId: ndrCase.merchantId.toString(),
+        payload: { awb: ndrCase.awb, status: 'EXPIRED' },
+        timestamp: new Date().toISOString(),
+      });
+
+      expiredCount++;
+    } catch (err: any) {
+      logger.error('Failed to expire stale NDR case', { caseId: ndrCase._id, error: err?.message });
+    }
+  }
+
+  logger.info('Completed 72h stale NDR auto-expiry audit', { expiredCount });
+  return { expiredCount };
+}
+
 export const ndrLifecycleWorker = new Worker(
   'ndr-lifecycle',
   async (job: Job) => {
     logger.info(`Processing ndr-lifecycle job: ${job.id}`);
     try {
+      if (job.name === 'ndr-lifecycle-daily-72h-expiry') {
+        const result = await expireStaleNdrCases72h();
+        return result;
+      }
       const stats = await processNdrLifecycle();
       logger.info('NDR lifecycle job completed successfully', stats);
       return stats;
@@ -227,6 +321,7 @@ export const ndrLifecycleWorker = new Worker(
 
 export const scheduleNdrLifecycle = async (): Promise<void> => {
   try {
+    // 1. Repeatable sweep every 15 minutes for intermediate reminders and operational tracking
     await ndrLifecycleQueue.add(
       'ndr-lifecycle-reconciliation',
       {},
@@ -236,7 +331,17 @@ export const scheduleNdrLifecycle = async (): Promise<void> => {
         },
       }
     );
-    logger.info('Scheduled repeatable NDR lifecycle reconciliation job (every 15 min)');
+    // 2. Repeatable daily audit at midnight (0 0 * * *) for 72h stale auto-expiry
+    await ndrLifecycleQueue.add(
+      'ndr-lifecycle-daily-72h-expiry',
+      {},
+      {
+        repeat: {
+          pattern: '0 0 * * *',
+        },
+      }
+    );
+    logger.info('Scheduled repeatable NDR lifecycle reconciliation job (every 15 min) and daily 72h expiry (0 0 * * *)');
   } catch (err: any) {
     logger.error('Failed to schedule repeatable NDR lifecycle job', { error: err.message });
   }

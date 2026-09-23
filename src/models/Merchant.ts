@@ -51,6 +51,7 @@ export interface IMerchant extends Document {
       escalationChain: number[];
       messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
       fakeAttemptDetection: boolean;
+      rtoArrestEnabled?: boolean;
     };
     partialPay?: {
       enabled: boolean;
@@ -219,6 +220,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         escalationChain: { type: [Number], default: [4, 12, 24] },
         messageLanguage: { type: String, enum: ['en', 'hi', 'ta', 'te', 'bn', 'mr'], default: 'en' },
         fakeAttemptDetection: { type: Boolean, default: false },
+        rtoArrestEnabled: { type: Boolean, default: true },
       },
       partialPay: {
         enabled: { type: Boolean, default: false },

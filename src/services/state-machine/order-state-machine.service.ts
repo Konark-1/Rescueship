@@ -14,15 +14,18 @@ export const TERMINAL_STATES: readonly string[] = ['delivered', 'returned', 'can
 export const SEMI_TERMINAL_STATES: readonly string[] = ['rto_initiated', 'rto'];
 
 export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  created:              ['shipped', 'cancelled', 'out_for_delivery'],
-  shipped:              ['out_for_delivery', 'cancelled', 'lost', 'rto_initiated'],
-  out_for_delivery:     ['ndr_detected', 'delivered', 'rto_initiated'],
-  ndr_detected:         ['ndr_rescue_sent', 'ndr_pending_review', 'rto_initiated', 'delivered', 'cancelled'],
-  ndr_rescue_sent:      ['ndr_rescued', 'rto_initiated', 'delivered', 'cancelled', 'ndr_detected'],
-  ndr_pending_review:   ['ndr_rescue_sent', 'rto_initiated', 'cancelled'],
-  ndr_rescued:          ['out_for_delivery', 'delivered', 'rto_initiated', 'cancelled'],
-  converted_to_prepaid: ['out_for_delivery', 'delivered', 'rto_initiated', 'cancelled'],
-  rto_initiated:        ['returned', 'rto', 'out_for_delivery', 'delivered', 'ndr_rescued'], // Rescueable!
+  created:              ['new', 'cod_conversion_sent', 'converted_to_prepaid', 'shipped', 'cancelled', 'out_for_delivery'],
+  pending:              ['new', 'cod_conversion_sent', 'converted_to_prepaid', 'shipped', 'cancelled'],
+  new:                  ['cod_conversion_sent', 'converted_to_prepaid', 'shipped', 'out_for_delivery', 'cancelled'],
+  cod_conversion_sent:  ['converted_to_prepaid', 'shipped', 'out_for_delivery', 'cancelled', 'new'],
+  converted_to_prepaid: ['shipped', 'out_for_delivery', 'delivered', 'rto_initiated', 'cancelled'],
+  shipped:              ['out_for_delivery', 'ndr_detected', 'delivered', 'cancelled', 'lost', 'rto_initiated'],
+  out_for_delivery:     ['ndr_detected', 'delivered', 'rto_initiated', 'cancelled'],
+  ndr_detected:         ['ndr_rescue_sent', 'ndr_pending_review', 'rto_initiated', 'delivered', 'cancelled', 'ndr_rescued', 'converted_to_prepaid'],
+  ndr_rescue_sent:      ['ndr_rescued', 'rto_initiated', 'delivered', 'cancelled', 'ndr_detected', 'converted_to_prepaid'],
+  ndr_pending_review:   ['ndr_rescue_sent', 'rto_initiated', 'cancelled', 'ndr_rescued', 'delivered'],
+  ndr_rescued:          ['out_for_delivery', 'delivered', 'rto_initiated', 'cancelled', 'ndr_detected'],
+  rto_initiated:        ['returned', 'rto', 'out_for_delivery', 'delivered', 'ndr_rescued', 'converted_to_prepaid'], // Rescueable via RTO arrest / payment
   rto:                  ['returned'],
   returned:             [], // Terminal
   delivered:            [], // Terminal
@@ -93,6 +96,15 @@ export class OrderStateMachineService {
         currentStatus,
         nextStatus,
       });
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'state_transition_rejected_terminal',
+        source: 'order_state_machine',
+        payload: { currentStatus, nextStatus },
+        status: 'failed',
+        error: `Order is already in terminal state '${currentStatus}'`,
+      }).catch(() => {});
       return {
         success: false,
         reason: `Order is already in terminal state '${currentStatus}'. Cannot transition to '${nextStatus}'.`,
@@ -106,6 +118,15 @@ export class OrderStateMachineService {
         currentStatus,
         nextStatus,
       });
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'state_transition_rejected_illegal',
+        source: 'order_state_machine',
+        payload: { currentStatus, nextStatus },
+        status: 'failed',
+        error: `Disallowed transition from '${currentStatus}' to '${nextStatus}'`,
+      }).catch(() => {});
       return {
         success: false,
         reason: `Disallowed transition from '${currentStatus}' to '${nextStatus}'.`,
@@ -120,6 +141,15 @@ export class OrderStateMachineService {
           lastEventTimestamp: order.lastEventTimestamp,
           incomingTimestamp: eventTimestamp,
         });
+        await AuditLog.create({
+          merchantId: order.merchantId,
+          orderId: order._id,
+          action: 'state_transition_rejected_stale_timestamp',
+          source: 'order_state_machine',
+          payload: { lastEventTimestamp: order.lastEventTimestamp, incomingTimestamp: eventTimestamp },
+          status: 'failed',
+          error: 'Stale out-of-order event timestamp',
+        }).catch(() => {});
         return {
           success: false,
           reason: 'Stale out-of-order event timestamp.',

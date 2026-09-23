@@ -30,6 +30,8 @@ export interface IOrder extends Document {
   paymentLinkId?: string | null;
   paymentLinkUrl?: string | null;
   rtoFeeSaved?: number;
+  rtoArrestAttemptedAt?: Date | null;
+  rtoArrestStatus?: 'TRIGGERED' | 'RESCUED' | 'RETURNED' | null;
   codConversion?: {
     messageSentAt?: Date | null;
     incentiveOffered?: number;
@@ -103,6 +105,8 @@ const OrderSchema = new Schema<IOrder>(
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },
     rtoFeeSaved: { type: Number, default: 0 },
+    rtoArrestAttemptedAt: { type: Date, default: null },
+    rtoArrestStatus: { type: String, enum: ['TRIGGERED', 'RESCUED', 'RETURNED', null], default: null },
     codConversion: {
       messageSentAt: { type: Date, default: null },
       incentiveOffered: { type: Number, default: 0 },

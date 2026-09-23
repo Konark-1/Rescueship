@@ -176,6 +176,22 @@ export function createCarrierNdrHandler(
             await orderStateMachineService.transitionOrder(order, targetStatus, parsed.attemptTime || new Date());
           }
 
+          // Trigger RTO Arrest if order transitioned to rto_initiated
+          if (targetStatus === 'rto_initiated') {
+            try {
+              const { rtoArrestService } = require('../services/rto-arrest.service');
+              await rtoArrestService.executeRtoArrest({
+                merchantId: merchantId.toString(),
+                orderId: order._id.toString(),
+                awb: parsed.awb,
+                reason: parsed.reason,
+                carrier: provider,
+              });
+            } catch (arrestErr: any) {
+              logger.error('Failed to trigger RTO Arrest flow', { error: arrestErr?.message, orderId: order._id });
+            }
+          }
+
           if (targetStatus === 'delivered') {
             await RescueLedger.reconcileOutcomes(merchantId.toString()).catch(() => {});
           }

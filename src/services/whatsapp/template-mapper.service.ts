@@ -14,6 +14,7 @@ export type NDRCategory =
   | 'RESCHEDULE_REQUEST'
   | 'COD_COLLECTION_ISSUE'
   | 'CANCELLATION_RISK'
+  | 'RTO_ARREST'
   | 'UNKNOWN_FAILURE';
 
 export interface TemplateMapping {
@@ -41,6 +42,7 @@ export class TemplateMapperService {
     RESCHEDULE_REQUEST: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
     COD_COLLECTION_ISSUE: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
     CANCELLATION_RISK: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
+    RTO_ARREST: { template: 'rto_arrest_en', requiredVars: ['customerName', 'externalOrderId'] },
     UNKNOWN_FAILURE: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
   };
 

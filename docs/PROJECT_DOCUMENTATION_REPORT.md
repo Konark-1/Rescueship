@@ -285,4 +285,50 @@ Derived from the dark mission-control aesthetic (`frontend/src/index.css`):
 
 ---
 
+## 7. Security & Anti-Vulnerability Architecture
+
+RescueShip enforces a multi-layered security and operational resilience framework engineered to withstand adversarial exploits, distributed webhook floods, and race conditions:
+
+### 7.1 Asymmetric AI Cost Drain Protection (Gemini API Spam / DoS)
+- **Problem**: Meta generates a unique Message ID (`wamid`) for every inbound webhook message, allowing an attacker to spam a merchant's WhatsApp number with thousands of unique messages, bypassing traditional message ID deduplication and causing thousands of synchronous Gemini API calls.
+- **Remediation**:
+  1. **Inbound Rate Limiting at Ingestion**: In `src/webhooks/whatsapp.webhook.ts`, an atomic Redis counter (`inbound_wa_limit:${merchantId}:${normalizedPhone}`) caps inbound messages to 10 per hour per phone number. Messages exceeding this threshold are dropped immediately at the edge before allocating memory, writing to MongoDB, or triggering NLP.
+  2. **SHA-256 Address Response Caching**: In `src/services/address-correction.service.ts`, parsed Indian address extraction results are cached in Redis (`gemini_addr_cache:${sha256(rawText)}`, 24h TTL). Repeated or identical colloquial instructions are served directly from cache without consuming Gemini tokens.
+
+### 7.2 NDR Terminal State Race Condition Prevention
+- **Problem**: If a courier sends a delivery confirmation webhook (`status: 'delivered'`) simultaneously with an NDR webhook, a read-then-act check can evaluate `order.status` before the delivery updates persist, mistakenly dispatching an NDR address correction message to a customer who has already received their package.
+- **Remediation**:
+  - **Atomic Claim Pattern**: In `src/services/ndr.service.ts`, the order status transition is executed via an atomic MongoDB `findOneAndUpdate`:
+    ```ts
+    const claimedOrder = await Order.findOneAndUpdate(
+      { _id: order._id, status: { $nin: ['delivered', 'rto', 'returned', 'cancelled', 'lost'] } },
+      { $set: { status: 'ndr_rescue_sent', 'ndr.status': 'IN_PROGRESS', 'ndr.decisionMode': 'engaged' } },
+      { new: true }
+    );
+    if (!claimedOrder) return; // Abort WhatsApp dispatch immediately
+    ```
+  - If the parcel is marked delivered or RTO'd concurrently, the atomic claim returns `null`, suppressing WhatsApp messaging and terminating BullMQ escalation scheduling.
+
+### 7.3 Credit Check TOCTOU (Time-of-Check to Time-of-Use) Remediation
+- **Problem**: Under high concurrency (flash sales, marketing spikes), checking `rescueCredits > 0` before making an 800ms Razorpay/Cashfree API call allowed multiple orders to observe the same remaining credit, generating orphaned payment links and causing negative credit balances or failed deductions.
+- **Remediation**:
+  - **Atomic Credit Reservation**: In `src/services/order.service.ts`, credits are reserved upfront using atomic decrement:
+    ```ts
+    const reserved = await Merchant.findOneAndUpdate(
+      { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
+      { $inc: { 'billing.rescueCredits': -1 } },
+      { new: true }
+    );
+    if (!reserved) return; // Insufficient credits: abort before gateway calls
+    ```
+  - **Compensating Transactions**: If gateway link generation, encryption, or WhatsApp dispatch fails, a compensating transaction (`$inc: { 'billing.rescueCredits': 1 }`) automatically refunds the credit.
+  - **Single Deduction Guarantee**: Outbound dispatchers accept `creditPreDeducted: true` to prevent double-billing on pre-reserved transactions.
+
+### 7.4 Tenant Circuit Breaker Fail-Closed Enforcement
+- **Problem**: Background workers (`codConversionWorker`, `ndrRescueWorker`) executing jobs with missing or unresolvable merchant identifiers could bypass circuit breaker evaluation and fail open.
+- **Remediation**:
+  - **Fail-Closed Gate**: Background workers explicitly require a resolved `targetMerchantId`. If unresolvable, the job logs an error and exits immediately (`return;`), preventing unauthenticated execution, cross-tenant pollution, or uncontrolled downstream API load.
+
+---
+
 *Report generated for RescueShip Production Deployment. ISC License. Copyright © 2026 RescueShip Inc. All rights reserved.*

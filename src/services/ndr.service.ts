@@ -302,9 +302,41 @@ export class NDRService {
       return;
     }
 
-    order.ndr.decisionMode = 'engaged';
-    order.status = 'ndr_rescue_sent';
-    await saveOrder();
+    // Terminal State Race Condition Prevention:
+    // Atomic status transition using findOneAndUpdate to prevent race condition if a delivery or RTO
+    // confirmation webhook arrived concurrently.
+    const terminalStates = ['delivered', 'rto', 'returned', 'cancelled', 'lost'];
+    if (Order && typeof Order.findOneAndUpdate === 'function') {
+      const claimedOrder = await (Order as any).findOneAndUpdate(
+        {
+          _id: order._id,
+          status: { $nin: terminalStates },
+        },
+        {
+          $set: {
+            status: 'ndr_rescue_sent',
+            'ndr.decisionMode': 'engaged',
+            'ndr.status': 'IN_PROGRESS',
+            'ndr.lastAttemptAt': new Date(),
+          },
+        },
+        { new: true }
+      );
+
+      if (!claimedOrder) {
+        logger.info('NDR rescue aborted: Order already in terminal or rescued state', { orderId: order._id });
+        return;
+      }
+      order = claimedOrder;
+    } else {
+      if (terminalStates.includes(order.status)) {
+        logger.info('NDR rescue aborted: Order already in terminal state', { orderId: order._id });
+        return;
+      }
+      order.ndr.decisionMode = 'engaged';
+      order.status = 'ndr_rescue_sent';
+      await saveOrder();
+    }
 
     try {
       // Business-initiated message MUST be a Meta-approved template (error 131047 otherwise).
@@ -389,6 +421,12 @@ export class NDRService {
     const category = this.classifyRemark(order.ndr?.reason || '');
     const name = order.customerName || 'Customer';
     const orderId = String(order.externalOrderId || '');
+
+    const terminalStates = ['delivered', 'rto', 'returned', 'cancelled', 'lost'];
+    if (terminalStates.includes(order.status)) {
+      logger.info('NDR rescue aborted: Order already in terminal state', { orderId: order._id, status: order.status });
+      return;
+    }
 
     const dispatchResult = await whatsAppDispatcherService.dispatchNdrRescue({
       merchantId: merchant._id.toString(),

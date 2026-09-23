@@ -24,30 +24,31 @@ export const codConversionWorker = new Worker(
       }
     }
 
-    // 🔒 Tenant Circuit Breaker Guard
-    if (targetMerchantId) {
-      const isBlocked = await TenantCircuitBreaker.isCircuitOpen(targetMerchantId);
-      if (isBlocked) {
-        logger.warn(`Skipping job ${job.id} for merchant ${targetMerchantId}: Circuit breaker tripped due to repeated failures.`);
-        return;
-      }
+    // 🔒 Tenant Circuit Breaker Guard (Fail-Closed)
+    if (!targetMerchantId) {
+      logger.error(`Job ${job.id} aborted: Target merchant ID could not be resolved. Failing closed.`, { jobData: job.data });
+      return;
+    }
+
+    const isBlocked = await TenantCircuitBreaker.isCircuitOpen(targetMerchantId);
+    if (isBlocked) {
+      logger.warn(`Skipping job ${job.id} for merchant ${targetMerchantId}: Circuit breaker tripped due to repeated failures.`);
+      return;
     }
 
     try {
-      if (targetMerchantId) {
-        const merchant = await Merchant.findById(targetMerchantId);
-        if (merchant?.settings?.globalPause) {
-          logger.info(`Global pause active for merchant ${targetMerchantId}. Skipping job ${job.id}`, {
-            jobId: job.id,
-            action,
-            merchantId: targetMerchantId,
-          });
-          return;
-        }
+      const merchant = await Merchant.findById(targetMerchantId);
+      if (merchant?.settings?.globalPause) {
+        logger.info(`Global pause active for merchant ${targetMerchantId}. Skipping job ${job.id}`, {
+          jobId: job.id,
+          action,
+          merchantId: targetMerchantId,
+        });
+        return;
       }
 
       if (action === 'process_new_cod') {
-        await orderService.processCODOrder(merchantId, orderData);
+        await orderService.processCODOrder(targetMerchantId, orderData);
       } else if (action === 'payment_confirmed') {
         await orderService.handlePaymentConfirmation(paymentLinkId, job.data.amountPaidPaise);
       } else if (action === 'send_reminder') {
@@ -57,14 +58,10 @@ export const codConversionWorker = new Worker(
       }
 
       // Success: reset circuit breaker failure count
-      if (targetMerchantId) {
-        await TenantCircuitBreaker.recordSuccess(targetMerchantId);
-      }
+      await TenantCircuitBreaker.recordSuccess(targetMerchantId);
     } catch (err: any) {
       logger.error(`Error in cod-conversion worker for job ${job.id}`, { error: err.message });
-      if (targetMerchantId) {
-        await TenantCircuitBreaker.recordFailure(targetMerchantId, { jobId: job.id, action });
-      }
+      await TenantCircuitBreaker.recordFailure(targetMerchantId, { jobId: job.id, action });
       const isAuthError = err.response?.status === 401 || err.message?.includes('401') || err.message?.includes('Authentication failed');
       if (isAuthError) {
         logger.warn(`Job ${job.id} stopped due to unrecoverable invalid API credentials for merchant: ${targetMerchantId}. Please update Payment Gateway keys in Settings.`);

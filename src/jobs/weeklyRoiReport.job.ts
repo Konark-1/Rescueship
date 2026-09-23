@@ -82,7 +82,26 @@ export function setupWeeklyRoiReportWorker(): Worker {
             };
           }
 
-          await whatsAppService.sendText(phone, metrics.summaryMessage, waConfig);
+          const customTemplate = (merchant.whatsappConfig as any)?.templateMap?.weekly_roi_report;
+          if (customTemplate) {
+            try {
+              const components = [
+                {
+                  type: 'body',
+                  parameters: [
+                    { type: 'text', text: metrics.merchantName },
+                    { type: 'text', text: String(metrics.interceptedCount) },
+                    { type: 'text', text: String(metrics.netFreightSaved || metrics.rtoFeesSaved) },
+                  ],
+                },
+              ];
+              await whatsAppService.sendTemplate(phone, customTemplate, 'en', components, waConfig);
+            } catch (tplErr) {
+              await whatsAppService.sendText(phone, metrics.summaryMessage, waConfig);
+            }
+          } else {
+            await whatsAppService.sendText(phone, metrics.summaryMessage, waConfig);
+          }
           dispatchedCount++;
 
           await AuditLog.create({
@@ -93,6 +112,8 @@ export function setupWeeklyRoiReportWorker(): Worker {
               phone,
               interceptedCount: metrics.interceptedCount,
               rtoFeesSaved: metrics.rtoFeesSaved,
+              netFreightSaved: metrics.netFreightSaved,
+              metaCostInr: metrics.metaCostInr,
               message: metrics.summaryMessage,
             },
             status: 'success',

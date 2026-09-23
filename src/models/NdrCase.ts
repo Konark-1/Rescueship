@@ -10,6 +10,7 @@ export type NdrCaseStatus =
   | 'DELIVERED'
   | 'FAILED_AGAIN'
   | 'NO_RESPONSE'
+  | 'EXPIRED'
   | 'ESCALATED'
   | 'MERCHANT_REVIEW'
   | 'RTO'
@@ -83,6 +84,7 @@ const NdrCaseSchema = new Schema<INdrCase>(
         'DELIVERED',
         'FAILED_AGAIN',
         'NO_RESPONSE',
+        'EXPIRED',
         'ESCALATED',
         'MERCHANT_REVIEW',
         'RTO',

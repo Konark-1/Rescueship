@@ -16,6 +16,8 @@ import { encryptionService } from './encryption.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { logger } from '../utils/logger';
 import { config } from '../config/env';
+import crypto from 'crypto';
+import { redisConnection } from '../config/redis';
 import { geminiService } from './gemini.service';
 
 export type AddressMode = 'location_pin' | 'text_address' | 'both';
@@ -424,6 +426,27 @@ export class AddressCorrectionService {
     let landmark: string | undefined;
     let driverNote: string | undefined;
 
+    // Cache lookup: avoid redundant Gemini AI calls for identical/repeated messages
+    const textHash = crypto.createHash('sha256').update(rawText.toLowerCase().trim()).digest('hex');
+    const cacheKey = `gemini_addr_cache:${textHash}`;
+    try {
+      if (redisConnection) {
+        const cached = await redisConnection.get(cacheKey);
+        if (cached) {
+          const parsedCached = JSON.parse(cached);
+          logger.info('Returning cached address extraction from Redis', { cacheKey });
+          return {
+            cleanAddress: parsedCached.cleanAddress || cleanAddress,
+            landmark: parsedCached.landmark,
+            driverNote: parsedCached.driverNote,
+            pincode: parsedCached.pincode || pincode,
+          };
+        }
+      }
+    } catch (cacheErr: any) {
+      logger.warn('Failed to read address cache from Redis', { error: cacheErr?.message });
+    }
+
     // 1. If Gemini AI is configured, attempt intelligent extraction
     if (geminiService.isConfigured()) {
       try {
@@ -442,7 +465,15 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
         if (parsed.landmark) landmark = String(parsed.landmark).slice(0, 100);
         if (parsed.driverNote) driverNote = String(parsed.driverNote).slice(0, 150);
         if (parsed.cleanAddress) cleanAddress = String(parsed.cleanAddress).slice(0, 200);
-        return { cleanAddress, landmark, driverNote, pincode };
+        const aiResult: ExtractedAddressDetails = { cleanAddress, landmark, driverNote, pincode };
+        try {
+          if (redisConnection) {
+            await redisConnection.set(cacheKey, JSON.stringify(aiResult), 'EX', 86400); // 24 hours
+          }
+        } catch (setErr: any) {
+          logger.warn('Failed to write address extraction to Redis cache', { error: setErr?.message });
+        }
+        return aiResult;
       } catch (err) {
         logger.warn('Gemini address extraction fallback to heuristic parser', { error: (err as any)?.message });
       }
@@ -475,12 +506,22 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
       }
     }
 
-    return {
+    const heuristicResult: ExtractedAddressDetails = {
       cleanAddress,
       landmark,
       driverNote,
       pincode,
     };
+
+    try {
+      if (redisConnection) {
+        await redisConnection.set(cacheKey, JSON.stringify(heuristicResult), 'EX', 86400);
+      }
+    } catch (setErr: any) {
+      logger.warn('Failed to write address extraction to Redis cache', { error: setErr?.message });
+    }
+
+    return heuristicResult;
   }
 
   private extractPincode(text: string): string | undefined {

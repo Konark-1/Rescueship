@@ -10,24 +10,24 @@ export const ndrRescueWorker = new Worker(
     const { merchantId, ndrData } = job.data;
     logger.info(`Processing ndr-rescue job: ${job.id}`, { merchantId, awb: ndrData?.awb });
 
-    if (merchantId) {
-      const isBlocked = await TenantCircuitBreaker.isCircuitOpen(merchantId);
-      if (isBlocked) {
-        logger.warn(`Skipping ndr-rescue job ${job.id} for merchant ${merchantId}: Circuit breaker open.`);
-        return;
-      }
+    // 🔒 Fail Closed: Enforce valid tenant identity
+    if (!merchantId) {
+      logger.error(`Job ${job.id} aborted: Missing merchantId in ndr-rescue job payload. Failing closed.`, { jobData: job.data });
+      return;
+    }
+
+    const isBlocked = await TenantCircuitBreaker.isCircuitOpen(merchantId);
+    if (isBlocked) {
+      logger.warn(`Skipping ndr-rescue job ${job.id} for merchant ${merchantId}: Circuit breaker open.`);
+      return;
     }
 
     try {
       await ndrService.processNDREvent(merchantId, ndrData);
-      if (merchantId) {
-        await TenantCircuitBreaker.recordSuccess(merchantId);
-      }
+      await TenantCircuitBreaker.recordSuccess(merchantId);
     } catch (err: any) {
       logger.error(`Error in ndr-rescue worker for job ${job.id}`, { error: err.message });
-      if (merchantId) {
-        await TenantCircuitBreaker.recordFailure(merchantId, { jobId: job.id, awb: ndrData?.awb });
-      }
+      await TenantCircuitBreaker.recordFailure(merchantId, { jobId: job.id, awb: ndrData?.awb });
       throw err;
     }
   },

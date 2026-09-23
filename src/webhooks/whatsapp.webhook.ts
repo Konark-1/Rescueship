@@ -160,6 +160,25 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const normalizedFrom = normalizeIndianPhone(parsed.from);
     logger.info('Parsed WhatsApp incoming message', { from: maskPhone(normalizedFrom), type: parsed.type, merchantId });
 
+    // ─── 4b. Inbound Rate Limiting (Anti-DoS & AI Cost Drain Protection: max 10/hour) ───
+    const rateLimitKey = `inbound_wa_limit:${merchantId}:${normalizedFrom}`;
+    try {
+      const inboundCount = await redisConnection.incr(rateLimitKey);
+      if (inboundCount === 1) {
+        await redisConnection.expire(rateLimitKey, 3600); // 1-hour window
+      }
+      if (inboundCount > 10) {
+        logger.warn('Inbound WhatsApp rate limit exceeded for customer phone — dropping message to prevent AI cost drain', {
+          merchantId,
+          from: maskPhone(normalizedFrom),
+          inboundCount,
+        });
+        return;
+      }
+    } catch (rlErr: any) {
+      logger.warn('Redis error during inbound WhatsApp rate limit check', { error: rlErr?.message });
+    }
+
     // ─── 5. Check Active NdrCase or Orphan / Closed Case ───
     const activeCase = await NdrCase.findOne({
       merchantId: merchant._id,

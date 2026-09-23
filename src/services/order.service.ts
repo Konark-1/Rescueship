@@ -9,6 +9,7 @@ import { encryptionService } from './encryption.service';
 import { recordOutbound } from './whatsapp-cost.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { realtimeService } from './realtime.service';
+import { orderStateMachineService } from './state-machine/order-state-machine.service';
 import { logger } from '../utils/logger';
 
 export interface IncomingOrderData {
@@ -38,6 +39,7 @@ export class OrderService {
   public async processCODOrder(merchantId: string, orderData: IncomingOrderData): Promise<void> {
     logger.info('Processing new order for COD conversion', { merchantId, externalOrderId: orderData.externalOrderId });
 
+    let creditReserved = false;
     try {
       const merchant = await Merchant.findById(merchantId);
       if (!merchant) {
@@ -79,6 +81,36 @@ export class OrderService {
         return;
       }
 
+      // ─── Atomic Credit Reservation (Prevents TOCTOU & Orphaned Payment Links) ───
+      if (Merchant && typeof Merchant.findOneAndUpdate === 'function') {
+        const reservedMerchant = await Merchant.findOneAndUpdate(
+          {
+            _id: merchant._id,
+            'billing.rescueCredits': { $gt: 0 },
+          },
+          {
+            $inc: { 'billing.rescueCredits': -1 },
+          },
+          { new: true }
+        );
+
+        if (!reservedMerchant) {
+          logger.info('Insufficient credits to initiate COD conversion workflow', { merchantId });
+          return;
+        }
+        creditReserved = true;
+      } else {
+        const updateRes = await Merchant.updateOne(
+          { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
+          { $inc: { 'billing.rescueCredits': -1 } }
+        );
+        if (updateRes.modifiedCount === 0) {
+          logger.info('Insufficient credits to initiate COD conversion workflow', { merchantId });
+          return;
+        }
+        creditReserved = true;
+      }
+
       const normalizedPhone = normalizeIndianPhone(orderData.customerPhone);
       
       let order;
@@ -94,22 +126,36 @@ export class OrderService {
           status: 'new',
         });
       } catch (err: any) {
-      if (err.code === 11000) {
-        // A prior attempt created the order but failed before the message went out
-        // (e.g. WhatsApp send error already reset it to 'new'). Resume instead of
-        // silently dropping the conversion.
-        const existing = await Order.findOne({ merchantId: merchant._id, externalOrderId: orderData.externalOrderId });
-        if (!existing) throw err;
-        if (existing.status !== 'new') {
-          logger.info('Order already processed (duplicate index)', { externalOrderId: orderData.externalOrderId });
-          return;
+        if (err.code === 11000) {
+          // A prior attempt created the order but failed before the message went out
+          // (e.g. WhatsApp send error already reset it to 'new'). Resume instead of
+          // silently dropping the conversion.
+          const existing = await Order.findOne({ merchantId: merchant._id, externalOrderId: orderData.externalOrderId });
+          if (!existing) {
+            if (creditReserved) {
+              await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+              creditReserved = false;
+            }
+            throw err;
+          }
+          if (existing.status !== 'new') {
+            logger.info('Order already processed (duplicate index)', { externalOrderId: orderData.externalOrderId });
+            if (creditReserved) {
+              await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+              creditReserved = false;
+            }
+            return;
+          }
+          order = existing;
+          logger.info('Resuming COD conversion for existing order after retry', { externalOrderId: orderData.externalOrderId });
+        } else {
+          if (creditReserved) {
+            await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+            creditReserved = false;
+          }
+          throw err;
         }
-        order = existing;
-        logger.info('Resuming COD conversion for existing order after retry', { externalOrderId: orderData.externalOrderId });
-      } else {
-        throw err;
       }
-    }
 
       let discount = 0;
       const incentiveType = merchant.settings.codConversion.incentiveType;
@@ -129,6 +175,10 @@ export class OrderService {
       const paymentProvider: 'razorpay' | 'cashfree' = pc.provider || pc.gateway || 'razorpay';
       if (!pc.keyId || !pc.keySecret) {
         logger.warn('COD conversion skipped: merchant has no connected payment gateway', { merchantId });
+        if (creditReserved) {
+          await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+          creditReserved = false;
+        }
         await Order.deleteOne({ _id: order._id });
         return;
       }
@@ -139,6 +189,10 @@ export class OrderService {
         keySecret = encryptionService.decrypt(pc.keySecret);
       } catch (decErr: any) {
         logger.error('Stored payment gateway credentials cannot be decrypted; merchant must reconnect payment gateway', { merchantId });
+        if (creditReserved) {
+          await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+          creditReserved = false;
+        }
         await Order.deleteOne({ _id: order._id });
         throw new Error('Payment credentials require reconnection');
       }
@@ -166,6 +220,10 @@ export class OrderService {
         if (process.env.NODE_ENV === 'test') {
           paymentLink = { linkId: `plink_sim_${Date.now()}`, shortUrl: `https://pay.rescueship.io/l/${orderData.externalOrderId}` };
         } else {
+          if (creditReserved) {
+            await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+            creditReserved = false;
+          }
           await Order.deleteOne({ _id: order._id });
           throw err;
         }
@@ -178,7 +236,9 @@ export class OrderService {
         logger.warn('Failed to generate UPI QR code for payment link', { error: qrErr.message });
       }
 
-      order.status = 'cod_conversion_sent';
+      if (order.status !== 'cod_conversion_sent') {
+        await orderStateMachineService.transitionOrder(order, 'cod_conversion_sent');
+      }
       order.paymentLinkId = paymentLink.linkId;
       order.paymentLinkUrl = paymentLink.shortUrl;
       order.codConversion = {
@@ -250,6 +310,10 @@ export class OrderService {
       } catch (waErr: any) {
         // Do not charge a credit or record a "sent" event for a message that never left.
         logger.error('WhatsApp COD conversion send failed', { merchantId, orderId: order.externalOrderId, error: waErr.message });
+        if (creditReserved) {
+          await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+          creditReserved = false;
+        }
         await Order.updateOne({ _id: order._id }, { $set: { status: 'new', 'codConversion.messageSentAt': null } });
         await AuditLog.create({
           merchantId: merchant._id,
@@ -278,13 +342,8 @@ export class OrderService {
         hasDiscount: discount > 0,
       });
 
-      const updateRes = await Merchant.updateOne(
-        { _id: merchant._id, 'billing.rescueCredits': { $gt: 0 } },
-        { $inc: { 'billing.rescueCredits': -1 } }
-      );
-      if (updateRes.modifiedCount === 0) {
-        throw new Error('Insufficient credits during deduction');
-      }
+      // Credit was already atomically reserved upfront before external API calls
+      creditReserved = false;
       await BillingEvent.create({
         merchantId: merchant._id,
         eventType: 'whatsapp_template_sent',
@@ -301,6 +360,13 @@ export class OrderService {
         status: 'success',
       });
     } catch (err: any) {
+      if (creditReserved) {
+        try {
+          await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.rescueCredits': 1 } });
+        } catch (compErr: any) {
+          logger.error('Failed to refund reserved credit after exception', { merchantId, error: compErr?.message });
+        }
+      }
       logger.error('Failed to process COD order conversion', { externalOrderId: orderData.externalOrderId, error: err.message });
       throw err;
     }
