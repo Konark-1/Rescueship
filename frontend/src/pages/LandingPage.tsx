@@ -134,8 +134,8 @@ function SpawnWords({ text, booted, baseDelay = 0, className = '' }: {
         <span key={i}>
           <motion.span
             className="lp-word"
-            initial={booted ? false : { opacity: 0, y: 26, filter: 'blur(7px)' }}
-            animate={booted ? { opacity: 1, y: 0, filter: 'blur(0px)' } : {}}
+            initial={{ opacity: 0, y: 26, filter: 'blur(7px)' }}
+            animate={booted ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: 26, filter: 'blur(7px)' }}
             transition={{ duration: 0.55, delay: baseDelay + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
           >
             {w}
@@ -392,11 +392,7 @@ export default function LandingPage() {
   const [reduced, setReduced] = useState(() => {
     try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
   });
-  const [booted, setBooted] = useState(() => {
-    try {
-      return typeof window !== 'undefined' && (window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!sessionStorage.getItem('rs_booted'));
-    } catch { return false; }
-  });
+  const [booted, setBooted] = useState(false);
   const [showOverlay, setShowOverlay] = useState(() => {
     try {
       return typeof window !== 'undefined' ? !(window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!sessionStorage.getItem('rs_booted')) : true;
@@ -423,7 +419,11 @@ export default function LandingPage() {
     setReduced(r);
     let seen = false;
     try { seen = !!sessionStorage.getItem('rs_booted'); } catch {}
-    if (r || seen) { setBooted(true); setShowOverlay(false); return; }
+    if (r || seen) {
+      setShowOverlay(false);
+      const t = setTimeout(() => setBooted(true), 40);
+      return () => clearTimeout(t);
+    }
     const t1 = setTimeout(() => setBooted(true), 1200);
     const t2 = setTimeout(() => { setShowOverlay(false); try { sessionStorage.setItem('rs_booted', '1'); } catch {} }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
@@ -556,8 +556,9 @@ export default function LandingPage() {
 
       {/* TOP BAR */}
       <motion.header className="lp-top"
-        initial={booted ? false : { opacity: 0, y: -16 }} animate={booted ? { opacity: 1, y: 0 } : {}}
-        transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}>
+        initial={reduced ? false : { opacity: 0, y: -16 }}
+        animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: -16 }}
+        transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}>
         <a href="/" className="lp-brand"><span className="lp-brand__mark" aria-hidden="true">⚓</span> RescueShip</a>
         <span className="lp-top__tag">Autonomous NDR Rescue</span>
         <nav className="lp-top__nav" aria-label="Landing Navigation">
@@ -569,8 +570,9 @@ export default function LandingPage() {
       {/* HERO */}
       <section className="lp-hero">
         <motion.div className="lp-console"
-          initial={booted ? false : { opacity: 0, y: 60, scale: 0.92 }} animate={booted ? { opacity: 1, y: 0, scale: 1 } : {}}
-          transition={{ duration: 0.7, delay: 0.15, ease: [0.34, 1.56, 0.64, 1] }}
+          initial={reduced ? false : { opacity: 0, y: 50, scale: 0.95 }}
+          animate={booted ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 50, scale: 0.95 }}
+          transition={{ duration: 0.7, delay: 0.1, ease: [0.34, 1.56, 0.64, 1] }}
           style={{ willChange: 'transform, opacity' }}>
           <div className="lp-console__head">
             <span className="lp-console__dot lp-console__dot--r" />
@@ -630,8 +632,11 @@ export default function LandingPage() {
 
         <div className="lp-intent">
           <motion.p className="lp-intent__kicker"
-            initial={booted ? false : { opacity: 0, y: 16 }} animate={booted ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.5, delay: 0.25 }}>For D2C brands shipping on WhatsApp</motion.p>
+            initial={reduced ? false : { opacity: 0, y: 16 }}
+            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+            transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}>
+            For D2C brands shipping on WhatsApp
+          </motion.p>
 
           <h1 className="lp-intent__h1">
             <span className="lp-intent__line">
@@ -645,8 +650,9 @@ export default function LandingPage() {
           </h1>
 
           <motion.p className="lp-intent__sub"
-            initial={booted ? false : { opacity: 0 }} animate={booted ? { opacity: 1 } : {}}
-            transition={{ duration: 0.6, delay: 1.15 }}>
+            initial={reduced ? false : { opacity: 0, y: 14 }}
+            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+            transition={{ duration: 0.6, delay: 1.15, ease: [0.16, 1, 0.3, 1] }}>
             Every failed delivery is a wound — forward freight, reverse freight,
             repackaging, wasted ad spend. RescueShip intercepts the NDR, rescues
             the order on WhatsApp, and syncs the fix back to the carrier.
@@ -663,8 +669,9 @@ export default function LandingPage() {
             </motion.div>
           ) : (
             <motion.form className="lp-pass" onSubmit={handleSignup}
-              initial={booted ? false : { opacity: 0, x: 48 }} animate={booted ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.6, delay: 1.25, ease: [0.16, 1, 0.3, 1] }}
+              initial={reduced ? false : { opacity: 0, x: 48, y: 10 }}
+              animate={booted ? { opacity: 1, x: 0, y: 0 } : { opacity: 0, x: 48, y: 10 }}
+              transition={{ duration: 0.65, delay: 1.25, ease: [0.16, 1, 0.3, 1] }}
               style={{ willChange: 'transform, opacity' }}>
               <div className="lp-pass__row">
                 <label className="lp-pass__label">Full name</label>
@@ -684,9 +691,16 @@ export default function LandingPage() {
                   autoComplete="url" spellCheck={false}
                   value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
               </div>
-              <button className="lp-pass__btn" type="submit" disabled={submitting}>
+              <motion.button
+                className="lp-pass__btn"
+                type="submit"
+                disabled={submitting}
+                whileHover={reduced ? {} : { scale: 1.015 }}
+                whileTap={reduced ? {} : { scale: 0.985 }}
+                transition={{ duration: 0.15 }}
+              >
                 {submitting ? 'Boarding…' : 'Start rescuing →'}
-              </button>
+              </motion.button>
               {error && <p className="lp-pass__err">⚠ {error}</p>}
               <p className="lp-pass__fine">Free test rescue · no card · live in 4 minutes</p>
             </motion.form>
