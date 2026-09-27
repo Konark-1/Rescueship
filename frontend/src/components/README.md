@@ -10,12 +10,13 @@
 | `AuthLayout.tsx` | Two-column auth shell — narrative terminal + glassmorphism form |
 | `AiAddressDecoder.tsx` | Interactive demo of colloquial address → geocoded output |
 | `CarrierMarquee.tsx` | Infinite horizontal ticker of supported integrations |
+| `ErrorBoundary.tsx` | Production React error boundary shell |
 | `ExportButton.tsx` | Plan-gated CSV/JSON export trigger (Scale+ only) |
-| `PricingComparisonModal.tsx` | Full plan comparison matrix modal |
 | `RescueMetrics.tsx` + `rescue-metrics.css` | Live NDR rescue telemetry card |
+| `RiskBadge.tsx` | AI-predictive RTO risk score badge |
+| `RiskBreakdownDrawer.tsx` | Detailed RTO risk factors and mitigation drawer |
 | `SetupGuide.tsx` + `setup-guide.css` | Slide-over onboarding checklist |
 | `SpotlightCard.tsx` | Cursor-following radial gradient container |
-| `TelemetryDrawer.tsx` | Forensic audit drawer with pipeline stage visualization |
 
 ## Subdirectories
 

@@ -11,8 +11,6 @@ interface SettingsData {
   carrierApiKey: string;
   whatsappToken: string;
   paymentGatewayKey: string;
-  enableNotifications: boolean;
-  enableAutoFulfillment: boolean;
 }
 
 const tabs = [
@@ -20,8 +18,7 @@ const tabs = [
   { id: 'carrier', label: 'Carrier' },
   { id: 'whatsapp', label: 'WhatsApp' },
   { id: 'payment', label: 'Payments' },
-  { id: 'ai', label: 'AI Provider' },
-  { id: 'features', label: 'Feature toggles' }
+  { id: 'ai', label: 'AI Provider' }
 ];
 
 export const SettingsPage: React.FC = () => {
@@ -31,9 +28,7 @@ export const SettingsPage: React.FC = () => {
     carrierName: '',
     carrierApiKey: '',
     whatsappToken: '',
-    paymentGatewayKey: '',
-    enableNotifications: false,
-    enableAutoFulfillment: false
+    paymentGatewayKey: ''
   });
 
   const [activeTab, setActiveTab] = useState('platform');
@@ -194,40 +189,6 @@ export const SettingsPage: React.FC = () => {
             {activeTab === 'ai' && (
               <TabSection key="ai" title="AI provider" desc="Select which AI model powers smart responses and image analysis.">
                 <AiProviderSelector />
-              </TabSection>
-            )}
-
-            {activeTab === 'features' && (
-              <TabSection key="features" title="Feature toggles" desc="Global automation rules and recovery switches.">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      name="enableNotifications"
-                      checked={settings.enableNotifications}
-                      onChange={handleChange}
-                    />
-                    <span className="toggle-row__box" aria-hidden="true" />
-                    <span>
-                      <span className="toggle-row__title">Push notifications</span>
-                      <span className="toggle-row__desc">Real-time alerts for NDR cases and successful rescues.</span>
-                    </span>
-                  </label>
-
-                  <label className="toggle-row">
-                    <input
-                      type="checkbox"
-                      name="enableAutoFulfillment"
-                      checked={settings.enableAutoFulfillment}
-                      onChange={handleChange}
-                    />
-                    <span className="toggle-row__box" aria-hidden="true" />
-                    <span>
-                      <span className="toggle-row__title">Auto fulfillment</span>
-                      <span className="toggle-row__desc">Trigger carrier fulfillment automatically when COD converts to prepaid.</span>
-                    </span>
-                  </label>
-                </div>
               </TabSection>
             )}
           </AnimatePresence>

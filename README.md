@@ -29,7 +29,7 @@ Intercepts failed delivery attempts (NDRs) on WhatsApp and collects updated deli
 - Multi-tier escalation worker with customizable cooldown intervals (4h, 12h, 24h).
 
 ### 4. 💰 Multi-Tier Order Subscription Billing
-- Order-based subscription tiers: **Starter** (2,000 orders/mo), **Growth** (10,000 orders/mo), **Scale** (50,000 orders/mo), and **Enterprise** (Custom).
+- Order-based subscription tiers: **Starter** (1,000 orders/mo), **Growth** (5,000 orders/mo), **Scale** (12,000 orders/mo), **Fleet** (25,000 orders/mo), and **Enterprise** (Custom).
 - Integrated Razorpay Subscription Checkout Engine for automated plan activation and usage resetting.
 
 ---

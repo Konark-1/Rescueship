@@ -65,6 +65,13 @@ export interface IOrder extends Document {
       collectionState?: 'idle' | 'awaiting_location' | 'awaiting_text' | 'complete';
     };
   };
+  rtoRisk?: {
+    score: number;
+    level: 'LOW' | 'MEDIUM' | 'HIGH';
+    factors: string[];
+    recommendedAction: 'auto_ship' | 'whatsapp_verify' | 'require_deposit' | 'manual_review';
+    scoredAt: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -148,6 +155,13 @@ const OrderSchema = new Schema<IOrder>(
         },
       },
     },
+    rtoRisk: {
+      score: { type: Number, default: 0 },
+      level: { type: String, enum: ['LOW', 'MEDIUM', 'HIGH'], default: 'LOW' },
+      factors: [{ type: String }],
+      recommendedAction: { type: String, enum: ['auto_ship', 'whatsapp_verify', 'require_deposit', 'manual_review'], default: 'auto_ship' },
+      scoredAt: { type: Date, default: Date.now },
+    },
   },
   {
     timestamps: true,
@@ -170,5 +184,21 @@ OrderSchema.index({ customerPhone: 1, status: 1 }, { name: 'idx_phone_status' })
 OrderSchema.index({ merchantId: 1, createdAt: -1 }, { name: 'idx_merchant_created' });
 OrderSchema.index({ merchantId: 1, externalOrderId: 1 }, { name: 'idx_merchant_external_order_unique', unique: true });
 OrderSchema.index({ paymentLinkId: 1 }, { name: 'idx_payment_link', sparse: true });
+OrderSchema.index(
+  { merchantId: 1, 'ndr.reason': 1 },
+  { name: 'idx_merchant_ndr_reason', partialFilterExpression: { 'ndr.reason': { $type: 'string' } } }
+);
+OrderSchema.index(
+  { merchantId: 1, carrier: 1 },
+  { name: 'idx_merchant_carrier', partialFilterExpression: { carrier: { $type: 'string' } } }
+);
+OrderSchema.index(
+  { merchantId: 1, paymentMethod: 1 },
+  { name: 'idx_merchant_payment_method' }
+);
+OrderSchema.index(
+  { merchantId: 1, 'rtoRisk.level': 1, createdAt: -1 },
+  { name: 'idx_merchant_risk_level' }
+);
 
 export const Order = model<IOrder>('Order', OrderSchema);

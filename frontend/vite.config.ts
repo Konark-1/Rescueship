@@ -18,4 +18,24 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id: string) {
+          if (id.includes('recharts')) {
+            return 'vendor-recharts';
+          }
+          if (id.includes('motion')) {
+            return 'vendor-motion';
+          }
+          if (id.includes('lucide-react')) {
+            return 'vendor-lucide';
+          }
+          if (id.includes('react-router')) {
+            return 'vendor-router';
+          }
+        },
+      },
+    },
+  },
 })

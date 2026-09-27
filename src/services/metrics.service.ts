@@ -1,4 +1,4 @@
-import { Merchant, IMerchant } from '../models/Merchant';
+import { Merchant } from '../models/Merchant';
 import { logger } from '../utils/logger';
 
 export interface RescueMetrics {
@@ -155,9 +155,15 @@ class MetricsService {
    * Aggregate metrics across all pilot merchants.
    */
   async getCohortMetrics(anonymize: boolean = false): Promise<CohortMetrics> {
-    const merchants = await Merchant.find({
+    const query = Merchant.find({
       'onboarding.completedAt': { $exists: true },
-    }).lean();
+    });
+    const selected = query && typeof (query as any).select === 'function'
+      ? (query as any).select('metrics storeName shopify.shopDomain billing.status')
+      : query;
+    const merchants = selected && typeof (selected as any).lean === 'function'
+      ? await (selected as any).lean()
+      : await selected;
 
     let totalAttempted = 0;
     let totalSucceeded = 0;
@@ -201,7 +207,7 @@ class MetricsService {
 
     return {
       totalMerchants: merchants.length,
-      activeMerchants: merchants.filter(m => (m as any).billing?.status === 'active').length,
+      activeMerchants: merchants.filter((m: any) => (m as any).billing?.status === 'active').length,
       aggregateRescueRate: totalAttempted > 0 ? totalSucceeded / totalAttempted : 0,
       aggregateNDRProcessed: totalNDR,
       topPerformers: performers.slice(0, 5),

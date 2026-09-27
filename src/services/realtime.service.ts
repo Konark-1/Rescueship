@@ -8,6 +8,7 @@
 
 import { Response } from 'express';
 import { EventEmitter } from 'events';
+import { merchantDigestService } from './merchant-digest.service';
 import { logger } from '../utils/logger';
 
 export interface RealtimeEvent {
@@ -82,6 +83,16 @@ class RealtimeService extends EventEmitter {
    * Called from services (NDR, Order, Payment) after state changes.
    */
   public broadcast(event: RealtimeEvent): void {
+    // 1. Buffer for merchant hourly digest (non-blocking)
+    try {
+      merchantDigestService.bufferEvent(event).catch((err) => {
+        logger.warn('Failed to buffer realtime event for digest', { error: err?.message });
+      });
+    } catch {
+      // never let digest buffering disrupt SSE broadcast
+    }
+
+    // 2. Broadcast to connected SSE clients
     const clientSet = this.clients.get(event.merchantId);
     if (!clientSet || clientSet.size === 0) return;
 

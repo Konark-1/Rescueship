@@ -277,25 +277,52 @@ export class AddressCorrectionService {
     const waConfig = this.getWaConfig(merchant);
 
     try {
-      const extracted = await this.extractAddressDetails(text);
-      const pincode = extracted.pincode || this.extractPincode(text);
+      let extracted: ExtractedAddressDetails;
+      const aiParsed = await geminiService.parseAddress(text);
+
+      let fullAddress = '';
+      let pincode = '';
+
+      if (aiParsed && aiParsed.confidence >= 0.6) {
+        fullAddress = aiParsed.cleanAddress;
+        pincode = aiParsed.pincode || this.extractPincode(text) || '';
+        extracted = {
+          cleanAddress: aiParsed.cleanAddress,
+          landmark: aiParsed.landmark,
+          driverNote: aiParsed.driverNote,
+          pincode,
+        };
+        if (!order.ndr) order.ndr = {};
+        if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
+        (order.ndr.addressUpdate as any).aiParsed = aiParsed;
+        logger.info('Gemini successfully parsed address', { orderId: order._id, confidence: aiParsed.confidence });
+      } else {
+        extracted = await this.extractAddressDetails(text);
+        pincode = extracted.pincode || this.extractPincode(text) || '';
+        fullAddress = extracted.cleanAddress;
+        if (!order.ndr) order.ndr = {};
+        if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
+        (order.ndr.addressUpdate as any).aiParsed = { confidence: 0.1, source: 'regex_fallback' };
+        logger.info('Gemini parse unconfigured or low confidence, used fallback extraction', { orderId: order._id });
+      }
+
       const gpsCoords = (order.ndr as any)?.gpsCoordinates;
       const geocodedAddress = (order.ndr as any)?.geocodedAddress || order.ndr?.addressUpdate?.geocodedAddress;
 
-      let fullAddress = extracted.cleanAddress.substring(0, 150);
-      if (extracted.landmark) {
-        fullAddress += ` [Landmark: ${extracted.landmark}]`;
+      let combinedAddress = fullAddress.substring(0, 150);
+      if (extracted.landmark && !combinedAddress.includes(extracted.landmark)) {
+        combinedAddress += ` [Landmark: ${extracted.landmark}]`;
       }
-      if (extracted.driverNote) {
-        fullAddress += ` [Note: ${extracted.driverNote}]`;
+      if (extracted.driverNote && !combinedAddress.includes(extracted.driverNote)) {
+        combinedAddress += ` [Note: ${extracted.driverNote}]`;
       }
       if (geocodedAddress) {
-        fullAddress = `${fullAddress.slice(0, 140)} | GPS: ${geocodedAddress}`;
+        combinedAddress = `${combinedAddress.slice(0, 140)} | GPS: ${geocodedAddress}`;
       }
-      fullAddress = fullAddress.slice(0, 200);
+      combinedAddress = combinedAddress.slice(0, 200);
 
       await this.pushAddressToCarrier(order, merchant, {
-        address: fullAddress,
+        address: combinedAddress,
         lat: gpsCoords?.lat,
         lng: gpsCoords?.lng,
         pincode,
@@ -467,7 +494,7 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
         if (parsed.cleanAddress) cleanAddress = String(parsed.cleanAddress).slice(0, 200);
         const aiResult: ExtractedAddressDetails = { cleanAddress, landmark, driverNote, pincode };
         try {
-          if (redisConnection) {
+          if (redisConnection && typeof redisConnection.set === 'function') {
             await redisConnection.set(cacheKey, JSON.stringify(aiResult), 'EX', 86400); // 24 hours
           }
         } catch (setErr: any) {

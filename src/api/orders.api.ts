@@ -85,17 +85,40 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
   const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 200);
   const skip = (page - 1) * limit;
 
-  // Filters
-  const status = req.query.status as string;
-  const carrier = req.query.carrier as string;
-  const search = req.query.search as string;
-  const startDate = req.query.startDate as string;
-  const endDate = req.query.endDate as string;
+  // STRICT TYPE COERCION & VALIDATION
+  const status = typeof req.query.status === 'string' ? req.query.status.trim() : '';
+  const carrier = typeof req.query.carrier === 'string' ? req.query.carrier.trim() : '';
+  const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+  const startDate = typeof req.query.startDate === 'string' ? req.query.startDate.trim() : '';
+  const endDate = typeof req.query.endDate === 'string' ? req.query.endDate.trim() : '';
 
   const query: any = { merchantId };
 
-  if (status) query.status = status;
-  if (carrier) query.carrier = carrier;
+  // Whitelist allowed statuses to prevent NoSQL operator injection
+  const ALLOWED_STATUSES = [
+    'new',
+    'cod_conversion_sent',
+    'converted_to_prepaid',
+    'shipped',
+    'ndr_detected',
+    'ndr_rescue_sent',
+    'ndr_pending_review',
+    'ndr_rescued',
+    'out_for_delivery',
+    'delivered',
+    'rto_initiated',
+    'rto',
+    'returned',
+    'cancelled',
+  ];
+  if (status && ALLOWED_STATUSES.includes(status)) {
+    query.status = status;
+  }
+
+  const ALLOWED_CARRIERS = ['shiprocket', 'delhivery', 'clickpost'];
+  if (carrier && ALLOWED_CARRIERS.includes(carrier)) {
+    query.carrier = carrier;
+  }
 
   if (search) {
     const escapedSearch = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -108,8 +131,14 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
 
   if (startDate || endDate) {
     query.createdAt = {};
-    if (startDate) query.createdAt.$gte = new Date(startDate);
-    if (endDate) query.createdAt.$lte = new Date(endDate);
+    if (startDate && !isNaN(Date.parse(startDate))) query.createdAt.$gte = new Date(startDate);
+    if (endDate && !isNaN(Date.parse(endDate))) query.createdAt.$lte = new Date(endDate);
+    if (Object.keys(query.createdAt).length === 0) delete query.createdAt;
+  }
+
+  const riskLevel = typeof req.query.riskLevel === 'string' ? req.query.riskLevel.trim().toUpperCase() : '';
+  if (['LOW', 'MEDIUM', 'HIGH'].includes(riskLevel)) {
+    query['rtoRisk.level'] = riskLevel;
   }
 
   try {
@@ -166,6 +195,118 @@ router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
   } catch (err: any) {
     logger.error('Failed to get order details', { merchantId, orderId, error: err.message });
     res.status(500).json({ error: 'Failed to retrieve order details' });
+  }
+});
+
+/**
+ * POST /api/orders/:orderId/assess-risk
+ * Calculate and update RTO risk assessment for an order
+ */
+router.post('/:orderId/assess-risk', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const orderId = req.params.orderId;
+
+  if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
+    res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+
+  try {
+    const order = await Order.findOne({ _id: orderId, merchantId });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const { rtoRiskService } = await import('../services/rto-risk.service');
+    const risk = await rtoRiskService.assessOrder(merchantId!, {
+      customerPhone: order.customerPhone,
+      orderValue: order.orderValue,
+      pincode: (order as any).shippingAddress?.pincode,
+      address: typeof (order as any).shippingAddress === 'string'
+        ? (order as any).shippingAddress
+        : (order as any).shippingAddress?.fullAddress,
+    });
+
+    order.rtoRisk = risk;
+    await order.save();
+
+    res.status(200).json(risk);
+  } catch (err: any) {
+    logger.error('Failed to assess order risk', { merchantId, orderId, error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/orders/:orderId/risk-action
+ * Execute merchant triage action on a flagged high/medium risk order
+ */
+router.post('/:orderId/risk-action', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const orderId = req.params.orderId;
+  const { action } = req.body; // 'whatsapp_verify', 'require_deposit', 'manual_review_approve'
+
+  if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
+    res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+
+  try {
+    const order = await Order.findOne({ _id: orderId, merchantId });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    if (action === 'manual_review_approve') {
+      if (!order.rtoRisk) {
+        order.rtoRisk = {
+          score: 0,
+          level: 'LOW',
+          factors: [],
+          recommendedAction: 'auto_ship',
+          scoredAt: new Date(),
+        };
+      }
+      order.rtoRisk.level = 'LOW';
+      order.rtoRisk.score = 0;
+      order.rtoRisk.factors.push('merchant_overridden');
+      order.rtoRisk.recommendedAction = 'auto_ship';
+      await order.save();
+
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'rto_risk_overridden_by_merchant',
+        source: 'orders_api',
+        status: 'success',
+      });
+    } else if (action === 'whatsapp_verify') {
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'rto_whatsapp_verify_requested',
+        source: 'orders_api',
+        status: 'success',
+      });
+    } else if (action === 'require_deposit') {
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'rto_partial_deposit_requested',
+        source: 'orders_api',
+        status: 'success',
+      });
+    } else {
+      res.status(400).json({ error: `Unknown risk action: ${action}` });
+      return;
+    }
+
+    res.status(200).json({ success: true, rtoRisk: order.rtoRisk });
+  } catch (err: any) {
+    logger.error('Failed to execute risk action', { merchantId, orderId, error: err.message });
+    res.status(500).json({ error: err.message });
   }
 });
 

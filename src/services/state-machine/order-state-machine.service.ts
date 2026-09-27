@@ -26,7 +26,7 @@ export const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   ndr_pending_review:   ['ndr_rescue_sent', 'rto_initiated', 'cancelled', 'ndr_rescued', 'delivered'],
   ndr_rescued:          ['out_for_delivery', 'delivered', 'rto_initiated', 'cancelled', 'ndr_detected'],
   rto_initiated:        ['returned', 'rto', 'out_for_delivery', 'delivered', 'ndr_rescued', 'converted_to_prepaid'], // Rescueable via RTO arrest / payment
-  rto:                  ['returned'],
+  rto:                  ['returned', 'ndr_rescued', 'converted_to_prepaid', 'out_for_delivery'], // Rescueable via RTO arrest / online payment
   returned:             [], // Terminal
   delivered:            [], // Terminal
   cancelled:            [], // Terminal

@@ -33,6 +33,8 @@ const DeliveryAttemptSchema = new Schema<IDeliveryAttempt>(
 );
 
 DeliveryAttemptSchema.index({ merchantId: 1, awb: 1, attemptTime: -1 });
+// TTL Index: Auto-expire delivery attempts after 90 days (90 * 24 * 60 * 60 seconds)
+DeliveryAttemptSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000, name: 'idx_attempt_ttl' });
 
 export const DeliveryAttempt: Model<IDeliveryAttempt> = model<IDeliveryAttempt>(
   'DeliveryAttempt',

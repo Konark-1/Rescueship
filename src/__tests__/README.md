@@ -1,6 +1,6 @@
 # __tests__/
 
-> **Purpose**: Jest test suites — 18 suites covering 116 tests for backend services, APIs, and security.
+> **Purpose**: Jest test suites — 25 suites covering 168 tests for backend services, APIs, and security.
 
 ## File Catalog
 
@@ -21,13 +21,15 @@
 | `order.service.test.ts` | COD conversion, payment confirmation, platform sync |
 | `payment.service.test.ts` | Razorpay/Cashfree link generation, signature verification |
 | `phoneNormalizer.test.ts` | Indian phone normalization (+91, 0-prefix, whitespace) |
-| `plan-simulation-cases.test.ts` | 12 plan simulation cases across Starter/Growth/Scale/Fleet |
+| `geocoding.service.test.ts` | Two-tier Redis + in-memory caching & Nominatim rate-limiting |
 | `security-vault.test.ts` | IDOR prevention, cross-tenant isolation, credential masking |
+| `vulnerability-remediation.test.ts` | Security remediations, input sanitation, session management |
+| `merchant-digest.service.test.ts` | Event buffering, hourly aggregation, email dispatch, quota alerts |
 | `whatsapp.service.test.ts` | Template dispatch, cooldown enforcement, credit deduction |
 
 ## Key Invariants
 
-- ALL 18 suites / 116 tests MUST pass before any deploy
+- ALL 25 suites / 168 tests MUST pass before any deploy
 - Run with: `npm test` (uses `jest --forceExit`)
 - Tests use in-memory mocks — do NOT connect to real MongoDB/Redis
 - Config: `jest.config.ts` in project root, uses `ts-jest`

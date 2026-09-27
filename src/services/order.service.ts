@@ -1,7 +1,5 @@
 import { Types } from 'mongoose';
 import axios from 'axios';
-import { Queue } from 'bullmq';
-import { redisConnection } from '../config/redis';
 import { Merchant, Order, AuditLog, BillingEvent, NdrCase } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { paymentService } from './payment.service';
@@ -10,6 +8,9 @@ import { recordOutbound } from './whatsapp-cost.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { realtimeService } from './realtime.service';
 import { orderStateMachineService } from './state-machine/order-state-machine.service';
+import { logisticsService } from './logistics.service';
+import { rtoRiskService } from './rto-risk.service';
+import { checkSubscriptionAccess } from '../utils/subscription-guard';
 import { logger } from '../utils/logger';
 
 export interface IncomingOrderData {
@@ -19,6 +20,8 @@ export interface IncomingOrderData {
   customerName?: string;
   orderValue: number;
   paymentMethod: 'cod' | 'prepaid';
+  pincode?: string;
+  shippingAddress?: any;
 }
 
 export class OrderService {
@@ -41,9 +44,30 @@ export class OrderService {
 
     let creditReserved = false;
     try {
-      const merchant = await Merchant.findById(merchantId);
+      const query = Merchant.findById(merchantId);
+      const merchant = query && typeof (query as any).select === 'function'
+        ? await (query as any).select('settings.codConversion billing paymentConfig whatsappConfig storeName platform accessExpiresAt licenseStatus')
+        : await query;
       if (!merchant) {
         throw new Error(`Merchant not found: ${merchantId}`);
+      }
+
+      // 🛡️ ZERO-LOOPHOLE SUBSCRIPTION & QUOTA CHECK
+      const subCheck = checkSubscriptionAccess(merchant);
+      if (!subCheck.allowed) {
+        logger.warn('Order conversion blocked: Subscription inactive or quota exceeded', {
+          merchantId,
+          reason: subCheck.reason,
+          externalOrderId: orderData.externalOrderId,
+        });
+        await AuditLog.create({
+          merchantId: merchant._id,
+          action: 'order_blocked_subscription_inactive',
+          source: 'order_service',
+          payload: { reason: subCheck.reason, externalOrderId: orderData.externalOrderId },
+          status: 'failed',
+        });
+        return;
       }
 
       if (!merchant.settings?.codConversion?.enabled) {
@@ -113,6 +137,20 @@ export class OrderService {
 
       const normalizedPhone = normalizeIndianPhone(orderData.customerPhone);
       
+      let riskAssessment;
+      try {
+        riskAssessment = await rtoRiskService.assessOrder(merchantId, {
+          customerPhone: normalizedPhone,
+          orderValue: orderData.orderValue,
+          pincode: orderData.pincode || (orderData as any).shippingAddress?.pincode,
+          address: typeof orderData.shippingAddress === 'string'
+            ? orderData.shippingAddress
+            : (orderData as any).shippingAddress?.fullAddress,
+        });
+      } catch (riskErr: any) {
+        logger.warn('Failed to assess RTO risk during order processing', { error: riskErr?.message });
+      }
+
       let order;
       try {
         order = await Order.create({
@@ -124,7 +162,11 @@ export class OrderService {
           orderValue: orderData.orderValue,
           paymentMethod: 'cod',
           status: 'new',
+          ...(riskAssessment ? { rtoRisk: riskAssessment } : {}),
         });
+
+        // Increment monthly orders count for plan quota enforcement
+        await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.currentMonthOrders': 1 } });
       } catch (err: any) {
         if (err.code === 11000) {
           // A prior attempt created the order but failed before the message went out
@@ -168,6 +210,24 @@ export class OrderService {
       }
 
       const finalAmount = orderData.orderValue - discount;
+
+      // 🛡️ VECTOR 2 FIX: Negative Paise Trap
+      if (finalAmount <= 0) {
+        logger.warn('COD conversion aborted: Discount equals or exceeds order value', {
+          merchantId,
+          externalOrderId: orderData.externalOrderId,
+          orderValue: orderData.orderValue,
+          discount,
+          finalAmount,
+        });
+
+        if (creditReserved) {
+          await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
+          creditReserved = false;
+        }
+        await Order.deleteOne({ _id: order._id }).catch(() => {});
+        return;
+      }
 
       // The customer's money must land in the MERCHANT's gateway account. Never fall back
       // to platform keys, and never treat undecryptable ciphertext as a credential.
@@ -344,6 +404,15 @@ export class OrderService {
 
       // Credit was already atomically reserved upfront before external API calls
       creditReserved = false;
+
+      // The order entered the automation workflow — meter it against the
+      // monthly plan quota (billing.currentMonthOrders). Non-fatal on failure.
+      try {
+        await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.currentMonthOrders': 1 } });
+      } catch (incErr: any) {
+        logger.warn('Failed to increment monthly order usage (non-fatal)', { merchantId, error: incErr.message });
+      }
+
       await BillingEvent.create({
         merchantId: merchant._id,
         eventType: 'whatsapp_template_sent',
@@ -361,11 +430,36 @@ export class OrderService {
       });
     } catch (err: any) {
       if (creditReserved) {
-        try {
-          await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.rescueCredits': 1 } });
-        } catch (compErr: any) {
-          logger.error('Failed to refund reserved credit after exception', { merchantId, error: compErr?.message });
+        let refundSuccess = false;
+
+        // Exponential backoff retry loop for credit refund
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.rescueCredits': 1 } });
+            refundSuccess = true;
+            break;
+          } catch (compErr: any) {
+            logger.error(`Credit refund attempt ${attempt}/3 failed`, { error: compErr.message });
+            if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+          }
         }
+
+        // Fallback: Record orphaned credit for nightly reconciliation cron
+        if (!refundSuccess) {
+          try {
+            await AuditLog.create({
+              merchantId: new Types.ObjectId(merchantId),
+              action: 'orphaned_credit_refund_required',
+              source: 'order_service',
+              payload: { externalOrderId: orderData.externalOrderId, creditsLost: 1, reason: err.message },
+              status: 'failed',
+              error: 'All inline refund attempts failed. Manual reconciliation required.',
+            });
+          } catch (logErr: any) {
+            logger.error('Failed to create orphaned credit audit log', { error: logErr?.message });
+          }
+        }
+        creditReserved = false;
       }
       logger.error('Failed to process COD order conversion', { externalOrderId: orderData.externalOrderId, error: err.message });
       throw err;
@@ -384,10 +478,12 @@ export class OrderService {
       return;
     }
 
-    if (order.status === 'converted_to_prepaid') {
-      logger.info('Order already converted to prepaid, duplicate webhook event', { paymentLinkId });
+    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued') {
+      logger.info('Order already converted to prepaid or rescued, duplicate webhook event', { paymentLinkId });
       return;
     }
+
+    const previousStatus = order.status;
 
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) {
@@ -398,7 +494,7 @@ export class OrderService {
     const expectedAmountInr = Math.max(1, order.orderValue - discount);
     const expectedPaise = Math.round(expectedAmountInr * 100);
 
-    const isNdrOrder = (order.status || '').startsWith('ndr_') || order.status === 'rto_initiated';
+    const isNdrOrder = (order.status || '').startsWith('ndr_') || order.status === 'rto_initiated' || order.status === 'rto';
     const partialAmount = (merchant as any).settings?.partialPay?.amount || 49;
     const expectedPartialPaise = Math.round(partialAmount * 100);
 
@@ -437,6 +533,7 @@ export class OrderService {
             'ndr_rescue_sent',
             'ndr_pending_review',
             'rto_initiated',
+            'rto',
             'new',
             'shipped',
           ],
@@ -508,34 +605,38 @@ export class OrderService {
       logger.warn('Failed to adjust COD amount with courier after payment', { error: codErr?.message });
     }
 
-    // If order was in NDR or rto_initiated state, trigger courier reattempt automatically
+    // If order was in NDR, rto_initiated, or rto state, trigger courier reattempt / RTO abort automatically
     if (isNdrOrder && updatedOrder.carrier && updatedOrder.awb) {
       try {
-        const { logisticsService } = require('./logistics.service');
         const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const cc: any = merchant.carrierConfig || {};
-        let apiToken: string | undefined;
-        try {
-          if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-          else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
-        } catch { /* proceed */ }
+        const carrierConfig = this.getCarrierConfig(merchant, updatedOrder.carrier);
+
+        const reason = (previousStatus === 'rto' || previousStatus === 'rto_initiated')
+          ? 'Customer paid online. RTO aborted by RescueShip.'
+          : 'Customer paid online via WhatsApp NDR link. Reattempt scheduled.';
 
         await logisticsService.rescheduleDelivery(
           updatedOrder.carrier,
           {
             awb: updatedOrder.awb,
             newDate: tomorrow,
-            reason: 'Customer paid online via WhatsApp NDR link. Reattempt scheduled.',
+            reason,
           },
-          {
-            provider: updatedOrder.carrier,
-            apiToken,
-            email: process.env.SHIPROCKET_EMAIL,
-            password: process.env.SHIPROCKET_PASSWORD,
-          }
+          carrierConfig
         );
+
+        if (previousStatus === 'rto' || previousStatus === 'rto_initiated') {
+          await AuditLog.create({
+            merchantId: merchant._id,
+            orderId: updatedOrder._id,
+            action: 'rto_aborted_via_payment',
+            source: 'payment_webhook',
+            payload: { previousStatus, awb: updatedOrder.awb },
+            status: 'success',
+          });
+        }
       } catch (reattemptErr: any) {
-        logger.warn('Failed to schedule courier reattempt after NDR payment confirmation', { error: reattemptErr?.message });
+        logger.warn('Failed to schedule courier reattempt or abort RTO after payment confirmation', { error: reattemptErr?.message });
       }
     }
 
@@ -547,6 +648,31 @@ export class OrderService {
       payload: { paymentLinkId, amountPaidPaise, isNdrOrder },
       status: 'success',
     });
+  }
+
+  public getCarrierConfig(merchant: any, carrier?: string): any {
+    const cc: any = merchant?.carrierConfig || {};
+    let apiToken: string | undefined;
+    let apiKey: string | undefined;
+    let email: string | undefined;
+    let password: string | undefined;
+
+    try {
+      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
+      else if (cc.apiKey) apiKey = encryptionService.decrypt(cc.apiKey);
+      if (cc.email) email = encryptionService.decrypt(cc.email);
+      if (cc.password) password = encryptionService.decrypt(cc.password);
+    } catch {
+      // Proceed with defaults / environment fallback
+    }
+
+    return {
+      provider: carrier || cc.provider,
+      apiToken: apiToken || cc.apiToken,
+      apiKey: apiKey || cc.apiKey,
+      email: email || process.env.SHIPROCKET_EMAIL,
+      password: password || process.env.SHIPROCKET_PASSWORD,
+    };
   }
 
   public async handlePaymentConfirmation(paymentLinkId: string, amountPaidPaise: any): Promise<void> {

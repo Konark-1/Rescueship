@@ -6,7 +6,7 @@
 const API = import.meta.env.VITE_API_URL || '';
 
 export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
-export type Cycle = 'quarterly' | 'annual';
+export type Cycle = 'quarterly' | 'semi' | 'annual';
 
 export interface StoreMetrics {
   aov: number;          // Average Order Value (e.g. 1200)
@@ -30,8 +30,16 @@ export const TIERS: { key: Tier; name: string; orders: number; base: number; blu
 ];
 
 export const CYCLES: { key: Cycle; label: string; months: number; discount: number; tag: string }[] = [
-  { key: 'quarterly', label: 'Quarterly', months: 3,  discount: 0,    tag: '90-Day Guarantee' },
-  { key: 'annual',    label: 'Annual',    months: 12, discount: 0.20, tag: '−20%' },
+  { key: 'quarterly', label: 'Quarterly',   months: 3,  discount: 0,    tag: '90-Day Guarantee' },
+  { key: 'semi',      label: 'Semi-Annual', months: 6,  discount: 0.15, tag: '−15%' },
+  { key: 'annual',    label: 'Annual',      months: 12, discount: 0.20, tag: '−20%' },
+];
+
+/** Self-serve rescue-credit top-up packs — mirror of backend CREDIT_PACKS (display only). */
+export const CREDIT_PACKS: { key: string; credits: number; priceInr: number; label: string }[] = [
+  { key: 'pack_100',  credits: 100,  priceInr: 499,  label: '100 Rescues' },
+  { key: 'pack_500',  credits: 500,  priceInr: 1999, label: '500 Rescues' },
+  { key: 'pack_2000', credits: 2000, priceInr: 6999, label: '2,000 Rescues' },
 ];
 
 export const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -102,6 +110,16 @@ export const billingApi = {
   /** After Razorpay success — server verifies signature + provisions plan. */
   verify: (token: string, payload: any) => call(token, '/checkout/verify', payload),
   status: (token: string) => call(token, '/status'),
+  /** Payment history — issued invoices (intro, renewals, credit top-ups). */
+  invoices: (token: string) => call(token, '/invoices'),
+  /** Schedule cancel-at-cycle-end — access continues until the period ends. */
+  cancel: (token: string) => call(token, '/cancel', {}),
+  /** Un-pause / clear a scheduled cancellation. */
+  resume: (token: string) => call(token, '/resume', {}),
+  /** One-time Razorpay order for a rescue-credit pack. */
+  creditCheckout: (token: string, pack: string) => call(token, '/credits/checkout', { pack }),
+  /** Verify a credit-pack payment — server credits the account. */
+  creditVerify: (token: string, payload: any) => call(token, '/credits/verify', payload),
 };
 
 export const loadRazorpay = () => new Promise<boolean>((res) => {

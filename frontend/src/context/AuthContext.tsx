@@ -4,6 +4,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  phone?: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
   onboardingStatus: 'pending' | 'skipped' | 'completed';
 }

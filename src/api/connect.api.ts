@@ -21,6 +21,7 @@ import { logger } from '../utils/logger';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
 import { frontendOrigin } from '../config/env';
 import { credentialValidationLimiter } from '../middleware/rateLimiter';
+import { isSafeFrontendOrigin, verifyStateToken } from '../utils/security.utils';
 
 const router = Router();
 
@@ -125,18 +126,23 @@ router.post('/shopify/token', authenticateToken, credentialValidationLimiter, st
 router.get('/shopify/callback', async (req: Request, res: Response) => {
   let targetOrigin = frontendOrigin();
   try {
-    if (req.query.state && typeof req.query.state === 'string') {
-      try {
-        const decoded = jwt.decode(req.query.state) as any;
-        if (decoded?.returnOrigin) targetOrigin = decoded.returnOrigin;
-      } catch { /* ignore */ }
+    if (typeof req.query.state === 'string') {
+      // SECURE: Cryptographically verify the state token
+      const decoded = verifyStateToken(req.query.state);
+      if (decoded?.returnOrigin && isSafeFrontendOrigin(decoded.returnOrigin)) {
+        targetOrigin = decoded.returnOrigin;
+      }
     }
     const result = await shopifyOAuthService.handleCallback(req.query as Record<string, string>);
-    if (result?.returnOrigin) targetOrigin = result.returnOrigin;
-    logger.info('Shopify OAuth handshake successful', { shop: result.shop, targetOrigin });
+    // Also verify the origin returned by the service logic
+    if (result?.returnOrigin && isSafeFrontendOrigin(result.returnOrigin)) {
+      targetOrigin = result.returnOrigin;
+    }
+    logger.info('Shopify OAuth handshake successful', { shop: result?.shop, targetOrigin });
     res.redirect(`${targetOrigin}/onboarding?connected=shopify`);
   } catch (e: any) {
     logger.error('Shopify callback failed', { error: e.message });
+    // SECURE: Always redirect to the safe default origin on error
     res.redirect(`${targetOrigin}/onboarding?error=shopify`);
   }
 });

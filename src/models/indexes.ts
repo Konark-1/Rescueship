@@ -14,7 +14,20 @@
  */
 
 import { Collection } from 'mongodb';
-import { Order, Merchant, AuditLog, BillingEvent, ProcessedPayment, Shipment, NdrCase, MessageLog } from './index';
+import {
+  Order,
+  Merchant,
+  AuditLog,
+  BillingEvent,
+  ProcessedPayment,
+  Invoice,
+  Shipment,
+  NdrCase,
+  MessageLog,
+  RescueLedger,
+  DeliveryAttempt,
+  WebhookEvent,
+} from './index';
 import { logger } from '../utils/logger';
 
 type IndexSpec = {
@@ -98,6 +111,10 @@ export async function ensureIndexes(): Promise<void> {
       { keys: { merchantId: 1, externalOrderId: 1 }, options: { name: 'idx_merchant_external_order_unique', unique: true }, replaces: ['merchantId_1_externalOrderId_1'] },
       { keys: { paymentLinkId: 1 }, options: { name: 'idx_payment_link', sparse: true } },
       { keys: { 'ndr.addressCorrectionStep': 1, status: 1 }, options: { name: 'idx_address_correction_step', sparse: true } },
+      { keys: { merchantId: 1, 'ndr.reason': 1 }, options: { name: 'idx_merchant_ndr_reason', partialFilterExpression: { 'ndr.reason': { $type: 'string' } } } },
+      { keys: { merchantId: 1, carrier: 1 }, options: { name: 'idx_merchant_carrier', partialFilterExpression: { carrier: { $type: 'string' } } } },
+      { keys: { merchantId: 1, paymentMethod: 1 }, options: { name: 'idx_merchant_payment_method' } },
+      { keys: { merchantId: 1, 'rtoRisk.level': 1, createdAt: -1 }, options: { name: 'idx_merchant_risk_level' } },
     ]);
     // Redundant prefix index (covered by idx_merchant_status_created).
     await dropIfExists(Order.collection as any, 'merchantId_1_status_1');
@@ -123,7 +140,14 @@ export async function ensureIndexes(): Promise<void> {
           partialFilterExpression: { [field]: { $gt: '' } },
         },
       })),
-      { keys: { 'billing.razorpaySubscriptionId': 1 }, options: { name: 'idx_billing_subscription', sparse: true } },
+      {
+        keys: { 'billing.razorpaySubscriptionId': 1 },
+        options: {
+          name: 'idx_billing_subscription_id',
+          partialFilterExpression: { 'billing.razorpaySubscriptionId': { $type: 'string' } },
+        },
+        replaces: ['idx_billing_subscription'],
+      },
       { keys: { 'billing.introOrderId': 1 }, options: { name: 'idx_billing_intro_order', sparse: true } },
       { keys: { 'passwordReset.tokenHash': 1 }, options: { name: 'idx_password_reset_token', sparse: true } },
     ]);
@@ -133,14 +157,38 @@ export async function ensureIndexes(): Promise<void> {
       { keys: { provider: 1, externalId: 1 }, options: { name: 'idx_processed_payment_unique', unique: true } },
     ]);
 
+    // ─── Invoice (payment history) ───
+    if (Invoice?.collection) {
+      await run(Invoice.collection as any, [
+        { keys: { merchantId: 1, paidAt: -1 }, options: { name: 'idx_invoice_merchant_paid' } },
+        {
+          keys: { razorpayPaymentId: 1 },
+          options: {
+            name: 'idx_invoice_payment_unique',
+            unique: true,
+            partialFilterExpression: { razorpayPaymentId: { $type: 'string' } },
+          },
+        },
+      ]);
+    }
+
     // ─── AuditLog (uses `timestamp`, schema has timestamps:false) ───
     await run(AuditLog.collection as any, [
       { keys: { merchantId: 1, timestamp: -1 }, options: { name: 'idx_audit_merchant_ts' }, replaces: ['merchantId_1_timestamp_-1', 'idx_audit_merchant_created'] },
+      { keys: { orderId: 1, merchantId: 1 }, options: { name: 'idx_audit_order_merchant' } },
       { keys: { merchantId: 1, action: 1, timestamp: -1 }, options: { name: 'idx_audit_action_ts' }, replaces: ['idx_audit_action'] },
       { keys: { timestamp: 1 }, options: { name: 'idx_audit_ttl', expireAfterSeconds: 90 * 24 * 60 * 60 }, replaces: ['timestamp_1'] },
     ]);
     // Indexes on a field this collection never writes.
     await dropIfExists(AuditLog.collection as any, 'createdAt_1');
+
+    // ─── RescueLedger ───
+    if (RescueLedger?.collection) {
+      await run(RescueLedger.collection as any, [
+        { keys: { merchantId: 1, pilotId: 1, flaggedAt: -1 }, options: { name: 'idx_ledger_merchant_pilot_flagged' } },
+        { keys: { orderId: 1 }, options: { name: 'idx_ledger_order' } },
+      ]);
+    }
 
     // ─── BillingEvent (uses `timestamp`) ───
     await run(BillingEvent.collection as any, [
@@ -173,6 +221,23 @@ export async function ensureIndexes(): Promise<void> {
         { keys: { metaMessageId: 1 }, options: { name: 'idx_messagelog_meta_unique', unique: true, sparse: true } },
         { keys: { merchantId: 1, customerPhone: 1, createdAt: -1 }, options: { name: 'idx_messagelog_merchant_phone_created' } },
         { keys: { direction: 1, createdAt: -1 }, options: { name: 'idx_messagelog_dir_created' } },
+        { keys: { createdAt: 1 }, options: { name: 'idx_msglog_ttl', expireAfterSeconds: 180 * 24 * 60 * 60 } },
+      ]);
+    }
+
+    // ─── DeliveryAttempt ───
+    if (DeliveryAttempt?.collection) {
+      await run(DeliveryAttempt.collection as any, [
+        { keys: { merchantId: 1, awb: 1, attemptTime: -1 }, options: { name: 'idx_attempt_merchant_awb_time' } },
+        { keys: { createdAt: 1 }, options: { name: 'idx_attempt_ttl', expireAfterSeconds: 90 * 24 * 60 * 60 } },
+      ]);
+    }
+
+    // ─── WebhookEvent ───
+    if (WebhookEvent?.collection) {
+      await run(WebhookEvent.collection as any, [
+        { keys: { source: 1, eventId: 1, createdAt: -1 }, options: { name: 'idx_webhook_source_event_created' } },
+        { keys: { createdAt: 1 }, options: { name: 'idx_webhook_ttl', expireAfterSeconds: 30 * 24 * 60 * 60 } },
       ]);
     }
 

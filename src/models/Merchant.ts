@@ -70,7 +70,7 @@ export interface IMerchant extends Document {
   licenseStatus?: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
   licensePlan?: '90_day_license' | 'annual_license' | 'custom';
   billing: {
-    plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'enterprise';
+    plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'fleet' | 'enterprise';
     billingCycle?: 'quarterly' | 'semi' | 'semi_annual' | 'annual';
     status?: 'active' | 'pre_signup' | 'pending_payment' | 'paused' | 'paused_quality' | 'past_due' | 'cancelled';
     lastPaymentError?: string;
@@ -85,6 +85,11 @@ export interface IMerchant extends Document {
     pendingCycle?: string;
     introOrderId?: string;
     razorpaySubscriptionId?: string;
+    /** True after the merchant schedules a cancel-at-cycle-end via /billing/cancel. */
+    cancelAtCycleEnd?: boolean;
+    /** Pending self-serve rescue-credit top-up checkout intent. */
+    pendingCreditPack?: string;
+    pendingCreditOrderId?: string;
     renewMonthly?: number;
     activatedAt?: Date;
     nextInvoiceDate?: Date;
@@ -255,7 +260,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       type: {
         plan: {
           type: String,
-          enum: ['free_trial', 'starter', 'growth', 'scale', 'enterprise'],
+          enum: ['free_trial', 'starter', 'growth', 'scale', 'fleet', 'enterprise'],
           default: 'free_trial',
         },
         billingCycle: {
@@ -269,7 +274,8 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
           enum: ['active', 'pre_signup', 'pending_payment', 'paused', 'paused_quality', 'past_due', 'cancelled'],
         },
         lastPaymentError: String,
-        planOrderLimit: { type: Number, default: 500 },
+        // Free trial gets 100 orders/mo (matches planGating planLimits + subscription-guard fallback).
+        planOrderLimit: { type: Number, default: 100 },
         currentMonthOrders: { type: Number, default: 0 },
         cycleStartDate: { type: Date, default: Date.now },
         rescueCredits: { type: Number, default: 100 },
@@ -280,6 +286,9 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         pendingCycle: String,
         introOrderId: String,
         razorpaySubscriptionId: String,
+        cancelAtCycleEnd: { type: Boolean, default: false },
+        pendingCreditPack: String,
+        pendingCreditOrderId: String,
         renewMonthly: Number,
         activatedAt: Date,
         nextInvoiceDate: Date,
@@ -287,7 +296,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       default: () => ({
         plan: 'free_trial',
         billingCycle: 'annual',
-        planOrderLimit: 500,
+        planOrderLimit: 100,
         currentMonthOrders: 0,
         cycleStartDate: new Date(),
         rescueCredits: 100,
@@ -334,6 +343,13 @@ MerchantSchema.index(
     partialFilterExpression: {
       'whatsappConfig.phoneNumberId': { $gt: '' },
     },
+  }
+);
+MerchantSchema.index(
+  { 'billing.razorpaySubscriptionId': 1 },
+  {
+    name: 'idx_billing_subscription_id',
+    partialFilterExpression: { 'billing.razorpaySubscriptionId': { $type: 'string' } },
   }
 );
 

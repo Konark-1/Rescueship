@@ -1,4 +1,5 @@
 import { Merchant, IMerchant } from '../models/Merchant';
+import { emailService } from './email.service';
 import { logger } from '../utils/logger';
 
 export interface QualityCheckResult {
@@ -60,6 +61,30 @@ class AlertService {
   }
 
   /**
+   * WABA quality recovered (YELLOW/GREEN) after a quality pause — billing resumed.
+   */
+  async sendQualityResumed(merchantId: string, rating: string): Promise<void> {
+    const merchant = await Merchant.findById(merchantId).lean();
+    if (!merchant) return;
+
+    const alert = {
+      id: `alert_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      type: 'quality_resumed' as const,
+      severity: 'info' as const,
+      title: '✅ Rescue messages resumed — WhatsApp quality rating recovered',
+      body: `Your WhatsApp Business Account quality rating has returned to ${rating}. ` +
+        `RescueShip has automatically resumed outbound rescue messages and reactivated your billing.`,
+      createdAt: new Date(),
+      read: false,
+      actionUrl: '/dashboard/quality',
+    };
+
+    await this.pushAlert(merchantId, alert);
+    await this.sendEmail(merchant as any, alert.title, alert.body);
+    logger.info(`[Alert] Quality RESUME sent to ${merchantId}`);
+  }
+
+  /**
    * A specific template was rejected by Meta.
    */
   async sendTemplateRejection(merchantId: string, templateName: string, reason: string): Promise<void> {
@@ -106,12 +131,15 @@ class AlertService {
     };
 
     await this.pushAlert(merchantId, alert);
+    await this.sendEmail(merchant as any, alert.title, alert.body);
   }
 
   /**
-   * Subscription lifecycle event (from Razorpay webhook).
+   * Subscription lifecycle event (from Razorpay webhook / lifecycle watchdog).
+   * `opts.email = false` pushes only the in-app alert — used when a branded
+   * email (e.g. the dunning template) is sent separately.
    */
-  async sendBillingAlert(merchantId: string, event: string, detail: string): Promise<void> {
+  async sendBillingAlert(merchantId: string, event: string, detail: string, opts?: { email?: boolean }): Promise<void> {
     const merchant = await Merchant.findById(merchantId).lean();
     if (!merchant) return;
 
@@ -119,13 +147,15 @@ class AlertService {
       'subscription.paused': '⏸️ Your subscription is paused',
       'subscription.cancelled': '❌ Your subscription has been cancelled',
       'subscription.expired': '⌛ Your subscription has expired',
+      'subscription.halted': '⏸️ Subscription charges halted — action required',
+      'subscription.resumed': '▶️ Your subscription has resumed',
       'payment.failed': '💳 Payment failed — action required',
     };
 
     const alert = {
       id: `alert_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       type: 'billing' as const,
-      severity: event === 'payment.failed' ? 'warning' as const : 'critical' as const,
+      severity: event === 'payment.failed' || event === 'subscription.halted' ? 'warning' as const : 'critical' as const,
       title: titles[event] || `Billing update: ${event}`,
       body: detail,
       createdAt: new Date(),
@@ -134,7 +164,9 @@ class AlertService {
     };
 
     await this.pushAlert(merchantId, alert);
-    await this.sendEmail(merchant as any, alert.title, alert.body);
+    if (opts?.email !== false) {
+      await this.sendEmail(merchant as any, alert.title, alert.body);
+    }
   }
 
   private async pushAlert(merchantId: string, alert: any): Promise<void> {
@@ -152,7 +184,25 @@ class AlertService {
       logger.warn(`[Alert] No email for merchant ${(merchant as any)._id || (merchant as any).id}, skipping email notification`);
       return;
     }
-    logger.info(`[Alert] Email notification dispatched: "${subject}" → ${ownerEmail}`);
+
+    try {
+      await emailService.sendEmail({
+        to: ownerEmail,
+        subject: `[RescueShip Alert] ${subject}`,
+        text: body,
+        html: `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 580px; margin: 0 auto; padding: 24px; color: #1e293b;">
+          <h2 style="color: #0f172a; margin-top: 0; font-size: 20px;">${subject}</h2>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 16px 0; font-size: 14px; line-height: 1.6; white-space: pre-line;">
+            ${body}
+          </div>
+          <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+          <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">RescueShip Operations &bull; <a href="https://rescueship.netlify.app/dashboard" style="color: #2563eb;">Open Dashboard</a></p>
+        </div>`,
+      });
+      logger.info(`[Alert] Email notification dispatched successfully: "${subject}" → ${ownerEmail}`);
+    } catch (err: any) {
+      logger.error(`[Alert] Failed to dispatch email notification: "${subject}" → ${ownerEmail}`, { error: err.message });
+    }
   }
 
   private buildQualityBody(result: QualityCheckResult): string {

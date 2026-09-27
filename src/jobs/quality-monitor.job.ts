@@ -123,6 +123,28 @@ async function pauseMerchant(merchant: IMerchant, result: QualityCheckResult): P
 }
 
 /**
+ * Auto-resume a merchant paused for RED quality once the rating recovers to
+ * YELLOW or GREEN. UNKNOWN never resumes (fail-safe: an API outage must not
+ * silently reactivate messaging on a still-RED account).
+ */
+async function resumeMerchant(merchant: IMerchant, result: QualityCheckResult): Promise<void> {
+  const mId = (merchant as any)._id?.toString() || (merchant as any).id || '';
+  await Merchant.findByIdAndUpdate(
+    mId,
+    {
+      $set: {
+        'billing.status': 'active',
+        'quality.pausedAt': null,
+        'quality.pauseReason': null,
+      },
+    }
+  );
+
+  await alertService.sendQualityResumed(mId, result.qualityRating);
+  logger.info(`[QualityMonitor] RESUMED merchant ${mId} — quality ${result.qualityRating}`);
+}
+
+/**
  * Runs every 6 hours. Checks WABA quality rating + template statuses
  * for all active (live + paid) merchants.
  */
@@ -132,8 +154,10 @@ export function startQualityMonitorWorker(): Worker {
     async (job: Job) => {
       logger.info('[QualityMonitor] Starting cycle', { jobId: job.id });
 
+      // Active merchants are checked for pause; quality-paused merchants are
+      // re-checked for auto-resume when the rating returns to YELLOW or GREEN.
       const activeMerchants = await Merchant.find({
-        'billing.status': 'active',
+        'billing.status': { $in: ['active', 'paused_quality'] },
         'onboarding.completedAt': { $exists: true },
         'whatsappConfig.wabaId': { $exists: true },
       }).lean();
@@ -142,11 +166,16 @@ export function startQualityMonitorWorker(): Worker {
 
       for (const merchant of activeMerchants) {
         try {
+          const wasQualityPaused = (merchant as any).billing?.status === 'paused_quality';
           const result = await checkMerchantQuality(merchant as IMerchant);
           results.push(result);
 
           if (result.action === 'pause') {
-            await pauseMerchant(merchant as IMerchant, result);
+            if (!wasQualityPaused) {
+              await pauseMerchant(merchant as IMerchant, result);
+            }
+          } else if (wasQualityPaused && (result.qualityRating === 'YELLOW' || result.qualityRating === 'GREEN')) {
+            await resumeMerchant(merchant as IMerchant, result);
           } else if (result.action === 'warn') {
             await alertService.sendQualityWarning(merchant as IMerchant, result);
           }

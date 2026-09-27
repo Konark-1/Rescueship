@@ -33,14 +33,23 @@ export async function recordOutbound(args: {
   const { effective } = reconcileCategory(meta.category, args.metaReturnedCategory as MetaCategory);
   const add = RATE_INR[effective];
 
+  const updates: Promise<any>[] = [];
   if (Order && typeof Order.findByIdAndUpdate === 'function') {
-    await Order.findByIdAndUpdate(args.orderId, {
-      $set: { 'ndr.lastOutboundAt': new Date(), 'ndr.lastOutboundMerchantId': args.merchantId },
-    });
+    updates.push(
+      Order.findByIdAndUpdate(args.orderId, {
+        $set: { 'ndr.lastOutboundAt': new Date(), 'ndr.lastOutboundMerchantId': args.merchantId },
+      })
+    );
   }
 
   if (Merchant && typeof Merchant.findByIdAndUpdate === 'function') {
-    await Merchant.findByIdAndUpdate(args.merchantId, { $inc: { 'billing.estimatedMetaSpendMonth': add } });
+    updates.push(
+      Merchant.findByIdAndUpdate(args.merchantId, { $inc: { 'billing.estimatedMetaSpendMonth': add } })
+    );
+  }
+
+  if (updates.length > 0) {
+    await Promise.all(updates);
   }
 
   return { ...meta, category: effective };

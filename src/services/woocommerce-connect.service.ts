@@ -12,6 +12,7 @@ import axios from 'axios';
 import { encryptionService } from './encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
+import { createSsrfSafeHttpsAgent, assertPublicHostname } from '../utils/security.utils';
 
 const HTTP_TIMEOUT_MS = 10000;
 
@@ -42,6 +43,10 @@ export class WooCommerceConnectService {
     }
     const storeUrl = rawUrl;
 
+    // SECURE: Assert DNS resolution does not target private/reserved IP addresses
+    await assertPublicHostname(parsed.hostname);
+    const ssrfAgent = createSsrfSafeHttpsAgent();
+
     const consumerKey = (creds.consumerKey || '').trim();
     const consumerSecret = (creds.consumerSecret || '').trim();
     if (!consumerKey || !consumerSecret) throw new Error('WooCommerce consumer key and secret are both required.');
@@ -51,10 +56,12 @@ export class WooCommerceConnectService {
       auth: { username: consumerKey, password: consumerSecret },
       params: { per_page: 1, status: 'any' },
       timeout: HTTP_TIMEOUT_MS,
+      httpsAgent: ssrfAgent,
     }).catch((e: any) => {
       const sc = e.response?.status;
       if (sc === 401) throw new Error('WooCommerce rejected the keys (401) — check the consumer key/secret and ensure the REST API is enabled.');
       if (sc === 404) throw new Error('Store or WooCommerce REST API not found (404) — check the URL and enable the REST API (WooCommerce → Settings → Advanced → REST API).');
+      if (e.message?.includes('SSRF Blocked')) throw new Error(e.message);
       throw new Error(`Could not reach the WooCommerce store (${sc || e.code || 'network error'}). Try again in a moment.`);
     });
 
@@ -91,6 +98,7 @@ export class WooCommerceConnectService {
       }, {
         auth: { username: consumerKey, password: consumerSecret },
         timeout: HTTP_TIMEOUT_MS,
+        httpsAgent: ssrfAgent,
       });
     } catch (e: any) {
       // Soft fail: connection still succeeds — surface manual webhook instructions instead.

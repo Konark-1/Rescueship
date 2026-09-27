@@ -8,8 +8,7 @@
  * carrier reattempt override when customer confirms delivery or completes payment.
  */
 
-import { Types } from 'mongoose';
-import { Order, Merchant, NdrCase, AuditLog, Shipment } from '../models';
+import { Order, Merchant, NdrCase, AuditLog } from '../models';
 import { whatsAppDispatcherService } from './whatsapp/whatsapp-dispatcher.service';
 import { logisticsService, CarrierConfig } from './logistics.service';
 import { orderStateMachineService } from './state-machine/order-state-machine.service';

@@ -41,8 +41,9 @@ export class EmailService {
 
   private initTransporter(): void {
     // 1. Check Gmail REST API (Port 443 / HTTPS - bypasses cloud SMTP blocks)
-    const clientId = process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
-    const clientSecret = process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+    // Only activate if explicit GMAIL_* credentials and refresh token are provided.
+    const clientId = process.env.GMAIL_CLIENT_ID;
+    const clientSecret = process.env.GMAIL_CLIENT_SECRET;
     const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
     const gUser = process.env.GMAIL_USER || process.env.SMTP_USER || 'konarkofficial@gmail.com';
 
@@ -375,18 +376,53 @@ export class EmailService {
   }
 
   /**
-   * Send order limit warnings.
+   * Send order limit warnings (80%+ quota usage).
    */
-  public async sendOrderLimitWarning(email: string, merchantName: string, currentUsage: number, planLimit: number): Promise<boolean> {
-    const subject = `⚠️ Warning: Approaching Plan Order Limit for ${merchantName}`;
-    const text = `Hello ${merchantName},\n\nYou have used ${currentUsage} of your ${planLimit} monthly plan orders. Consider upgrading your plan to keep scaling seamlessly.\n\nBest regards,\nRescueShip Team`;
-    const html = `<div style="font-family: sans-serif; line-height: 1.5;">
-      <h2>⚠️ Plan Order Limit Warning</h2>
+  public async sendOrderLimitWarning(email: string, merchantName: string, currentUsage: number, planLimit: number, percentage?: number): Promise<boolean> {
+    const pct = percentage || Math.round((currentUsage / planLimit) * 100);
+    const appUrl = process.env.APP_URL || 'https://rescueship.netlify.app';
+    const upgradeUrl = `${appUrl}/billing`;
+    const subject = `⚠️ Warning: Approaching Plan Order Limit for ${merchantName} (${pct}% used)`;
+    const text = `Hello ${merchantName},\n\nYou have used ${currentUsage} of your ${planLimit} monthly plan orders (${pct}%). Consider upgrading your plan to keep scaling seamlessly:\n${upgradeUrl}\n\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 580px; margin: 0 auto; padding: 24px; color: #1e293b; background: #ffffff;">
+      <h2 style="color: #d97706; margin-top: 0; font-size: 20px;">⚠️ Plan Order Limit Warning (${pct}% Used)</h2>
       <p>Hello <strong>${esc(merchantName)}</strong>,</p>
-      <p>You have processed <strong>${currentUsage}</strong> out of <strong>${planLimit}</strong> orders allowed on your current plan.</p>
-      <p>To ensure seamless order processing without interruptions, please consider upgrading your subscription plan.</p>
-      <hr />
-      <p style="font-size: 12px; color: #666;">RescueShip Team</p>
+      <p>You have processed <strong>${currentUsage} out of ${planLimit}</strong> orders (${pct}%) on your current monthly plan.</p>
+      <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+        <strong style="color: #b45309;">Approaching Monthly Quota Limit:</strong>
+        <p style="margin: 6px 0 0 0; color: #92400e; font-size: 14px;">To ensure uninterrupted order processing and prevent automated WhatsApp NDR rescues from pausing, consider upgrading your subscription before reaching 100% capacity.</p>
+      </div>
+      <p style="margin: 24px 0; text-align: center;">
+        <a href="${upgradeUrl}" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">View Upgrade Options →</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">RescueShip Operations &bull; <a href="${upgradeUrl}">Manage Billing</a></p>
+    </div>`;
+
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
+  /**
+   * Send 100% order quota exhausted alert.
+   */
+  public async sendOrderLimitExhausted(email: string, merchantName: string, currentUsage: number, planLimit: number): Promise<boolean> {
+    const appUrl = process.env.APP_URL || 'https://rescueship.netlify.app';
+    const upgradeUrl = `${appUrl}/billing`;
+    const subject = `🛑 Urgent: 100% Monthly Order Quota Reached — ${merchantName} (Automated Rescues Paused)`;
+    const text = `Hello ${merchantName},\n\nYou have processed 100% (${currentUsage} of ${planLimit}) orders allowed on your current monthly plan.\n\nTo prevent interruption of automated WhatsApp NDR rescues and COD-to-prepaid conversions, please upgrade your subscription immediately:\n${upgradeUrl}\n\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 580px; margin: 0 auto; padding: 24px; color: #1e293b; background: #ffffff;">
+      <h2 style="color: #b91c1c; margin-top: 0; font-size: 20px;">🛑 100% Monthly Plan Quota Reached</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>You have processed <strong>${currentUsage} out of ${planLimit}</strong> orders allowed on your current monthly plan. You have reached <strong>100% capacity</strong>.</p>
+      <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+        <strong style="color: #991b1b;">⚠️ Automated Order Protection Paused:</strong>
+        <p style="margin: 6px 0 0 0; color: #7f1d1d; font-size: 14px;">Inbound delivery failures (NDRs) and COD conversion links will not be processed automatically until your subscription plan is upgraded or resets next billing cycle.</p>
+      </div>
+      <p style="margin: 24px 0; text-align: center;">
+        <a href="${upgradeUrl}" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Upgrade Plan to Resume Rescues →</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">RescueShip Operations &bull; <a href="${upgradeUrl}">Manage Billing</a></p>
     </div>`;
 
     return this.sendEmail({ to: email, subject, text, html });
@@ -527,6 +563,97 @@ export class EmailService {
     } catch (err: any) {
       logger.error('Failed to send merchant email', { to, subject, error: err.message });
     }
+  }
+
+  /**
+   * Send pre-expiry payment reminder with direct 1-click renewal CTA.
+   */
+  public async sendSubscriptionExpiringReminder(
+    email: string,
+    merchantName: string,
+    daysLeft: number,
+    plan: string,
+    renewUrl: string
+  ): Promise<boolean> {
+    const subject = `⏳ Action Required: Your RescueShip ${plan.toUpperCase()} Plan Expires in ${daysLeft} Day${daysLeft === 1 ? '' : 's'}`;
+    const text = `Hello ${merchantName},\n\nYour RescueShip ${plan} subscription is set to expire in ${daysLeft} day${daysLeft === 1 ? '' : 's'}.\n\nTo prevent any interruption in automated WhatsApp NDR recovery and COD-to-Prepaid conversions for your orders, please renew your plan:\n${renewUrl}\n\nRenewing now stacks seamlessly onto your remaining days so you never lose any time.\n\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 560px; margin: 0 auto; padding: 20px; color: #1e293b;">
+      <h2 style="color: #0f172a; margin-top: 0;">⏳ Your Plan Expires in ${daysLeft} Day${daysLeft === 1 ? '' : 's'}</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>Your RescueShip <strong>${esc(plan.toUpperCase())}</strong> plan is scheduled to expire in <strong>${daysLeft} day${daysLeft === 1 ? '' : 's'}</strong>.</p>
+      <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+        <strong style="color: #b45309;">⚠️ Keep Your Protection Active:</strong>
+        <p style="margin: 6px 0 0 0; color: #92400e; font-size: 14px;">Once expired, automated WhatsApp NDR rescues and COD conversion links will be paused. Renewing early stacks your new cycle seamlessly onto your remaining days without losing any time.</p>
+      </div>
+      <p style="margin: 24px 0;">
+        <a href="${renewUrl}" style="background-color: #4f46e5; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Renew Plan Now →</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #64748b;">RescueShip Operations · <a href="${renewUrl}">Manage Billing</a></p>
+    </div>`;
+
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
+  /**
+   * Send plan expired notice.
+   */
+  public async sendSubscriptionExpiredAlert(
+    email: string,
+    merchantName: string,
+    plan: string,
+    renewUrl: string
+  ): Promise<boolean> {
+    const subject = `🛑 RescueShip Automated Protection Suspended (${plan.toUpperCase()} Plan Expired)`;
+    const text = `Hello ${merchantName},\n\nYour RescueShip ${plan} subscription has expired. Automated WhatsApp NDR rescues and COD-to-prepaid conversions are currently suspended.\n\nTo reactivate your automated order protection immediately, click below to renew:\n${renewUrl}\n\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 560px; margin: 0 auto; padding: 20px; color: #1e293b;">
+      <h2 style="color: #b91c1c; margin-top: 0;">🛑 Automated Protection Suspended</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>Your RescueShip <strong>${esc(plan.toUpperCase())}</strong> subscription has expired. Inbound delivery failures are currently not being rescued automatically.</p>
+      <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+        <strong style="color: #991b1b;">Immediate Reactivation Available:</strong>
+        <p style="margin: 6px 0 0 0; color: #7f1d1d; font-size: 14px;">Renew your subscription now to immediately restore automated customer re-engagement and protect your delivery margins.</p>
+      </div>
+      <p style="margin: 24px 0;">
+        <a href="${renewUrl}" style="background-color: #dc2626; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Reactivate Protection Now →</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #64748b;">RescueShip Operations · <a href="${renewUrl}">Manage Billing</a></p>
+    </div>`;
+
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
+  /**
+   * Dunning email sent when a subscription charge fails (payment.failed webhook
+   * and daily watchdog for past_due merchants). One email per failed attempt.
+   */
+  public async sendPaymentFailedAlert(
+    email: string,
+    merchantName: string,
+    plan: string,
+    reason: string,
+    renewUrl: string
+  ): Promise<boolean> {
+    const subject = `💳 Payment failed for your RescueShip ${plan.toUpperCase()} Plan — action required`;
+    const text = `Hello ${merchantName},\n\nYour subscription payment could not be processed.\n\nReason: ${reason}\n\nYour plan stays protected by a short grace period, but automated rescues will stop if the payment is not completed. Razorpay will retry automatically; you can also renew or update your payment method right now:\n${renewUrl}\n\nBest regards,\nRescueShip Team`;
+    const html = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; max-width: 560px; margin: 0 auto; padding: 20px; color: #1e293b;">
+      <h2 style="color: #b45309; margin-top: 0;">💳 Subscription Payment Failed</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>We could not process the payment for your RescueShip <strong>${esc(plan.toUpperCase())}</strong> plan.</p>
+      <div style="background: #fffbeb; border-left: 4px solid #f59e0b; padding: 14px 18px; margin: 20px 0; border-radius: 4px;">
+        <strong style="color: #b45309;">Reason:</strong>
+        <p style="margin: 6px 0 0 0; color: #92400e; font-size: 14px;">${esc(reason)}</p>
+      </div>
+      <p style="margin: 6px 0 0 0; font-size: 14px; color: #475569;">Your account keeps running during a short grace period. Razorpay retries the charge automatically, but you can fix it immediately by renewing or completing payment yourself:</p>
+      <p style="margin: 24px 0;">
+        <a href="${renewUrl}" style="background-color: #d97706; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; display: inline-block;">Complete Payment Now →</a>
+      </p>
+      <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;" />
+      <p style="font-size: 12px; color: #64748b;">RescueShip Operations · <a href="${renewUrl}">Manage Billing</a></p>
+    </div>`;
+
+    return this.sendEmail({ to: email, subject, text, html });
   }
 }
 

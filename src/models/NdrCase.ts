@@ -39,6 +39,7 @@ export interface INdrCase extends Document {
   status: NdrCaseStatus;
   isFakeRemarkSuspicious?: boolean;
   closedAt?: Date | null;
+  lastWebhookAt?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -95,6 +96,7 @@ const NdrCaseSchema = new Schema<INdrCase>(
     },
     isFakeRemarkSuspicious: { type: Boolean, default: false },
     closedAt: { type: Date, default: null },
+    lastWebhookAt: { type: Date, default: null },
   },
   {
     timestamps: true,

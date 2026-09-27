@@ -12,7 +12,7 @@ import {
   X,
   Compass,
   AlertTriangle,
-  RefreshCw,
+  Loader2,
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +31,29 @@ import {
 import { connectApi } from '../lib/connect';
 import './billing.css';
 
+const RAZORPAY_THEME_COLOR = '#4f46e5';
+
+export interface Invoice {
+  _id?: string;
+  number: string;
+  description: string;
+  amountPaise: number;
+  paidAt?: string;
+}
+
+export interface SubscriptionStatus {
+  active: boolean;
+  plan: string;
+  activatedAt?: string;
+  nextInvoice?: string;
+  limit: number;
+  renewMonthly: number;
+  cycle: string;
+  credits?: number;
+  status?: string;
+  cancelAtCycleEnd?: boolean;
+}
+
 export default function BillingPage() {
   const { token, user } = useAuth();
   const nav = useNavigate();
@@ -44,7 +67,7 @@ export default function BillingPage() {
   const [tier, setTier] = useState<Tier>(() => recommendedTier(volume));
   const [cycle, setCycle] = useState<Cycle>('quarterly');
   const [paying, setPaying] = useState(false);
-  const [active, setActive] = useState<any>(null);
+  const [active, setActive] = useState<SubscriptionStatus | null>(null);
   const [setupCallUrl, setSetupCallUrl] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -60,6 +83,15 @@ export default function BillingPage() {
     localStorage.setItem('rs_volume', String(volume));
     setTier(recommendedTier(volume));
   }, [volume]);
+
+  useEffect(() => {
+    if (!showTuner) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowTuner(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showTuner]);
 
   useEffect(() => {
     if (!token) return;
@@ -125,8 +157,8 @@ export default function BillingPage() {
         description: `${tierMeta.name} · ${cycleMeta.label} · ${inr(price.monthly)}/mo (90-Day Guarantee)`,
         amount: order.amountInr,
         currency: order.currency || 'INR',
-        prefill: { email: user?.email, contact: (user as any)?.phone },
-        theme: { color: '#4f46e5' },
+        prefill: { email: user?.email, contact: user?.phone },
+        theme: { color: RAZORPAY_THEME_COLOR },
         handler: async (resp: any) => {
           try {
             const verified = await billingApi.verify(token!, { ...resp, tier, cycle });
@@ -202,23 +234,22 @@ export default function BillingPage() {
               </div>
               <div className="bl-receipt-card__row">
                 <span>Meta WhatsApp API Surcharges</span>
-                <span style={{ color: '#34d399' }}>100% Paid by RescueShip</span>
+                <span className="bl-text-emerald">100% Paid by RescueShip</span>
               </div>
             </div>
 
-            <div className="bl-receipt-card__actions" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="bl-receipt-card__actions bl-receipt-actions--col">
               {setupCallUrl && (
                 <a
-                  className="bl-btn-secondary"
+                  className="bl-btn-secondary bl-btn-link-block"
                   href={setupCallUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', textDecoration: 'none', width: '100%', padding: '0.8rem' }}
                 >
                   <ExternalLink size={15} /> Book Free 15-Min Guided Setup Call
                 </a>
               )}
-              <button className="bl-btn-primary" style={{ width: '100%' }} onClick={() => nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true')}>
+              <button className="bl-btn-primary bl-btn-full" onClick={() => nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true')}>
                 {user?.onboardingStatus === 'completed' ? 'Open Dashboard →' : 'Continue to Onboarding →'}
               </button>
             </div>
@@ -262,7 +293,7 @@ export default function BillingPage() {
             Stop losing capital on courier delivery failures.
           </h1>
           <p className="bl-hero__sub">
-            RescueShip intercepts courier NDRs in real-time, verifying customer addresses and re-attempt schedules via WhatsApp. Select your order volume below to lock in protection.
+            Select an order volume tier for your D2C brand. Scale up or pause anytime with guaranteed ROI.
           </p>
 
           {/* Billing Cycle Switcher */}
@@ -272,8 +303,8 @@ export default function BillingPage() {
               layout
               transition={{ type: 'spring', stiffness: 400, damping: 32 }}
               style={{
-                left: cycleIdx === 0 ? '0.3rem' : 'calc(50% + 0.15rem)',
-                width: 'calc(50% - 0.45rem)',
+                left: `calc(${cycleIdx} * (100% / ${CYCLES.length}) + 0.15rem)`,
+                width: `calc(100% / ${CYCLES.length} - 0.3rem)`,
               }}
             />
             {CYCLES.map((c) => {
@@ -301,7 +332,7 @@ export default function BillingPage() {
             <div className="bl-card">
               <div className="bl-card__header">
                 <span className="bl-card__title">
-                  <SlidersHorizontal size={15} color="#818cf8" />
+                  <SlidersHorizontal size={15} color="var(--indigo-soft)" />
                   Monthly Order Economics
                 </span>
                 <button
@@ -385,7 +416,7 @@ export default function BillingPage() {
                 </div>
                 <div>
                   <h3 className="bl-spotlight__title">Automated WhatsApp Address Correction</h3>
-                  <span className="bl-spotlight__badge">Solves 38% of all Indian RTOs</span>
+                  <span className="bl-spotlight__badge">Rescues up to 38% of NDR cases</span>
                 </div>
               </div>
               <p className="bl-spotlight__body">
@@ -503,7 +534,7 @@ export default function BillingPage() {
               >
                 {paying ? (
                   <>
-                    <RefreshCw size={18} className="animate-spin" />
+                    <Loader2 size={18} className="animate-spin" />
                     Opening secure Razorpay checkout…
                   </>
                 ) : (
@@ -517,7 +548,7 @@ export default function BillingPage() {
               </button>
 
               {err && (
-                <div style={{ color: '#fb7185', fontSize: '0.8rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <div style={{ color: 'var(--rose)', fontSize: '0.8rem', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                   <AlertTriangle size={15} /> {err}
                 </div>
               )}
@@ -544,6 +575,9 @@ export default function BillingPage() {
           >
             <motion.div
               className="bl-modal"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="param-modal-title"
               initial={{ scale: 0.95, opacity: 0, y: 10 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 10 }}
@@ -551,9 +585,9 @@ export default function BillingPage() {
             >
               <div className="bl-modal__head">
                 <div>
-                  <h3 className="bl-modal__title">Custom Store Economics</h3>
+                  <h3 id="param-modal-title" className="bl-modal__title">Custom Store Economics</h3>
                   {storeSource && (
-                    <span style={{ fontSize: '0.72rem', color: '#818cf8', display: 'block', marginTop: '2px' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--indigo-soft)', display: 'block', marginTop: '2px' }}>
                       Auto-synced from {storeSource}
                     </span>
                   )}
@@ -562,6 +596,7 @@ export default function BillingPage() {
                   type="button"
                   className="bl-modal__close"
                   onClick={() => setShowTuner(false)}
+                  aria-label="Close parameters modal"
                 >
                   <X size={16} />
                 </button>
@@ -580,6 +615,8 @@ export default function BillingPage() {
                     max={8000}
                     step={100}
                     value={metrics.aov}
+                    aria-label="Average Order Value"
+                    aria-valuetext={`₹${metrics.aov.toLocaleString('en-IN')}`}
                     onChange={(e) => setMetrics((m) => ({ ...m, aov: +e.target.value }))}
                   />
                   <p className="bl-field__sub">Typical ticket size per checkout on your store.</p>
@@ -597,6 +634,8 @@ export default function BillingPage() {
                     max={1}
                     step={0.05}
                     value={metrics.codPct}
+                    aria-label="Cash on Delivery Share"
+                    aria-valuetext={`${Math.round(metrics.codPct * 100)}%`}
                     onChange={(e) => setMetrics((m) => ({ ...m, codPct: +e.target.value }))}
                   />
                   <p className="bl-field__sub">COD orders experience the highest incidence of courier return attempts.</p>
@@ -614,6 +653,8 @@ export default function BillingPage() {
                     max={250}
                     step={10}
                     value={metrics.courierRto}
+                    aria-label="Two-Way Courier RTO Fee"
+                    aria-valuetext={`₹${metrics.courierRto}`}
                     onChange={(e) => setMetrics((m) => ({ ...m, courierRto: +e.target.value }))}
                   />
                   <p className="bl-field__sub">Combined forward + reverse freight charged by carrier on undelivered returns.</p>
@@ -631,6 +672,8 @@ export default function BillingPage() {
                     max={400}
                     step={10}
                     value={metrics.wastedCac}
+                    aria-label="Wasted Ad CAC and Box Damage"
+                    aria-valuetext={`₹${metrics.wastedCac}`}
                     onChange={(e) => setMetrics((m) => ({ ...m, wastedCac: +e.target.value }))}
                   />
                   <p className="bl-field__sub">Sunk Meta/Google ad spend and repackaging materials lost on failed shipments.</p>

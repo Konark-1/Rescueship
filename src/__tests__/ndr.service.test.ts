@@ -8,6 +8,17 @@ jest.mock('../models');
 jest.mock('../services/geocoding.service');
 jest.mock('../services/whatsapp.service');
 jest.mock('../services/logistics.service');
+jest.mock('../services/gemini.service', () => ({
+  __esModule: true,
+  geminiService: {
+    isConfigured: jest.fn().mockReturnValue(false),
+    parseAddress: jest.fn().mockResolvedValue(null),
+    ask: jest.fn().mockResolvedValue(''),
+  },
+  GeminiService: {
+    getInstance: jest.fn(),
+  },
+}));
 
 describe('NDRService - 3-Mode Address Correction', () => {
   beforeEach(() => {

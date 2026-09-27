@@ -106,13 +106,18 @@ export async function connectDatabase(retries: number = MAX_RETRIES): Promise<vo
   registerConnectionListeners();
   registerShutdownHandler();
 
+  const isWorker = process.env.IS_WORKER === 'true' || process.argv.some((a) => a.includes('worker'));
+  const maxPoolSize = isWorker ? 10 : (parseInt(process.env.DB_MAX_POOL_SIZE || '', 10) || 20);
+  const minPoolSize = isWorker ? 2 : (parseInt(process.env.DB_MIN_POOL_SIZE || '', 10) || 5);
+
   const mongooseOptions: mongoose.ConnectOptions = {
     // Mongoose 7+ no longer needs useNewUrlParser / useUnifiedTopology
-    maxPoolSize: 10,
-    minPoolSize: 2,
+    maxPoolSize,
+    minPoolSize,
     serverSelectionTimeoutMS: 10_000,
     socketTimeoutMS: 45_000,
     heartbeatFrequencyMS: 10_000,
+    readPreference: 'primaryPreferred',
   };
 
   for (let attempt = 1; attempt <= retries; attempt++) {

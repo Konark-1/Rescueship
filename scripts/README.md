@@ -21,7 +21,8 @@
 | `simulate-all-possibilities.ts` | Exhaustive NDR simulation | `npx ts-node scripts/simulate-all-possibilities.ts` |
 | `master-e2e-test.ts` | Full lifecycle E2E | `npx ts-node scripts/master-e2e-test.ts` |
 | `e2e-verification.ts` | Platform verification | `npx ts-node scripts/e2e-verification.ts` |
-| `advanced-edge-cases-test.ts` | Edge case validation | `npx ts-node scripts/advanced-edge-cases-test.ts` |
+| `advanced-edge-cases-test.ts` | Edge case & boundary tests | `npx ts-node scripts/advanced-edge-cases-test.ts` |
+| `send-test-email.ts` | Test email dispatch | `npx ts-node scripts/send-test-email.ts` |
 | `verify-adversarial-fixes.ts` | Security test suite | `npx ts-node scripts/verify-adversarial-fixes.ts` |
 | `verify-phase5-identity-ops.ts` | Phase 5 audit | `npx ts-node scripts/verify-phase5-identity-ops.ts` |
 

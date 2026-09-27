@@ -18,6 +18,7 @@
 | `quality-monitor.job.ts` | `quality-monitor` | On-demand | Meta WABA quality rating checker |
 | `template-poller.job.ts` | `template-poller` | Delay-based | Meta template approval status polling |
 | `whatsappSend.job.ts` | `whatsapp-send` | Event-driven | High-throughput outbound WhatsApp (70 msg/s rate limit) |
+| `digest.job.ts` | `digest-notifications` | `0 * * * *` (Hourly) | Hourly batched operational digest email to merchants |
 | `deadLetter.job.ts` | `dead-letter` | Receives failed | Permanently failed job forensics |
 
 ## Key Invariants

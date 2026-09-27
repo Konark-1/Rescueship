@@ -46,6 +46,10 @@ export interface DashboardData {
   estimatedRtoFeePerOrder: number;
   dashboardHeaderMessage: string;
   roiMultiple: number;
+  riskMetrics?: {
+    flaggedHighRisk: number;
+    lossesPreventedInr: number;
+  };
   license?: {
     status: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
     accessGrantedAt: Date | null;
@@ -175,11 +179,12 @@ export class AnalyticsService {
       }
 
       // Additional aggregations for full dashboard specs
-      const [dailyConversions, ndrReasons, carrierPerformance, recentOrders] = await Promise.all([
+      const [dailyConversions, ndrReasons, carrierPerformance, recentOrders, riskMetrics] = await Promise.all([
         this.getDailyConversions(merchantId, dateRange),
         this.getNdrReasons(merchantId, dateRange),
         this.getCarrierPerformance(merchantId, dateRange),
         this.getRecentOrders(merchantId, 10),
+        this.getRiskPreventionMetrics(merchantId, dateRange),
       ]);
 
       return {
@@ -197,6 +202,7 @@ export class AnalyticsService {
         estimatedRtoFeePerOrder: rtoLossPerOrder,
         dashboardHeaderMessage,
         roiMultiple,
+        riskMetrics,
         license: {
           status: licenseStatus,
           accessGrantedAt: (merchant as any)?.accessGrantedAt ? new Date((merchant as any).accessGrantedAt) : null,
@@ -267,7 +273,7 @@ export class AnalyticsService {
     const mId = new Types.ObjectId(merchantId);
     const matchCriteria: any = {
       merchantId: mId,
-      'ndr.reason': { $ne: null },
+      'ndr.reason': { $exists: true, $type: 'string' },
     };
     if (dateRange) {
       matchCriteria.createdAt = { $gte: dateRange.startDate, $lte: dateRange.endDate };
@@ -303,7 +309,7 @@ export class AnalyticsService {
 
     const matchCriteria: any = {
       merchantId: mId,
-      carrier: { $ne: null },
+      carrier: { $exists: true, $type: 'string' },
     };
     if (dateRange) {
       matchCriteria.createdAt = { $gte: dateRange.startDate, $lte: dateRange.endDate };
@@ -401,9 +407,24 @@ export class AnalyticsService {
   public async getRescueRate(merchantId: string): Promise<number> {
     const mId = new Types.ObjectId(merchantId);
     try {
-      const ndrCount = await Order.countDocuments({ merchantId: mId, 'ndr.detectedAt': { $ne: null } });
+      const [result] = await Order.aggregate([
+        { $match: { merchantId: mId } },
+        {
+          $facet: {
+            ndr: [
+              { $match: { 'ndr.detectedAt': { $ne: null } } },
+              { $count: 'count' },
+            ],
+            rescued: [
+              { $match: { status: 'ndr_rescued' } },
+              { $count: 'count' },
+            ],
+          },
+        },
+      ]);
+      const ndrCount = result?.ndr?.[0]?.count ?? 0;
+      const rescuedCount = result?.rescued?.[0]?.count ?? 0;
       if (ndrCount === 0) return 0;
-      const rescuedCount = await Order.countDocuments({ merchantId: mId, status: 'ndr_rescued' });
       return parseFloat(((rescuedCount / ndrCount) * 100).toFixed(2));
     } catch (err: any) {
       logger.error('Failed to get rescue rate', { merchantId, error: err.message });
@@ -417,13 +438,73 @@ export class AnalyticsService {
   public async getConversionRate(merchantId: string): Promise<number> {
     const mId = new Types.ObjectId(merchantId);
     try {
-      const codCount = await Order.countDocuments({ merchantId: mId, paymentMethod: 'cod' });
+      const [result] = await Order.aggregate([
+        { $match: { merchantId: mId } },
+        {
+          $facet: {
+            cod: [
+              { $match: { paymentMethod: 'cod' } },
+              { $count: 'count' },
+            ],
+            converted: [
+              { $match: { status: 'converted_to_prepaid' } },
+              { $count: 'count' },
+            ],
+          },
+        },
+      ]);
+      const codCount = result?.cod?.[0]?.count ?? 0;
+      const convertedCount = result?.converted?.[0]?.count ?? 0;
       if (codCount === 0) return 0;
-      const convertedCount = await Order.countDocuments({ merchantId: mId, status: 'converted_to_prepaid' });
       return parseFloat(((convertedCount / codCount) * 100).toFixed(2));
     } catch (err: any) {
       logger.error('Failed to get conversion rate', { merchantId, error: err.message });
       return 0;
+    }
+  }
+
+  /**
+   * Calculate AI Risk prevention metrics: flagged high-risk count and estimated prevented losses (order value + freight saved).
+   */
+  public async getRiskPreventionMetrics(
+    merchantId: string,
+    dateRange?: DateRange
+  ): Promise<{ flaggedHighRisk: number; lossesPreventedInr: number }> {
+    const mId = new Types.ObjectId(merchantId);
+    const end = dateRange?.endDate ?? new Date();
+    const start = dateRange?.startDate ?? new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const pipeline: PipelineStage[] = [
+      {
+        $match: {
+          merchantId: mId,
+          createdAt: { $gte: start, $lte: end },
+          'rtoRisk.level': 'HIGH',
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          flaggedHighRisk: { $sum: 1 },
+          potentialLoss: { $sum: '$orderValue' },
+          freightSaved: { $sum: 140 },
+        },
+      },
+    ];
+
+    try {
+      const result = (Order && typeof Order.aggregate === 'function')
+        ? await Order.aggregate(pipeline)
+        : [];
+      const data = result[0] || { flaggedHighRisk: 0, potentialLoss: 0, freightSaved: 0 };
+
+      return {
+        flaggedHighRisk: data.flaggedHighRisk || 0,
+        lossesPreventedInr: (data.potentialLoss || 0) + (data.freightSaved || 0),
+      };
+    } catch (err: any) {
+      logger.error('Failed to get risk prevention metrics', { merchantId, error: err.message });
+      return { flaggedHighRisk: 0, lossesPreventedInr: 0 };
     }
   }
 }

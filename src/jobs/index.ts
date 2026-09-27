@@ -7,6 +7,8 @@ import { ndrLifecycleWorker, scheduleNdrLifecycle } from './ndr-lifecycle.job';
 import { setupMonthlyResetWorker, scheduleMonthlyReset } from './monthlyReset.job';
 import { setupReconciliationWorker, scheduleReconciliation } from './reconciliation.job';
 import { setupWeeklyRoiReportWorker, scheduleWeeklyRoiReport } from './weeklyRoiReport.job';
+import { setupSubscriptionLifecycleWorker, scheduleSubscriptionLifecycle } from './subscription-lifecycle.job';
+import { setupDigestWorker, scheduleDigestJob } from './digest.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -18,10 +20,14 @@ export * from './monthlyReset.job';
 export * from './reconciliation.job';
 export * from './ndr-lifecycle.job';
 export * from './weeklyRoiReport.job';
+export * from './subscription-lifecycle.job';
+export * from './digest.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
 let weeklyRoiReportWorker: any = null;
+let subscriptionLifecycleWorker: any = null;
+let digestWorker: any = null;
 
 /**
  * Start all BullMQ workers safely without re-running active workers.
@@ -33,6 +39,8 @@ export function startAllWorkers(): void {
   if (!monthlyResetWorker) monthlyResetWorker = setupMonthlyResetWorker();
   if (!reconciliationWorker) reconciliationWorker = setupReconciliationWorker();
   if (!weeklyRoiReportWorker) weeklyRoiReportWorker = setupWeeklyRoiReportWorker();
+  if (!subscriptionLifecycleWorker) subscriptionLifecycleWorker = setupSubscriptionLifecycleWorker();
+  if (!digestWorker) digestWorker = setupDigestWorker();
 
   const workers = [
     codConversionWorker,
@@ -44,6 +52,8 @@ export function startAllWorkers(): void {
     monthlyResetWorker,
     reconciliationWorker,
     weeklyRoiReportWorker,
+    subscriptionLifecycleWorker,
+    digestWorker,
   ].filter(Boolean);
 
   for (const worker of workers) {
@@ -71,6 +81,14 @@ export function startAllWorkers(): void {
     logger.error('Failed to schedule weekly Sunday ROI report cron job', { error: err.message });
   });
 
+  scheduleSubscriptionLifecycle().catch((err) => {
+    logger.error('Failed to schedule daily subscription lifecycle cron job', { error: err.message });
+  });
+
+  scheduleDigestJob().catch((err) => {
+    logger.error('Failed to schedule hourly merchant digest cron job', { error: err.message });
+  });
+
   logger.info('✅  All BullMQ workers running');
 }
 
@@ -91,6 +109,8 @@ export async function stopAllWorkers(): Promise<void> {
     monthlyResetWorker.close(),
     reconciliationWorker.close(),
     weeklyRoiReportWorker?.close(),
+    subscriptionLifecycleWorker?.close(),
+    digestWorker?.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

@@ -5,12 +5,13 @@ import {
   PieChart, Pie, Cell,
   BarChart, Bar, Legend
 } from 'recharts';
-import { ShoppingBag, RefreshCw, ShieldCheck, IndianRupee, AlertCircle, Zap, TrendingUp } from 'lucide-react';
+import { ShoppingBag, RefreshCw, ShieldCheck, IndianRupee, AlertCircle, Zap, TrendingUp, ShieldAlert } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AnimatedCounter } from '../components/motion/AnimatedCounter';
 import { useRealtime } from '../hooks/useRealtime';
+import { useOrderStore } from '../store/OrderStore';
 import { RescueMetrics } from '../components/RescueMetrics';
 
 interface DashboardData {
@@ -24,6 +25,10 @@ interface DashboardData {
   estimatedRtoFeePerOrder?: number;
   dashboardHeaderMessage?: string;
   roiMultiple?: number;
+  riskMetrics?: {
+    flaggedHighRisk: number;
+    lossesPreventedInr: number;
+  };
   license?: {
     status: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
     daysRemaining: number;
@@ -43,6 +48,7 @@ const EMPTY_DATA: DashboardData = {
   revenueSaved: 0,
   activeNdrCases: 0,
   creditsRemaining: 0,
+  riskMetrics: { flaggedHighRisk: 0, lossesPreventedInr: 0 },
   dailyConversions: [],
   ndrReasons: [],
   carrierPerformance: [],
@@ -103,7 +109,9 @@ export const DashboardPage: React.FC = () => {
             ndrReasons: Array.isArray(apiData.ndrReasons) ? apiData.ndrReasons : [],
             carrierPerformance: Array.isArray(apiData.carrierPerformance) ? apiData.carrierPerformance : [],
             recentOrders: Array.isArray(apiData.recentOrders) ? apiData.recentOrders : [],
+            riskMetrics: apiData.riskMetrics || { flaggedHighRisk: 0, lossesPreventedInr: 0 },
           });
+          useOrderStore.getState().resetMetrics();
         } else {
           setData(EMPTY_DATA);
         }
@@ -124,11 +132,11 @@ export const DashboardPage: React.FC = () => {
     }
   }, []);
 
+  const { liveMetrics } = useOrderStore();
+
+  // 🛡️ TARGETED SYNC: Avoid full refetch on individual events; OrderStore updates live metrics
   const { isConnected } = useRealtime(token, {
-    onOrderUpdate: () => fetchAnalytics(),
-    onNdrDetected: () => fetchAnalytics(),
-    onPaymentReceived: () => fetchAnalytics(),
-    onStatsRefresh: () => fetchAnalytics(),
+    onStatsRefresh: fetchAnalytics,
   });
 
   useEffect(() => {
@@ -223,8 +231,40 @@ export const DashboardPage: React.FC = () => {
                   ? '⚠️ License Expired'
                   : `🛡️ License Active: ${data.license.daysRemaining}d Left`}
               </span>
+              {(data.license.status === 'APPROACHING_EXPIRY' || data.license.status === 'EXPIRED' || (data.license.daysRemaining <= 10 && data.license.daysRemaining > 0)) && (
+                <button
+                  onClick={() => navigate('/billing?renew=true')}
+                  className="btn btn-sm btn-primary"
+                  style={{
+                    backgroundColor: data.license.status === 'EXPIRED' ? 'var(--rose)' : 'var(--amber)',
+                    borderColor: 'transparent',
+                    color: '#000',
+                    fontWeight: 700,
+                    padding: '5px 12px',
+                    fontSize: '0.78rem',
+                  }}
+                >
+                  {data.license.status === 'EXPIRED' ? 'Reactivate Now →' : 'Renew Plan →'}
+                </button>
+              )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* License Expired / Urgent Warning Banner */}
+      {data.license && data.license.status === 'EXPIRED' && (
+        <div className="alert alert--bad fade-in-up" role="alert" style={{ borderColor: 'var(--rose)', backgroundColor: 'rgba(239, 68, 68, 0.08)' }}>
+          <div className="alert__main">
+            <AlertCircle size={20} color="var(--rose)" />
+            <div>
+              <p className="alert__title" style={{ color: 'var(--rose)' }}>Subscription Expired — Automated Rescues Suspended</p>
+              <p className="alert__text">Your plan has expired. Automated WhatsApp NDR rescues and COD-to-prepaid conversion links are currently halted. Renew now to restore protection immediately.</p>
+            </div>
+          </div>
+          <button onClick={() => navigate('/billing?renew=true')} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--rose)' }}>
+            Reactivate Protection →
+          </button>
         </div>
       )}
 
@@ -310,7 +350,7 @@ export const DashboardPage: React.FC = () => {
         <StatCard
           tone="stat--violet"
           label="COD → prepaid"
-          value={data.codToPrepaid?.count || 0}
+          value={(data.codToPrepaid?.count || 0) + liveMetrics.totalConversions}
           sub={<><TrendingUp size={12} color="var(--emerald)" /><span className="pos">{data.codToPrepaid?.conversionRate || 0}% conversion rate</span></>}
           icon={<RefreshCw size={15} />}
         />
@@ -324,7 +364,7 @@ export const DashboardPage: React.FC = () => {
         <StatCard
           tone="stat--emerald"
           label="Revenue saved"
-          value={Math.round((data.revenueSaved || 0) / 100000 * 10) / 10}
+          value={Math.round(((data.revenueSaved || 0) + liveMetrics.revenueSaved) / 100000 * 10) / 10}
           prefix="₹"
           suffix="L"
           icon={<IndianRupee size={15} />}
@@ -332,9 +372,22 @@ export const DashboardPage: React.FC = () => {
         <StatCard
           tone="stat--rose"
           label="Active NDR cases"
-          value={data.activeNdrCases || 0}
-          live={(data.activeNdrCases || 0) > 0}
+          value={Math.max(0, (data.activeNdrCases || 0) + liveMetrics.activeNdrCases)}
+          live={Math.max(0, (data.activeNdrCases || 0) + liveMetrics.activeNdrCases) > 0}
           icon={<AlertCircle size={15} />}
+        />
+        <StatCard
+          tone="stat--rose"
+          label="AI losses prevented"
+          value={data.riskMetrics?.lossesPreventedInr || 0}
+          prefix="₹"
+          sub={
+            <>
+              <ShieldAlert size={12} color="var(--rose)" style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+              <span className="pos" style={{ color: 'var(--text-2)' }}>{data.riskMetrics?.flaggedHighRisk || 0} high-risk flagged</span>
+            </>
+          }
+          icon={<ShieldAlert size={15} color="var(--rose)" />}
         />
       </motion.section>
 

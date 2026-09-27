@@ -2,21 +2,19 @@ import { Types } from 'mongoose';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { config } from '../config/env';
-import { Merchant, Order, AuditLog, BillingEvent, NdrCase, DeliveryAttempt, RescueLedger } from '../models';
+import { Merchant, Order, AuditLog, NdrCase, RescueLedger } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { logisticsService } from './logistics.service';
 import { encryptionService } from './encryption.service';
-import { geocodingService } from './geocoding.service';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
-import { getMessages, translateReason } from '../i18n/messages';
 import { realtimeService } from './realtime.service';
 import { logger } from '../utils/logger';
-import { getPolicy, RescuePolicy } from '../config/rescue-policy';
-import { recordOutbound } from './whatsapp-cost.service';
+import { getPolicy } from '../config/rescue-policy';
 import { COPY } from '../i18n/customer-copy';
-import { addressCorrectionService, LocationData } from './address-correction.service';
+import { addressCorrectionService } from './address-correction.service';
 import { SecurityAlertService } from './security-alert.service';
 import { makeJobId } from '../utils/job-id';
+import { checkSubscriptionAccess } from '../utils/subscription-guard';
 
 export type NDRCategory =
   | 'CUSTOMER_NOT_AVAILABLE'
@@ -64,9 +62,30 @@ export class NDRService {
     logger.info('Processing NDR Event', { merchantId, awb: ndrData.awb, reason: ndrData.reason });
 
     try {
-      const merchant = await Merchant.findById(merchantId);
+      const query = Merchant.findById(merchantId);
+      const merchant = query && typeof (query as any).select === 'function'
+        ? await (query as any).select('settings billing whatsappConfig carrierConfig rescuePolicy contactPhone ownerPhone storeName accessExpiresAt licenseStatus')
+        : await query;
       if (!merchant) {
         throw new Error(`Merchant not found: ${merchantId}`);
+      }
+
+      // 🛡️ ZERO-LOOPHOLE SUBSCRIPTION & QUOTA CHECK
+      const subCheck = checkSubscriptionAccess(merchant);
+      if (!subCheck.allowed) {
+        logger.warn('NDR rescue blocked: Subscription inactive or quota exceeded', {
+          merchantId,
+          reason: subCheck.reason,
+          awb: ndrData.awb,
+        });
+        await AuditLog.create({
+          merchantId: merchant._id,
+          action: 'ndr_blocked_subscription_inactive',
+          source: 'ndr_service',
+          payload: { reason: subCheck.reason, awb: ndrData.awb },
+          status: 'failed',
+        });
+        return;
       }
 
       if (!merchant.settings?.ndrRescue?.enabled) {
@@ -125,6 +144,9 @@ export class NDRService {
             awb: ndrData.awb,
             carrier: ndrData.carrier,
           });
+
+          // Increment monthly orders count for plan quota enforcement
+          await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.currentMonthOrders': 1 } });
         } catch (err: any) {
           if (err.code === 11000 || err.name === 'MongoServerError' || err.message?.includes('E11000')) {
             order = await Order.findOne({
@@ -180,7 +202,7 @@ export class NDRService {
         order.customerPhone = ndrData.phone;
       }
 
-      // Persist first-class NdrCase record
+      // 🛡️ VECTOR 4 FIX: Atomic Creation with Idempotent Deduplication for NdrCase
       try {
         await NdrCase.create({
           orderId: order._id,
@@ -193,9 +215,19 @@ export class NDRService {
           whatsappMessageSentAt: new Date(),
           status: 'OPEN',
           isFakeRemarkSuspicious: isFake,
+          lastWebhookAt: new Date(),
         });
       } catch (caseErr: any) {
-        logger.warn('Failed to record NdrCase model', { error: caseErr?.message });
+        if (caseErr?.code === 11000 || caseErr?.name === 'MongoServerError' || caseErr?.message?.includes('E11000')) {
+          try {
+            await NdrCase.updateOne(
+              { orderId: order._id, merchantId: merchant._id },
+              { $set: { lastWebhookAt: new Date() } }
+            );
+          } catch { /* proceed */ }
+        } else {
+          logger.warn('Failed to record NdrCase model', { error: caseErr?.message });
+        }
       }
 
       realtimeService.emitNdrDetected(
@@ -341,6 +373,14 @@ export class NDRService {
     try {
       // Business-initiated message MUST be a Meta-approved template (error 131047 otherwise).
       await this.sendVerifyRescue(order, merchant);
+
+      // The NDR entered the rescue workflow — meter it against the monthly plan
+      // quota (billing.currentMonthOrders). Non-fatal on failure.
+      try {
+        await Merchant.updateOne({ _id: order.merchantId }, { $inc: { 'billing.currentMonthOrders': 1 } });
+      } catch (incErr: any) {
+        logger.warn('Failed to increment monthly order usage (non-fatal)', { merchantId: String(order.merchantId), error: incErr.message });
+      }
 
       await RescueLedger.recordDecision({
         merchantId: order.merchantId,

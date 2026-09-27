@@ -6,6 +6,7 @@
 .bl-page {
   position: relative;
   min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--bg-void);
   color: var(--text-1);
   padding: 1.5rem 1.5rem 5rem;
@@ -21,7 +22,7 @@
   transform: translateX(-50%);
   width: 1000px;
   height: 450px;
-  background: radial-gradient(ellipse 60% 40% at 50% 0%, rgba(99, 102, 241, 0.12), transparent 75%);
+  background: radial-gradient(ellipse 60% 40% at 50% 0%, var(--indigo-12), transparent 75%);
   pointer-events: none;
   z-index: 0;
 }
@@ -39,7 +40,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0.75rem 0 2rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid var(--border);
   margin-bottom: 2.5rem;
 }
 
@@ -50,7 +51,7 @@
   font-size: 1.05rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: #ffffff;
+  color: var(--text-1);
   text-decoration: none;
 }
 
@@ -61,9 +62,9 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  background: linear-gradient(135deg, #4f46e5, #6366f1);
-  color: #ffffff;
-  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, var(--indigo), var(--indigo));
+  color: var(--text-1);
+  box-shadow: 0 2px 10px var(--indigo-40);
 }
 
 .bl-nav__meta {
@@ -79,8 +80,8 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--indigo-soft);
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  background: var(--indigo-10);
+  border: 1px solid var(--indigo-25);
   padding: 0.25rem 0.75rem;
   border-radius: 999px;
   letter-spacing: 0.02em;
@@ -102,8 +103,8 @@
 }
 
 .bl-nav__back:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-1);
+  background: var(--white-04);
 }
 
 /* ── Hero Heading Section ── */
@@ -120,8 +121,8 @@
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--emerald);
-  background: rgba(16, 185, 129, 0.09);
-  border: 1px solid rgba(16, 185, 129, 0.25);
+  background: var(--emerald-09);
+  border: 1px solid var(--emerald-25);
   padding: 0.3rem 0.85rem;
   border-radius: 999px;
   margin-bottom: 1.25rem;
@@ -133,7 +134,7 @@
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.12;
-  color: #ffffff;
+  color: var(--text-1);
   margin: 0 0 1rem;
 }
 
@@ -148,8 +149,8 @@
 /* ── Cycle Switcher (Quarterly vs Annual) ── */
 .bl-cycle-wrap {
   display: inline-flex;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--white-04);
+  border: 1px solid var(--white-10);
   padding: 0.3rem;
   border-radius: 12px;
   position: relative;
@@ -159,7 +160,7 @@
   position: absolute;
   top: 0.3rem;
   bottom: 0.3rem;
-  background: #4f46e5;
+  background: var(--indigo);
   border-radius: 9px;
   box-shadow: 0 2px 12px rgba(79, 70, 229, 0.4);
 }
@@ -182,21 +183,21 @@
 }
 
 .bl-cycle-btn.is-active {
-  color: #ffffff;
+  color: var(--text-1);
 }
 
 .bl-cycle-badge {
   font-size: 0.68rem;
   font-weight: 700;
-  background: rgba(16, 185, 129, 0.2);
+  background: var(--emerald-20);
   color: var(--emerald);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid var(--emerald-30);
   padding: 0.1rem 0.45rem;
   border-radius: 6px;
 }
 
 .bl-cycle-btn.is-active .bl-cycle-badge {
-  background: #ffffff;
+  background: var(--text-1);
   color: var(--indigo-dark);
   border-color: transparent;
 }
@@ -217,11 +218,11 @@
 }
 
 .bl-card {
-  background: #0d0f15;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
+  border: 1px solid var(--white-08);
   border-radius: 18px;
   padding: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 8px 32px var(--shadow-28);
 }
 
 .bl-card__header {
@@ -248,8 +249,8 @@
   font-size: 0.76rem;
   font-weight: 500;
   color: var(--indigo-soft);
-  background: rgba(99, 102, 241, 0.08);
-  border: 1px solid rgba(99, 102, 241, 0.2);
+  background: var(--indigo-08);
+  border: 1px solid var(--indigo-20);
   padding: 0.25rem 0.6rem;
   border-radius: 6px;
   cursor: pointer;
@@ -257,8 +258,8 @@
 }
 
 .bl-card__btn-subtle:hover {
-  background: rgba(99, 102, 241, 0.16);
-  color: #ffffff;
+  background: var(--indigo-16);
+  color: var(--text-1);
 }
 
 /* Slider Section */
@@ -278,7 +279,7 @@
 .bl-vol-number {
   font-size: 1.45rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -288,24 +289,28 @@
   height: 6px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--white-10);
   border-radius: 6px;
   outline: none;
   cursor: pointer;
   margin-bottom: 0.85rem;
 }
 
-.bl-vol-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
+.bl-vol-slider::-webkit-slider-thumb {}
+
+.bl-vol-slider::-moz-range-thumb {
+  -moz-appearance: none;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: #6366f1;
-  border: 2px solid #ffffff;
+  background: var(--indigo);
+  border: 2px solid var(--text-1);
   cursor: pointer;
-  box-shadow: 0 0 14px rgba(99, 102, 241, 0.6);
+  box-shadow: 0 0 14px var(--indigo-60);
   transition: transform 0.1s ease;
 }
+
+.bl-vol-slider::-moz-range-thumb {}
 
 .bl-vol-slider::-webkit-slider-thumb:hover {
   transform: scale(1.15);
@@ -321,8 +326,8 @@
   font-size: 0.74rem;
   font-weight: 500;
   color: var(--text-3);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--white-03);
+  border: 1px solid var(--white-08);
   padding: 0.35rem 0.25rem;
   border-radius: 7px;
   cursor: pointer;
@@ -331,12 +336,12 @@
 }
 
 .bl-chip:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--white-08);
+  color: var(--text-1);
 }
 
 .bl-chip.is-active {
-  background: rgba(99, 102, 241, 0.15);
+  background: var(--indigo-15);
   border-color: var(--indigo);
   color: var(--indigo-soft);
   font-weight: 600;
@@ -352,19 +357,19 @@
 
 .bl-econ-cell {
   background: rgba(255, 255, 255, 0.025);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 1.1rem;
 }
 
 .bl-econ-cell--loss {
-  border-color: rgba(244, 63, 94, 0.2);
-  background: rgba(244, 63, 94, 0.03);
+  border-color: var(--rose-20);
+  background: var(--rose-03);
 }
 
 .bl-econ-cell--saved {
-  border-color: rgba(16, 185, 129, 0.22);
-  background: rgba(16, 185, 129, 0.04);
+  border-color: var(--emerald-22);
+  background: var(--emerald-04);
 }
 
 .bl-econ-label {
@@ -409,7 +414,7 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   font-size: 0.78rem;
   color: var(--text-3);
 }
@@ -420,8 +425,8 @@
 
 /* Feature Spotlight: Address Resolution */
 .bl-spotlight {
-  background: rgba(14, 16, 23, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 1.3rem;
 }
@@ -440,9 +445,9 @@
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(99, 102, 241, 0.12);
+  background: var(--indigo-12);
   color: var(--indigo-soft);
-  border: 1px solid rgba(99, 102, 241, 0.25);
+  border: 1px solid var(--indigo-25);
   flex-shrink: 0;
 }
 
@@ -458,7 +463,7 @@
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--cyan);
-  background: rgba(56, 189, 248, 0.1);
+  background: var(--cyan-10);
   padding: 0.1rem 0.45rem;
   border-radius: 4px;
 }
@@ -474,7 +479,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--border);
   padding-top: 0.85rem;
 }
 
@@ -494,8 +499,8 @@
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--white-08);
+  color: var(--text-1);
   font-size: 0.65rem;
   font-weight: 700;
   flex-shrink: 0;
@@ -511,8 +516,8 @@
   display: flex;
   align-items: flex-start;
   gap: 0.9rem;
-  background: rgba(16, 185, 129, 0.04);
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: var(--emerald-04);
+  border: 1px solid var(--emerald-20);
   border-radius: 16px;
   padding: 1.25rem;
 }
@@ -526,7 +531,7 @@
 .bl-guarantee-card__title {
   font-size: 0.88rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-1);
   margin: 0 0 0.25rem;
 }
 
@@ -557,8 +562,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 1.25rem 1.4rem;
-  background: #0d0f15;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
+  border: 1px solid var(--white-08);
   border-radius: 16px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -567,15 +572,15 @@
 }
 
 .bl-tier-card:hover {
-  background: #11131a;
-  border-color: rgba(255, 255, 255, 0.18);
+  background: var(--bg-surface);
+  border-color: var(--white-18);
   transform: translateY(-1px);
 }
 
 .bl-tier-card.is-selected {
-  background: rgba(99, 102, 241, 0.08);
+  background: var(--indigo-08);
   border-color: var(--indigo);
-  box-shadow: 0 0 24px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 24px var(--indigo-20);
 }
 
 .bl-tier-card__left {
@@ -591,7 +596,7 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  border: 1.5px solid var(--white-25);
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
@@ -599,14 +604,14 @@
 .bl-tier-card.is-selected .bl-tier-card__radio {
   border-color: var(--indigo);
   background: var(--indigo);
-  color: #ffffff;
+  color: var(--text-1);
 }
 
 .bl-tier-card__radio-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ffffff;
+  background: var(--text-1);
 }
 
 .bl-tier-card__info {
@@ -624,7 +629,7 @@
 .bl-tier-card__name {
   font-size: 1.15rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   letter-spacing: -0.01em;
 }
 
@@ -634,8 +639,8 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--indigo-soft);
-  background: rgba(99, 102, 241, 0.25);
-  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: var(--indigo-25);
+  border: 1px solid var(--indigo-40);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
 }
@@ -657,7 +662,7 @@
 .bl-tier-card__price {
   font-size: 1.45rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
 }
@@ -680,11 +685,11 @@
 
 /* ── Checkout Panel ── */
 .bl-checkout-panel {
-  background: #0d0f15;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-surface);
+  border: 1px solid var(--white-08);
   border-radius: 18px;
   padding: 1.5rem;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 8px 32px var(--shadow-32);
 }
 
 .bl-checkout-panel__title {
@@ -698,7 +703,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--border);
   padding-bottom: 1.1rem;
   margin-bottom: 1.1rem;
 }
@@ -731,7 +736,7 @@
 .bl-checkout-total__label {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #ffffff;
+  color: var(--text-1);
 }
 
 .bl-checkout-total__label small {
@@ -745,7 +750,7 @@
 .bl-checkout-total__amount {
   font-size: 1.85rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.03em;
 }
@@ -756,8 +761,8 @@
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  background: #4f46e5;
-  color: #ffffff;
+  background: var(--indigo);
+  color: var(--text-1);
   border: none;
   border-radius: 12px;
   padding: 1rem 1.5rem;
@@ -769,7 +774,7 @@
 }
 
 .bl-btn-checkout:hover:not(:disabled) {
-  background: #4338ca;
+  background: var(--indigo-dark);
   box-shadow: 0 6px 28px rgba(79, 70, 229, 0.45);
   transform: translateY(-1px);
 }
@@ -787,7 +792,7 @@
   gap: 1.25rem;
   margin-top: 1.1rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--white-05);
   font-size: 0.72rem;
   color: var(--text-3);
 }
@@ -813,7 +818,7 @@
 
 .bl-modal {
   position: relative;
-  background: #0d0f15;
+  background: var(--bg-surface);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 20px;
   width: min(540px, 100%);
@@ -827,13 +832,13 @@
   justify-content: space-between;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid var(--border);
 }
 
 .bl-modal__title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   margin: 0;
 }
 
@@ -844,7 +849,7 @@
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--white-05);
   color: var(--text-3);
   border: none;
   cursor: pointer;
@@ -852,8 +857,8 @@
 }
 
 .bl-modal__close:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background: var(--white-10);
+  color: var(--text-1);
 }
 
 .bl-modal__fields {
@@ -881,7 +886,7 @@
 .bl-field__val {
   font-size: 0.95rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   font-variant-numeric: tabular-nums;
 }
 
@@ -897,21 +902,26 @@
   height: 5px;
   -webkit-appearance: none;
   appearance: none;
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--white-10);
   border-radius: 5px;
   outline: none;
   cursor: pointer;
 }
 
-.bl-field__slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
+.bl-field__slider::-webkit-slider-thumb {}
+
+.bl-field__slider::-moz-range-thumb {
+  -moz-appearance: none;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #6366f1;
+  background: var(--text-1);
+  border: 1px solid var(--border);
   cursor: pointer;
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.5);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
 }
+
+.bl-field__slider::-moz-range-thumb {}
 
 .bl-modal__actions {
   display: flex;
@@ -919,7 +929,7 @@
   justify-content: flex-end;
   gap: 0.75rem;
   padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid var(--border);
 }
 
 .bl-btn-secondary {
@@ -928,23 +938,23 @@
   font-weight: 500;
   color: var(--text-3);
   background: none;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--white-10);
   border-radius: 9px;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .bl-btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: #ffffff;
+  background: var(--white-04);
+  color: var(--text-1);
 }
 
 .bl-btn-primary {
   padding: 0.65rem 1.4rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: #ffffff;
-  background: #4f46e5;
+  color: var(--text-1);
+  background: var(--indigo);
   border: none;
   border-radius: 9px;
   cursor: pointer;
@@ -952,15 +962,15 @@
 }
 
 .bl-btn-primary:hover {
-  background: #4338ca;
+  background: var(--indigo-dark);
 }
 
 /* ── State 1: Active Subscription Receipt Card ── */
 .bl-receipt-card {
   max-width: 580px;
   margin: 3rem auto;
-  background: #0d0f15;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: var(--bg-surface);
+  border: 1px solid var(--emerald-30);
   border-radius: 20px;
   padding: 2.25rem;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
@@ -973,7 +983,7 @@
   font-size: 0.74rem;
   font-weight: 600;
   color: var(--emerald);
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--emerald-10);
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
   margin-bottom: 1.25rem;
@@ -982,7 +992,7 @@
 .bl-receipt-card__title {
   font-size: 1.75rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-1);
   letter-spacing: -0.02em;
   margin: 0 0 0.5rem;
 }
@@ -997,8 +1007,8 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--white-08);
+  border-bottom: 1px solid var(--white-08);
   padding: 1.25rem 0;
   margin-bottom: 1.75rem;
 }
@@ -1026,4 +1036,37 @@
     grid-template-columns: 1fr;
     gap: 2rem;
   }
+}
+
+
+.bl-text-emerald { color: var(--emerald); }
+.bl-nowrap { white-space: nowrap; }
+.bl-receipt-actions--col { display: flex; flex-direction: column; gap: 0.75rem; }
+.bl-btn-full { width: 100%; }
+.bl-btn-link-block { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; text-decoration: none; width: 100%; padding: 0.8rem; }
+.bl-receipt-manage { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); }
+.bl-receipt-meta { font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--indigo-soft); }
+.bl-receipt-meta--mb { margin-bottom: 0.6rem; }
+.bl-receipt-meta--mt { margin: 1.1rem 0 0.5rem; }
+.bl-receipt-credits { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem; }
+.bl-receipt-btn-credit { padding: 0.5rem 0.9rem; border-radius: 8px; border: 1px solid var(--indigo-08); background: var(--indigo-12); color: var(--indigo-light); font-size: 0.82rem; cursor: pointer; }
+.bl-receipt-invoices { display: flex; flex-direction: column; gap: 0.4rem; }
+.bl-receipt-invoice { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-1); }
+.bl-receipt-invoice-empty { font-size: 0.82rem; color: var(--text-3); }
+.bl-receipt-actions-row { display: flex; gap: 0.75rem; align-items: center; margin-top: 1.25rem; flex-wrap: wrap; }
+.bl-receipt-btn-resume { padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid var(--emerald-04); background: var(--emerald-12); color: var(--emerald-light); font-size: 0.82rem; cursor: pointer; }
+.bl-receipt-btn-cancel { padding: 0.55rem 1rem; border-radius: 8px; border: 1px solid var(--white-15); background: transparent; color: var(--text-3); font-size: 0.82rem; cursor: pointer; }
+.bl-receipt-cancel-msg { font-size: 0.8rem; color: var(--amber); }
+.bl-receipt-msg { margin-top: 0.75rem; font-size: 0.82rem; color: var(--indigo-light); display: flex; align-items: center; gap: 0.4rem; }
+
+.bl-vol-slider::-moz-range-track {
+  background: var(--white-10);
+  border-radius: 6px;
+  height: 6px;
+}
+
+.bl-field__slider::-moz-range-track {
+  background: var(--white-10);
+  border-radius: 6px;
+  height: 6px;
 }

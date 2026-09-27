@@ -29,6 +29,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
 
 // Indexes
 AuditLogSchema.index({ merchantId: 1, timestamp: -1 }, { name: 'idx_audit_merchant_ts' });
+AuditLogSchema.index({ orderId: 1, merchantId: 1 }, { name: 'idx_audit_order_merchant' });
 
 // TTL Index: Auto-expire documents after 90 days (90 * 24 * 60 * 60 seconds)
 AuditLogSchema.index({ timestamp: 1 }, { name: 'idx_audit_ttl', expireAfterSeconds: 7776000 });

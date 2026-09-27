@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
+import { Anchor, ShieldCheck, Truck, Phone, RefreshCw, Zap, KeyRound, AlertTriangle, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
 import { billingApi } from '../lib/billing';
@@ -9,10 +10,10 @@ import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
-  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify — paste the key + secret from your own admin app. WooCommerce — paste your REST API keys. Either way, your store stays fully isolated.' },
+  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify: paste the key + secret from your own admin app. WooCommerce: paste your REST API keys. Either way, your store stays fully isolated.' },
   { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your official WhatsApp Cloud API. Enables autonomous GPS pin sharing and AI address fix when buyers order with multiple/confusing addresses.' },
-  { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost — automatically syncs corrected GPS addresses and schedules reattempts with your driver.' },
-  { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree — generates instant payment links with discounts to convert risky COD orders to prepaid.' },
+  { key: 'carrier',  label: 'Courier',         verb: 'link',      hint: 'Shiprocket, Delhivery or ClickPost: automatically syncs corrected GPS addresses and schedules reattempts with your driver.' },
+  { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree: generates instant payment links with discounts to convert risky COD orders to prepaid.' },
 ];
 
 declare global { interface Window { FB: any; fbAsyncInit?: () => void; } }
@@ -60,9 +61,13 @@ export default function OnboardingPage() {
   const push = (line: string) => setLog((l) => [...l.slice(-5), line]);
   const refresh = async () => {
     if (!token) return null;
-    const s = await connectApi.state(token);
-    setState(s);
-    return s;
+    try {
+      const s = await connectApi.state(token);
+      setState(s);
+      return s;
+    } catch {
+      return null;
+    }
   };
 
   const advanceToNext = (fromStation?: Key) => {
@@ -346,22 +351,25 @@ export default function OnboardingPage() {
       <div className="ob-scan" aria-hidden="true" />
 
       <header className="ob-top">
-        <a href="/" className="ob-brand"><span>⚓</span> RescueShip</a>
+        <a href="/" className="ob-brand"><span><Anchor size={18} aria-hidden="true" /></span> RescueShip</a>
         <div className="ob-topbar"><motion.div className="ob-topbar__fill" style={{ width: `${(STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100}%` }} /></div>
-        <span className="ob-topbar__pct">{Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}% ready</span>
+        <span className="ob-topbar__pct" role="progressbar" aria-label="Onboarding setup progress" aria-valuenow={Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)} aria-valuemin={0} aria-valuemax={100}>{Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}% ready</span>
         {user && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+          <div className="ob-topbar__actions">
+            <span className="ob-topbar__email">
               {user.email}
             </span>
+            <div className="ob-plan-badge ob-plan-badge--header">
+              <span className="ob-plan-badge__status"><ShieldCheck size={14} aria-hidden="true" /> 90-Day Guarantee Protected</span>
+              <strong>Plan: {planInfo?.plan ? planInfo.plan.toUpperCase() : 'LOCKED IN'}</strong>
+            </div>
             <button
               type="button"
               onClick={() => {
                 logout();
                 nav('/login', { replace: true });
               }}
-              className="ob-btn ob-btn--ghost"
-              style={{ fontSize: '0.76rem', padding: '5px 12px', border: '1px solid var(--border)' }}
+              className="ob-btn ob-btn--ghost ob-topbar__logout"
             >
               Log out
             </button>
@@ -369,26 +377,12 @@ export default function OnboardingPage() {
         )}
       </header>
 
-      {/* ── STEP 2 OF 2 HEADER BANNER ── */}
-      <div className="ob-step-banner">
-        <div className="ob-step-banner__left">
-          <span className="ob-step-pill">Step 2 of 2 · Integration Wiring</span>
-          <h2>Connect Your 4 Stations</h2>
-          <p>Wire your store, WhatsApp, and courier to arm autonomous NDR rescues &amp; GPS address correction.</p>
-        </div>
-        <div className="ob-step-banner__right">
-          <div className="ob-plan-badge">
-            <span className="ob-plan-badge__status">🛡️ 90-Day Guarantee Protected</span>
-            <strong>Plan: {planInfo?.plan ? planInfo.plan.toUpperCase() : 'LOCKED IN'}</strong>
-            <small>{planInfo?.renewMonthly ? `₹${Number(planInfo.renewMonthly).toLocaleString('en-IN')}/mo` : 'Subscription Active'}</small>
-          </div>
-        </div>
-      </div>
+      
 
       <div className="ob-shell">
         {/* ── the route / spine ── */}
         <aside className="ob-spine">
-          <p className="ob-spine__kicker">Setup route</p>
+          <p className="ob-spine__kicker">Setup route<span className="ob-spine__kicker-sub"> — Step 2 of 2: Integration Wiring</span></p>
           <div className="ob-spine__track">
             {STATIONS.map((s, i) => {
               const st = statusOf(s.key);
@@ -396,13 +390,13 @@ export default function OnboardingPage() {
               const isActive = s.key === active;
               const pending = st === 'templates_pending' || st === 'connecting';
               return (
-                <button key={s.key} className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => { setActive(s.key); setErr(null); }} style={{ ['--i' as any]: i }}>
+                <button key={s.key} className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => { setActive(s.key); setErr(null); }} style={{ '--i': i } as React.CSSProperties} aria-current={isActive ? 'step' : undefined}>
                   <span className="ob-node__line" data-fill={i < currentIndex || isDone ? '1' : '0'} />
                   <span className="ob-node__dot">
                     {isDone ? <svg viewBox="0 0 24 24" className="ob-check"><path d="M5 13l4 4L19 7" /></svg>
-                      : (s.key === 'whatsapp' && st === 'templates_pending') ? <svg viewBox="0 0 24 24" className="ob-check" style={{ stroke: '#38bdf8' }}><path d="M5 13l4 4L19 7" /></svg>
+                      : (s.key === 'whatsapp' && st === 'templates_pending') ? <svg viewBox="0 0 24 24" className="ob-check" style={{ stroke: 'var(--cyan)' }}><path d="M5 13l4 4L19 7" /></svg>
                       : pending ? <span className="ob-spin" /> : <span className="ob-node__n">{i + 1}</span>}
-                    {isActive && <span className="ob-marker" aria-hidden="true">🛵</span>}
+                    {isActive && <Truck size={14} className="ob-marker" aria-hidden="true" />}
                   </span>
                   <span className="ob-node__text">
                     <strong>{s.label}</strong>
@@ -424,7 +418,7 @@ export default function OnboardingPage() {
             <div className="ob-assist__actions">
               {state?.setupCallUrl && (
                 <a className="ob-assist__btn ob-assist__btn--primary" href={state.setupCallUrl} target="_blank" rel="noopener noreferrer">
-                  📞 Book free setup call
+                  <Phone size={14} aria-hidden="true" /> Book free setup call
                 </a>
               )}
               <button
@@ -494,7 +488,7 @@ export default function OnboardingPage() {
               {active === 'carrier' && <CarrierForm onConnect={connectCarrier} onDisconnect={handleDisconnectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
 
-              {err && <p className="ob-err">⚠ {err}</p>}
+              {err && <p className="ob-err" role="alert" aria-live="polite"><AlertTriangle size={14} aria-hidden="true" /> {err}</p>}
             </motion.section>
           </AnimatePresence>
 
@@ -541,7 +535,7 @@ function StoreForm({ onTokenConnect, onOAuthConnect, onConnectWooCommerce, busy,
           style={{ marginTop: 'var(--space-2)' }}
           onClick={() => setShowChange(true)}
         >
-          🔄 Reconnect or change store
+          <RefreshCw size={14} aria-hidden="true" /> Reconnect or change store
         </button>
       </div>
     );
@@ -585,8 +579,8 @@ function WooCommerceForm({ onConnect, busy }: any) {
   return (
     <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(url.trim(), consumerKey.trim(), consumerSecret.trim()); }}>
       <Field label="Store URL"><input className="ob-input" placeholder="https://yourstore.com" value={url} onChange={(e) => setUrl(e.target.value)} required /></Field>
-      <Field label="Consumer key"><input className="ob-input" placeholder="ck_…" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} required /></Field>
-      <Field label="Consumer secret"><input className="ob-input" type="password" placeholder="cs_…" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} required /></Field>
+      <Field label="Consumer key"><input className="ob-input" placeholder="ck_…" autoComplete="off" spellCheck={false} value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} required /></Field>
+      <Field label="Consumer secret"><input className="ob-input" type="password" autoComplete="off" spellCheck={false} placeholder="cs_…" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} required /></Field>
       <div className="ob-steps">
         <p className="ob-steps__title">How to get these (2 min):</p>
         <ol className="ob-steps__list">
@@ -618,10 +612,10 @@ function ShopifyForm({ onTokenConnect, onOAuthConnect, busy, defaultShop }: any)
     <div className="ob-shopify-container">
       <div className="ob-seg" style={{ marginBottom: 'var(--space-3)' }}>
         <button type="button" className={method === 'oauth' ? 'on' : ''} onClick={() => setMethod('oauth')}>
-          ⚡ One-click connect (Recommended)
+          <Zap size={14} aria-hidden="true" /> One-click connect (Recommended)
         </button>
         <button type="button" className={method === 'manual' ? 'on' : ''} onClick={() => setMethod('manual')}>
-          🔑 Manual app keys
+          <KeyRound size={14} aria-hidden="true" /> Manual app keys
         </button>
       </div>
 
@@ -651,13 +645,13 @@ function ShopifyForm({ onTokenConnect, onOAuthConnect, busy, defaultShop }: any)
             <input className="ob-input" placeholder="your-brand.myshopify.com" value={shop} onChange={(e) => setShop(e.target.value)} required />
           </Field>
           <Field label="Consumer key (Admin API access token)">
-            <input className="ob-input" type="password" placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxx" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} required />
+            <input className="ob-input" type="password" autoComplete="off" spellCheck={false} placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxx" value={consumerKey} onChange={(e) => setConsumerKey(e.target.value)} required />
           </Field>
           <Field label="Consumer secret (API secret key)">
-            <input className="ob-input" type="password" placeholder="shpss_xxxxxxxxxxxxxxxxxxxxxxxx" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} required />
+            <input className="ob-input" type="password" autoComplete="off" spellCheck={false} placeholder="shpss_xxxxxxxxxxxxxxxxxxxxxxxx" value={consumerSecret} onChange={(e) => setConsumerSecret(e.target.value)} required />
           </Field>
           <div className="ob-steps">
-            <p className="ob-steps__title">How to get these in modern Shopify (2026):</p>
+            <p className="ob-steps__title">How to get these in Shopify:</p>
             <ol className="ob-steps__list">
               <li>{shopSlug
                 ? <>Open <a href={`https://admin.shopify.com/store/${shopSlug}/apps`} target="_blank" rel="noopener noreferrer">Apps</a> in your Shopify admin sidebar, or go to <a href="https://dev.shopify.com/dashboard" target="_blank" rel="noopener noreferrer">Shopify Dev Dashboard</a></>
@@ -746,12 +740,12 @@ function WhatsAppPanel({
               onManualConnect(phoneId.trim(), wabaId.trim(), accessToken.trim());
               setEditingCreds(false);
             }}>
-              <Field label="Phone number ID"><input className="ob-input" placeholder="123456789012345" value={phoneId} onChange={(e) => setPhoneId(e.target.value)} required /></Field>
-              <Field label="WABA ID (WhatsApp Business Account)"><input className="ob-input" placeholder="987654321098765" value={wabaId} onChange={(e) => setWabaId(e.target.value)} required /></Field>
+              <Field label="Phone number ID"><input className="ob-input" placeholder="123456789012345" autoComplete="off" spellCheck={false} value={phoneId} onChange={(e) => setPhoneId(e.target.value)} required /></Field>
+              <Field label="WABA ID (WhatsApp Business Account)"><input className="ob-input" placeholder="987654321098765" autoComplete="off" spellCheck={false} value={wabaId} onChange={(e) => setWabaId(e.target.value)} required /></Field>
               <Field label="Access token">
                 <input
                   className="ob-input"
-                  type="password"
+                  type="password" autoComplete="off" spellCheck={false}
                   placeholder="EAAG… (paste fresh temporary token or permanent System User token)"
                   value={accessToken}
                   onChange={(e) => setAccessToken(e.target.value)}
@@ -773,7 +767,7 @@ function WhatsAppPanel({
         </>
       ) : (
         <>
-          <div className="ob-wa-status">
+          <div className="ob-wa-status" aria-live="polite">
             <span className={`ob-pill ${status === 'connected' ? 'ok' : (status === 'templates_rejected' || status === 'token_expired') ? 'bad' : 'wait'}`}>
               {status === 'connected' ? '● live' : status === 'token_expired' ? '● token expired' : status === 'templates_rejected' ? '● action needed' : '◌ templates pending'}
             </span>
@@ -809,49 +803,53 @@ function WhatsAppPanel({
           </div>
 
           {status === 'token_expired' && (
-            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '14px 16px', margin: '14px 0' }}>
-              <p style={{ margin: 0, fontWeight: 600, color: '#991b1b', fontSize: '0.92rem' }}>Meta Access Token Expired</p>
-              <p style={{ margin: '6px 0 12px 0', fontSize: '0.82rem', color: '#7f1d1d', lineHeight: 1.4 }}>
+            <div className="ob-alert--error">
+              <h4>Meta Access Token Expired</h4>
+              <p>
                 Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.
               </p>
-              <button type="button" className="ob-btn" style={{ fontSize: '0.82rem', padding: '7px 16px' }} onClick={() => setEditingCreds(true)}>
-                🔑 Update Access Token
+              <button type="button" className="ob-btn" onClick={() => setEditingCreds(true)}>
+                <KeyRound size={14} aria-hidden="true" /> Update Access Token
               </button>
             </div>
           )}
 
           {status === 'templates_rejected' && (
-            <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '14px 16px', margin: '14px 0' }}>
-              <p style={{ margin: 0, fontWeight: 600, color: '#92400e', fontSize: '0.92rem' }}>Templates Ready to Sync</p>
-              <p style={{ margin: '6px 0 12px 0', fontSize: '0.82rem', color: '#78350f', lineHeight: 1.4 }}>
+            <div className="ob-alert--warn">
+              <h4>Templates Ready to Sync</h4>
+              <p>
                 Click below to sync recovery messages with Meta. If your token expired, click Update Token.
               </p>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  className="ob-btn"
-                  style={{ fontSize: '0.82rem', padding: '7px 16px', background: '#2563eb', color: '#ffffff' }}
+                  className="ob-btn ob-btn--primary"
                   disabled={busy === 'resubmit_templates'}
                   onClick={onResubmitTemplates}
                 >
-                  {busy === 'resubmit_templates' ? 'Syncing…' : '↻ Resubmit Templates'}
+                  {busy === 'resubmit_templates' ? (
+                    'Syncing…'
+                  ) : (
+                    <>
+                      <RefreshCw size={14} aria-hidden="true" /> Resubmit Templates
+                    </>
+                  )}
                 </button>
                 <button
                   type="button"
-                  className="ob-btn"
-                  style={{ fontSize: '0.82rem', padding: '7px 16px', background: '#78350f', color: '#ffffff' }}
+                  className="ob-btn ob-btn--warn"
                   onClick={() => setEditingCreds(true)}
                 >
-                  🔑 Update Access Token
+                  <KeyRound size={14} aria-hidden="true" /> Update Access Token
                 </button>
               </div>
             </div>
           )}
 
           {status === 'templates_pending' && (
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '14px 16px', margin: '14px 0' }}>
-              <p style={{ margin: 0, fontWeight: 600, color: '#1e40af', fontSize: '0.92rem' }}>Meta Template Review in Progress</p>
-              <p style={{ margin: '6px 0 0 0', fontSize: '0.82rem', color: '#1e3a8a', lineHeight: 1.45 }}>
+            <div className="ob-alert--note">
+              <h4>Meta Template Review in Progress</h4>
+              <p>
                 Your WhatsApp credentials are verified. Meta is reviewing your 6 message templates (usually takes 5–30 minutes). You can continue to Courier & Payments setup now — your templates will activate automatically once approved.
               </p>
             </div>
@@ -862,7 +860,7 @@ function WhatsAppPanel({
             <Field label="Store name (optional)"><input className="ob-input" placeholder="Mamaearth" value={name} onChange={(e) => setName(e.target.value)} /></Field>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' }}>
               <button className="ob-btn ob-btn--ghost" disabled={!phone || busy === 'pulse'} onClick={() => onPulse(phone, name)}>
-                {busy === 'pulse' ? 'Sending…' : '📲 Send me a test rescue'}
+                {busy === 'pulse' ? 'Sending…' : <><Smartphone size={14} aria-hidden="true" /> Send me a test rescue</>}
               </button>
               <button className="ob-btn" type="button" onClick={onNext}>
                 Continue to Courier setup →
@@ -875,14 +873,14 @@ function WhatsAppPanel({
             )}
           </div>
 
-          <div style={{ marginTop: '14px', borderTop: '1px dashed #e2e8f0', paddingTop: '10px' }}>
+          <div style={{ marginTop: '14px', borderTop: '1px dashed var(--border)', paddingTop: '10px' }}>
             <button
               type="button"
               className="ob-btn ob-btn--ghost"
               style={{ fontSize: '0.78rem', padding: '6px 12px', color: 'var(--text-2)' }}
               onClick={() => setEditingCreds(true)}
             >
-              🔄 Reconnect or update WhatsApp credentials
+              <RefreshCw size={14} aria-hidden="true" /> Reconnect or update WhatsApp credentials
             </button>
           </div>
         </>
@@ -905,16 +903,22 @@ function CarrierForm({ onConnect, onDisconnect, busy, done, provider }: any) {
           disabled={busy}
           onClick={onDisconnect}
         >
-          {busy ? 'Disconnecting…' : '🔄 Disconnect or change courier'}
+          {busy ? (
+            'Disconnecting…'
+          ) : (
+            <>
+              <RefreshCw size={14} aria-hidden="true" /> Disconnect or change courier
+            </>
+          )}
         </button>
       </div>
     </div>
   ) : (
     <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(p, email, password, apiToken, apiKey); }}>
       <div className="ob-seg">{(['shiprocket', 'delhivery', 'clickpost'] as const).map((x) => <button type="button" key={x} className={p === x ? 'on' : ''} onClick={() => setP(x)}>{x}</button>)}</div>
-      {p === 'shiprocket' ? (<><Field label="Email"><input className="ob-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field><Field label="Password"><input className="ob-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required /></Field></>)
-        : p === 'delhivery' ? <Field label="API token"><input className="ob-input" value={apiToken} onChange={(e) => setApiToken(e.target.value)} required /></Field>
-        : <Field label="API key"><input className="ob-input" value={apiKey} onChange={(e) => setApiKey(e.target.value)} required /></Field>}
+      {p === 'shiprocket' ? (<><Field label="Email"><input className="ob-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field><Field label="Password"><input className="ob-input" type="password" autoComplete="off" spellCheck={false} value={password} onChange={(e) => setPassword(e.target.value)} required /></Field></>)
+        : p === 'delhivery' ? <Field label="API token"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiToken} onChange={(e) => setApiToken(e.target.value)} required /></Field>
+        : <Field label="API key"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} required /></Field>}
       <p className="ob-note">We validate these against the carrier before saving — dead keys are rejected, never stored.</p>
       <button className="ob-btn" disabled={busy}>Validate & connect</button>
     </form>
@@ -927,8 +931,8 @@ function PaymentForm({ onConnect, busy, done, gateway }: any) {
   return done ? <Done provider={`Connected · ${gateway}`} /> : (
     <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(g, id, sec); }}>
       <div className="ob-seg">{(['razorpay', 'cashfree'] as const).map((x) => <button type="button" key={x} className={g === x ? 'on' : ''} onClick={() => setG(x)}>{x}</button>)}</div>
-      <Field label="Key / Client ID"><input className="ob-input" value={id} onChange={(e) => setId(e.target.value)} required /></Field>
-      <Field label="Secret"><input className="ob-input" type="password" value={sec} onChange={(e) => setSec(e.target.value)} required /></Field>
+      <Field label="Key / Client ID"><input className="ob-input" autoComplete="off" spellCheck={false} value={id} onChange={(e) => setId(e.target.value)} required /></Field>
+      <Field label="Secret"><input className="ob-input" type="password" autoComplete="off" spellCheck={false} value={sec} onChange={(e) => setSec(e.target.value)} required /></Field>
       <p className="ob-note">Validated with a live read call, then encrypted at rest (AES-256-GCM).</p>
       <button className="ob-btn" disabled={busy}>Validate & connect</button>
     </form>

@@ -28,8 +28,11 @@ function str(v: unknown, max = 128): string | undefined {
  *     billing, signed with the platform webhook secret. The merchant is resolved
  *     from the subscription/order id we stored at checkout, never from `notes`.
  *
- * Plan provisioning NEVER happens here: the intro payment is provisioned through
- * the authenticated /billing/checkout/verify path bound to the pending intent.
+ * Plan provisioning happens through the authenticated /billing/checkout/verify
+ * path bound to the pending intent. The payment.captured event acts ONLY as a
+ * reconciliation fallback (reconcileIntroPayment): the merchant is resolved
+ * from the stored intro order id, the payment is re-fetched from Razorpay and
+ * fully validated, and one-shot provisioning dedups against the verify path.
  */
 router.post('/payment', async (req: Request, res: Response): Promise<void> => {
   const signature = req.get('X-Razorpay-Signature');
@@ -122,14 +125,46 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
         break;
       }
 
-      case 'payment.captured':
+      case 'payment.captured': {
         // Intro payments are provisioned via the authenticated checkout/verify path.
-        // Nothing to do here; acknowledged so Razorpay stops retrying.
+        // Fallback: if the customer's browser died after capture (modal closed /
+        // network lost) the verify call never arrives — reconcile from the stored
+        // intro order id so the payment is never lost. No-op when already provisioned.
+        const orderId = str(paymentEntity?.order_id);
+        const paymentId = str(paymentEntity?.id);
+        if (orderId && paymentId) {
+          try {
+            await subscriptionService.reconcileIntroPayment(orderId, paymentId);
+          } catch (reconcileErr: any) {
+            // Throw so Razorpay retries the webhook delivery.
+            throw reconcileErr;
+          }
+        }
         break;
+      }
 
       case 'subscription.paused': {
         const subscriptionId = str(subEntity?.id);
         if (subscriptionId) await subscriptionService.onSubscriptionPaused(subscriptionId);
+        break;
+      }
+
+      case 'subscription.halted': {
+        const subscriptionId = str(subEntity?.id);
+        if (subscriptionId) await subscriptionService.onSubscriptionHalted(subscriptionId);
+        break;
+      }
+
+      case 'subscription.pending': {
+        // Charge retry window opened — informational only; the watchdog and
+        // payment.failed events drive any merchant-facing state.
+        logger.info('Razorpay subscription charge pending', { subscriptionId: str(subEntity?.id) });
+        break;
+      }
+
+      case 'subscription.resumed': {
+        const subscriptionId = str(subEntity?.id);
+        if (subscriptionId) await subscriptionService.onSubscriptionResumed(subscriptionId);
         break;
       }
 
@@ -141,7 +176,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
       }
 
       case 'payment.failed': {
-        await subscriptionService.onPaymentFailed(str(subEntity?.id), str(paymentEntity?.order_id), str(paymentEntity?.error_description, 256));
+        await subscriptionService.onPaymentFailed(str(subEntity?.id), str(paymentEntity?.order_id), str(paymentEntity?.error_description, 256), str(paymentEntity?.id));
         break;
       }
 

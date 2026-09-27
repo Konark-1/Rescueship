@@ -1,6 +1,7 @@
 import { Queue, Worker, Job } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { Merchant } from '../models';
+import { merchantDigestService } from '../services/merchant-digest.service';
 import { logger } from '../utils/logger';
 
 export const MONTHLY_RESET_QUEUE_NAME = 'monthly-orders-reset';
@@ -12,6 +13,7 @@ export const setupMonthlyResetWorker = () => {
     async (job: Job) => {
       logger.info('Running monthly order limit reset worker', { jobId: job.id });
       const result = await Merchant.updateMany({}, { $set: { 'billing.currentMonthOrders': 0 } });
+      await merchantDigestService.clearQuotaAlerts();
       logger.info('Monthly order limit reset completed', { modifiedCount: result.modifiedCount });
       return { resetCount: result.modifiedCount };
     },

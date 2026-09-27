@@ -43,6 +43,7 @@ const schema = new Schema<IRescueLedger>(
   { timestamps: true }
 );
 schema.index({ merchantId: 1, pilotId: 1, flaggedAt: -1 });
+schema.index({ orderId: 1 }, { name: 'idx_ledger_order' });
 
 schema.statics.recordDecision = function (d: Partial<IRescueLedger>) { return this.create(d); };
 

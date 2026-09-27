@@ -5,6 +5,7 @@ export * from './WhatsAppTemplate';
 export * from './BillingEvent';
 export * from './RescueLedger';
 export * from './ProcessedPayment';
+export * from './Invoice';
 export * from './NdrCase';
 export * from './DeliveryAttempt';
 export * from './MessageLog';

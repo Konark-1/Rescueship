@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import './styles/app.css';
 import { AppLayout } from './components/AppLayout';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Route-level code-splitting: Heavy dashboard & ancillary pages loaded on-demand
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -85,84 +86,86 @@ export const App: React.FC = () => {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Suspense fallback={<RouteLoadingFallback />}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/onboard" element={<Navigate to="/register" replace />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <ErrorBoundary>
+          <Suspense fallback={<RouteLoadingFallback />}>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/onboard" element={<Navigate to="/register" replace />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
-            {/* Protected Routes inside AppLayout */}
-            <Route path="/dashboard" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <DashboardPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/orders" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <OrdersPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <SettingsPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/templates" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <TemplatesPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            {/* Billing — accessible during onboarding (not gated by DashboardLayoutWrapper) */}
-            <Route path="/billing" element={
-              <ProtectedRoute>
-                <BillingPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/audit-logs" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <AuditLogsPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/docs" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <DocsPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
-            <Route path="/sandbox" element={
-              <ProtectedRoute>
-                <DashboardLayoutWrapper>
-                  <SandboxPage />
-                </DashboardLayoutWrapper>
-              </ProtectedRoute>
-            } />
+              {/* Protected Routes inside AppLayout */}
+              <Route path="/dashboard" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <DashboardPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/orders" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <OrdersPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <SettingsPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/templates" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <TemplatesPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              {/* Billing — accessible during onboarding (not gated by DashboardLayoutWrapper) */}
+              <Route path="/billing" element={
+                <ProtectedRoute>
+                  <BillingPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/audit-logs" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <AuditLogsPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/docs" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <DocsPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/sandbox" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <SandboxPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
 
-            {/* Onboarding Wizard (not wrapped in standard layout) */}
-            <Route path="/onboarding" element={
-              <ProtectedRoute>
-                <OnboardingPage />
-              </ProtectedRoute>
-            } />
+              {/* Onboarding Wizard (not wrapped in standard layout) */}
+              <Route path="/onboarding" element={
+                <ProtectedRoute>
+                  <OnboardingPage />
+                </ProtectedRoute>
+              } />
 
-            {/* Redirect Wildcard */}
-            <Route path="*" element={<WildcardRedirect />} />
-          </Routes>
-        </Suspense>
+              {/* Redirect Wildcard */}
+              <Route path="*" element={<WildcardRedirect />} />
+            </Routes>
+          </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );

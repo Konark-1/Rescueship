@@ -3,6 +3,7 @@
   --bg-void: #050508;
   --bg-deep: #0a0a10;
   --bg-sidebar: #08080e;
+  --bg-surface: #0d0f15;
   --bg-card: rgba(255,255,255,0.03);
   --bg-card-hover: rgba(255,255,255,0.06);
   --bg-glass: rgba(10,10,16,0.72);
@@ -57,6 +58,12 @@
   --amber-20: rgba(251, 191, 36, 0.20);
   --amber-25: rgba(251, 191, 36, 0.25);
   --amber-30: rgba(251, 191, 36, 0.30);
+
+  --cyan-10: rgba(56, 189, 248, 0.10);
+  --cyan-15: rgba(56, 189, 248, 0.15);
+
+  --danger-10: rgba(239, 68, 68, 0.10);
+  --danger-15: rgba(239, 68, 68, 0.15);
 
   /* ── Neutral Alpha Scale ── */
   --white-01: rgba(255, 255, 255, 0.015);
@@ -132,8 +139,8 @@
   /* ── Semantic Aliases & Compatibility ── */
   --primary: var(--indigo);
   --primary-glow: var(--indigo-15);
-  --danger-glow: rgba(239, 68, 68, 0.15);
-  --shadow-glow: 0 0 24px rgba(99, 102, 241, 0.25);
+  --danger-glow: var(--danger-15);
+  --shadow-glow: 0 0 24px var(--indigo-25);
   --shadow-card: 0 4px 20px rgba(0, 0, 0, 0.4);
 
   /* ── Legacy aliases (referenced by app pages) ── */
@@ -226,6 +233,56 @@ img { max-width: 100%; display: block; }
 .toast-notification { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999; background: var(--bg-glass); backdrop-filter: blur(20px); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.5rem; color: var(--text-1); display: flex; align-items: center; gap: 0.75rem; animation: toast-in 0.4s var(--ease-out) forwards; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @media (max-width: 768px) { .glass-card { padding: 1rem; } .toast-notification { bottom: 1rem; right: 1rem; left: 1rem; } }
+
+/* ── Shared Primitives: Spin, Alerts, Skeletons, Modal ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin, .bl-spin, .ob-spin {
+  animation: spin 1s linear infinite;
+  display: inline-block;
+}
+
+.alert-note, .alert-warn, .alert-error, .alert-success {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: 0.875rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.alert-note {
+  background: var(--indigo-08);
+  border: 1px solid var(--indigo-20);
+  color: var(--text-1);
+}
+.alert-warn {
+  background: var(--amber-06);
+  border: 1px solid var(--amber-20);
+  color: var(--text-1);
+}
+.alert-error {
+  background: var(--rose-06);
+  border: 1px solid var(--rose-20);
+  color: var(--text-1);
+}
+.alert-success {
+  background: var(--emerald-06);
+  border: 1px solid var(--emerald-20);
+  color: var(--text-1);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 2s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
 /* ═══ Pricing Comparison Modal ═══ */
 .pcm-overlay { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: rgba(5,5,8,0.8); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }

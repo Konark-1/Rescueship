@@ -52,5 +52,7 @@ const MessageLogSchema = new Schema<IMessageLog>(
 
 MessageLogSchema.index({ merchantId: 1, customerPhone: 1, createdAt: -1 });
 MessageLogSchema.index({ direction: 1, createdAt: -1 });
+// TTL Index: Auto-expire message logs after 180 days (180 * 24 * 60 * 60 seconds)
+MessageLogSchema.index({ createdAt: 1 }, { expireAfterSeconds: 15552000, name: 'idx_msglog_ttl' });
 
 export const MessageLog: Model<IMessageLog> = model<IMessageLog>('MessageLog', MessageLogSchema);

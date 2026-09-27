@@ -36,5 +36,7 @@ const WebhookEventSchema = new Schema<IWebhookEvent>(
 );
 
 WebhookEventSchema.index({ source: 1, eventId: 1, createdAt: -1 });
+// TTL Index: Auto-expire webhook events after 30 days (30 * 24 * 60 * 60 seconds)
+WebhookEventSchema.index({ createdAt: 1 }, { expireAfterSeconds: 2592000, name: 'idx_webhook_ttl' });
 
 export const WebhookEvent: Model<IWebhookEvent> = model<IWebhookEvent>('WebhookEvent', WebhookEventSchema);

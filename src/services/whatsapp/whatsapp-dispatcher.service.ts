@@ -4,10 +4,9 @@
  * rate limiting, atomic credit settlement, and full MessageLog persistence.
  */
 
-import { Types } from 'mongoose';
 import { Merchant, Order, MessageLog, AuditLog, BillingEvent } from '../../models';
 import { whatsAppService, WhatsAppConfig } from '../whatsapp.service';
-import { templateMapperService, NDRCategory, TemplateMapping } from './template-mapper.service';
+import { templateMapperService, NDRCategory } from './template-mapper.service';
 import { encryptionService } from '../encryption.service';
 import { normalizeIndianPhone } from '../../utils/phoneNormalizer';
 import { logger, maskPhone } from '../../utils/logger';

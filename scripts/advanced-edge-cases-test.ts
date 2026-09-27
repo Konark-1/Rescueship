@@ -185,7 +185,7 @@ async function runAdvancedEdgeCaseTests() {
     );
 
     // Test monthly plan limit & tier check
-    const planLimits = { free_trial: 50, starter: 2000, growth: 10000, scale: 50000, enterprise: 100000 };
+    const planLimits = { free_trial: 50, starter: 1000, growth: 5000, scale: 12000, fleet: 25000, enterprise: 100000 };
     const currentPlan = merchant.billing?.plan || 'free_trial';
     const limit = planLimits[currentPlan as keyof typeof planLimits];
     if (!limit) {

@@ -1,4 +1,6 @@
 import axios from 'axios';
+import crypto from 'crypto';
+import { redisConnection } from '../config/redis';
 import { logger } from '../utils/logger';
 
 export interface GeminiPart {
@@ -23,18 +25,67 @@ export interface GeminiChatOptions {
   maxOutputTokens?: number;
 }
 
+export interface StructuredIndianAddress {
+  flatOrHouseNo?: string;
+  societyOrBuilding?: string;
+  streetOrGali?: string;
+  landmark: string;
+  driverNote: string;
+  cleanAddress: string; // Normalized single-line address (max 120 chars)
+  city?: string;
+  pincode?: string;     // 6-digit Indian PIN
+  confidence: number;   // 0.0 - 1.0
+}
+
+const ADDRESS_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    flatOrHouseNo: { type: 'STRING' },
+    societyOrBuilding: { type: 'STRING' },
+    streetOrGali: { type: 'STRING' },
+    landmark: { type: 'STRING', description: 'Extracted landmark, translated to English if needed' },
+    driverNote: { type: 'STRING', description: 'Specific courier delivery instruction' },
+    cleanAddress: { type: 'STRING', description: 'Normalized single-line address (max 120 chars)' },
+    city: { type: 'STRING' },
+    pincode: { type: 'STRING', description: '6-digit Indian PIN' },
+    confidence: { type: 'NUMBER' },
+  },
+  required: ['landmark', 'driverNote', 'cleanAddress', 'confidence'],
+};
+
+const HINGLISH_PROMPT = `You are an expert Indian logistics address parser. Convert messy WhatsApp text (Hinglish, Hindi Devanagari, English, or mixed) into structured JSON.
+
+Hinglish/Colloquial Dictionary:
+- "ke peeche" / "ke piche" → Behind
+- "ke samne" / "opposite" → Opposite / In front of
+- "ke bagal mein" / "bagal" → Adjacent to / Beside
+- "chowk" / "naka" / "tiraha" → Intersection / Circle
+- "call karna" / "phone uthana" → Call customer on arrival
+- "guard ke paas" / "security" → Leave with security guard
+- "gali" / "lane" → Street / Lane
+- "makan" / "kotha" → House
+- "manzil" / "floor" → Floor
+
+Rules:
+- pincode: exactly 6 digits if present, otherwise omit.
+- cleanAddress: max 120 characters, formatted for a shipping label.
+- confidence: 0.0-1.0 based on completeness.
+Return ONLY JSON matching the schema. No prose.`;
+
+const CACHE_TTL_SECONDS = 48 * 3600; // 48 hours
+
 export class GeminiService {
   private static instance: GeminiService;
   private apiUrl: string;
-  private apiKey: string;
+  private apiKey: string | undefined;
   private model: string;
 
-  private constructor() {
+  public constructor() {
     this.apiUrl = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
-    this.apiKey = process.env.GEMINI_API_KEY || '';
-    this.model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    this.apiKey = process.env.GEMINI_API_KEY;
+    this.model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
-    if (!this.apiKey) {
+    if (!this.getApiKey()) {
       logger.warn('[GeminiService] GEMINI_API_KEY not set — Gemini features disabled');
     }
   }
@@ -46,17 +97,120 @@ export class GeminiService {
     return GeminiService.instance;
   }
 
+  private getApiKey(): string | undefined {
+    return process.env.GEMINI_API_KEY !== undefined ? process.env.GEMINI_API_KEY : this.apiKey;
+  }
+
+  private getModel(): string {
+    return process.env.GEMINI_MODEL || this.model || 'gemini-2.0-flash';
+  }
+
   public isConfigured(): boolean {
-    return !!this.apiKey;
+    return !!this.getApiKey();
+  }
+
+  private getCacheKey(text: string): string {
+    const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
+    const hash = crypto.createHash('sha256').update(normalized).digest('hex');
+    return `gemini_addr:${hash}`;
+  }
+
+  async parseAddress(rawText: string): Promise<StructuredIndianAddress | null> {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
+      logger.warn('Gemini API key not configured. Skipping AI parse.');
+      return null;
+    }
+
+    const text = rawText.trim();
+    if (!text) return null;
+
+    // Tier 1: Redis Cache Check
+    const cacheKey = this.getCacheKey(text);
+    try {
+      if (redisConnection && typeof redisConnection.get === 'function') {
+        const cached = await redisConnection.get(cacheKey);
+        if (cached) {
+          logger.debug('Gemini address parse cache hit', { cacheKey });
+          return JSON.parse(cached) as StructuredIndianAddress;
+        }
+      }
+    } catch (err) {
+      logger.warn('Redis cache read failed for Gemini parse', { error: (err as Error).message });
+    }
+
+    // Tier 2: Gemini API Call
+    try {
+      const model = this.getModel();
+      const url = `${this.apiUrl}/models/${model}:generateContent`;
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-goog-api-key': apiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `${HINGLISH_PROMPT}\n\nADDRESS: ${text}` }] }],
+          generationConfig: {
+            temperature: 0,
+            responseMimeType: 'application/json',
+            responseSchema: ADDRESS_SCHEMA,
+          },
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        logger.error(`Gemini API error: ${response.status}`, { body: errText });
+        return null;
+      }
+
+      const data = await response.json() as any;
+      const rawJson = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!rawJson) {
+        logger.warn('Gemini returned empty response for address parse');
+        return null;
+      }
+
+      const parsed = JSON.parse(rawJson) as StructuredIndianAddress;
+
+      // Validate required fields
+      if (!parsed.cleanAddress || typeof parsed.confidence !== 'number') {
+        logger.warn('Gemini response missing required fields', { parsed });
+        return null;
+      }
+
+      // Save to Redis Cache safely
+      if (redisConnection && typeof redisConnection.set === 'function') {
+        try {
+          const setPromise = redisConnection.set(cacheKey, JSON.stringify(parsed), 'EX', CACHE_TTL_SECONDS);
+          if (setPromise && typeof (setPromise as any).catch === 'function') {
+            (setPromise as Promise<any>).catch((err: Error) => {
+              logger.warn('Failed to cache Gemini parse result', { error: err.message });
+            });
+          }
+        } catch (setErr: any) {
+          logger.warn('Failed to invoke Redis set for Gemini cache', { error: setErr?.message });
+        }
+      }
+
+      return parsed;
+    } catch (err) {
+      logger.error('Gemini address parse failed', { error: (err as Error).message });
+      return null;
+    }
   }
 
   async chat(options: GeminiChatOptions): Promise<GeminiResponse> {
-    if (!this.apiKey) {
+    const apiKey = this.getApiKey();
+    if (!apiKey) {
       throw new Error('Gemini API key not configured');
     }
 
-    const model = options.model || this.model;
-    const url = `${this.apiUrl}/models/${model}:generateContent?key=${this.apiKey}`;
+    const model = options.model || this.getModel();
+    const url = `${this.apiUrl}/models/${model}:generateContent?key=${apiKey}`;
 
     const requestBody: Record<string, unknown> = {
       contents: [{ role: 'user', parts: options.parts }],

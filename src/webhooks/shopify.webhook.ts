@@ -139,6 +139,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           paymentMethod: 'prepaid',
           status: 'new',
         });
+        await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.currentMonthOrders': 1 } });
       } catch { /* already exists */ }
 
       try {

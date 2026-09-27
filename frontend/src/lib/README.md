@@ -13,5 +13,5 @@
 ## Key Invariants
 
 - `connect.ts` and `billing.ts` auto-evict invalid sessions on 401 and redirect to `/login`
-- `TIERS` order limits: Starter (2K), Growth (10K), Scale (50K), Fleet (unlimited)
+- `TIERS` order limits: Starter (1,000), Growth (5,000), Scale (12,000), Fleet (25,000)
 - `loadRazorpay()` dynamically injects `checkout.razorpay.com/v1/checkout.js`

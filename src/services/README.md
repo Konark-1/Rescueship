@@ -9,14 +9,12 @@
 | `ndr.service.ts` | Central NDR pipeline | Singleton — remark classification, fake scoring, policy eval, customer response processing |
 | `order.service.ts` | COD conversion | Singleton — payment link creation, UPI QR, Shopify/WooCommerce ledger updates |
 | `address-correction.service.ts` | 3-mode address engine | Singleton — Nominatim geocoding, Gemini AI parsing, carrier sync |
-| `ai.service.ts` | AI chat service | Singleton — external AI API wrapper |
 | `gemini.service.ts` | Gemini AI parser | Singleton — colloquial Indian address extraction via Gemini 2.5 Flash |
 | `analytics.service.ts` | Dashboard analytics | Singleton — `getDashboardData()`, conversions, carrier performance |
-| `email.service.ts` | Email delivery | Singleton — Gmail OAuth2 REST + SMTP fallback |
+| `email.service.ts` | Email delivery | Singleton — Gmail SMTP over TLS/SSL port 465 |
 | `encryption.service.ts` | AES-256-GCM | Singleton — `encrypt()`, `decrypt()`, supports legacy formats |
 | `export.service.ts` | Data export | Singleton — CSV/JSON with formula injection sanitization |
-| `feature-flags.service.ts` | Feature flags | Instance — PLG readiness check |
-| `geocoding.service.ts` | Reverse geocoding | Singleton — OpenStreetMap Nominatim |
+| `geocoding.service.ts` | Reverse geocoding | Singleton — OpenStreetMap Nominatim with two-tier Redis cache |
 | `logistics.service.ts` | Carrier dispatch | Singleton — Shiprocket/Delhivery/ClickPost reattempt, address update, COD adjust |
 | `meta-embedded-signup.service.ts` | Meta signup | Instance — WhatsApp Cloud API embedded signup flow |
 | `meta-template.service.ts` | Template management | Instance — register/update Meta templates |
@@ -24,10 +22,10 @@
 | `payment.service.ts` | Payment processing | Singleton — Razorpay/Cashfree link generation and verification |
 | `payment-connect.service.ts` | Gateway connection | Instance — credential validation and encrypted storage |
 | `carrier-connect.service.ts` | Carrier connection | Instance — credential validation, webhook URL generation |
-| `qr-whatsapp.service.ts` | QR generation | Singleton — UPI QR code image for WhatsApp media |
 | `realtime.service.ts` | SSE hub | Singleton (EventEmitter) — broadcasts to merchant dashboards |
 | `rescue-matching.service.ts` | Multi-order disambiguation | Singleton — Redis candidate snapshots for ambiguous replies |
 | `rto-arrest.service.ts` | RTO arrest | Singleton — intercepts `rto_initiated` for last-chance rescue |
+| `rto-risk.service.ts` | AI predictive RTO risk | Singleton — multi-factor scoring (phone, address, pincode, order value) |
 | `sandbox.service.ts` | Test simulation | Instance — simulated NDR, test pulse, graduation gate |
 | `security-alert.service.ts` | Security alerts | Static — Slack/Discord IDOR and circuit breaker notifications |
 | `shopify-oauth.service.ts` | Shopify OAuth | Instance — OAuth URL generation, callback, nonce validation |
@@ -36,6 +34,7 @@
 | `whatsapp-cost.service.ts` | Cost classifier | Functional — marketing (~₹0.88) vs utility (~₹0.14) classification |
 | `woocommerce-connect.service.ts` | WooCommerce | Instance — store connection via Consumer Key/Secret |
 | `alert.service.ts` | System alerts | Instance — quality warnings, template rejections, billing alerts |
+| `merchant-digest.service.ts` | Hourly digest | Singleton — batches real-time operational events into hourly merchant emails |
 
 ## Subdirectories
 

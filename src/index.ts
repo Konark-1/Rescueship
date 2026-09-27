@@ -255,8 +255,31 @@ import { standardMerchantLimiter, exportMerchantLimiter } from './middleware/mer
 import sandboxRouter from './api/sandbox.api';
 import metricsRouter from './api/metrics.api';
 import plgRouter from './api/plg.api';
+import aiRouter from './api/ai.api';
 import { startQualityMonitorWorker } from './jobs/quality-monitor.job';
 import { startTemplatePollerWorker } from './jobs/template-poller.job';
+import { authenticateToken } from './middleware/auth';
+import { requireActiveSubscription } from './middleware/planGating.middleware';
+
+// ─── Subscription enforcement at the API surface ───
+// Every router below carries only authenticated merchant routes, so gating at
+// the router level blocks expired/past-due/cancelled merchants from the
+// product (orders, analytics, realtime, AI, templates, exports, metrics, audit
+// logs) while keeping /api/billing, /api/settings, /api/auth and /api/connect
+// reachable for renewal, account access and onboarding (trial merchants pass
+// the guard via the 14-day trial fallback in subscription-guard).
+for (const gatedRouter of [
+  ordersRouter,
+  analyticsRouter,
+  aiRouter,
+  templatesRouter,
+  realtimeRouter,
+  auditLogsRouter,
+  metricsRouter,
+  exportRouter,
+]) {
+  gatedRouter.use(authenticateToken, requireActiveSubscription);
+}
 
 // Mount API Routes (apply apiLimiter & per-merchant limiter)
 app.use('/api/auth', apiLimiter, authRouter);
@@ -264,6 +287,7 @@ app.use('/api/connect', apiLimiter, connectRouter);
 app.use('/api/sandbox', apiLimiter, sandboxRouter);
 app.use('/api/metrics', apiLimiter, metricsRouter);
 app.use('/api/plg', apiLimiter, plgRouter);
+app.use('/api/ai', apiLimiter, standardMerchantLimiter, aiRouter);
 app.use('/api/orders', apiLimiter, standardMerchantLimiter, ordersRouter);
 app.use('/api/analytics', apiLimiter, standardMerchantLimiter, analyticsRouter);
 app.use('/api/settings', apiLimiter, standardMerchantLimiter, settingsRouter);
@@ -319,8 +343,10 @@ async function bootstrap() {
     // 3. Connect Redis
     const redisHealthy = await connectRedis();
 
-    // 4. Start BullMQ Workers only when Redis is healthy and under quota
-    if (redisHealthy) {
+    // 4. Start BullMQ Workers only when Redis is healthy and under quota (unless running in a dedicated worker process)
+    if (process.env.DISABLE_INLINE_WORKERS === 'true') {
+      logger.info('ℹ️  Inline BullMQ workers disabled via DISABLE_INLINE_WORKERS=true (handled by dedicated worker process)');
+    } else if (redisHealthy) {
       startAllWorkers();
       startQualityMonitorWorker();
       startTemplatePollerWorker();

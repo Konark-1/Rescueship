@@ -92,8 +92,22 @@ Headers required: `Authorization: Bearer <token>`
 
 These resources will follow the standard CRUD API structure and require `Authorization: Bearer <token>`. 
 - `GET /templates` - fetch communication templates.
-- `GET /billing/invoices` - get recent invoices.
+- `GET /billing/plan` - current billing state (plan, cycle, status, limits, credits).
+- `GET /billing/status` - `{ active, plan, cycle, limit, renewMonthly, activatedAt, nextInvoice, status, credits, cancelAtCycleEnd }`.
+- `GET /billing/usage` - billing event ledger (recent usage events).
+- `GET /billing/invoices` - get recent invoices (intro purchases, monthly renewals, credit top-ups).
+- `POST /billing/checkout` `{ tier, cycle }` - create the upfront Razorpay order + renewal mandate.
+- `POST /billing/checkout/verify` `{ razorpay_payment_id, razorpay_order_id, razorpay_signature }` - verify payment and provision the plan.
+- `POST /billing/cancel` - schedule cancel-at-cycle-end (access continues until the period ends).
+- `POST /billing/resume` - un-pause / clear a scheduled cancellation.
+- `GET /billing/credits/packs` - rescue-credit top-up catalogue.
+- `POST /billing/credits/checkout` `{ pack }` - create a one-time Razorpay order for a credit pack.
+- `POST /billing/credits/verify` `{ razorpay_payment_id, razorpay_order_id, razorpay_signature }` - verify payment and add credits.
 - `GET /audit-logs` - get recent activity logs.
+
+**Subscription enforcement:** orders, analytics, realtime, AI, templates, exports, metrics and audit-log routes require an ACTIVE subscription (grace-period, trial and paid merchants pass; expired/cancelled/quota-exceeded merchants receive `403 SUBSCRIPTION_INACTIVE`). Billing, settings, auth and connect routes stay reachable for renewal and account access.
+
+**Platform subscriptions are Razorpay-only.** Cashfree is used exclusively for per-merchant COD-conversion payment links.
 
 ## Webhooks (`/webhooks`)
 

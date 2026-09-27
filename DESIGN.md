@@ -86,3 +86,4 @@
 2. **Zero Raw RGBA:** All component CSS must reference CSS variables defined in `index.css`.
 3. **Stylelint Enforcement:** CI automatically verifies CSS token compliance via `npm run lint:css`.
 4. **Automated E2E:** Visual regressions and Axe accessibility scans are tested via `npm run test:e2e`.
+5. **Shape Lock Rule:** Pill CTAs + chips (`--radius-full`), 16-20px containers (`--radius-lg` / `--radius-xl`), 8px inputs and sub-buttons (`--radius-sm`). Matches app-wide `.btn` and `.form-control`.
