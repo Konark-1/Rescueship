@@ -243,10 +243,9 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       setPhase('8:00 PM · NDR intercepted');
       setLog([{ id: nid(), kind: 'bot', text: 'Hi Priya 👋 Order #89421 (₹1,240) was marked “door locked” at 7:58 PM. We couldn’t confirm a delivery attempt — are you home right now?' }]);
       setChoices([
-        { id: 'home', label: 'Yes, I’m home', run: doHome },
-        { id: 'resched', label: 'Reschedule', run: doReschedule },
-        { id: 'pin', label: 'Share my pin', run: doPin },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Priya') },
+        { id: 'home', label: '✅ Yes, I’m home', run: doHome },
+        { id: 'resched', label: '🔄 Reschedule', run: doReschedule },
+        { id: 'cancel', label: '❌ Cancel', danger: true, run: () => doCancel('Priya') },
       ]);
     } else if (sc === 'address') {
       setPhase('2:14 PM · address ambiguous');
@@ -267,9 +266,9 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       ]);
     } else if (sc === 'rto') {
       setPhase('6:20 PM · RTO arrest window (2 min)');
-      setLog([{ id: nid(), kind: 'bot', text: '🚨 URGENT: Order #64201 (₹2,499) was marked for Return-to-Origin at Mumbai Hub. You have 2 minutes to halt this package before return transit begins.' }]);
+      setLog([{ id: nid(), kind: 'bot', text: '🚨 URGENT: Order #64201 (₹2,499) was marked for Return-to-Origin at Mumbai Hub. Convert to prepaid now to halt this package before return transit begins.' }]);
       setChoices([
-        { id: 'halt_rto', label: '🛑 Halt RTO (Take ₹150 Off)', run: doRtoHalt },
+        { id: 'halt_rto', label: '🛑 Halt RTO (Save ₹150 via UPI)', run: doRtoHalt },
         { id: 'confirm_rto', label: '📦 Confirm Return', danger: true, run: doRtoConfirmReturn },
       ]);
     }
@@ -287,11 +286,11 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
 
   function doReschedule() {
     say('Can we reschedule this?', null,
-      'Of course — pick a window that works and we’ll lock it with the carrier so the same remark can’t happen twice.',
+      'Of course — pick a day that works and we’ll lock it with the carrier so the same remark can’t happen twice.',
       () => setChoices([
-        { id: 'r1', label: 'Tomorrow 9–12', run: () => pickResched('Tomorrow, 9 AM–12 PM') },
-        { id: 'r2', label: 'Tomorrow 2–6', run: () => pickResched('Tomorrow, 2 PM–6 PM') },
-        { id: 'r3', label: 'Weekend', run: () => pickResched('This weekend') },
+        { id: 'r1', label: '📅 Tomorrow', run: () => pickResched('Tomorrow') },
+        { id: 'r2', label: '📅 Day After Tomorrow', run: () => pickResched('Day After Tomorrow') },
+        { id: 'r3', label: '📅 This Weekend', run: () => pickResched('This Weekend') },
       ]));
   }
 
@@ -301,45 +300,62 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       () => finish('✅ RESCHEDULED · slot locked', 'ok', `Rescheduled · ${w} · reminder set`, 'ok'));
   }
 
-  function doPin() {
-    say('Here’s my exact location 📍', 'GPS pin received · address corrected · synced to carrier',
-      'Got it — your pin is shared with the driver and the address is corrected on our side. No more “wrong address” remarks on this order. 📍',
-      () => finish('✅ ADDRESS SYNCED · rescue in progress', 'ok', 'Address corrected · pin shared with driver', 'ok'));
-  }
-
-  /* Scenario 2: Address / GPS Pin / Landmark */
+  /* Scenario 2: Address / GPS Pin / Landmark (2-3 Step Flow) */
   function doAddressGps() {
-    setPhase('2:15 PM · reverse-geocoding');
+    setPhase('2:15 PM · Step 1/2 · reverse-geocoding');
     say('Here is my live location pin 📍',
-      '📍 GPS received · 12.9279°N 77.6824°E · reverse-geocoded via Gemini',
-      'Got your exact coordinates! Address updated to “Near Neelkanth Temple, 2nd Cross, Koramangala 560034”. Driver ETA 8 minutes. 🛵',
-      () => finish('✅ ADDRESS CORRECTED · route synced', 'ok', 'Address synced → Delhivery Driver App · route updated', 'ok'));
-  }
-
-  function doAddressLandmark() {
-    setPhase('2:15 PM · NLP landmark extraction');
-    say('Neelkanth temple ke peeche, blue gate wala building',
-      '🧠 Gemini AI parsed · landmark: “Neelkanth Temple” · note: “Behind, blue gate building”',
-      'Landmark noted and driver instructions updated: “Behind Neelkanth Temple, blue gate building”. Re-attempt scheduled for today. 📍',
-      () => finish('✅ ADDRESS CORRECTED · driver note synced', 'ok', 'Driver instructions updated · re-attempt today', 'ok'));
-  }
-
-  function doAddressBoth() {
-    setPhase('2:15 PM · 2-step precision routing');
-    say('📍 Step 1/2: GPS location shared',
-      '📍 GPS locked · requesting building & floor details',
-      'Location pin locked! Now reply with your floor, tower, or nearest landmark to complete your address.',
+      '📍 GPS received · 12.9279°N 77.6824°E · accuracy 4m · reverse-geocoded',
+      'Got your pin! We resolved it to: “Near Neelkanth Temple, 2nd Cross, Koramangala”. Is this correct, or would you like to add floor/tower details?',
       () => setChoices([
-        { id: 'b_conf', label: 'Tower B, 4th floor, opp lift', run: doAddressBothConfirm },
+        { id: 'gps_ok', label: '✅ Correct, deliver here', run: doAddressGpsConfirm },
+        { id: 'gps_add', label: '✏️ Add floor / tower', run: doAddressGpsAddDetails },
         { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
       ]));
   }
 
-  function doAddressBothConfirm() {
+  function doAddressGpsConfirm() {
+    say('Correct, deliver here',
+      'address synced → Delhivery Driver App · ETA 8 min',
+      'Address confirmed and driver re-routed! Delivery partner has your exact coordinates. 🚚',
+      () => finish('✅ ADDRESS CONFIRMED · driver re-routed', 'ok', 'GPS coordinates synced to carrier', 'ok'));
+  }
+
+  function doAddressGpsAddDetails() {
+    setPhase('2:16 PM · Step 2/2 · merging GPS + text');
     say('Tower B, 4th floor, opposite lift',
       '📍+✏️ combined · GPS + landmark merged · pushed to carrier API',
-      'Full address locked in! Driver has exact coordinates and floor details. You’re set for seamless delivery. 🚚',
+      'Perfect — driver now has your exact coordinates AND floor details. Re-delivery ETA 8 minutes. 🚚',
       () => finish('✅ FULL ADDRESS SYNCED · precision delivery', 'ok', 'Coordinates + floor notes pushed to carrier', 'ok'));
+  }
+
+  function doAddressLandmark() {
+    setPhase('2:15 PM · Step 1/2 · NLP extraction');
+    say('Neelkanth temple ke peeche, blue gate wala building',
+      '🧠 Gemini AI parsed · landmark: “Neelkanth Temple” · note: “Behind, blue gate building”',
+      'Landmark noted! Would you also like to share your 1-tap GPS pin for pinpoint driver accuracy, or is the landmark enough?',
+      () => setChoices([
+        { id: 'add_pin', label: '📍 Drop live GPS pin too', run: doAddressGpsAddDetails },
+        { id: 'landmark_ok', label: '✅ Landmark is enough', run: doAddressLandmarkOnly },
+        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
+      ]));
+  }
+
+  function doAddressLandmarkOnly() {
+    say('Landmark is enough, please deliver',
+      'driver instructions updated · re-attempt scheduled today',
+      'Driver instructions updated with your landmark: “Behind Neelkanth Temple, blue gate building”. Re-attempting today! 📍',
+      () => finish('✅ ADDRESS CORRECTED · driver note synced', 'ok', 'Driver instructions updated · re-attempt today', 'ok'));
+  }
+
+  function doAddressBoth() {
+    setPhase('2:15 PM · Step 1/2 · precision routing');
+    say('📍 Step 1/2: GPS location shared',
+      '📍 GPS locked · requesting building & floor details',
+      'Location pin locked! Now reply with your floor, tower, or nearest landmark to complete your address.',
+      () => setChoices([
+        { id: 'b_conf', label: 'Tower B, 4th floor, opp lift', run: doAddressGpsAddDetails },
+        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
+      ]));
   }
 
   /* Scenario 3: COD Cash Friction → Instant UPI */
@@ -362,25 +378,35 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       () => finish('✅ RESCUED · converted to prepaid', 'ok', 'COD → Prepaid · ₹93 saved · zero cash friction', 'ok'));
   }
 
-  /* Scenario 4: High-Urgency RTO Arrest */
+  /* Scenario 4: High-Urgency RTO Arrest (Gated on Prepaid Payment) */
   function doRtoHalt() {
-    setPhase('6:21 PM · hub line-haul halt');
-    say('Halt RTO! Keep my order with ₹150 off 🛑',
-      '🛑 RTO-Arrest triggered · transit halt at Hub · BlueDart AWB override locked',
-      'Return cancelled! New total is ₹2,349 and return transit has been halted at the hub. Out for priority delivery tomorrow morning. 🛡️',
-      () => finish('✅ RTO ARRESTED · re-delivery locked', 'ok', 'RTO aborted · ₹150 retention applied · transit reversed', 'ok'));
+    setPhase('6:21 PM · hub line-haul halt · payment required');
+    say('I want to keep my order!',
+      '🛑 RTO-Arrest · generating UPI payment link · ₹150 prepaid discount applied',
+      'Convert to prepaid now to halt the return and save ₹150. Pay ₹2,349 via instant UPI to lock in priority delivery tomorrow.',
+      () => setChoices([
+        { id: 'pay_rto', label: '💳 Pay ₹2,349 via UPI (Halt RTO)', run: doRtoPayConfirm },
+        { id: 'confirm_rto', label: '📦 Confirm Return', danger: true, run: doRtoConfirmReturn },
+      ]));
+  }
+
+  function doRtoPayConfirm() {
+    say('Paid ₹2,349 on UPI ✅',
+      '✓ ₹2,349 captured · COD→Prepaid · transit halt confirmed · BlueDart AWB override locked',
+      'Return cancelled! Converted to prepaid at ₹2,349. Transit has been halted at Mumbai hub and re-routed for tomorrow morning delivery. 🛡️',
+      () => finish('✅ RTO ARRESTED · COD→Prepaid · re-delivery locked', 'ok', 'RTO aborted · payment captured · transit reversed', 'ok'));
   }
 
   function doRtoConfirmReturn() {
-    setPhase('6:21 PM · automated RTO authorization');
+    setPhase('6:21 PM · return authorized');
     say('Yes, confirm return',
-      'order returned · return transit initiated · refund pipeline queued',
-      'Understood — return is confirmed and on its way. Here’s ₹200 off whenever you’re ready to try us again: COMEBACK200. 💜',
-      () => finish('❌ RTO CONFIRMED · win-back issued', 'cancel', 'Order returned · COMEBACK200 issued', 'cancel'),
+      'return confirmed · refund pipeline queued',
+      'Return confirmed. The package will return to the seller and any applicable refund will process within 5–7 business days. Thank you! 💜',
+      () => finish('❌ RTO CONFIRMED · refund initiated', 'cancel', 'Order returned · clean exit', 'cancel'),
       'cancel');
   }
 
-  /* Shared Cancel & Retention Sub-Tree */
+  /* Shared Anti-Exploitation Cancel & Retention Sub-Tree */
   function doCancel(name: string = 'shopper') {
     say(null, null,
       `We’d hate to lose you on this one, ${name}. Mind telling us why, so we can try to make it right?`,
@@ -392,56 +418,54 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
   }
 
   function reasonCheaper() {
-    setPhase('8:03 PM · price-match engine');
-    say('I found this exact item on another app for ₹1,299.', '🏷️ price-match engine · competitor rate verified',
-      'Appreciate the honesty! We’ll match that price AND take an extra ₹75 off — pay ₹1,224 via 1‑click UPI now and delivery is guaranteed tomorrow morning.',
-      () => { setBanner({ text: '⚡ Price Match Active', tone: 'engine' }); setChoices([
-        { id: 'pay', label: '💳 Pay ₹1,224 via UPI', run: payUpi },
-        { id: 'no', label: '❌ Still cancel', danger: true, run: finalCancel },
-      ]); });
-  }
-
-  function payUpi() {
-    say('Paid via UPI ✅', 'COD → prepaid converted · ₹1,224 captured',
-      'Payment confirmed — your order is locked in and out for delivery tomorrow morning. Thank you for giving us another shot! 💜',
-      () => finish('✅ RESCUED · converted to prepaid', 'ok', 'Rescued · COD → prepaid · ₹200 saved for customer', 'ok'));
+    setPhase('8:03 PM · COD→Prepaid retention');
+    say('I found this exact item on another app for ₹1,299.',
+      '🏷️ retention engine · self-funding COD→Prepaid offer',
+      'We can offer you a better deal! Convert to prepaid payment now and save ₹93. Your new total: ₹1,757 via instant UPI.',
+      () => {
+        setBanner({ text: '💳 Prepaid Retention Active', tone: 'engine' });
+        setChoices([
+          { id: 'pay', label: '💳 Pay ₹1,757 via UPI', run: payPrepaidRetention },
+          { id: 'no', label: '❌ Still cancel', danger: true, run: finalCancel },
+        ]);
+      });
   }
 
   function reasonDelay() {
-    setPhase('8:03 PM · SLA compensator');
-    say('It’s taking too many days. I don’t need it anymore.', '⚡ SLA compensator · air priority applied',
-      'So sorry for the wait! We’ve upgraded you to Priority Air Express at zero extra charge and added ₹100 credit to your account — give us one more day?',
-      () => { setBanner({ text: '✈️ Priority Air Applied', tone: 'engine' }); setChoices([
-        { id: 'keep', label: '✈️ Keep + Air Upgrade', run: keepAir },
-        { id: 'no', label: '❌ No, cancel', danger: true, run: finalCancel },
-      ]); });
-  }
-
-  function keepAir() {
-    say('Okay, the air upgrade works ✈️', 'express upgrade applied · ₹100 credit issued',
-      'You’re on Priority Air Express now at no extra charge, and the ₹100 is in your account. It’ll be with you tomorrow. ✈️',
-      () => finish('✅ RESCUED · express upgrade', 'ok', 'Rescued · air upgrade + ₹100 credit', 'ok'));
+    setPhase('8:03 PM · prepaid fast-track');
+    say('It’s taking too many days. I don’t need it anymore.',
+      '⚡ retention engine · prepaid fast-track available',
+      'We understand the frustration! Prepaid orders skip the cash-collection queue and get processed faster. Convert to prepaid now and save ₹93 on your order.',
+      () => {
+        setBanner({ text: '⚡ Prepaid Fast-Track', tone: 'engine' });
+        setChoices([
+          { id: 'keep', label: '💳 Convert & Fast-Track (Save ₹93)', run: payPrepaidRetention },
+          { id: 'no', label: '❌ No, cancel', danger: true, run: finalCancel },
+        ]);
+      });
   }
 
   function reasonMistake() {
+    setPhase('8:03 PM · final retention offer');
     say('Ordered by mistake, don’t need it now.', null,
-      'Totally understand! Before this heads back to the warehouse, would an instant ₹100 off (new total ₹1,324) make it worth keeping?',
+      'Before this heads back to the warehouse, would converting to prepaid and saving ₹93 change your mind? Quick UPI payment locks it in.',
       () => setChoices([
-        { id: 'keepd', label: '💰 Apply ₹100 off', run: keepDiscount },
+        { id: 'keepd', label: '💳 Convert & Save ₹93', run: payPrepaidRetention },
         { id: 'no', label: '❌ No thanks, cancel', danger: true, run: finalCancel },
       ]));
   }
 
-  function keepDiscount() {
-    say('Sure, apply the ₹100 💰', 'retention discount applied · order reactivated at ₹1,324',
-      'Done — your total is now ₹1,324 and the order is back on. Glad you’re keeping it! 💜',
-      () => finish('✅ RESCUED · retention discount', 'ok', 'Rescued · ₹100 retention applied', 'ok'));
+  function payPrepaidRetention() {
+    say('Paid ₹1,757 via UPI ✅',
+      '✓ ₹1,757 captured · COD→Prepaid · carrier queue priority applied',
+      'Payment confirmed! Your order is now prepaid, saving you ₹93 and fast-tracking delivery. Thank you! 💜',
+      () => finish('✅ RESCUED · converted to prepaid', 'ok', 'COD → Prepaid · ₹93 saved · zero cash friction', 'ok'));
   }
 
   function finalCancel() {
     say(null, 'order cancelled · return to warehouse initiated',
-      'Understood — your order is cancelled and the return is on its way. Here’s ₹150 off whenever you’re ready to try us again: COMEBACK150. 💜',
-      () => finish('❌ CANCELLED · win-back issued', 'cancel', 'Order cancelled · coupon COMEBACK150 issued', 'cancel'),
+      'Understood — your order is cancelled and the return is confirmed. Any applicable refund will process within 5–7 business days. Thanks for trying us! 💜',
+      () => finish('❌ CANCELLED · return initiated', 'cancel', 'Order cancelled · clean exit', 'cancel'),
       'cancel');
   }
 

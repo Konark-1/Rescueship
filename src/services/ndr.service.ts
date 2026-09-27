@@ -431,17 +431,34 @@ export class NDRService {
     return Math.min(1.0, score);
   }
 
-  private parseButtonPayload(payload: string): { action: 'reschedule' | 'address' | 'cancel'; orderId?: string } | null {
+  private parseButtonPayload(payload: string): { action: 'reschedule' | 'address' | 'cancel' | 'pay_retention' | 'confirm_cancel'; subAction?: string; orderId?: string } | null {
     const raw = String(payload || '').trim();
-    const idx = raw.indexOf(':');
-    if (idx > 0) {
-      const action = raw.slice(0, idx).toLowerCase();
-      const orderId = raw.slice(idx + 1).trim();
-      if (action === 'reschedule' || action === 'address' || action === 'cancel') return { action, orderId: orderId || undefined };
+    const parts = raw.split(':');
+    if (parts.length >= 2) {
+      const act = parts[0].toLowerCase();
+      if (['reschedule', 'address', 'cancel', 'pay_retention', 'confirm_cancel'].includes(act)) {
+        if (parts.length === 2) {
+          return { action: act as any, orderId: parts[1].trim() || undefined };
+        } else if (parts.length >= 3) {
+          return { action: act as any, subAction: parts[1].toLowerCase(), orderId: parts[2].trim() || undefined };
+        }
+      }
     }
     const t = raw.toLowerCase();
-    if (/resched|reattempt|tomorrow|home|deliver/.test(t)) return { action: 'reschedule' };
-    if (/address|location|pin/.test(t)) return { action: 'address' };
+    if (/resched|reattempt|tomorrow|home|deliver/.test(t)) {
+      let subAction = 'tomorrow';
+      if (/day\s*after/i.test(t)) subAction = 'day_after';
+      else if (/weekend/i.test(t)) subAction = 'weekend';
+      return { action: 'reschedule', subAction };
+    }
+    if (/address|location|pin/.test(t)) {
+      let subAction = 'both';
+      if (/gps|pin/i.test(t) && !/text|landmark/i.test(t)) subAction = 'gps';
+      else if (/landmark|text/i.test(t) && !/gps|pin/i.test(t)) subAction = 'text';
+      return { action: 'address', subAction };
+    }
+    if (/pay_retention|convert|prepaid/.test(t)) return { action: 'pay_retention' };
+    if (/confirm_cancel/.test(t)) return { action: 'confirm_cancel' };
     if (/cancel|return|don'?t want|refuse/.test(t)) return { action: 'cancel' };
     return null;
   }
@@ -569,17 +586,35 @@ export class NDRService {
       };
 
       if (action === 'reschedule') {
-        const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        
-        logger.info('Rescheduling delivery with carrier', { awb: order.awb, tomorrow });
-        
+        const subChoice = parsed.subAction || 'tomorrow';
+        let targetDate: Date;
+        let label: string;
+
+        if (subChoice === 'day_after') {
+          targetDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+          label = 'Day After Tomorrow';
+        } else if (subChoice === 'weekend') {
+          const now = new Date();
+          const dayOfWeek = now.getDay();
+          const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+          targetDate = new Date(Date.now() + daysUntilSat * 24 * 60 * 60 * 1000);
+          label = `This Weekend (${targetDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })})`;
+        } else {
+          targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+          label = 'Tomorrow';
+        }
+
+        const dateStr = targetDate.toISOString().split('T')[0];
+
+        logger.info('Rescheduling delivery with carrier', { awb: order.awb, dateStr, label });
+
         if (order.carrier && order.awb) {
           const result = await logisticsService.rescheduleDelivery(
             order.carrier,
             {
               awb: order.awb,
-              newDate: tomorrow,
-              reason: 'Customer requested reattempt tomorrow via WhatsApp',
+              newDate: dateStr,
+              reason: `Customer requested reattempt for ${label} via WhatsApp`,
             },
             carrierConfig
           );
@@ -607,7 +642,7 @@ export class NDRService {
               $inc: { 'billing.totalRescues': 1 },
             });
 
-            const rescheduleMsg = COPY.escalated({ window: 'Tomorrow 9 AM – 12 PM' });
+            const rescheduleMsg = COPY.escalated({ window: label });
             await whatsAppService.sendInteractiveButtons(
               order.customerPhone,
               rescheduleMsg,
@@ -619,19 +654,60 @@ export class NDRService {
           }
         }
       } else if (action === 'address') {
-        if (order.ndr) {
-          order.ndr.customerResponse = 'address_update_started';
-        }
-        await order.save();
+        const mode = parsed.subAction === 'gps'
+          ? 'location_pin'
+          : parsed.subAction === 'text'
+            ? 'text_address'
+            : 'both';
 
-        const instructions = COPY.askBuildingDetails();
-        await whatsAppService.sendInteractiveButtons(
-          order.customerPhone,
-          instructions,
-          [],
-          this.getWaConfig(merchant)
+        logger.info('Initiating multi-step address correction from customer response', {
+          orderId: order._id,
+          mode,
+        });
+
+        await addressCorrectionService.initiateAddressCorrection(
+          order._id.toString(),
+          mode as any
         );
       } else if (action === 'cancel') {
+        // ─── ANTI-EXPLOIT RETENTION: Offer self-funding COD→Prepaid conversion ───
+        if (order.paymentMethod === 'cod' && !order.ndr?.retentionOffered) {
+          const incentiveType = merchant.settings?.codConversion?.incentiveType;
+          const incentiveAmount = merchant.settings?.codConversion?.incentiveAmount || 0;
+
+          let discount = 0;
+          if (incentiveType === 'flat') discount = incentiveAmount;
+          else if (incentiveType === 'percentage') discount = Math.round((order.orderValue * incentiveAmount) / 100);
+
+          if (discount > 0 && order.orderValue > discount) {
+            const finalAmount = order.orderValue - discount;
+
+            if (!order.ndr) order.ndr = {} as any;
+            order.ndr.retentionOffered = true;
+            order.ndr.customerResponse = 'cancel_retention_pending';
+            await order.save();
+
+            const { orderService } = require('./order.service');
+            const paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
+
+            const retentionMsg = paymentLink?.shortUrl
+              ? `Before we cancel — convert to prepaid now and save ₹${discount}! Your new total is ₹${finalAmount}. Prepaid orders skip cash-collection queues and get priority dispatch.\n\nPay securely: ${paymentLink.shortUrl}`
+              : `Before we cancel — convert to prepaid now and save ₹${discount}! Your new total is ₹${finalAmount} via instant UPI.`;
+
+            await whatsAppService.sendInteractiveButtons(
+              order.customerPhone,
+              retentionMsg,
+              [
+                { id: `pay_retention:${order._id}`, title: `💳 Pay ₹${finalAmount} UPI` },
+                { id: `confirm_cancel:${order._id}`, title: '❌ No, cancel order' },
+              ],
+              this.getWaConfig(merchant)
+            );
+            return;
+          }
+        }
+
+        // ─── CONFIRMED CANCEL: Clean exit without free coupon handouts ───
         order.status = 'rto';
         if (order.ndr) {
           order.ndr.customerResponse = 'cancel';
@@ -642,7 +718,6 @@ export class NDRService {
 
         await this.cancelEscalationJobs(order, merchant);
 
-        // Notify carrier immediately to abort re-attempts and initiate RTO early to save freight
         if (order.carrier && order.awb) {
           try {
             await logisticsService.cancelDelivery(
@@ -666,7 +741,6 @@ export class NDRService {
           }
         }
 
-        // Realtime feed notification: emit order cancelled with ₹160 freight saved
         realtimeService.emitOrderCancelled(
           order.merchantId.toString(),
           order.externalOrderId,
@@ -674,8 +748,73 @@ export class NDRService {
           'Customer opted out via WhatsApp'
         );
 
-        const coupon = (merchant as any).settings?.ndrRescue?.returnCoupon || 'COMEBACK150';
-        const cancelMsg = COPY.cancelled({ orderId: order.externalOrderId, coupon });
+        const customCoupon = (merchant as any).settings?.ndrRescue?.returnCoupon;
+        const cancelMsg = customCoupon
+          ? COPY.cancelled({ orderId: order.externalOrderId, coupon: customCoupon })
+          : COPY.cancelledClean({ orderId: order.externalOrderId });
+
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          cancelMsg,
+          [],
+          this.getWaConfig(merchant)
+        );
+      } else if (action === 'pay_retention') {
+        const incentiveType = merchant.settings?.codConversion?.incentiveType;
+        const incentiveAmount = merchant.settings?.codConversion?.incentiveAmount || 0;
+        let discount = 0;
+        if (incentiveType === 'flat') discount = incentiveAmount;
+        else if (incentiveType === 'percentage') discount = Math.round((order.orderValue * incentiveAmount) / 100);
+        const finalAmount = order.orderValue - discount;
+
+        const { orderService } = require('./order.service');
+        const paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
+
+        const payMsg = paymentLink?.shortUrl
+          ? `Here is your priority fast-track payment link: ${paymentLink.shortUrl}\n\nPay ₹${finalAmount} to confirm and priority-dispatch your order.`
+          : `Click below to complete your prepaid conversion for ₹${finalAmount}.`;
+
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          payMsg,
+          [],
+          this.getWaConfig(merchant)
+        );
+      } else if (action === 'confirm_cancel') {
+        order.status = 'rto';
+        if (order.ndr) {
+          order.ndr.customerResponse = 'cancel';
+          order.ndr.resolvedAt = new Date();
+          order.ndr.resolution = 'cancelled';
+        }
+        await order.save();
+
+        await this.cancelEscalationJobs(order, merchant);
+
+        if (order.carrier && order.awb) {
+          try {
+            await logisticsService.cancelDelivery(
+              order.carrier,
+              { awb: order.awb, reason: 'Customer confirmed cancellation via WhatsApp' },
+              carrierConfig
+            );
+          } catch (carrierErr: any) {
+            logger.warn('Carrier cancellation notification warning', { awb: order.awb, error: carrierErr?.message });
+          }
+        }
+
+        realtimeService.emitOrderCancelled(
+          order.merchantId.toString(),
+          order.externalOrderId,
+          160,
+          'Customer opted out via WhatsApp'
+        );
+
+        const customCoupon = (merchant as any).settings?.ndrRescue?.returnCoupon;
+        const cancelMsg = customCoupon
+          ? COPY.cancelled({ orderId: order.externalOrderId, coupon: customCoupon })
+          : COPY.cancelledClean({ orderId: order.externalOrderId });
+
         await whatsAppService.sendInteractiveButtons(
           order.customerPhone,
           cancelMsg,

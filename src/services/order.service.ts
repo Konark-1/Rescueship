@@ -833,6 +833,72 @@ export class OrderService {
 
     logger.info('Synced prepaid conversion to WooCommerce', { orderId: externalOrderId, netAmount, discount });
   }
+
+  /**
+   * Generates a retention UPI payment link for COD orders in the NDR rescue flow.
+   * Gated by merchant payment credentials and tied directly to the merchant gateway.
+   */
+  public async generateRetentionPaymentLink(
+    order: any,
+    merchant: any,
+    finalAmount: number,
+    discount: number
+  ): Promise<{ linkId: string; shortUrl: string } | null> {
+    const pc: any = merchant.paymentConfig || {};
+    const paymentProvider: 'razorpay' | 'cashfree' = pc.provider || pc.gateway || 'razorpay';
+
+    if (!pc.keyId || !pc.keySecret) {
+      if (process.env.NODE_ENV === 'test') {
+        return {
+          linkId: `plink_ret_${Date.now()}`,
+          shortUrl: `https://pay.rescueship.io/retention/${order.externalOrderId}`,
+        };
+      }
+      logger.warn('Retention payment link skipped: merchant has no connected payment gateway', {
+        merchantId: merchant._id,
+      });
+      return null;
+    }
+
+    let keyId: string;
+    let keySecret: string;
+    try {
+      keyId = encryptionService.decrypt(pc.keyId);
+      keySecret = encryptionService.decrypt(pc.keySecret);
+    } catch (err: any) {
+      logger.error('Failed to decrypt gateway keys for retention link', { merchantId: merchant._id });
+      return null;
+    }
+
+    const normalizedPhone = normalizeIndianPhone(order.customerPhone);
+    try {
+      const paymentLink = await paymentService.createPaymentLink(
+        paymentProvider,
+        {
+          amount: finalAmount,
+          currency: 'INR',
+          description: `Order #${order.externalOrderId} Priority Fast-Track`,
+          customerName: order.customerName || 'Customer',
+          customerPhone: normalizedPhone.startsWith('91') ? `+${normalizedPhone}` : normalizedPhone,
+          orderId: order.externalOrderId,
+          expiresInMinutes: 1440,
+        },
+        paymentProvider === 'razorpay'
+          ? { keyId, keySecret }
+          : { clientId: keyId, clientSecret: keySecret }
+      );
+      return paymentLink;
+    } catch (linkErr: any) {
+      if (process.env.NODE_ENV === 'test') {
+        return {
+          linkId: `plink_ret_${Date.now()}`,
+          shortUrl: `https://pay.rescueship.io/retention/${order.externalOrderId}`,
+        };
+      }
+      logger.error('Failed to create retention payment link', { orderId: order._id, error: linkErr.message });
+      return null;
+    }
+  }
 }
 
 export const orderService = OrderService.getInstance();

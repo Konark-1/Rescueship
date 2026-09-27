@@ -35,15 +35,15 @@ export class TemplateMapperService {
   private static instance: TemplateMapperService;
 
   private readonly defaultCategoryMap: Record<NDRCategory, { template: string; requiredVars: string[] }> = {
-    CUSTOMER_NOT_AVAILABLE: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
-    CUSTOMER_REFUSED: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
-    ADDRESS_ISSUE: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
-    PREMISES_LOCKED: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
-    RESCHEDULE_REQUEST: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
-    COD_COLLECTION_ISSUE: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
-    CANCELLATION_RISK: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
+    CUSTOMER_NOT_AVAILABLE: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
+    CUSTOMER_REFUSED: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
+    ADDRESS_ISSUE: { template: 'ndr_address_en', requiredVars: ['customerName', 'externalOrderId'] },
+    PREMISES_LOCKED: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
+    RESCHEDULE_REQUEST: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
+    COD_COLLECTION_ISSUE: { template: 'ndr_cod_convert_en', requiredVars: ['customerName', 'externalOrderId', 'codAmount'] },
+    CANCELLATION_RISK: { template: 'ndr_retention_en', requiredVars: ['customerName', 'externalOrderId'] },
     RTO_ARREST: { template: 'rto_arrest_en', requiredVars: ['customerName', 'externalOrderId'] },
-    UNKNOWN_FAILURE: { template: 'ndr_rescue_en', requiredVars: ['customerName', 'externalOrderId'] },
+    UNKNOWN_FAILURE: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
   };
 
   private constructor() {}
