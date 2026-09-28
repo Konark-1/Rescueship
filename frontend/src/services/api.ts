@@ -37,10 +37,12 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle token expiry / unauthenticated requests
+// Response interceptor to handle token expiry and transparently retry cold-start errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
+
     if (error.response && error.response.status === 401) {
       // Clear storage and redirect to login if session expires
       localStorage.removeItem('token');
@@ -48,7 +50,20 @@ api.interceptors.response.use(
       if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
         window.location.href = '/login';
       }
+      return Promise.reject(error);
     }
+
+    // Auto-retry cold starts (502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout, network drop)
+    const status = error.response ? error.response.status : null;
+    const isColdStart = status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED' || (!status && !error.response);
+
+    if (isColdStart && originalRequest && (originalRequest._retryCount || 0) < 3) {
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+      const backoffMs = originalRequest._retryCount * 2500; // 2.5s, 5s, 7.5s
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+      return api(originalRequest);
+    }
+
     return Promise.reject(error);
   }
 );

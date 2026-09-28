@@ -1,0 +1,34 @@
+name: Backend Keepalive Monitor
+
+on:
+  schedule:
+    # Run every 10 minutes to prevent Render free tier from sleeping (15 min idle timeout)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    name: Ping Health Endpoint
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping RescueShip Health
+        run: |
+          echo "Triggering RescueShip backend health ping at $(date -u)..."
+          STATUS=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 60 https://rescueship.onrender.com/health || echo "000")
+          echo "Health check HTTP response: $STATUS"
+          if [ -f /tmp/health.json ]; then
+            cat /tmp/health.json
+            echo ""
+          fi
+
+          if [ "$STATUS" != "200" ]; then
+            echo "Initial ping returned status $STATUS (server was likely cold starting). Retrying in 15 seconds..."
+            sleep 15
+            RETRY_STATUS=$(curl -s -o /tmp/health_retry.json -w "%{http_code}" --max-time 60 https://rescueship.onrender.com/health || echo "000")
+            echo "Retry HTTP response: $RETRY_STATUS"
+            if [ -f /tmp/health_retry.json ]; then
+              cat /tmp/health_retry.json
+              echo ""
+            fi
+          fi
