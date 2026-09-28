@@ -86,12 +86,24 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
     // Generate simulated NDR
     const simNDR = sandboxService.generateSimulatedNDR(merchantId, ownerPhone);
 
+    // Resolve category and template
+    const { templateMapperService } = require('../services/whatsapp/template-mapper.service');
+    const categoryMap: Record<string, string> = {
+      'rto_attempt_failed': 'RTO_ARREST',
+      'customer_unavailable': 'CUSTOMER_NOT_AVAILABLE',
+      'wrong_address': 'ADDRESS_ISSUE',
+      'refused_delivery': 'CUSTOMER_REFUSED',
+    };
+    const cat = categoryMap[simNDR.reason] || 'CUSTOMER_NOT_AVAILABLE';
+    const mapping = templateMapperService.getMappingForCategory(cat as any, 'en', waCfg?.templates);
+    const templateName = mapping.templateName;
+
     // Send rescue template to self
     let whatsappResult = { success: true, error: '' };
     try {
       await whatsAppService.sendTemplate(
         ownerPhone,
-        'ndr_rescue_en',
+        templateName,
         'en',
         [
           {
@@ -107,9 +119,29 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
       );
       await sandboxService.recordTestRescue(merchantId, true);
     } catch (err: any) {
-      logger.warn('[Sandbox Simulation] WhatsApp send failed', { merchantId, orderId: simNDR.orderId, error: err.message });
-      whatsappResult = { success: false, error: err.message };
-      await sandboxService.recordTestRescue(merchantId, false);
+      logger.warn('[Sandbox Simulation] WhatsApp send failed, trying fallback template', { merchantId, orderId: simNDR.orderId, error: err.message });
+      try {
+        await whatsAppService.sendTemplate(
+          ownerPhone,
+          'ndr_rescue_en',
+          'en',
+          [
+            {
+              type: 'body',
+              parameters: [
+                { type: 'text', text: 'Merchant (Test)' },
+                { type: 'text', text: simNDR.orderId },
+                { type: 'text', text: simNDR.courier },
+              ],
+            },
+          ],
+          merchantWaConfig
+        );
+        await sandboxService.recordTestRescue(merchantId, true);
+      } catch (fallbackErr: any) {
+        whatsappResult = { success: false, error: fallbackErr.message };
+        await sandboxService.recordTestRescue(merchantId, false);
+      }
     }
 
     // Get updated sandbox state

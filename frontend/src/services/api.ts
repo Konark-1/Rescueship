@@ -9,11 +9,11 @@ const getBaseUrl = (): string => {
     if (host === 'localhost' || host === '127.0.0.1') {
       return '';
     }
-    if (host.includes('rescueship-frontend')) {
-      return 'https://rescueship.onrender.com';
-    }
     if (host === 'rescueship.onrender.com') {
       return '';
+    }
+    if (host.includes('rescueship-frontend') || host.includes('netlify.app') || host.includes('rescueship')) {
+      return 'https://rescueship.onrender.com';
     }
   }
   return '';
@@ -68,4 +68,5 @@ api.interceptors.response.use(
   }
 );
 
+export { getBaseUrl };
 export default api;

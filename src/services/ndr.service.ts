@@ -587,72 +587,7 @@ export class NDRService {
 
       if (action === 'reschedule') {
         const subChoice = parsed.subAction || 'tomorrow';
-        let targetDate: Date;
-        let label: string;
-
-        if (subChoice === 'day_after') {
-          targetDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
-          label = 'Day After Tomorrow';
-        } else if (subChoice === 'weekend') {
-          const now = new Date();
-          const dayOfWeek = now.getDay();
-          const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
-          targetDate = new Date(Date.now() + daysUntilSat * 24 * 60 * 60 * 1000);
-          label = `This Weekend (${targetDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })})`;
-        } else {
-          targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-          label = 'Tomorrow';
-        }
-
-        const dateStr = targetDate.toISOString().split('T')[0];
-
-        logger.info('Rescheduling delivery with carrier', { awb: order.awb, dateStr, label });
-
-        if (order.carrier && order.awb) {
-          const result = await logisticsService.rescheduleDelivery(
-            order.carrier,
-            {
-              awb: order.awb,
-              newDate: dateStr,
-              reason: `Customer requested reattempt for ${label} via WhatsApp`,
-            },
-            carrierConfig
-          );
-
-          if (result.success) {
-            order.status = 'ndr_rescued';
-            const ndrUpdate: Record<string, any> = { status: 'ndr_rescued' };
-            if (order.ndr) {
-              order.ndr.customerResponse = 'reschedule';
-              order.ndr.resolvedAt = new Date();
-              order.ndr.resolution = 'rescheduled';
-              ndrUpdate['ndr.customerResponse'] = 'reschedule';
-              ndrUpdate['ndr.resolvedAt'] = new Date();
-              ndrUpdate['ndr.resolution'] = 'rescheduled';
-            }
-            if (typeof (order as any).save === 'function') {
-              await (order as any).save();
-            } else {
-              await Order.findByIdAndUpdate(order._id, { $set: ndrUpdate });
-            }
-
-            await this.cancelEscalationJobs(order, merchant);
-
-            await Merchant.findByIdAndUpdate(order.merchantId, {
-              $inc: { 'billing.totalRescues': 1 },
-            });
-
-            const rescheduleMsg = COPY.escalated({ window: label });
-            await whatsAppService.sendInteractiveButtons(
-              order.customerPhone,
-              rescheduleMsg,
-              [],
-              this.getWaConfig(merchant)
-            );
-          } else {
-            throw new Error(`Carrier reschedule failed: ${result.message}`);
-          }
-        }
+        await this.rescheduleDelivery(order, merchant, subChoice);
       } else if (action === 'address') {
         const mode = parsed.subAction === 'gps'
           ? 'location_pin'
@@ -670,8 +605,24 @@ export class NDRService {
           mode as any
         );
       } else if (action === 'cancel') {
+        // ─── 🛡️ ANTI-EXPLOIT GUARD 1: Serial Abuser Cooldown (Anti-Farming) ───
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const recentCancels = await Order.countDocuments({
+          customerPhone: normalizedPhone,
+          status: { $in: ['rto', 'cancelled', 'returned'] },
+          updatedAt: { $gte: thirtyDaysAgo },
+        });
+
+        const isSerialAbuser = recentCancels >= 3;
+        if (isSerialAbuser) {
+          logger.warn('Serial abuser detected (>= 3 cancellations in last 30 days): skipping retention offer and executing clean cancel', {
+            phone: normalizedPhone,
+            recentCancels,
+          });
+        }
+
         // ─── ANTI-EXPLOIT RETENTION: Offer self-funding COD→Prepaid conversion ───
-        if (order.paymentMethod === 'cod' && !order.ndr?.retentionOffered) {
+        if (!isSerialAbuser && order.paymentMethod === 'cod' && !order.ndr?.retentionOffered) {
           const incentiveType = merchant.settings?.codConversion?.incentiveType;
           const incentiveAmount = merchant.settings?.codConversion?.incentiveAmount || 0;
 
@@ -1016,6 +967,108 @@ export class NDRService {
     if (r.includes('refused') || r.includes('reject') || r.includes('cancel')) return 'refused';
     if (r.includes('unreachable') || r.includes('busy') || r.includes('network')) return 'phone_unreachable';
     return 'other';
+  }
+
+  /**
+   * Reschedules delivery with the carrier and updates the order status.
+   * Dynamically calculates target date based on subChoice ('tomorrow', 'day_after', 'weekend').
+   */
+  public async rescheduleDelivery(
+    order: any,
+    merchant: any,
+    subChoice: string = 'tomorrow'
+  ): Promise<{ success: boolean; dateStr: string; label: string; result?: any }> {
+    let targetDate: Date;
+    let label: string;
+
+    if (subChoice === 'day_after') {
+      targetDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+      label = 'Day After Tomorrow';
+    } else if (subChoice === 'weekend') {
+      const now = new Date(Date.now());
+      const dayOfWeek = now.getDay();
+      const daysUntilSat = (6 - dayOfWeek + 7) % 7 || 7;
+      targetDate = new Date(Date.now() + daysUntilSat * 24 * 60 * 60 * 1000);
+      label = `This Weekend (${targetDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })})`;
+    } else {
+      targetDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      label = 'Tomorrow';
+    }
+
+    const dateStr = targetDate.toISOString().split('T')[0];
+
+    logger.info('Rescheduling delivery with carrier', { awb: order.awb, dateStr, label });
+
+    const cc: any = merchant?.carrierConfig || {};
+    let apiToken: string | undefined;
+    let carrierEmail: string | undefined;
+    let carrierPassword: string | undefined;
+
+    try {
+      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
+      else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
+      if (cc.email) carrierEmail = encryptionService.decrypt(cc.email);
+      if (cc.password) carrierPassword = encryptionService.decrypt(cc.password);
+    } catch (err: any) {
+      logger.warn('Failed to decrypt carrier credentials for reschedule', { error: err?.message });
+    }
+
+    const carrierConfig = {
+      provider: order.carrier || cc.provider,
+      apiToken,
+      email: carrierEmail || config.shiprocket.email,
+      password: carrierPassword || config.shiprocket.password,
+    };
+
+    if (order.carrier && order.awb) {
+      const result = await logisticsService.rescheduleDelivery(
+        order.carrier,
+        {
+          awb: order.awb,
+          newDate: dateStr,
+          reason: `Customer requested reattempt for ${label} via WhatsApp`,
+        },
+        carrierConfig
+      );
+
+      if (result.success) {
+        order.status = 'ndr_rescued';
+        const ndrUpdate: Record<string, any> = { status: 'ndr_rescued' };
+        if (order.ndr) {
+          order.ndr.customerResponse = 'reschedule';
+          order.ndr.resolvedAt = new Date();
+          order.ndr.resolution = 'rescheduled';
+          ndrUpdate['ndr.customerResponse'] = 'reschedule';
+          ndrUpdate['ndr.resolvedAt'] = new Date();
+          ndrUpdate['ndr.resolution'] = 'rescheduled';
+        }
+        if (typeof (order as any).save === 'function') {
+          await (order as any).save();
+        } else {
+          await Order.findByIdAndUpdate(order._id, { $set: ndrUpdate });
+        }
+
+        await this.cancelEscalationJobs(order, merchant);
+
+        await Merchant.findByIdAndUpdate(order.merchantId, {
+          $inc: { 'billing.totalRescues': 1 },
+        });
+
+        const rescheduleMsg = COPY.escalated({ window: label });
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          rescheduleMsg,
+          [],
+          this.getWaConfig(merchant)
+        );
+
+        return { success: true, dateStr, label, result };
+      } else {
+        throw new Error(`Carrier reschedule failed: ${result.message}`);
+      }
+    }
+
+    return { success: false, dateStr, label };
   }
 
   private async cancelEscalationJobs(order: any, merchant: any): Promise<void> {

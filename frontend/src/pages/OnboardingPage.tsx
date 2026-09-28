@@ -775,6 +775,10 @@ function WhatsAppPanel({
               <ul className="ob-tpl">
                 {templates.map((t: any) => {
                   const friendlyNames: Record<string, string> = {
+                    ndr_reschedule_en: 'Delivery reschedule verification',
+                    ndr_address_en: 'Address & GPS location request',
+                    ndr_cod_convert_en: 'Doorstep UPI conversion',
+                    ndr_retention_en: 'Cancellation & RTO retention',
                     ndr_rescue_en: 'Delivery verification message',
                     cod_confirm_en: 'COD confirmation message',
                     cod_convert_en: 'Prepaid conversion offer',

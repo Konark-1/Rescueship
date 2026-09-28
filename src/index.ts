@@ -26,6 +26,7 @@ import delhiveryRouter from './webhooks/delhivery.webhook';
 import whatsappRouter from './webhooks/whatsapp.webhook';
 import razorpayRouter from './webhooks/razorpay.webhook';
 import cashfreeRouter from './webhooks/cashfree.webhook';
+import paymentRouter from './webhooks/payment.webhook';
 import customRouter from './webhooks/custom.webhook';
 
 // API Routers
@@ -244,6 +245,7 @@ app.use('/webhooks/delhivery', webhookLimiter, delhiveryRouter);
 app.use('/webhooks/whatsapp', webhookLimiter, whatsappRouter);
 app.use('/webhooks/razorpay', webhookLimiter, razorpayRouter);
 app.use('/webhooks/cashfree', webhookLimiter, cashfreeRouter);
+app.use('/webhooks/payment', webhookLimiter, paymentRouter);
 app.use('/webhooks/custom', webhookLimiter, customRouter);
 
 import exportRouter from './api/export.api';

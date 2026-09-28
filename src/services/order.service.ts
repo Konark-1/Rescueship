@@ -625,7 +625,18 @@ export class OrderService {
           carrierConfig
         );
 
-        if (previousStatus === 'rto' || previousStatus === 'rto_initiated') {
+        if (previousStatus === 'rto' || previousStatus === 'rto_initiated' || updatedOrder.rtoArrestStatus === 'TRIGGERED') {
+          const { rtoArrestService } = require('./rto-arrest.service');
+          try {
+            await rtoArrestService.abortRtoAndReattempt({
+              orderId: updatedOrder._id.toString(),
+              newDate: tomorrow,
+              reason: 'Customer paid online via UPI. RTO arrested and aborted by RescueShip.',
+            });
+          } catch (rtoErr: any) {
+            logger.warn('rtoArrestService abortRtoAndReattempt failed, falling back to direct courier reschedule', { error: rtoErr?.message });
+          }
+
           await AuditLog.create({
             merchantId: merchant._id,
             orderId: updatedOrder._id,
@@ -841,21 +852,53 @@ export class OrderService {
   public async generateRetentionPaymentLink(
     order: any,
     merchant: any,
-    finalAmount: number,
-    discount: number
+    finalAmount?: number,
+    discount?: number
   ): Promise<{ linkId: string; shortUrl: string } | null> {
-    const pc: any = merchant.paymentConfig || {};
+    const incentiveType = merchant?.settings?.codConversion?.incentiveType || 'percentage';
+    const incentiveAmount = merchant?.settings?.codConversion?.incentiveAmount ?? 5;
+
+    const computedDiscount: number =
+      discount !== undefined
+        ? discount
+        : incentiveType === 'flat'
+          ? incentiveAmount
+          : Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+
+    const computedFinalAmount: number =
+      finalAmount !== undefined
+        ? finalAmount
+        : (order.orderValue || 0) - computedDiscount;
+
+    // 🛡️ ANTI-EXPLOITATION GUARD: Never generate payment link if finalAmount <= 0
+    if (computedFinalAmount <= 0) {
+      logger.warn('Retention payment link rejected: finalAmount <= 0', {
+        orderId: order._id,
+        orderValue: order.orderValue,
+        discount: computedDiscount,
+        finalAmount: computedFinalAmount,
+      });
+      return null;
+    }
+
+    const pc: any = merchant?.paymentConfig || {};
     const paymentProvider: 'razorpay' | 'cashfree' = pc.provider || pc.gateway || 'razorpay';
 
     if (!pc.keyId || !pc.keySecret) {
       if (process.env.NODE_ENV === 'test') {
-        return {
+        const simLink = {
           linkId: `plink_ret_${Date.now()}`,
           shortUrl: `https://pay.rescueship.io/retention/${order.externalOrderId}`,
         };
+        order.paymentLinkId = simLink.linkId;
+        if (!order.codConversion) order.codConversion = {} as any;
+        order.codConversion.paymentLinkId = simLink.linkId;
+        order.codConversion.incentiveOffered = computedDiscount;
+        if (typeof order.save === 'function') await order.save();
+        return simLink;
       }
       logger.warn('Retention payment link skipped: merchant has no connected payment gateway', {
-        merchantId: merchant._id,
+        merchantId: merchant?._id,
       });
       return null;
     }
@@ -866,7 +909,7 @@ export class OrderService {
       keyId = encryptionService.decrypt(pc.keyId);
       keySecret = encryptionService.decrypt(pc.keySecret);
     } catch (err: any) {
-      logger.error('Failed to decrypt gateway keys for retention link', { merchantId: merchant._id });
+      logger.error('Failed to decrypt gateway keys for retention link', { merchantId: merchant?._id });
       return null;
     }
 
@@ -875,7 +918,7 @@ export class OrderService {
       const paymentLink = await paymentService.createPaymentLink(
         paymentProvider,
         {
-          amount: finalAmount,
+          amount: computedFinalAmount,
           currency: 'INR',
           description: `Order #${order.externalOrderId} Priority Fast-Track`,
           customerName: order.customerName || 'Customer',
@@ -887,13 +930,28 @@ export class OrderService {
           ? { keyId, keySecret }
           : { clientId: keyId, clientSecret: keySecret }
       );
+
+      if (paymentLink?.linkId) {
+        order.paymentLinkId = paymentLink.linkId;
+        if (!order.codConversion) order.codConversion = {} as any;
+        order.codConversion.paymentLinkId = paymentLink.linkId;
+        order.codConversion.incentiveOffered = computedDiscount;
+        if (typeof order.save === 'function') await order.save();
+      }
+
       return paymentLink;
     } catch (linkErr: any) {
       if (process.env.NODE_ENV === 'test') {
-        return {
+        const simLink = {
           linkId: `plink_ret_${Date.now()}`,
           shortUrl: `https://pay.rescueship.io/retention/${order.externalOrderId}`,
         };
+        order.paymentLinkId = simLink.linkId;
+        if (!order.codConversion) order.codConversion = {} as any;
+        order.codConversion.paymentLinkId = simLink.linkId;
+        order.codConversion.incentiveOffered = computedDiscount;
+        if (typeof order.save === 'function') await order.save();
+        return simLink;
       }
       logger.error('Failed to create retention payment link', { orderId: order._id, error: linkErr.message });
       return null;

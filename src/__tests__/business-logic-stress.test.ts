@@ -253,6 +253,16 @@ jest.mock('../models', () => {
           return true;
         }) || null;
       }),
+      updateMany: jest.fn().mockImplementation(async (query: any, update: any) => {
+        const matches = ndrCasesStore.filter((c) => {
+          if (query.orderId && c.orderId?.toString() !== query.orderId?.toString()) return false;
+          return true;
+        });
+        matches.forEach((c) => {
+          if (update.$set) Object.assign(c, update.$set);
+        });
+        return { modifiedCount: matches.length };
+      }),
     },
     AuditLog: {
       create: jest.fn().mockImplementation(async (data: any) => {

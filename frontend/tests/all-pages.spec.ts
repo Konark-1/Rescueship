@@ -567,7 +567,7 @@ test.describe('Public pages', () => {
     await page.getByPlaceholder('Enter your email').fill('e2e@rescueship.test');
     await page.getByPlaceholder('Enter your password').fill('correct-horse-battery-staple');
 
-    await page.getByRole('button', { name: /Enter command deck/i }).click();
+    await page.getByRole('button', { name: /Sign In|Enter command deck/i }).click();
 
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.locator('body')).toContainText(/Dashboard|Total Orders|Recent Orders|Revenue/i);
@@ -624,7 +624,7 @@ test.describe('Protected app pages', () => {
     },
     {
       path: '/settings',
-      text: /System settings/i,
+      text: /Settings|System settings/i,
     },
     {
       path: '/templates',
@@ -636,7 +636,7 @@ test.describe('Protected app pages', () => {
     },
     {
       path: '/audit-logs',
-      text: /Audit ledger/i,
+      text: /Audit Logs|Audit ledger/i,
     },
     {
       path: '/docs',
@@ -698,12 +698,12 @@ test.describe('Protected app pages', () => {
     await page.getByRole('button', { name: /Send test message/i }).click({ force: true });
     await expect(page.locator('body')).toContainText(/Test message dispatched/i);
 
-    // Switch to Feature Toggles tab and toggle notification
-    await page.getByRole('button', { name: /Feature toggles/i }).click({ force: true });
+    // Switch to COD Retention tab
+    await page.getByRole('button', { name: /COD Retention/i }).click({ force: true });
     await page.waitForTimeout(250);
-    await page.getByText('Push notifications').click({ force: true });
+    await expect(page.locator('body')).toContainText(/Enable COD-to-Prepaid Retention Offers/i);
 
-    await page.getByRole('button', { name: /Save configuration/i }).click({ force: true });
+    await page.getByRole('button', { name: /Save settings/i }).click({ force: true });
     await expect(page.locator('body')).toContainText(/Settings saved successfully/i);
   });
 
@@ -741,7 +741,7 @@ test.describe('Protected app pages', () => {
   test('Audit logs page filters and opens JSON modal', async ({ page }) => {
     await page.goto('/audit-logs');
 
-    await expect(page.locator('body')).toContainText(/Audit ledger/i);
+    await expect(page.locator('body')).toContainText(/Audit Logs|Event stream/i);
 
     await page.getByPlaceholder(/Search events or sources/i).fill('webhook');
 

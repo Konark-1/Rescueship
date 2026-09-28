@@ -48,7 +48,7 @@ const FEED_SCRIPT: FeedEvent[] = [
   // Order #89421 (₹1,240) — Customer home & re-delivery confirmed
   { t: '14:32:07', msg: 'NDR received · AWB 4023118876 · Shiprocket', cls: 'ndr' },
   { t: '14:32:07', msg: 'reason: customer unavailable · attempt 2/3' },
-  { t: '14:32:08', msg: 'dispatching rescue → ndr_rescue_en', cls: 'action' },
+  { t: '14:32:08', msg: 'dispatching rescue → ndr_reschedule_en', cls: 'action' },
   { t: '14:32:09', msg: 'WhatsApp delivered ✓', cls: 'ok' },
   { t: '14:34:51', msg: 'customer confirmed re-delivery: "I am home"' },
   { t: '14:34:51', msg: 'ORDER RESCUED · ₹1,240 recovered', cls: 'rescued', orderId: '#89421', outcome: 'rescued', amt: 1240 },
@@ -57,7 +57,7 @@ const FEED_SCRIPT: FeedEvent[] = [
   { t: '14:41:12', msg: 'NDR received · AWB 7719004523 · Delhivery', cls: 'ndr' },
   { t: '14:41:12', msg: 'reason: incomplete address / wrong landmark · attempt 1/3' },
   { t: '14:41:13', msg: 'multiple saved addresses detected · initiating GPS pin flow', cls: 'warn' },
-  { t: '14:41:14', msg: 'dispatching rescue → ndr_rescue_en', cls: 'action' },
+  { t: '14:41:14', msg: 'dispatching rescue → ndr_address_en', cls: 'action' },
   { t: '14:41:15', msg: 'WhatsApp delivered ✓', cls: 'ok' },
   { t: '14:43:02', msg: 'customer shared 1-tap GPS pin on WhatsApp ✓', cls: 'ok' },
   { t: '14:43:03', msg: 'verified GPS address synced → Delhivery API', cls: 'action' },
@@ -66,7 +66,7 @@ const FEED_SCRIPT: FeedEvent[] = [
   // Order #89448 (₹2,150) — Cancelled by customer on WhatsApp (Return transit aborted early)
   { t: '14:48:20', msg: 'NDR received · AWB 9921004182 · ClickPost', cls: 'ndr' },
   { t: '14:48:21', msg: 'reason: customer refused · attempt 1/3' },
-  { t: '14:48:22', msg: 'dispatching rescue → ndr_feedback_en', cls: 'action' },
+  { t: '14:48:22', msg: 'dispatching rescue → ndr_retention_en', cls: 'action' },
   { t: '14:48:23', msg: 'WhatsApp delivered ✓', cls: 'ok' },
   { t: '14:49:10', msg: 'customer reply: "Ordered by mistake, please cancel"' },
   { t: '14:49:11', msg: 'ORDER CANCELLED · return transit aborted · ₹160 freight saved', cls: 'cancelled', orderId: '#89448', outcome: 'cancelled' },
@@ -241,34 +241,33 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
 
     if (sc === 'locked') {
       setPhase('8:00 PM · NDR intercepted');
-      setLog([{ id: nid(), kind: 'bot', text: 'Hi Priya 👋 Order #89421 (₹1,240) was marked “door locked” at 7:58 PM. We couldn’t confirm a delivery attempt — are you home right now?' }]);
+      setLog([{ id: nid(), kind: 'bot', text: 'Hi Priya 👋 Order #89421 (₹1,240) was marked “door locked” at 7:58 PM. We couldn’t confirm a delivery attempt — what would you like to do?' }]);
       setChoices([
-        { id: 'home', label: '✅ Yes, I’m home', run: doHome },
-        { id: 'resched', label: '🔄 Reschedule', run: doReschedule },
-        { id: 'cancel', label: '❌ Cancel', danger: true, run: () => doCancel('Priya') },
+        { id: 'home', label: '🏠 I’m Home Now', run: doHome },
+        { id: 'resched', label: '📅 Reschedule', run: doReschedule },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Priya', 1240, 62) },
       ]);
     } else if (sc === 'address') {
       setPhase('2:14 PM · address ambiguous');
-      setLog([{ id: nid(), kind: 'bot', text: 'Hi Rahul 👋 Delivery partner is near pincode 560038 but cannot locate: “Flat 402, Green Glen Layout”. Could you drop your live location or nearby landmark?' }]);
+      setLog([{ id: nid(), kind: 'bot', text: 'Hi Rahul 👋 Delivery partner is near pincode 560038 but cannot locate: “Flat 402, Green Glen Layout”. Could you help us find you?' }]);
       setChoices([
         { id: 'gps', label: '📍 Share GPS Pin', run: doAddressGps },
         { id: 'landmark', label: '✏️ Type Landmark', run: doAddressLandmark },
-        { id: 'both', label: '📍+✏️ Both (GPS + Note)', run: doAddressBoth },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Rahul', 890, 45) },
       ]);
     } else if (sc === 'cod') {
       setPhase('3:45 PM · COD cash friction');
-      setLog([{ id: nid(), kind: 'bot', text: 'Hi Ananya 👋 Delivery partner is at your doorstep for Order #77319 (₹1,850 COD), but noted: “Customer doesn\'t have exact cash / change”. Pay online now to skip the cash hassle?' }]);
+      setLog([{ id: nid(), kind: 'bot', text: 'Hi Ananya 👋 Delivery partner is at your doorstep for Order #77319 (₹1,850 COD). Pay online now to complete contactless delivery.' }]);
       setChoices([
-        { id: 'pay_upi', label: '💳 Pay ₹1,757 via UPI (Save 5%)', run: doCodPayUpi },
-        { id: 'resched_cod', label: '🔄 Reschedule with cash', run: doReschedule },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Ananya') },
+        { id: 'pay_upi', label: '💳 Pay ₹1,757 via UPI', run: doCodPayUpi },
+        { id: 'resched_cod', label: '🔄 Reschedule with Cash', run: doReschedule },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, 93) },
       ]);
     } else if (sc === 'rto') {
       setPhase('6:20 PM · RTO arrest window (2 min)');
-      setLog([{ id: nid(), kind: 'bot', text: '🚨 URGENT: Order #64201 (₹2,499) was marked for Return-to-Origin at Mumbai Hub. Convert to prepaid now to halt this package before return transit begins.' }]);
+      setLog([{ id: nid(), kind: 'bot', text: '🚨 URGENT: Order #64201 (₹2,499) was marked for Return-to-Origin at Mumbai Hub. Pay online via UPI to halt return transit before reverse shipping begins.' }]);
       setChoices([
-        { id: 'halt_rto', label: '🛑 Halt RTO (Save ₹150 via UPI)', run: doRtoHalt },
+        { id: 'halt_rto', label: '🛑 Pay ₹2,349 via UPI (Halt RTO)', run: doRtoHalt },
         { id: 'confirm_rto', label: '📦 Confirm Return', danger: true, run: doRtoConfirmReturn },
       ]);
     }
@@ -309,7 +308,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       () => setChoices([
         { id: 'gps_ok', label: '✅ Correct, deliver here', run: doAddressGpsConfirm },
         { id: 'gps_add', label: '✏️ Add floor / tower', run: doAddressGpsAddDetails },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Rahul', 890, 45) },
       ]));
   }
 
@@ -336,7 +335,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       () => setChoices([
         { id: 'add_pin', label: '📍 Drop live GPS pin too', run: doAddressGpsAddDetails },
         { id: 'landmark_ok', label: '✅ Landmark is enough', run: doAddressLandmarkOnly },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Rahul', 890, 45) },
       ]));
   }
 
@@ -347,17 +346,6 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       () => finish('✅ ADDRESS CORRECTED · driver note synced', 'ok', 'Driver instructions updated · re-attempt today', 'ok'));
   }
 
-  function doAddressBoth() {
-    setPhase('2:15 PM · Step 1/2 · precision routing');
-    say('📍 Step 1/2: GPS location shared',
-      '📍 GPS locked · requesting building & floor details',
-      'Location pin locked! Now reply with your floor, tower, or nearest landmark to complete your address.',
-      () => setChoices([
-        { id: 'b_conf', label: 'Tower B, 4th floor, opp lift', run: doAddressGpsAddDetails },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Rahul') },
-      ]));
-  }
-
   /* Scenario 3: COD Cash Friction → Instant UPI */
   function doCodPayUpi() {
     setPhase('3:46 PM · dynamic payment link');
@@ -366,7 +354,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       'Payment link generated! Pay securely via GPay, PhonePe, or Paytm — your order will be marked Prepaid in the driver’s handheld immediately. 📱',
       () => setChoices([
         { id: 'upi_done', label: '✅ Complete UPI Payment', run: doCodConfirmPayment },
-        { id: 'cancel', label: 'Cancel', danger: true, run: () => doCancel('Ananya') },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, 93) },
       ]));
   }
 
@@ -374,7 +362,7 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
     setPhase('3:47 PM · carrier COD adjustment');
     say('Paid ₹1,757 on UPI ✅',
       '✓ ₹1,757 captured · Shopify tagged: RescueShip_Prepaid · carrier COD adjusted to ₹0',
-      'Payment confirmed! Order converted to prepaid. Handover verified without cash hassle. Thank you! 💜',
+      'Payment confirmed! Order converted to prepaid. Handover verified without cash friction. Thank you! 💜',
       () => finish('✅ RESCUED · converted to prepaid', 'ok', 'COD → Prepaid · ₹93 saved · zero cash friction', 'ok'));
   }
 
@@ -406,67 +394,43 @@ function WaPhone({ active, reduced }: { active: boolean; reduced: boolean }) {
       'cancel');
   }
 
-  /* Shared Anti-Exploitation Cancel & Retention Sub-Tree */
-  function doCancel(name: string = 'shopper') {
-    say(null, null,
-      `We’d hate to lose you on this one, ${name}. Mind telling us why, so we can try to make it right?`,
-      () => setChoices([
-        { id: 'c1', label: '🏷️ Found it cheaper', run: reasonCheaper },
-        { id: 'c2', label: '⏱️ Taking too long', run: reasonDelay },
-        { id: 'c3', label: '🤔 Changed my mind', run: reasonMistake },
-      ]));
-  }
-
-  function reasonCheaper() {
-    setPhase('8:03 PM · COD→Prepaid retention');
-    say('I found this exact item on another app for ₹1,299.',
-      '🏷️ retention engine · self-funding COD→Prepaid offer',
-      'We can offer you a better deal! Convert to prepaid payment now and save ₹93. Your new total: ₹1,757 via instant UPI.',
+  /* Anti-Exploitation Cancel & Self-Funding COD→Prepaid Retention */
+  function doCancel(name: string = 'shopper', orderValue = 1240, discount = 62) {
+    const finalAmount = orderValue - discount;
+    setPhase('8:03 PM · COD→Prepaid retention offer');
+    say(
+      'Cancel order',
+      '🛡️ retention engine · self-funding COD→Prepaid check',
+      `Before we cancel, ${name} — convert to prepaid now and save ₹${discount} (5% COD fee waiver)! Your new total is ₹${finalAmount.toLocaleString('en-IN')}. Prepaid orders skip cash-collection queues and get priority dispatch.`,
       () => {
-        setBanner({ text: '💳 Prepaid Retention Active', tone: 'engine' });
+        setBanner({ text: '💳 Self-Funding Retention Active', tone: 'engine' });
         setChoices([
-          { id: 'pay', label: '💳 Pay ₹1,757 via UPI', run: payPrepaidRetention },
-          { id: 'no', label: '❌ Still cancel', danger: true, run: finalCancel },
+          { id: 'pay', label: `💳 Pay ₹${finalAmount.toLocaleString('en-IN')} via UPI`, run: () => payPrepaidRetention(finalAmount, discount) },
+          { id: 'no', label: '❌ Confirm Cancellation', danger: true, run: finalCancel },
         ]);
-      });
+      }
+    );
   }
 
-  function reasonDelay() {
-    setPhase('8:03 PM · prepaid fast-track');
-    say('It’s taking too many days. I don’t need it anymore.',
-      '⚡ retention engine · prepaid fast-track available',
-      'We understand the frustration! Prepaid orders skip the cash-collection queue and get processed faster. Convert to prepaid now and save ₹93 on your order.',
-      () => {
-        setBanner({ text: '⚡ Prepaid Fast-Track', tone: 'engine' });
-        setChoices([
-          { id: 'keep', label: '💳 Convert & Fast-Track (Save ₹93)', run: payPrepaidRetention },
-          { id: 'no', label: '❌ No, cancel', danger: true, run: finalCancel },
-        ]);
-      });
-  }
-
-  function reasonMistake() {
-    setPhase('8:03 PM · final retention offer');
-    say('Ordered by mistake, don’t need it now.', null,
-      'Before this heads back to the warehouse, would converting to prepaid and saving ₹93 change your mind? Quick UPI payment locks it in.',
-      () => setChoices([
-        { id: 'keepd', label: '💳 Convert & Save ₹93', run: payPrepaidRetention },
-        { id: 'no', label: '❌ No thanks, cancel', danger: true, run: finalCancel },
-      ]));
-  }
-
-  function payPrepaidRetention() {
-    say('Paid ₹1,757 via UPI ✅',
-      '✓ ₹1,757 captured · COD→Prepaid · carrier queue priority applied',
-      'Payment confirmed! Your order is now prepaid, saving you ₹93 and fast-tracking delivery. Thank you! 💜',
-      () => finish('✅ RESCUED · converted to prepaid', 'ok', 'COD → Prepaid · ₹93 saved · zero cash friction', 'ok'));
+  function payPrepaidRetention(finalAmount: number, discount: number) {
+    setPhase('8:04 PM · carrier COD adjustment');
+    say(
+      `Paid ₹${finalAmount.toLocaleString('en-IN')} via UPI ✅`,
+      `✓ ₹${finalAmount.toLocaleString('en-IN')} captured · Shopify tagged: RescueShip_Prepaid · carrier COD adjusted to ₹0`,
+      `Payment confirmed! Your order is now prepaid, saving you ₹${discount} with zero cash friction. Delivery priority confirmed with courier. Thank you! 💜`,
+      () => finish('✅ RESCUED · converted to prepaid', 'ok', `COD → Prepaid · ₹${discount} saved · zero cash friction`, 'ok')
+    );
   }
 
   function finalCancel() {
-    say(null, 'order cancelled · return to warehouse initiated',
+    setPhase('8:04 PM · clean cancellation');
+    say(
+      'Confirm cancellation',
+      'order cancelled · return to warehouse initiated · stock released in Shopify',
       'Understood — your order is cancelled and the return is confirmed. Any applicable refund will process within 5–7 business days. Thanks for trying us! 💜',
-      () => finish('❌ CANCELLED · return initiated', 'cancel', 'Order cancelled · clean exit', 'cancel'),
-      'cancel');
+      () => finish('❌ CANCELLED · return initiated', 'cancel', 'Order cancelled · clean exit · no coupon abuse', 'cancel'),
+      'cancel'
+    );
   }
 
   useEffect(() => { if (active && !started.current) { started.current = true; seed('locked'); } }, [active]);

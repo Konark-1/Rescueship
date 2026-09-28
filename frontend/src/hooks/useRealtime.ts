@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useOrderStore } from '../store/OrderStore';
+import api from '../services/api';
 
 export interface RealtimeEvent {
   type:
@@ -49,8 +50,8 @@ export function useRealtime(token: string | null, options?: Options, enabled = t
       esRef.current.close();
     }
 
-    const apiUrl = import.meta.env.VITE_API_URL || '';
-    const url = `${apiUrl}/api/realtime/stream?token=${token}`;
+    const baseUrl = api.defaults.baseURL || import.meta.env.VITE_API_URL || '';
+    const url = `${baseUrl}/api/realtime/stream?token=${token}`;
     const es = new EventSource(url);
     esRef.current = es;
 

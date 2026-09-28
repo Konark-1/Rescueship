@@ -75,8 +75,8 @@ const SCENARIOS: Scenario[] = [
       text: '“Bhaiya change nahi hai, kal aana ya cancel kar do.”',
     },
     decodedPayload: {
-      action: 'DYNAMIC_UPI_PRICE_MATCH_CONVERSION',
-      landmark: 'Payment Intent: Instant 5% Prepaid Cash Discount',
+      action: 'COD_TO_PREPAID_CONVERSION',
+      landmark: 'Payment Intent: Self-Funding 5% COD Fee Elimination',
       coords: 'Payment Gateway: Razorpay / Cashfree UPI Intent',
       note: 'Dynamic UPI QR: upi://pay?pa=brand@yesbank&am=1178 (₹62 saved)',
       courierApi: 'Order status changed to PREPAID in Shopify ✓',

@@ -32,6 +32,7 @@ jest.mock('../models', () => {
       create: jest.fn().mockResolvedValue({}),
       findOneAndUpdate: jest.fn().mockResolvedValue({}),
       findOne: jest.fn().mockResolvedValue({}),
+      updateMany: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
     },
     DeliveryAttempt: {
       create: jest.fn().mockResolvedValue({}),

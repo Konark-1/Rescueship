@@ -4,6 +4,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { TabPill } from '../components/motion/TabPill';
 import { Eye, EyeOff, Activity, Power, Send } from 'lucide-react';
 
+interface CodConversionSettings {
+  enabled: boolean;
+  incentiveType: 'flat' | 'percentage';
+  incentiveAmount: number;
+  minOrderValue: number;
+}
+
 interface SettingsData {
   platformUrl: string;
   platformApiKey: string;
@@ -11,6 +18,11 @@ interface SettingsData {
   carrierApiKey: string;
   whatsappToken: string;
   paymentGatewayKey: string;
+  codConversion?: CodConversionSettings;
+  settings?: {
+    codConversion?: CodConversionSettings;
+    aiProvider?: string;
+  };
 }
 
 const tabs = [
@@ -18,6 +30,7 @@ const tabs = [
   { id: 'carrier', label: 'Carrier' },
   { id: 'whatsapp', label: 'WhatsApp' },
   { id: 'payment', label: 'Payments' },
+  { id: 'codConversion', label: 'COD Retention' },
   { id: 'ai', label: 'AI Provider' }
 ];
 
@@ -28,7 +41,13 @@ export const SettingsPage: React.FC = () => {
     carrierName: '',
     carrierApiKey: '',
     whatsappToken: '',
-    paymentGatewayKey: ''
+    paymentGatewayKey: '',
+    codConversion: {
+      enabled: true,
+      incentiveType: 'percentage',
+      incentiveAmount: 5,
+      minOrderValue: 0
+    }
   });
 
   const [activeTab, setActiveTab] = useState('platform');
@@ -46,7 +65,16 @@ export const SettingsPage: React.FC = () => {
       setLoading(true);
       try {
         const res = await api.get('/api/settings');
-        setSettings(res.data);
+        const cod = res.data.settings?.codConversion || res.data.codConversion || {
+          enabled: true,
+          incentiveType: 'percentage',
+          incentiveAmount: 5,
+          minOrderValue: 0
+        };
+        setSettings({
+          ...res.data,
+          codConversion: cod
+        });
       } catch (err) {
         console.error('Failed to fetch settings', err);
       } finally {
@@ -64,11 +92,28 @@ export const SettingsPage: React.FC = () => {
     }));
   };
 
+  const handleCodChange = (field: keyof CodConversionSettings, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      codConversion: {
+        ...(prev.codConversion || { enabled: true, incentiveType: 'percentage', incentiveAmount: 5, minOrderValue: 0 }),
+        [field]: value
+      }
+    }));
+  };
+
   const handleSave = async () => {
     setSaving(true);
     setMessage({ text: '', type: '' });
     try {
-      await api.put('/api/settings', settings);
+      const payload = {
+        ...settings,
+        settings: {
+          ...settings.settings,
+          codConversion: settings.codConversion
+        }
+      };
+      await api.put('/api/settings', payload);
       setMessage({ text: 'Settings saved successfully.', type: 'success' });
     } catch (err: any) {
       console.error(err);
@@ -183,6 +228,118 @@ export const SettingsPage: React.FC = () => {
             {activeTab === 'payment' && (
               <TabSection key="payment" title="Payment gateway" desc="Powers COD → prepaid conversion links inside rescue messages.">
                 <SecretField id="payment-key-input" label="Payment gateway key" name="paymentGatewayKey" value={settings.paymentGatewayKey} onChange={handleChange} show={showPaymentKey} onToggle={() => setShowPaymentKey(!showPaymentKey)} />
+              </TabSection>
+            )}
+
+            {activeTab === 'codConversion' && (
+              <TabSection
+                key="codConversion"
+                title="COD Retention & Prepaid Conversion"
+                desc="Self-funding retention engine: Incentivize customers to convert COD orders to prepaid, saving ₹40–₹80 in courier cash collection fees and eliminating RTO reverse shipping."
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+                  {/* Enable / Disable Toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-3)', background: 'var(--bg-surface-2, rgba(255,255,255,0.03))', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--border)' }}>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-1)' }}>
+                        Enable COD-to-Prepaid Retention Offers
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-3)', marginTop: 2 }}>
+                        Automatically offer customers a discount to pay via instant UPI before cancellation or during delivery friction.
+                      </div>
+                    </div>
+                    <label style={{ position: 'relative', display: 'inline-block', width: 44, height: 24, cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={settings.codConversion?.enabled ?? true}
+                        onChange={(e) => handleCodChange('enabled', e.target.checked)}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          top: 0, left: 0, right: 0, bottom: 0,
+                          backgroundColor: (settings.codConversion?.enabled ?? true) ? 'var(--emerald)' : 'var(--border)',
+                          borderRadius: 24,
+                          transition: '0.2s',
+                        }}
+                      >
+                        <span
+                          style={{
+                            position: 'absolute',
+                            height: 18,
+                            width: 18,
+                            left: (settings.codConversion?.enabled ?? true) ? 23 : 3,
+                            bottom: 3,
+                            backgroundColor: '#fff',
+                            borderRadius: '50%',
+                            transition: '0.2s',
+                          }}
+                        />
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Incentive Type Dropdown */}
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="cod-incentive-type">Incentive Type</label>
+                    <select
+                      id="cod-incentive-type"
+                      className="form-control"
+                      value={settings.codConversion?.incentiveType || 'percentage'}
+                      onChange={(e) => handleCodChange('incentiveType', e.target.value as 'flat' | 'percentage')}
+                      disabled={!(settings.codConversion?.enabled ?? true)}
+                    >
+                      <option value="percentage">Percentage Discount (%)</option>
+                      <option value="flat">Flat Amount Discount (₹)</option>
+                    </select>
+                  </div>
+
+                  {/* Incentive Value Input */}
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="cod-incentive-amount">
+                      {settings.codConversion?.incentiveType === 'flat' ? 'Incentive Amount (₹)' : 'Incentive Percentage (%)'}
+                    </label>
+                    <input
+                      id="cod-incentive-amount"
+                      type="number"
+                      min="0"
+                      max={settings.codConversion?.incentiveType === 'flat' ? 2000 : 50}
+                      className="form-control"
+                      placeholder={settings.codConversion?.incentiveType === 'flat' ? 'e.g. 50' : 'e.g. 5'}
+                      value={settings.codConversion?.incentiveAmount ?? 5}
+                      onChange={(e) => handleCodChange('incentiveAmount', Number(e.target.value))}
+                      disabled={!(settings.codConversion?.enabled ?? true)}
+                    />
+                  </div>
+
+                  {/* Min Order Value Input */}
+                  <div className="form-group">
+                    <label className="form-label" htmlFor="cod-min-order-val">
+                      Minimum Order Value for Retention (₹)
+                    </label>
+                    <input
+                      id="cod-min-order-val"
+                      type="number"
+                      min="0"
+                      className="form-control"
+                      placeholder="0 (applies to all orders)"
+                      value={settings.codConversion?.minOrderValue ?? 0}
+                      onChange={(e) => handleCodChange('minOrderValue', Number(e.target.value))}
+                      disabled={!(settings.codConversion?.enabled ?? true)}
+                    />
+                  </div>
+
+                  {/* Unit Economics Callout */}
+                  <div style={{ padding: 'var(--space-3)', background: 'rgba(16, 185, 129, 0.08)', borderRadius: 'var(--radius-md, 8px)', border: '1px solid rgba(16, 185, 129, 0.2)', fontSize: '0.82rem', color: 'var(--text-2)', display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--emerald)' }}>
+                      💡 Anti-Exploitation & Logistics Unit Economics
+                    </div>
+                    <div>
+                      When a customer accepts this offer, they pay via UPI immediately. Your brand saves the ~₹60 courier COD handling charge, speeds up cash reconciliation by 7–14 days, and prevents an RTO freight loss (₹140+).
+                    </div>
+                  </div>
+                </div>
               </TabSection>
             )}
 
