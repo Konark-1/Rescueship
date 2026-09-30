@@ -22,8 +22,11 @@ import { config } from './env';
 import { logger } from '../utils/logger';
 
 /* ------------------------------------------------------------------ */
-/*  Build Redis options                                                */
-/* ------------------------------------------------------------------ */
+let isQuotaExceeded = false;
+
+export function isRedisQuotaExceeded(): boolean {
+  return isQuotaExceeded;
+}
 
 const redisOptions: RedisOptions = {
   host: config.redis.host,
@@ -32,23 +35,30 @@ const redisOptions: RedisOptions = {
   maxRetriesPerRequest: null, // Required by BullMQ — never give up on a request
   enableReadyCheck: false,
   retryStrategy(times: number): number | null {
-    if (times > 20) {
-      logger.error(`Redis: exceeded 20 reconnection attempts — giving up`);
+    if (isQuotaExceeded) {
+      return null; // Stop reconnecting immediately on quota exhaustion
+    }
+    if (times > 5) {
+      logger.warn(`Redis: exceeded 5 reconnection attempts — pausing reconnects`);
       return null; // stop reconnecting
     }
-    // exponential back-off capped at 10 s
-    const delay = Math.min(times * 500, 10_000);
+    const delay = Math.min(times * 1000, 10_000);
     logger.warn(`Redis: reconnection attempt ${times} in ${delay}ms`);
     return delay;
   },
   reconnectOnError(err: Error): boolean | 1 | 2 {
+    if (err.message.includes('max requests limit exceeded')) {
+      isQuotaExceeded = true;
+      logger.warn('🛑 Upstash Redis monthly quota exceeded (500k limit). Suppressing reconnect loop.');
+      return false;
+    }
     const targetErrors = ['READONLY', 'ECONNRESET', 'ECONNREFUSED'];
     if (targetErrors.some((e) => err.message.includes(e))) {
       return 2; // reconnect and retry the failed command
     }
     return false;
   },
-  lazyConnect: true, // don't connect until we explicitly call `.connect()`
+  lazyConnect: true,
 };
 
 /* ------------------------------------------------------------------ */
@@ -63,6 +73,7 @@ const redisOptions: RedisOptions = {
  */
 export const redisConnection: Redis = process.env.REDIS_URL
   ? new Redis(process.env.REDIS_URL, {
+      ...redisOptions,
       maxRetriesPerRequest: null,
       enableReadyCheck: false,
       lazyConnect: true,
@@ -78,6 +89,7 @@ redisConnection.on('connect', () => {
 });
 
 redisConnection.on('ready', () => {
+  isQuotaExceeded = false;
   logger.info('✅  Redis: ready to accept commands');
 });
 
@@ -86,12 +98,22 @@ redisConnection.on('close', () => {
 });
 
 redisConnection.on('error', (err: Error) => {
-  // ioredis emits 'error' for every failed connection attempt while retrying.
-  // We log at warn level to avoid flooding error-tracking services.
+  if (err.message.includes('max requests limit exceeded')) {
+    if (!isQuotaExceeded) {
+      isQuotaExceeded = true;
+      logger.warn('🛑 Upstash Redis request limit reached (500,000 monthly limit). Background queues paused. Switch to Render Redis (unlimited) to resume.');
+      try { redisConnection.disconnect(); } catch { /* ignore */ }
+    }
+    return;
+  }
   logger.warn('❌  Redis connection error', { error: err.message });
 });
 
 redisConnection.on('reconnecting', () => {
+  if (isQuotaExceeded) {
+    try { redisConnection.disconnect(); } catch { /* ignore */ }
+    return;
+  }
   logger.info('🔄  Redis: reconnecting…');
 });
 
