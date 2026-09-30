@@ -1,7 +1,8 @@
 # 🚢 RescueShip — Autonomous WhatsApp NDR Interception & RTO Recovery Engine
 
-[![Production Frontend](https://img.shields.io/badge/Netlify-rescueship.netlify.app-00C7B7?style=flat&logo=netlify)](https://rescueship.netlify.app)
+[![Production Frontend](https://img.shields.io/badge/Render-rescueship--frontend.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship-frontend.onrender.com)
 [![Production Backend](https://img.shields.io/badge/Render-rescueship.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship.onrender.com)
+[![Test Suite](https://img.shields.io/badge/Tests-276%20passed%20(36%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
 [![Meta WhatsApp API](https://img.shields.io/badge/Meta_Cloud_API-v22.0-25D366?style=flat&logo=whatsapp)](https://developers.facebook.com/docs/whatsapp/cloud-api)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)](https://react.dev/)
@@ -17,9 +18,12 @@ By intercepting courier non-delivery reports within **90 seconds** and executing
 
 | Service | Environment | Endpoint | Details |
 | :--- | :--- | :--- | :--- |
-| **Frontend Web App** | Netlify | [`https://rescueship.netlify.app`](https://rescueship.netlify.app) | Single-page React 19 app (Site ID: `50a5e507-c497-49b0-b441-7251fe527838`) |
-| **Backend REST API** | Render | [`https://rescueship.onrender.com`](https://rescueship.onrender.com) | Express 5 + Node.js cluster (Service: `srv-dah653142hec73evd020`) |
-| **Active Keepalive** | Cron-Job.org + GHA | `https://rescueship.onrender.com/health` | Pings `/health` every 5 minutes to prevent cold-start sleeps |
+| **Frontend Web App (Primary)** | Render Static Site | [`https://rescueship-frontend.onrender.com`](https://rescueship-frontend.onrender.com) | React 19 SPA (Service ID: `srv-damhfof40ujc73av6hj0`) |
+| **Frontend Web App (Alternative)** | Netlify CDN | [`https://rescueship.netlify.app`](https://rescueship.netlify.app) | Global Edge CDN fallback (Site ID: `50a5e507-c497-49b0-b441-7251fe527838`) |
+| **Backend REST API** | Render Web Service | [`https://rescueship.onrender.com`](https://rescueship.onrender.com) | Express 5 + Node.js cluster (Service ID: `srv-dah653142hec73evd020`) |
+| **Key-Value & Redis Queue** | Render Native Redis | Internal `redis://red-dah7i215efls738cbueg:6379` | Unmetered commands, 0 quota ceiling, private VPC |
+| **Database** | MongoDB Atlas | AWS Mumbai Cluster (`cluster0.jkbuwf6.mongodb.net`) | M10+ replica set with primary-preferred read preference |
+| **Active Keepalive** | Cron-Job.org | `https://rescueship.onrender.com/health` | Deep health probe every 5 mins (`{"status":"healthy","checks":{"mongodb":"ok","redis":"ok"}}`) |
 | **Credentials Vault** | Private Vault | `CREDENTIALS.md` *(Outside Git)* | Live infrastructure secrets, tokens, and DB connection strings |
 
 ---

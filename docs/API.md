@@ -1,6 +1,34 @@
 # RescueShip API Documentation
 
-Base URL: `http://localhost:3000/api`
+- **Production API**: `https://rescueship.onrender.com/api`
+- **Development API**: `http://localhost:3000/api`
+
+---
+
+## System & Infrastructure Endpoints
+
+### 1. Health Probe
+- **Method:** `GET /health`
+- **Authentication:** Public
+- **Response:**
+  ```json
+  {
+    "status": "healthy",
+    "timestamp": "2026-10-01T01:00:00.000Z",
+    "uptime": 1250.4,
+    "checks": {
+      "mongodb": "ok",
+      "redis": "ok"
+    }
+  }
+  ```
+
+### 2. WhatsApp Payment Redirection
+- **Method:** `GET /r/pay/:id`
+- **Authentication:** Public (WhatsApp URL CTA target)
+- **Response:** `302 Found` redirecting to active Razorpay/Cashfree payment link.
+
+---
 
 ## Authentication (`/auth`)
 
@@ -109,18 +137,41 @@ These resources will follow the standard CRUD API structure and require `Authori
 
 **Platform subscriptions are Razorpay-only.** Cashfree is used exclusively for per-merchant COD-conversion payment links.
 
+## Sandbox & Testing (`/sandbox`)
+Headers required: `Authorization: Bearer <token>`
+
+- `GET /sandbox/scenarios` - list pre-configured simulation scenarios (premises locked, wrong address, fake attempt, COD refusal).
+- `POST /sandbox/simulate-webhook` - dispatch mock carrier or WhatsApp webhook payload through the real state machine without external network calls.
+- `POST /sandbox/reset` - reset merchant sandbox test data.
+
+## Exports (`/export`)
+Headers required: `Authorization: Bearer <token>` (Rate limit: 5 requests/minute)
+
+- `GET /export/orders` - stream filtered orders as CSV with headers matching Shopify/Delhivery format.
+
+## Realtime SSE Stream (`/realtime`)
+Headers required: `Authorization: Bearer <token>`
+
+- `GET /realtime/stream` - Server-Sent Events stream delivering live events: `ndr_detected`, `ndr_rescued`, `rto_initiated`, `payment_received`.
+
+## Product-Led Growth & Onboarding (`/plg`)
+
+- `POST /plg/simulate` - public interactive simulator for landing page prospects.
+- `POST /plg/book-demo` - merchant lead capture sending instant notifications to founder email.
+
 ## Webhooks (`/webhooks`)
 
-Webhooks are used to receive real-time updates from carriers and platforms. 
+Webhooks receive real-time updates from carriers, payment gateways, and WhatsApp. Verified via HMAC SHA-256 signatures.
 
-- `POST /webhooks/shopify`
-- `POST /webhooks/woocommerce`
-- `POST /webhooks/shiprocket`
-- `POST /webhooks/delhivery`
-- `POST /webhooks/clickpost`
-- `POST /webhooks/whatsapp`
-- `POST /webhooks/razorpay`
-- `POST /webhooks/cashfree`
-- `POST /webhooks/custom`
+- `POST /webhooks/shopify` (`X-Shopify-Hmac-Sha256`)
+- `POST /webhooks/woocommerce` (`X-WC-Webhook-Signature`)
+- `POST /webhooks/shiprocket` (`x-webhook-signature`)
+- `POST /webhooks/delhivery` (`X-Hub-Signature-256`)
+- `POST /webhooks/clickpost` (`X-ClickPost-Signature`)
+- `POST /webhooks/whatsapp` (Meta Cloud API v22.0 signature)
+- `POST /webhooks/razorpay` (`X-Razorpay-Signature`)
+- `POST /webhooks/cashfree` (`X-Cashfree-Signature`)
+- `POST /webhooks/payment` (Unified payment capture dispatcher)
+- `POST /webhooks/custom` (Custom ERP / enterprise webhook)
 
 See `INTEGRATION_GUIDE.md` for webhook setup.
