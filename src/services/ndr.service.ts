@@ -144,6 +144,10 @@ export class NDRService {
             awb: ndrData.awb,
             carrier: ndrData.carrier,
             shippingPincode: (ndrData as any).pincode || (ndrData as any).shippingPincode || null,
+            shippingCity: (ndrData as any).city || null,
+            shippingState: (ndrData as any).state || null,
+            failureSource: 'COURIER_REPORTED',
+            attemptCount: 0,
           });
 
           // Increment monthly orders count for plan quota enforcement
@@ -187,7 +191,17 @@ export class NDRService {
 
       const updated: any = await (Order as any).findOneAndUpdate(
         { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'ndr_rescued', 'delivered', 'returned', 'cancelled', 'rto', 'lost'] } },
-        { $set: { status: 'ndr_detected', awb: ndrData.awb, carrier: ndrData.carrier, ndr: ndrPayload } },
+        {
+          $set: {
+            status: 'ndr_detected',
+            awb: ndrData.awb,
+            carrier: ndrData.carrier,
+            ndr: ndrPayload,
+            failureSource: 'COURIER_REPORTED',
+            lastAttemptAt: ndrData.attemptTime || new Date(),
+          },
+          $inc: { attemptCount: 1 },
+        },
         { new: true }
       );
 
@@ -216,6 +230,8 @@ export class NDRService {
           whatsappMessageSentAt: new Date(),
           status: 'OPEN',
           isFakeRemarkSuspicious: isFake,
+          failureSource: 'COURIER_REPORTED',
+          attemptCount: order.attemptCount || 1,
           lastWebhookAt: new Date(),
         });
       } catch (caseErr: any) {
@@ -675,6 +691,9 @@ export class NDRService {
           order.ndr.resolvedAt = new Date();
           order.ndr.resolution = 'cancelled';
         }
+        if (!order.failureSource || order.failureSource === 'NONE') {
+          order.failureSource = 'CUSTOMER_PRE_ATTEMPT';
+        }
         await order.save();
 
         await this.cancelEscalationJobs(order, merchant);
@@ -747,6 +766,9 @@ export class NDRService {
           order.ndr.customerResponse = 'cancel';
           order.ndr.resolvedAt = new Date();
           order.ndr.resolution = 'cancelled';
+        }
+        if (!order.failureSource || order.failureSource === 'NONE') {
+          order.failureSource = 'CUSTOMER_PRE_ATTEMPT';
         }
         await order.save();
 

@@ -117,7 +117,12 @@ describe('PincodeRiskService', () => {
           totalOrders: 10,
           deliveredOrders: 4,
           failedOrders: 6,
+          courierReported: 5,
+          customerCancelled: 1,
           fakeAttempts: 3,
+          totalAttempts: 15,
+          cities: ['New Delhi'],
+          states: ['Delhi'],
           failureReasons: ['Customer refused', 'Door closed'],
           carriers: ['delhivery'],
         },
@@ -126,7 +131,12 @@ describe('PincodeRiskService', () => {
           totalOrders: 20,
           deliveredOrders: 18,
           failedOrders: 2,
+          courierReported: 1,
+          customerCancelled: 1,
           fakeAttempts: 0,
+          totalAttempts: 20,
+          cities: ['Mumbai'],
+          states: ['Maharashtra'],
           failureReasons: ['Address not found'],
           carriers: ['shiprocket'],
         },
@@ -135,7 +145,12 @@ describe('PincodeRiskService', () => {
           totalOrders: 15,
           deliveredOrders: 10,
           failedOrders: 5,
+          courierReported: 4,
+          customerCancelled: 1,
           fakeAttempts: 1,
+          totalAttempts: 18,
+          cities: ['Bengaluru'],
+          states: ['Karnataka'],
           failureReasons: ['Customer out of town'],
           carriers: ['delhivery'],
         },
@@ -148,15 +163,23 @@ describe('PincodeRiskService', () => {
       expect(result).toHaveLength(2);
       // Pincode 110006 has 60% RTO (6/10) with 3 fake attempts -> CRITICAL
       expect(result[0].pincode).toBe('110006');
+      expect(result[0].city).toBe('New Delhi');
       expect(result[0].rtoRate).toBe(60);
       expect(result[0].riskLevel).toBe('CRITICAL');
       expect(result[0].fakeAttempts).toBe(3);
+      expect(result[0].courierReported).toBe(5);
+      expect(result[0].customerCancelled).toBe(1);
+      expect(result[0].avgAttempts).toBe(1.5);
       expect(result[0].recommendedAction).toBe('Require UPI deposit or mandatory phone verification');
 
       // Second is 560001 with 33.3% RTO
       expect(result[1].pincode).toBe('560001');
+      expect(result[1].city).toBe('Bengaluru');
       expect(result[1].rtoRate).toBe(33.3);
       expect(result[1].riskLevel).toBe('HIGH');
+      expect(result[1].courierReported).toBe(4);
+      expect(result[1].customerCancelled).toBe(1);
+      expect(result[1].avgAttempts).toBe(1.2);
       expect(result[1].recommendedAction).toBe('Enable pre-delivery confirmation & COD verification');
 
       // Verify Redis cache set called with 300s TTL

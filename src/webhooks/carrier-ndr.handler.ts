@@ -34,6 +34,9 @@ export interface ParsedNdr {
   /** Provider event id if the carrier supplies one */
   eventId?: string;
   attemptTime?: Date;
+  pincode?: string;
+  city?: string;
+  state?: string;
 }
 
 function str(v: unknown, max = 256): string {
@@ -237,6 +240,24 @@ export function createCarrierNdrHandler(
           isFakeRemark: false,
           rawWebhook: req.body,
         });
+
+        if (order) {
+          const updateFields: any = {
+            failureSource: 'COURIER_REPORTED',
+            lastAttemptAt: parsed.attemptTime || new Date(),
+          };
+          if (!order.shippingPincode && parsed.pincode) updateFields.shippingPincode = parsed.pincode;
+          if (!order.shippingCity && parsed.city) updateFields.shippingCity = parsed.city;
+          if (!order.shippingState && parsed.state) updateFields.shippingState = parsed.state;
+
+          await Order.updateOne(
+            { _id: order._id },
+            {
+              $set: updateFields,
+              $inc: { attemptCount: 1 },
+            }
+          );
+        }
       } catch (attemptErr: any) {
         logger.warn('Failed to record DeliveryAttempt', { error: attemptErr?.message });
       }
@@ -253,6 +274,9 @@ export function createCarrierNdrHandler(
             phone: parsed.phone,
             carrier: provider,
             attemptTime: parsed.attemptTime,
+            pincode: parsed.pincode || order?.shippingPincode,
+            city: parsed.city || order?.shippingCity,
+            state: parsed.state || order?.shippingState,
           },
         },
         {

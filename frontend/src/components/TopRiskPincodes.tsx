@@ -1,6 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-import { MapPin, AlertTriangle, ShieldAlert, CheckCircle2, RefreshCw, Zap } from 'lucide-react';
+import {
+  MapPin,
+  AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
+  RefreshCw,
+  Zap,
+  Truck,
+  UserX,
+  RotateCw,
+} from 'lucide-react';
 import './top-risk-pincodes.css';
 
 export interface PincodeRiskItem {
@@ -10,10 +20,13 @@ export interface PincodeRiskItem {
   totalOrders: number;
   deliveredOrders: number;
   failedOrders: number;
+  courierReported?: number;
+  customerCancelled?: number;
+  fakeAttempts: number;
+  avgAttempts?: number;
   rtoRate: number; // percentage (0 - 100)
   riskScore: number;
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  fakeAttempts: number;
   primaryCarrier?: string;
   failureReasons: string[];
   recommendedAction: string;
@@ -99,7 +112,9 @@ export const TopRiskPincodes: React.FC = () => {
                 <tr>
                   <th>Pincode / City</th>
                   <th>Orders / RTO Rate</th>
+                  <th>Failure Attribution</th>
                   <th>Fake Attempts</th>
+                  <th>Avg Attempts</th>
                   <th>Risk Tier</th>
                   <th>Actionable Recommendation</th>
                 </tr>
@@ -148,6 +163,24 @@ export const TopRiskPincodes: React.FC = () => {
                         </div>
                       </td>
                       <td>
+                        <div className="failure-attribution-breakdown">
+                          <span
+                            className="attribution-tag attribution-tag--courier"
+                            title="Carrier reported delivery failure"
+                          >
+                            <Truck size={11} />
+                            {item.courierReported ?? 0} Courier
+                          </span>
+                          <span
+                            className="attribution-tag attribution-tag--customer"
+                            title="Customer pre-attempt cancel or WhatsApp opt-out"
+                          >
+                            <UserX size={11} />
+                            {item.customerCancelled ?? 0} Customer
+                          </span>
+                        </div>
+                      </td>
+                      <td>
                         {item.fakeAttempts > 0 ? (
                           <span className="fake-attempt-pill">
                             <ShieldAlert size={12} />
@@ -156,6 +189,12 @@ export const TopRiskPincodes: React.FC = () => {
                         ) : (
                           <span style={{ fontSize: '0.78rem', color: 'var(--text-3)' }}>0 flagged</span>
                         )}
+                      </td>
+                      <td>
+                        <span className="attempts-pill" title="Average delivery attempts per order">
+                          <RotateCw size={11} />
+                          {item.avgAttempts !== undefined ? `${item.avgAttempts}x` : '1.0x'}
+                        </span>
                       </td>
                       <td>
                         <span className={`top-risk-badge ${badgeClass}`}>

@@ -516,7 +516,7 @@
   background: var(--indigo-20); color: #fff; border: 1px solid var(--indigo-40);
   border-top-right-radius: var(--radius-xs); display: inline-flex; align-items: flex-end; gap: 6px;
 }
-.lp-wa__ticks { display: inline-flex; color: #53bdeb; margin-left: 2px; flex-shrink: 0; }
+.lp-wa__ticks { display: inline-flex; color: var(--sky, #53bdeb); margin-left: 2px; flex-shrink: 0; }
 .lp-wa__sys {
   align-self: center; max-width: 94%;
   font-family: var(--font-mono); font-size: 0.64rem; letter-spacing: 0.04em;

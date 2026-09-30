@@ -19,10 +19,13 @@ export interface PincodeRiskSummary {
   totalOrders: number;
   deliveredOrders: number;
   failedOrders: number;
+  courierReported: number;
+  customerCancelled: number;
+  fakeAttempts: number;
+  avgAttempts: number;
   rtoRate: number; // percentage (0 - 100)
   riskScore: number; // 0.00 - 1.00
   riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  fakeAttempts: number;
   primaryCarrier?: string;
   failureReasons: string[];
   recommendedAction: string;
@@ -247,11 +250,26 @@ export class PincodeRiskService {
               $cond: [{ $in: ['$status', ['rto', 'returned', 'cancelled']] }, 1, 0],
             },
           },
+          courierReported: {
+            $sum: {
+              $cond: [{ $eq: ['$failureSource', 'COURIER_REPORTED'] }, 1, 0],
+            },
+          },
+          customerCancelled: {
+            $sum: {
+              $cond: [{ $eq: ['$failureSource', 'CUSTOMER_PRE_ATTEMPT'] }, 1, 0],
+            },
+          },
           fakeAttempts: {
             $sum: {
               $cond: [{ $gte: [{ $ifNull: ['$ndr.fakeRemarkScore', 0] }, 0.5] }, 1, 0],
             },
           },
+          totalAttempts: {
+            $sum: { $ifNull: ['$attemptCount', 0] },
+          },
+          cities: { $addToSet: '$shippingCity' },
+          states: { $addToSet: '$shippingState' },
           failureReasons: { $push: '$ndr.reason' },
           carriers: { $addToSet: '$carrier' },
         },
@@ -269,8 +287,18 @@ export class PincodeRiskService {
     const summaries: PincodeRiskSummary[] = filteredRows.map((doc) => {
       const pin = String(doc._id).trim();
       const loc = this.resolveLocation(pin);
+      const dbCity = (doc.cities || []).find((c: any) => typeof c === 'string' && c.trim().length > 0);
+      const dbState = (doc.states || []).find((s: any) => typeof s === 'string' && s.trim().length > 0);
+      const city = dbCity || loc.city;
+      const state = dbState || loc.state;
+
       const total = doc.totalOrders || 1;
       const failed = doc.failedOrders || 0;
+      const courierReported = doc.courierReported || 0;
+      const customerCancelled = doc.customerCancelled || 0;
+      const totalAttempts = doc.totalAttempts || 0;
+      const avgAttempts = total > 0 ? Number((totalAttempts / total).toFixed(1)) : 0;
+
       const rtoFraction = failed / total;
       const rtoRate = Number((rtoFraction * 100).toFixed(1));
 
@@ -310,15 +338,18 @@ export class PincodeRiskService {
 
       return {
         pincode: pin,
-        city: loc.city,
-        state: loc.state,
+        city,
+        state,
         totalOrders: doc.totalOrders,
         deliveredOrders: doc.deliveredOrders || 0,
         failedOrders: doc.failedOrders || 0,
+        courierReported,
+        customerCancelled,
+        fakeAttempts: doc.fakeAttempts || 0,
+        avgAttempts,
         rtoRate,
         riskScore,
         riskLevel,
-        fakeAttempts: doc.fakeAttempts || 0,
         primaryCarrier: carriers[0] || undefined,
         failureReasons: cleanReasons,
         recommendedAction,

@@ -107,6 +107,10 @@ router.post('/order-created', async (req: Request, res: Response): Promise<void>
           customerName: typeof body.customer_name === 'string' ? body.customer_name.slice(0, 120) : 'Customer',
           orderValue: total,
           paymentMethod: 'cod',
+          pincode: body.pincode || body.shipping_pincode || body.shipping_address?.zip || undefined,
+          city: body.city || body.shipping_city || body.shipping_address?.city || undefined,
+          state: body.state || body.shipping_state || body.shipping_address?.province || body.shipping_address?.state || undefined,
+          shippingAddress: body.shipping_address || undefined,
         },
       },
       {

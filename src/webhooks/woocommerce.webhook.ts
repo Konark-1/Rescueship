@@ -111,6 +111,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           orderValue,
           paymentMethod: 'cod',
           pincode: body.shipping?.postcode || body.billing?.postcode || undefined,
+          city: body.shipping?.city || body.billing?.city || undefined,
+          state: body.shipping?.state || body.billing?.state || undefined,
           shippingAddress: body.shipping || body.billing || undefined,
         },
       },

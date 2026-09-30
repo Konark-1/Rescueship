@@ -116,6 +116,8 @@ export async function ensureIndexes(): Promise<void> {
       { keys: { merchantId: 1, paymentMethod: 1 }, options: { name: 'idx_merchant_payment_method' } },
       { keys: { merchantId: 1, 'rtoRisk.level': 1, createdAt: -1 }, options: { name: 'idx_merchant_risk_level' } },
       { keys: { merchantId: 1, shippingPincode: 1, createdAt: -1 }, options: { name: 'idx_merchant_shipping_pincode' } },
+      { keys: { merchantId: 1, shippingPincode: 1, status: 1 }, options: { name: 'idx_merchant_pincode_status' } },
+      { keys: { merchantId: 1, failureSource: 1, createdAt: -1 }, options: { name: 'idx_merchant_failure_source' } },
     ]);
     // Redundant prefix index (covered by idx_merchant_status_created).
     await dropIfExists(Order.collection as any, 'merchantId_1_status_1');

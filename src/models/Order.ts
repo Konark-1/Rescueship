@@ -73,7 +73,12 @@ export interface IOrder extends Document {
     scoredAt: Date;
   };
   shippingPincode?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
   shippingAddress?: any;
+  failureSource?: 'COURIER_REPORTED' | 'CUSTOMER_PRE_ATTEMPT' | 'MERCHANT_CANCELLED' | 'PLATFORM_CANCELLED' | 'NONE' | null;
+  attemptCount?: number;
+  lastAttemptAt?: Date | null;
   preDeliveryConfirmation?: {
     sentAt?: Date | null;
     response?: 'confirmed' | 'rescheduled' | 'address_updated' | 'cancelled' | string | null;
@@ -169,8 +174,17 @@ const OrderSchema = new Schema<IOrder>(
       recommendedAction: { type: String, enum: ['auto_ship', 'whatsapp_verify', 'require_deposit', 'manual_review'], default: 'auto_ship' },
       scoredAt: { type: Date, default: Date.now },
     },
-    shippingPincode: { type: String, default: null, index: true },
+    shippingPincode: { type: String, default: null },
+    shippingCity: { type: String, default: null },
+    shippingState: { type: String, default: null },
     shippingAddress: { type: Schema.Types.Mixed, default: null },
+    failureSource: {
+      type: String,
+      enum: ['COURIER_REPORTED', 'CUSTOMER_PRE_ATTEMPT', 'MERCHANT_CANCELLED', 'PLATFORM_CANCELLED', 'NONE', null],
+      default: 'NONE',
+    },
+    attemptCount: { type: Number, default: 0 },
+    lastAttemptAt: { type: Date, default: null },
     preDeliveryConfirmation: {
       sentAt: { type: Date, default: null },
       response: { type: String, default: null },
@@ -217,6 +231,14 @@ OrderSchema.index(
 OrderSchema.index(
   { merchantId: 1, shippingPincode: 1, createdAt: -1 },
   { name: 'idx_merchant_shipping_pincode' }
+);
+OrderSchema.index(
+  { merchantId: 1, shippingPincode: 1, status: 1 },
+  { name: 'idx_merchant_pincode_status' }
+);
+OrderSchema.index(
+  { merchantId: 1, failureSource: 1, createdAt: -1 },
+  { name: 'idx_merchant_failure_source' }
 );
 
 export const Order = model<IOrder>('Order', OrderSchema);

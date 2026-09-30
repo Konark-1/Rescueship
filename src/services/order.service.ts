@@ -21,6 +21,8 @@ export interface IncomingOrderData {
   orderValue: number;
   paymentMethod: 'cod' | 'prepaid';
   pincode?: string;
+  city?: string;
+  state?: string;
   shippingAddress?: any;
 }
 
@@ -152,6 +154,8 @@ export class OrderService {
       }
 
       const pincode = orderData.pincode || (orderData as any).shippingAddress?.pincode || (orderData as any).shippingAddress?.zip || null;
+      const city = orderData.city || (orderData as any).shippingAddress?.city || null;
+      const state = orderData.state || (orderData as any).shippingAddress?.province || (orderData as any).shippingAddress?.state || null;
       let order;
       try {
         order = await Order.create({
@@ -163,7 +167,11 @@ export class OrderService {
           orderValue: orderData.orderValue,
           paymentMethod: 'cod',
           shippingPincode: pincode,
+          shippingCity: city,
+          shippingState: state,
           shippingAddress: orderData.shippingAddress || null,
+          failureSource: 'NONE',
+          attemptCount: 0,
           status: 'new',
           ...(riskAssessment ? { rtoRisk: riskAssessment } : {}),
         });

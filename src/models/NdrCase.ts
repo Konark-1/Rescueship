@@ -38,6 +38,8 @@ export interface INdrCase extends Document {
   estimatedLossPrevented?: number;
   status: NdrCaseStatus;
   isFakeRemarkSuspicious?: boolean;
+  failureSource?: 'COURIER_REPORTED' | 'CUSTOMER_PRE_ATTEMPT' | 'MERCHANT_CANCELLED' | 'PLATFORM_CANCELLED' | 'NONE' | null;
+  attemptCount?: number;
   closedAt?: Date | null;
   lastWebhookAt?: Date | null;
   createdAt: Date;
@@ -95,6 +97,12 @@ const NdrCaseSchema = new Schema<INdrCase>(
       index: true,
     },
     isFakeRemarkSuspicious: { type: Boolean, default: false },
+    failureSource: {
+      type: String,
+      enum: ['COURIER_REPORTED', 'CUSTOMER_PRE_ATTEMPT', 'MERCHANT_CANCELLED', 'PLATFORM_CANCELLED', 'NONE', null],
+      default: 'COURIER_REPORTED',
+    },
+    attemptCount: { type: Number, default: 1 },
     closedAt: { type: Date, default: null },
     lastWebhookAt: { type: Date, default: null },
   },

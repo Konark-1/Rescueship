@@ -139,3 +139,48 @@
   background: rgba(16, 185, 129, 0.12);
   color: var(--emerald, #10b981);
 }
+
+.failure-attribution-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 140px;
+}
+
+.attribution-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.attribution-tag--courier {
+  background: rgba(59, 130, 246, 0.12);
+  color: var(--blue, #3b82f6);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.attribution-tag--customer {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--purple, #a855f7);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.attempts-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-2, #9ca3af);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 9999px;
+  white-space: nowrap;
+}

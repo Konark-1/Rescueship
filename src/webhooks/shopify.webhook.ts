@@ -129,6 +129,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
       logger.info('Shopify order is prepaid, storing order record and skipping conversion', { merchantId, orderId: body.id });
       const phone = body.customer?.phone || body.billing_address?.phone || body.shipping_address?.phone || '';
       const zip = body.shipping_address?.zip || body.billing_address?.zip || null;
+      const city = body.shipping_address?.city || body.billing_address?.city || null;
+      const province = body.shipping_address?.province || body.billing_address?.province || null;
       try {
         await Order.create({
           merchantId,
@@ -139,7 +141,11 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           orderValue: parseFloat(body.total_price) || 0,
           paymentMethod: 'prepaid',
           shippingPincode: zip,
+          shippingCity: city,
+          shippingState: province,
           shippingAddress: body.shipping_address || body.billing_address || null,
+          failureSource: 'NONE',
+          attemptCount: 0,
           status: 'new',
         });
         await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.currentMonthOrders': 1 } });
@@ -217,6 +223,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           orderValue,
           paymentMethod: 'cod',
           pincode: body.shipping_address?.zip || body.billing_address?.zip || undefined,
+          city: body.shipping_address?.city || body.billing_address?.city || undefined,
+          state: body.shipping_address?.province || body.billing_address?.province || undefined,
           shippingAddress: body.shipping_address || body.billing_address || undefined,
         },
       },
