@@ -49,7 +49,7 @@ export function maskPhone(phone: unknown): string {
   return `***${digits.slice(-4)}`;
 }
 
-function redactValue(key: string, value: unknown, depth: number): unknown {
+function redactValue(key: string, value: unknown, depth: number, seen?: WeakSet<object>): unknown {
   const k = key.toLowerCase();
   if (SAFE_KEYS.has(k)) return value;
   if (typeof value === 'string' || typeof value === 'number') {
@@ -61,17 +61,20 @@ function redactValue(key: string, value: unknown, depth: number): unknown {
     }
     return value;
   }
-  return redactObject(value, depth + 1);
+  return redactObject(value, depth + 1, seen);
 }
 
-function redactObject(input: unknown, depth = 0): unknown {
+function redactObject(input: unknown, depth = 0, seen = new WeakSet<object>()): unknown {
   if (depth > MAX_DEPTH || input === null || typeof input !== 'object') return input;
+  if (seen.has(input as object)) return '[Circular]';
+  seen.add(input as object);
+
   if (input instanceof Error) return { name: input.name, message: input.message, stack: input.stack };
-  if (Array.isArray(input)) return input.map((v) => redactObject(v, depth + 1));
+  if (Array.isArray(input)) return input.map((v) => redactObject(v, depth + 1, seen));
   if (Buffer.isBuffer(input)) return `[Buffer ${input.length}b]`;
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
-    out[k] = redactValue(k, v, depth);
+    out[k] = redactValue(k, v, depth, seen);
   }
   return out;
 }
@@ -97,7 +100,14 @@ const devFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.colorize({ all: true }),
   winston.format.printf(({ timestamp, level, message, service, ...meta }) => {
-    const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+    let metaStr = '';
+    if (Object.keys(meta).length) {
+      try {
+        metaStr = ` ${JSON.stringify(meta)}`;
+      } catch {
+        metaStr = ' [Circular/Unserializable metadata]';
+      }
+    }
     return `${timestamp} [${level}]: ${message}${metaStr}`;
   }),
 );
