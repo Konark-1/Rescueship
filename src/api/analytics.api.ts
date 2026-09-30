@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { analyticsService } from '../services/analytics.service';
+import { pincodeRiskService } from '../services/analytics/pincode-risk.service';
 import { logger } from '../utils/logger';
 import { Merchant } from '../models/Merchant';
 
@@ -79,6 +80,38 @@ router.get('/carriers', authenticateToken, async (req: AuthenticatedRequest, res
   } catch (err: any) {
     logger.error('Failed to get carrier analytics', { merchantId, error: err.message });
     res.status(500).json({ error: 'Failed to retrieve carrier statistics' });
+  }
+});
+
+/**
+ * GET /api/analytics/high-risk-pincodes
+ * Retrieves the Top N high-risk delivery pincodes with RTO rates, fake attempt detection,
+ * and operational recommendations over the last 30 days.
+ */
+router.get('/high-risk-pincodes', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const limit = Math.min(20, Math.max(1, parseInt(req.query.limit as string, 10) || 5));
+
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const data = await pincodeRiskService.getTopRiskPincodes(merchantId, limit);
+    res.status(200).json({
+      success: true,
+      data,
+      meta: {
+        count: data.length,
+        limit,
+        periodDays: 30,
+        generatedAt: new Date(),
+      },
+    });
+  } catch (err: any) {
+    logger.error('Failed to get high-risk pincodes', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve high-risk pincodes' });
   }
 });
 

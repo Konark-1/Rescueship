@@ -1,0 +1,141 @@
+.top-risk-panel {
+  margin-top: var(--space-6, 24px);
+  margin-bottom: var(--space-6, 24px);
+}
+
+.top-risk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm, 6px);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: var(--font-mono, monospace);
+}
+
+.top-risk-badge--critical {
+  background: rgba(244, 63, 94, 0.15);
+  color: var(--rose, #f43f5e);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+}
+
+.top-risk-badge--high {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber, #f59e0b);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.top-risk-badge--medium {
+  background: rgba(99, 102, 241, 0.15);
+  color: var(--indigo, #6366f1);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.top-risk-badge--low {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--emerald, #10b981);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.fake-attempt-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background: rgba(244, 63, 94, 0.1);
+  border: 1px solid rgba(244, 63, 94, 0.25);
+  color: var(--rose, #f43f5e);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.action-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.1));
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  color: var(--text-1, #f3f4f6);
+  font-weight: 500;
+  max-width: 100%;
+}
+
+.action-pill--critical {
+  border-color: rgba(244, 63, 94, 0.4);
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.action-pill--audit {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+.rto-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.rto-progress-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+.rto-progress-fill--critical {
+  background: linear-gradient(90deg, #f59e0b, #f43f5e);
+}
+
+.rto-progress-fill--high {
+  background: var(--amber, #f59e0b);
+}
+
+.rto-progress-fill--normal {
+  background: var(--emerald, #10b981);
+}
+
+.pincode-code {
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-1, #fff);
+  letter-spacing: 0.03em;
+}
+
+.pincode-city {
+  font-size: 0.82rem;
+  color: var(--text-2, #9ca3af);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.top-risk-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-3, #6b7280);
+}
+
+.top-risk-empty-icon {
+  margin: 0 auto 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--emerald, #10b981);
+}

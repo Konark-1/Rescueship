@@ -72,6 +72,13 @@ export interface IOrder extends Document {
     recommendedAction: 'auto_ship' | 'whatsapp_verify' | 'require_deposit' | 'manual_review';
     scoredAt: Date;
   };
+  shippingPincode?: string | null;
+  shippingAddress?: any;
+  preDeliveryConfirmation?: {
+    sentAt?: Date | null;
+    response?: 'confirmed' | 'rescheduled' | 'address_updated' | 'cancelled' | string | null;
+    respondedAt?: Date | null;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -162,6 +169,13 @@ const OrderSchema = new Schema<IOrder>(
       recommendedAction: { type: String, enum: ['auto_ship', 'whatsapp_verify', 'require_deposit', 'manual_review'], default: 'auto_ship' },
       scoredAt: { type: Date, default: Date.now },
     },
+    shippingPincode: { type: String, default: null, index: true },
+    shippingAddress: { type: Schema.Types.Mixed, default: null },
+    preDeliveryConfirmation: {
+      sentAt: { type: Date, default: null },
+      response: { type: String, default: null },
+      respondedAt: { type: Date, default: null },
+    },
   },
   {
     timestamps: true,
@@ -199,6 +213,10 @@ OrderSchema.index(
 OrderSchema.index(
   { merchantId: 1, 'rtoRisk.level': 1, createdAt: -1 },
   { name: 'idx_merchant_risk_level' }
+);
+OrderSchema.index(
+  { merchantId: 1, shippingPincode: 1, createdAt: -1 },
+  { name: 'idx_merchant_shipping_pincode' }
 );
 
 export const Order = model<IOrder>('Order', OrderSchema);

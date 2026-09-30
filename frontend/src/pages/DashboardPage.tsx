@@ -13,6 +13,7 @@ import { AnimatedCounter } from '../components/motion/AnimatedCounter';
 import { useRealtime } from '../hooks/useRealtime';
 import { useOrderStore } from '../store/OrderStore';
 import { RescueMetrics } from '../components/RescueMetrics';
+import { TopRiskPincodes } from '../components/TopRiskPincodes';
 
 interface DashboardData {
   totalOrders: number;
@@ -444,6 +445,9 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
       </section>
+
+      {/* Top 5 High-Risk Pincodes Hotspots */}
+      <TopRiskPincodes />
 
       {/* Bottom row */}
       <section className="dash-grid">

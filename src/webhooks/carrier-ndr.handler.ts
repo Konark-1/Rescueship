@@ -14,7 +14,7 @@ import { Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import { redisConnection } from '../config/redis';
-import { Order, AuditLog, WebhookEvent, DeliveryAttempt, RescueLedger, Shipment } from '../models';
+import { Order, Merchant, AuditLog, WebhookEvent, DeliveryAttempt, RescueLedger, Shipment } from '../models';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
 import { authenticateCarrierWebhook, CarrierProvider } from './carrier-auth';
 import { orderStateMachineService } from '../services/state-machine/order-state-machine.service';
@@ -174,6 +174,19 @@ export function createCarrierNdrHandler(
 
           if (targetStatus && targetStatus !== order.status) {
             await orderStateMachineService.transitionOrder(order, targetStatus, parsed.attemptTime || new Date());
+          }
+
+          // Trigger Pre-Delivery Confirmation if Out For Delivery
+          if (normStatus === 'OUT_FOR_DELIVERY' || targetStatus === 'out_for_delivery') {
+            try {
+              const { preDeliveryService } = require('../services/pre-delivery.service');
+              const merchant = await Merchant.findById(merchantId);
+              if (merchant) {
+                await preDeliveryService.evaluateAndSendPreDelivery(order, merchant, parsed);
+              }
+            } catch (preDelivErr: any) {
+              logger.warn('Failed to evaluate pre-delivery confirmation', { error: preDelivErr?.message, orderId: order._id });
+            }
           }
 
           // Trigger RTO Arrest if order transitioned to rto_initiated

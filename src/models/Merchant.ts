@@ -64,6 +64,12 @@ export interface IMerchant extends Document {
       messageApprovedByMerchant?: boolean;
     };
     estimatedRtoLossPerOrder?: number;
+    preDeliveryConfirmation?: {
+      enabled: boolean;
+      minOrderValue?: number;
+      pincodeRiskThreshold?: number;
+      customerRtoScoreThreshold?: number;
+    };
   };
   accessGrantedAt?: Date;
   accessExpiresAt?: Date;
@@ -242,6 +248,12 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         messageApprovedByMerchant: { type: Boolean, default: false },
       },
       estimatedRtoLossPerOrder: { type: Number, default: 140 },
+      preDeliveryConfirmation: {
+        enabled: { type: Boolean, default: false },
+        minOrderValue: { type: Number, default: 2000 },
+        pincodeRiskThreshold: { type: Number, default: 0.25 },
+        customerRtoScoreThreshold: { type: Number, default: 0.6 },
+      },
     },
     accessGrantedAt: { type: Date, default: null },
     accessExpiresAt: { type: Date, default: null, index: true },

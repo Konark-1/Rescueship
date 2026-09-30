@@ -151,6 +151,7 @@ export class OrderService {
         logger.warn('Failed to assess RTO risk during order processing', { error: riskErr?.message });
       }
 
+      const pincode = orderData.pincode || (orderData as any).shippingAddress?.pincode || (orderData as any).shippingAddress?.zip || null;
       let order;
       try {
         order = await Order.create({
@@ -161,6 +162,8 @@ export class OrderService {
           customerName: orderData.customerName,
           orderValue: orderData.orderValue,
           paymentMethod: 'cod',
+          shippingPincode: pincode,
+          shippingAddress: orderData.shippingAddress || null,
           status: 'new',
           ...(riskAssessment ? { rtoRisk: riskAssessment } : {}),
         });

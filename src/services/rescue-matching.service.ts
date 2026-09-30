@@ -19,7 +19,7 @@ import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { logger } from '../utils/logger';
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
-const ACTIVE_STATUSES: ('new' | 'cod_conversion_sent' | 'converted_to_prepaid' | 'shipped' | 'ndr_detected' | 'ndr_rescue_sent' | 'ndr_rescued' | 'delivered' | 'rto')[] = ['ndr_rescue_sent', 'cod_conversion_sent'];
+const ACTIVE_STATUSES: ('new' | 'cod_conversion_sent' | 'converted_to_prepaid' | 'shipped' | 'ndr_detected' | 'ndr_rescue_sent' | 'ndr_rescued' | 'out_for_delivery' | 'delivered' | 'rto')[] = ['ndr_rescue_sent', 'cod_conversion_sent', 'out_for_delivery'];
 
 export interface MatchCandidate { orderId: string; externalOrderId: string; productHint: string; }
 export interface MatchResult { matched: boolean; ambiguous: boolean; order?: any; candidates?: MatchCandidate[]; }
@@ -31,11 +31,14 @@ class RescueMatchingService {
   async resolveInbound(merchantId: string, rawPhone: string): Promise<MatchResult> {
     const phone = normalizeIndianPhone(rawPhone);
     const rows = await Order.find({ merchantId: merchantId as any, customerPhone: phone, status: { $in: ACTIVE_STATUSES } as any })
-      .sort({ 'ndr.lastOutboundAt': -1 }).limit(10).lean();
+      .sort({ 'ndr.lastOutboundAt': -1, 'preDeliveryConfirmation.sentAt': -1 }).limit(10).lean();
     if (rows.length === 0) return { matched: false, ambiguous: false };
 
     const now = Date.now();
-    const recent = rows.filter((o: any) => o.ndr?.lastOutboundAt && now - new Date(o.ndr.lastOutboundAt).getTime() <= SESSION_WINDOW_MS);
+    const recent = rows.filter((o: any) => {
+      const outboundAt = o.ndr?.lastOutboundAt || o.preDeliveryConfirmation?.sentAt;
+      return outboundAt && now - new Date(outboundAt).getTime() <= SESSION_WINDOW_MS;
+    });
 
     if (recent.length === 1) return { matched: true, ambiguous: false, order: await Order.findById(recent[0]._id) };
     if (recent.length > 1) {

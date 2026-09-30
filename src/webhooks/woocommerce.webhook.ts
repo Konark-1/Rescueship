@@ -110,6 +110,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           customerName: `${body.billing?.first_name || ''} ${body.billing?.last_name || ''}`.trim() || 'Customer',
           orderValue,
           paymentMethod: 'cod',
+          pincode: body.shipping?.postcode || body.billing?.postcode || undefined,
+          shippingAddress: body.shipping || body.billing || undefined,
         },
       },
       {

@@ -143,6 +143,7 @@ export class NDRService {
             status: 'shipped',
             awb: ndrData.awb,
             carrier: ndrData.carrier,
+            shippingPincode: (ndrData as any).pincode || (ndrData as any).shippingPincode || null,
           });
 
           // Increment monthly orders count for plan quota enforcement
@@ -431,12 +432,12 @@ export class NDRService {
     return Math.min(1.0, score);
   }
 
-  private parseButtonPayload(payload: string): { action: 'reschedule' | 'address' | 'cancel' | 'pay_retention' | 'confirm_cancel'; subAction?: string; orderId?: string } | null {
+  private parseButtonPayload(payload: string): { action: 'reschedule' | 'address' | 'cancel' | 'pay_retention' | 'confirm_cancel' | 'predelivery_confirm'; subAction?: string; orderId?: string } | null {
     const raw = String(payload || '').trim();
     const parts = raw.split(':');
     if (parts.length >= 2) {
       const act = parts[0].toLowerCase();
-      if (['reschedule', 'address', 'cancel', 'pay_retention', 'confirm_cancel'].includes(act)) {
+      if (['reschedule', 'address', 'cancel', 'pay_retention', 'confirm_cancel', 'predelivery_confirm'].includes(act)) {
         if (parts.length === 2) {
           return { action: act as any, orderId: parts[1].trim() || undefined };
         } else if (parts.length >= 3) {
@@ -445,7 +446,10 @@ export class NDRService {
       }
     }
     const t = raw.toLowerCase();
-    if (/resched|reattempt|tomorrow|home|deliver/.test(t)) {
+    if (/predelivery_confirm|yes_home|im_home|i'm home|available|yes,? i'm home/.test(t) && !/cancel|resched/.test(t)) {
+      return { action: 'predelivery_confirm' };
+    }
+    if (/resched|reattempt|tomorrow|deliver/.test(t)) {
       let subAction = 'tomorrow';
       if (/day\s*after/i.test(t)) subAction = 'day_after';
       else if (/weekend/i.test(t)) subAction = 'weekend';
@@ -584,6 +588,12 @@ export class NDRService {
         email: carrierEmail || config.shiprocket.email,
         password: carrierPassword || config.shiprocket.password,
       };
+
+      if (action === 'predelivery_confirm') {
+        const { preDeliveryService } = require('./pre-delivery.service');
+        await preDeliveryService.handleCustomerConfirmation(order, merchant);
+        return;
+      }
 
       if (action === 'reschedule') {
         const subChoice = parsed.subAction || 'tomorrow';
@@ -807,6 +817,13 @@ export class NDRService {
 
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
+
+      // Check for pre-delivery confirmation intent
+      if (order.status === 'out_for_delivery' && /yes|home|available|deliver|waiting|bhejo/i.test(text) && !/not|cancel|don'?t/i.test(text)) {
+        const { preDeliveryService } = require('./pre-delivery.service');
+        await preDeliveryService.handleCustomerConfirmation(order, merchant);
+        return;
+      }
 
       // Check for fake remark / delivery denial signals (Rule 4 in Fake Remark Detection)
       const fakeDenialRegex = /(?:nobody|no\s*one|not\s*a\s*single\s*call|did\s*not\s*call|didn't\s*call|never\s*called|fake|did\s*not\s*come|didn't\s*come|no\s*attempt|koi\s*nahi\s*aaya|call\s*nahi\s*kiya)/i;

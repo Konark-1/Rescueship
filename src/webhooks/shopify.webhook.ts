@@ -128,6 +128,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
     if (!isCOD) {
       logger.info('Shopify order is prepaid, storing order record and skipping conversion', { merchantId, orderId: body.id });
       const phone = body.customer?.phone || body.billing_address?.phone || body.shipping_address?.phone || '';
+      const zip = body.shipping_address?.zip || body.billing_address?.zip || null;
       try {
         await Order.create({
           merchantId,
@@ -137,6 +138,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           customerName: `${body.customer?.first_name || ''} ${body.customer?.last_name || ''}`.trim() || 'Customer',
           orderValue: parseFloat(body.total_price) || 0,
           paymentMethod: 'prepaid',
+          shippingPincode: zip,
+          shippingAddress: body.shipping_address || body.billing_address || null,
           status: 'new',
         });
         await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.currentMonthOrders': 1 } });
@@ -213,6 +216,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           customerName: `${body.customer?.first_name || ''} ${body.customer?.last_name || ''}`.trim() || 'Customer',
           orderValue,
           paymentMethod: 'cod',
+          pincode: body.shipping_address?.zip || body.billing_address?.zip || undefined,
+          shippingAddress: body.shipping_address || body.billing_address || undefined,
         },
       },
       {

@@ -22,6 +22,8 @@ export const COPY_STRINGS: string[] = [
   'Your order {orderId} has been cancelled. Here is coupon {coupon} for next time — we\'d love another chance.',
   'Payment of {amount} received for order {orderId}. Confirmed as prepaid — no cash needed at delivery.',
   'Your order {orderId} has been cancelled and the return is confirmed. Any applicable refund will process within 5-7 business days. Thank you for trying us!',
+  'Hi {name}! Your order {orderId} from {store} is out for delivery today via {carrier}. {codNote}Please confirm if you are available to receive your package:',
+  'Thank you for confirming! Your delivery executive has been notified that you are available. Please keep cash or UPI ready if COD. Have a wonderful day!',
 ];
 
 const pick = (i: number) => COPY_STRINGS[i];
@@ -40,4 +42,6 @@ export const COPY = {
   cancelled: (v: { orderId: string; coupon: string }) => fill(pick(8), v),
   paymentReceived: (v: { amount: string; orderId: string }) => fill(pick(9), v),
   cancelledClean: (v: { orderId: string }) => fill(pick(10), v),
+  preDeliveryNotice: (v: { name: string; orderId: string; store: string; carrier: string; codNote: string }) => fill(pick(11), v),
+  preDeliveryConfirmed: () => pick(12),
 };
