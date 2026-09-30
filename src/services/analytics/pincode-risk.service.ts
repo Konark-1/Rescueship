@@ -154,6 +154,21 @@ export class PincodeRiskService {
     const cleanPin = String(pincode).trim().replace(/\D/g, '');
     if (cleanPin.length !== 6) return 0.25;
 
+    const cacheKey = `pin_risk_score:${merchantId || 'global'}:${cleanPin}`;
+    try {
+      if (redisConnection && typeof (redisConnection as any).get === 'function') {
+        const cached = await redisConnection.get(cacheKey);
+        if (cached !== null && cached !== undefined) {
+          const parsed = parseFloat(cached);
+          if (!isNaN(parsed)) return parsed;
+        }
+      }
+    } catch {
+      // Proceed to DB on cache read error
+    }
+
+    let computedScore: number | null = null;
+
     try {
       const matchCriteria: any = {
         shippingPincode: cleanPin,
@@ -180,7 +195,7 @@ export class PincodeRiskService {
 
       if (stats.length > 0 && stats[0].totalOrders >= 3) {
         const rate = stats[0].failedOrders / stats[0].totalOrders;
-        return Number(Math.min(1.0, Math.max(0.0, rate)).toFixed(2));
+        computedScore = Number(Math.min(1.0, Math.max(0.0, rate)).toFixed(2));
       }
     } catch (err: any) {
       logger.warn('Failed to query pincode risk from order history, using heuristic', {
@@ -189,23 +204,34 @@ export class PincodeRiskService {
       });
     }
 
-    // Heuristic fallbacks for well-known regional profiles
-    if (cleanPin.startsWith('78') || cleanPin.startsWith('79')) {
-      return 0.32; // Remote Northeast
-    }
-    if (cleanPin.startsWith('80') || cleanPin.startsWith('82') || cleanPin.startsWith('84')) {
-      return 0.28; // Rural Eastern belt
-    }
-    if (
-      cleanPin.startsWith('110') ||
-      cleanPin.startsWith('400') ||
-      cleanPin.startsWith('560') ||
-      cleanPin.startsWith('600')
-    ) {
-      return 0.12; // Tier-1 high density metros
+    if (computedScore === null) {
+      // Heuristic fallbacks for well-known regional profiles
+      if (cleanPin.startsWith('78') || cleanPin.startsWith('79')) {
+        computedScore = 0.32; // Remote Northeast
+      } else if (cleanPin.startsWith('80') || cleanPin.startsWith('82') || cleanPin.startsWith('84')) {
+        computedScore = 0.28; // Rural Eastern belt
+      } else if (
+        cleanPin.startsWith('110') ||
+        cleanPin.startsWith('400') ||
+        cleanPin.startsWith('560') ||
+        cleanPin.startsWith('600')
+      ) {
+        computedScore = 0.12; // Tier-1 high density metros
+      } else {
+        computedScore = 0.20; // Default baseline risk
+      }
     }
 
-    return 0.20; // Default baseline risk
+    // Cache computed score in Redis (300s TTL)
+    try {
+      if (redisConnection && typeof (redisConnection as any).set === 'function') {
+        await redisConnection.set(cacheKey, String(computedScore), 'EX', 300);
+      }
+    } catch {
+      // Non-fatal cache write failure
+    }
+
+    return computedScore;
   }
 
   /**

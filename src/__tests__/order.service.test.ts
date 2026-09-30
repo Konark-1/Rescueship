@@ -285,4 +285,54 @@ describe('OrderService - Unit Tests', () => {
       await expect(orderService.markOrderAsPaidOnPlatform(mockOrder)).resolves.not.toThrow();
     });
   });
+
+  describe('sendCODReminder', () => {
+    it('dispatches interactive WhatsApp reminder with pay and keep buttons', async () => {
+      const mockOrder: any = {
+        _id: '507f1f77bcf86cd799439011',
+        merchantId: '507f1f77bcf86cd799439011',
+        externalOrderId: 'ORD_REMIND',
+        customerPhone: '919876543210',
+        customerName: 'Rahul Sharma',
+        paymentMethod: 'cod',
+        orderValue: 1200,
+        status: 'shipped',
+        paymentLinkId: 'plink_remind',
+      };
+
+      (Order.findById as jest.Mock).mockResolvedValue(mockOrder);
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: '507f1f77bcf86cd799439011',
+        whatsappConfig: {},
+      });
+      (whatsAppService.sendInteractiveButtons as jest.Mock).mockResolvedValue({ messages: [{ id: 'msg_remind' }] });
+
+      await orderService.sendCODReminder('507f1f77bcf86cd799439011');
+
+      expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
+        '919876543210',
+        expect.stringContaining('ORD_REMIND'),
+        expect.arrayContaining([
+          expect.objectContaining({ title: '💳 Pay via UPI' }),
+          expect.objectContaining({ title: '💵 Keep COD' }),
+        ]),
+        expect.any(Object)
+      );
+      expect(AuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'cod_reminder_sent' })
+      );
+    });
+
+    it('skips non-COD or terminal orders', async () => {
+      const mockOrder: any = {
+        _id: '507f1f77bcf86cd799439011',
+        paymentMethod: 'prepaid',
+        status: 'shipped',
+      };
+      (Order.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await orderService.sendCODReminder('507f1f77bcf86cd799439011');
+      expect(whatsAppService.sendInteractiveButtons).not.toHaveBeenCalled();
+    });
+  });
 });

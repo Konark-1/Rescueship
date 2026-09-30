@@ -45,6 +45,9 @@ export const DEFAULT_TEMPLATE_MAP: Record<string, string> = {
   address_pin_en: 'address_pin_v2_en',
   rescue_done_en: 'rescue_done_v2_en',
   rs_test_pulse_en: 'rs_test_pulse_v2_en',
+  predelivery_confirmation: 'predelivery_confirm_v2_en',
+  predelivery_confirm_en: 'predelivery_confirm_v2_en',
+  cod_reminder_en: 'cod_reminder_v2_en',
 };
 
 /** Registered compliant templates on Meta WABA. */
@@ -112,6 +115,33 @@ export const TEMPLATE_DEFS: TplDef[] = [
     language: 'en',
     body: 'RescueShip is connected. This is a test rescue for {{1}} — your WhatsApp recovery is live.',
     bodyExample: ['Mamaearth Store'],
+  },
+  {
+    name: 'predelivery_confirm_v2_en',
+    category: 'UTILITY',
+    language: 'en',
+    body: 'Hi {{1}}, your order {{2}} is out for delivery today. Please confirm if you are available to receive your package:',
+    bodyExample: ['John', 'ORD-1001'],
+    buttons: [
+      { type: 'QUICK_REPLY', text: "Yes I'm home" },
+      { type: 'QUICK_REPLY', text: 'Reschedule' },
+      { type: 'QUICK_REPLY', text: 'Cancel order' },
+    ],
+  },
+  {
+    name: 'cod_reminder_v2_en',
+    category: 'UTILITY',
+    language: 'en',
+    body: 'Hi {{1}}, a quick reminder that your COD order {{2}} for {{3}} is scheduled for delivery soon. Please keep cash or UPI ready.',
+    bodyExample: ['John', 'ORD-1001', '₹999'],
+    buttons: [
+      {
+        type: 'URL',
+        text: 'Pay via UPI',
+        url: `${PAY_REDIRECT_BASE}{{1}}`,
+        example: [`${PAY_REDIRECT_BASE}plink_example123`],
+      },
+    ],
   },
 ];
 

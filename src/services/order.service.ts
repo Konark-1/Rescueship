@@ -11,6 +11,7 @@ import { orderStateMachineService } from './state-machine/order-state-machine.se
 import { logisticsService } from './logistics.service';
 import { rtoRiskService } from './rto-risk.service';
 import { checkSubscriptionAccess } from '../utils/subscription-guard';
+import { COPY } from '../i18n/customer-copy';
 import { logger } from '../utils/logger';
 
 export interface IncomingOrderData {
@@ -708,7 +709,93 @@ export class OrderService {
   }
 
   public async sendCODReminder(orderId: string): Promise<void> {
-    logger.info('COD reminder queued', { orderId });
+    logger.info('Evaluating COD reminder dispatch', { orderId });
+    const order = await Order.findById(orderId);
+    if (!order || order.paymentMethod !== 'cod') {
+      logger.info('COD reminder skipped: order not found or not COD', { orderId });
+      return;
+    }
+
+    // Do not remind terminal or already converted orders
+    const nonEligibleStatuses = ['converted_to_prepaid', 'delivered', 'rto', 'returned', 'cancelled', 'lost'];
+    if (nonEligibleStatuses.includes(order.status)) {
+      logger.info('COD reminder skipped: order status not eligible', { orderId, status: order.status });
+      return;
+    }
+
+    const merchant = await Merchant.findById(order.merchantId);
+    if (!merchant) {
+      logger.warn('COD reminder aborted: merchant not found', { orderId, merchantId: order.merchantId });
+      return;
+    }
+
+    // Global pause guard
+    if (merchant.settings?.globalPause) {
+      logger.info('COD reminder skipped: merchant global pause active', { orderId });
+      return;
+    }
+
+    let waToken: string | undefined;
+    if (merchant.whatsappConfig?.accessToken) {
+      try {
+        waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+      } catch {
+        // use unencrypted fallback
+      }
+    }
+
+    const waConfig = {
+      phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
+      accessToken: waToken,
+      businessAccountId: merchant.whatsappConfig?.businessAccountId,
+    };
+
+    const message = COPY.codReminder({
+      name: order.customerName || 'Customer',
+      orderId: order.externalOrderId,
+      amount: order.orderValue,
+    });
+
+    const buttons = [
+      ...(order.paymentLinkId ? [{ id: `pay_now:${order._id}`, title: '💳 Pay via UPI' }] : []),
+      { id: `keep_cod:${order._id}`, title: '💵 Keep COD' },
+    ];
+
+    try {
+      await whatsAppService.sendInteractiveButtons(
+        order.customerPhone,
+        message,
+        buttons,
+        waConfig
+      );
+
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'cod_reminder_sent',
+        source: 'order_service',
+        payload: { externalOrderId: order.externalOrderId, orderValue: order.orderValue },
+        status: 'success',
+      });
+
+      logger.info('COD reminder successfully dispatched', {
+        orderId: order._id,
+        externalOrderId: order.externalOrderId,
+      });
+    } catch (err: any) {
+      logger.error('Failed to dispatch COD reminder via WhatsApp', {
+        orderId: order._id,
+        error: err.message,
+      });
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'cod_reminder_failed',
+        source: 'order_service',
+        payload: { externalOrderId: order.externalOrderId, error: err.message },
+        status: 'failed',
+      });
+    }
   }
 
   public async markOrderAsPaidOnPlatform(order: any, merchant?: any): Promise<void> {

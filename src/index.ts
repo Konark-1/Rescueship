@@ -204,12 +204,27 @@ app.get('/', (_req, res) => {
   });
 });
 
-// Health check endpoint
-app.get('/health', (_req, res) => {
-  res.status(200).json({
-    status: 'healthy',
-    timestamp: new Date(),
+// Health check endpoint (deep health probe for keepalive and monitoring)
+app.get('/health', async (_req, res) => {
+  const { default: mongoose } = await import('mongoose');
+  const mongoOk = mongoose.connection.readyState === 1;
+  let redisOk = false;
+  try {
+    const { redisConnection } = await import('./config/redis');
+    redisOk = redisConnection ? (redisConnection as any).status === 'ready' || (redisConnection as any).status === 'connect' : false;
+  } catch {
+    redisOk = false;
+  }
+
+  const isHealthy = mongoOk && redisOk;
+  res.status(mongoOk ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : mongoOk ? 'degraded' : 'unhealthy',
+    timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    checks: {
+      mongodb: mongoOk ? 'ok' : 'disconnected',
+      redis: redisOk ? 'ok' : 'disconnected',
+    },
   });
 });
 

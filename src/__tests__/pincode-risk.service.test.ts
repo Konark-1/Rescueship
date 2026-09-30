@@ -82,6 +82,13 @@ describe('PincodeRiskService', () => {
       const score = await pincodeRiskService.getPincodeRiskScore('110001', merchantId);
       expect(score).toBe(0.40);
     });
+
+    it('returns cached risk score from Redis if cache hit occurs', async () => {
+      (redisConnection.get as jest.Mock).mockResolvedValueOnce('0.45');
+      const score = await pincodeRiskService.getPincodeRiskScore('110001', merchantId);
+      expect(score).toBe(0.45);
+      expect(Order.aggregate).not.toHaveBeenCalled();
+    });
   });
 
   describe('getTopRiskPincodes', () => {
