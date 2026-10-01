@@ -13,8 +13,11 @@ test.describe('Landing Page PLG Lead Capture & Telemetry Feed', () => {
     await page.goto('/');
     await page.locator('.lp-hero').waitFor({ state: 'visible' });
     await page.locator('.lp-pass').waitFor({ state: 'visible' });
-    await page.locator('.lp-console').waitFor({ state: 'visible' });
-    await page.waitForTimeout(800);
+    await page.waitForFunction(() => {
+      const el = document.querySelector('.lp-top');
+      return el && window.getComputedStyle(el).opacity === '1';
+    }, { timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(300);
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])

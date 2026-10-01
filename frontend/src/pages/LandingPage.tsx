@@ -146,9 +146,9 @@ function SpawnWords({ text, booted, baseDelay = 0, className = '' }: {
         <span key={i}>
           <motion.span
             className="lp-word"
-            initial={{ opacity: 0, y: 26, filter: 'blur(7px)' }}
-            animate={booted ? { opacity: 1, y: 0, filter: 'blur(0px)' } : { opacity: 0, y: 26, filter: 'blur(7px)' }}
-            transition={{ duration: 0.55, delay: baseDelay + i * 0.07, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0, y: 18 }}
+            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 18 }}
+            transition={{ duration: 0.45, delay: baseDelay + i * 0.06, ease: [0.16, 1, 0.3, 1] }}
           >
             {w}
           </motion.span>
@@ -191,6 +191,14 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
 export default function LandingPage() {
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
 
+  const [fontsReady, setFontsReady] = useState(() => {
+    try {
+      return typeof document !== 'undefined' && 'fonts' in document ? document.fonts.status === 'loaded' : true;
+    } catch {
+      return true;
+    }
+  });
+
   const [reduced, setReduced] = useState(() => {
     try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
   });
@@ -216,6 +224,23 @@ export default function LandingPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (typeof document !== 'undefined' && 'fonts' in document) {
+      if (document.fonts.check('16px "Barlow Condensed"')) {
+        setFontsReady(true);
+        return;
+      }
+      document.fonts.ready
+        .then(() => setFontsReady(true))
+        .catch(() => setFontsReady(true));
+      const t = setTimeout(() => setFontsReady(true), 250);
+      return () => clearTimeout(t);
+    } else {
+      setFontsReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!fontsReady) return;
     let r = false;
     try { r = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch {}
     setReduced(r);
@@ -229,7 +254,7 @@ export default function LandingPage() {
     const t1 = setTimeout(() => setBooted(true), 1200);
     const t2 = setTimeout(() => { setShowOverlay(false); try { sessionStorage.setItem('rs_booted', '1'); } catch {} }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, []);
+  }, [fontsReady]);
 
   const skipBoot = () => {
     setBooted(true); setShowOverlay(false);
