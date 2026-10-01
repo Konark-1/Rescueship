@@ -18,8 +18,11 @@
   --violet: #a78bfa;
   --emerald: #10b981;
   --amber: #f59e0b;
+  --amber-light: #fef08a;
   --rose: #f43f5e;
+  --rose-light: #fecdd3;
   --danger: #ef4444;
+  --emerald-light: #a7f3d0;
   --cyan: #38bdf8;
 
   /* ── Semantic Brand Opacities (Zero Raw RGBA in Page Styles) ── */
