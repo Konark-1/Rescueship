@@ -333,8 +333,8 @@ section[id] {
 
 /* ═══ ORDER BOARD ═══ */
 .lp-board { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem) var(--section); }
-.lp-board__cols { display: grid; grid-template-columns: 1.15fr auto 1fr 1fr; gap: var(--space-5); align-items: start; }
-.lp-board__col { display: flex; flex-direction: column; gap: var(--space-2-5); min-height: 180px; }
+.lp-board__cols { display: grid; grid-template-columns: 1.15fr auto 1fr 1fr; gap: var(--space-5); align-items: start; min-height: 387px; }
+.lp-board__col { display: flex; flex-direction: column; gap: var(--space-2-5); min-height: 387px; }
 .lp-board__col-h {
   display: flex; align-items: center; justify-content: space-between;
   font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase;
@@ -2581,7 +2581,9 @@ section[id] {
   .lp-how { grid-template-columns: 1fr; }
   .lp-how__aside { position: static; order: -1; margin-bottom: var(--space-4); }
   .lp-wa { width: min(560px, 100%); height: 600px; margin: 0 auto; }
-  .lp-board__cols { grid-template-columns: 1fr; }
+  .lp-board__cols { grid-template-columns: 1fr; min-height: auto; }
+  .lp-board__col { min-height: 180px; }
+  .lp-board__col:first-child { min-height: 387px; }
   .lp-board__arrow { transform: rotate(90deg); justify-self: center; padding: var(--space-2) 0; }
   .lp-cost__shell { grid-template-columns: 1fr; }
   .lp-trust__grid { grid-template-columns: repeat(2, 1fr); }

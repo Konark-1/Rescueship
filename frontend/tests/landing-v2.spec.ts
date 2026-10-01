@@ -224,4 +224,25 @@ test.describe('Landing Page v2 Specifications', () => {
     const logHeader = page.locator('.account__log-header');
     await expect(logHeader).toContainText('sample case');
   });
+
+  test('8. Order Board Geometry: columns maintain fixed height stability without layout shifts', async ({ page, isMobile }) => {
+    const boardCols = page.locator('.lp-board__cols');
+    await expect(boardCols).toBeVisible();
+
+    if (!isMobile) {
+      // On desktop, columns have locked min-height of 387px
+      const col1 = page.locator('.lp-board__col').first();
+      const col1Box = await col1.boundingBox();
+      expect(col1Box?.height).toBeGreaterThanOrEqual(386);
+    }
+
+    // Cost section below board must remain vertically stable as orders transition
+    const costSection = page.locator('.lp-cost');
+    await page.waitForFunction(() => document.fonts.status === 'loaded').catch(() => {});
+    await page.waitForTimeout(800);
+    const costInitial = await costSection.boundingBox();
+    await page.waitForTimeout(2500);
+    const costLater = await costSection.boundingBox();
+    expect(Math.abs((costLater?.y ?? 0) - (costInitial?.y ?? 0))).toBeLessThanOrEqual(2);
+  });
 });

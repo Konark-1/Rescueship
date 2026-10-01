@@ -567,7 +567,7 @@ test.describe('Public pages', () => {
     await page.getByPlaceholder('Enter your email').fill('e2e@rescueship.test');
     await page.getByPlaceholder('Enter your password').fill('correct-horse-battery-staple');
 
-    await page.getByRole('button', { name: /Sign In|Enter command deck/i }).click();
+    await page.locator('button[type="submit"].auth-button').click();
 
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.locator('body')).toContainText(/Dashboard|Total Orders|Recent Orders|Revenue/i);

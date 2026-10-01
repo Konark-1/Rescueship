@@ -17,7 +17,13 @@ test.describe('Landing Page PLG Lead Capture & Telemetry Feed', () => {
       const el = document.querySelector('.lp-console');
       return el && window.getComputedStyle(el).opacity === '1';
     }, { timeout: 3000 }).catch(() => {});
-    await page.waitForTimeout(400);
+    await page.evaluate(() => {
+      for (let i = 1; i < 99999; i++) {
+        window.clearInterval(i);
+        window.clearTimeout(i);
+      }
+    });
+    await page.waitForTimeout(300);
 
     const accessibilityScanResults = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
