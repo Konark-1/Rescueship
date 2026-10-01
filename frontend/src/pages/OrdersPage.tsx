@@ -14,7 +14,29 @@ interface OrderTimeline {
   date: string;
 }
 
-interface Order {
+export interface OrderMessage {
+  _id?: string;
+  direction?: 'OUTBOUND' | 'INBOUND' | string;
+  templateName?: string;
+  body?: string;
+  status?: string;
+  sentAt?: string | Date;
+  createdAt?: string | Date;
+}
+
+export interface OrderNdr {
+  reason?: string | null;
+  detectedAt?: string | Date | null;
+  rescueMessagesSent?: number;
+  lastMessageSentAt?: string | Date | null;
+  customerResponse?: string | null;
+  resolvedAt?: string | Date | null;
+  resolution?: string | null;
+  isFakeAttempt?: boolean;
+  fakeRemarkScore?: number;
+}
+
+export interface Order {
   id: string;
   _id?: string;
   orderId: string;
@@ -26,6 +48,13 @@ interface Order {
   carrier: string;
   orderValue?: number;
   paymentMethod?: string;
+  shippingPincode?: string | null;
+  shippingCity?: string | null;
+  shippingState?: string | null;
+  failureSource?: string | null;
+  attemptCount?: number;
+  ndr?: OrderNdr;
+  messages?: OrderMessage[];
   timeline: OrderTimeline[];
   rtoRisk?: {
     score: number;
@@ -35,6 +64,16 @@ interface Order {
     scoredAt?: string | Date;
   };
 }
+
+export const FailureSourceBadge: React.FC<{ source?: string | null }> = ({ source }) => {
+  if (!source) return <span className="badge badge-secondary">COURIER_REPORTED</span>;
+  const s = source.toUpperCase();
+  let badgeClass = 'badge-secondary';
+  if (s.includes('COURIER')) badgeClass = 'badge-danger';
+  else if (s.includes('CUSTOMER')) badgeClass = 'badge-warning';
+  else if (s.includes('MERCHANT') || s.includes('PLATFORM')) badgeClass = 'badge-primary';
+  return <span className={`badge ${badgeClass}`}>{s}</span>;
+};
 
 export const OrdersPage: React.FC = () => {
   const token = localStorage.getItem('token');
@@ -109,8 +148,31 @@ export const OrdersPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, limit, status, search, riskFilter]);
 
-  const handleRowClick = (order: Order) => {
+  const [modalLoading, setModalLoading] = useState(false);
+
+  const handleRowClick = async (order: Order) => {
     setSelectedOrder(order);
+    const orderIdToFetch = order.id || (order as any)._id || order.orderId;
+    if (!orderIdToFetch) return;
+
+    setModalLoading(true);
+    try {
+      const res = await api.get(`/api/orders/${orderIdToFetch}`);
+      const fetchedOrder = res.data?.order || res.data;
+      const fetchedMessages = res.data?.messages || fetchedOrder?.messages || [];
+      setSelectedOrder((prev) => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          ...fetchedOrder,
+          messages: fetchedMessages,
+        };
+      });
+    } catch (err) {
+      console.error('Failed to fetch full order details:', err);
+    } finally {
+      setModalLoading(false);
+    }
   };
 
   const closeModal = () => setSelectedOrder(null);
@@ -344,12 +406,100 @@ export const OrdersPage: React.FC = () => {
               </div>
 
               <div className="modal__body">
+                {modalLoading && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-3)', marginBottom: 'var(--space-3)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span className="animate-spin">⟳</span> Fetching latest order telemetry & messages…
+                  </div>
+                )}
+
                 <dl className="dl">
                   <div><dt>Customer</dt><dd>{selectedOrder.customerName}</dd></div>
-                  <div><dt>Phone</dt><dd className="mono">{selectedOrder.phone}</dd></div>
-                  <div><dt>Carrier</dt><dd>{selectedOrder.carrier}</dd></div>
+                  <div><dt>Phone</dt><dd className="mono">{selectedOrder.phone || selectedOrder.customerPhone || '—'}</dd></div>
+                  <div><dt>Carrier</dt><dd>{selectedOrder.carrier || '—'}</dd></div>
                   <div><dt>Status</dt><dd><span className={`badge ${getStatusBadge(selectedOrder.status)}`}>{selectedOrder.status}</span></dd></div>
                 </dl>
+
+                {/* Section 1: 📍 Shipping Location */}
+                <div style={{ marginTop: 'var(--space-5)', padding: 'var(--space-3) var(--space-4)', background: 'var(--white-02)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h4 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-2)', margin: '0 0 var(--space-2)' }}>
+                    📍 Shipping Location
+                  </h4>
+                  <div style={{ fontSize: '0.84rem', color: 'var(--text-1)' }}>
+                    Pincode: {selectedOrder.shippingPincode || '—'} ({selectedOrder.shippingCity || 'City'}, {selectedOrder.shippingState || 'State'})
+                  </div>
+                </div>
+
+                {/* Section 2: 🚨 NDR Telemetry */}
+                {(selectedOrder.ndr || selectedOrder.failureSource) && (
+                  <div style={{ marginTop: 'var(--space-4)', padding: 'var(--space-3) var(--space-4)', background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: 'var(--radius-md)' }}>
+                    <h4 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--rose)', margin: '0 0 var(--space-2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span>🚨 NDR Telemetry</span>
+                      <FailureSourceBadge source={selectedOrder.failureSource || (selectedOrder.ndr?.isFakeAttempt ? 'COURIER_REPORTED' : 'COURIER_REPORTED')} />
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 'var(--space-2)', fontSize: '0.82rem', marginTop: 'var(--space-2)' }}>
+                      <div>
+                        <span style={{ color: 'var(--text-3)', fontSize: '0.75rem', display: 'block' }}>Attempts:</span>
+                        <span className="mono" style={{ fontWeight: 600 }}>{selectedOrder.attemptCount ?? 1}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-3)', fontSize: '0.75rem', display: 'block' }}>Reason:</span>
+                        <span>{selectedOrder.ndr?.reason || '—'}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--text-3)', fontSize: '0.75rem', display: 'block' }}>Fake Score:</span>
+                        <span className="mono" style={{ fontWeight: 600, color: (selectedOrder.ndr?.fakeRemarkScore ?? 0) >= 0.7 ? 'var(--rose)' : 'var(--text-1)' }}>
+                          {selectedOrder.ndr?.fakeRemarkScore !== undefined ? selectedOrder.ndr.fakeRemarkScore.toFixed(2) : '—'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Section 3: 💬 WhatsApp Conversation Timeline */}
+                {selectedOrder.messages && selectedOrder.messages.length > 0 && (
+                  <div style={{ marginTop: 'var(--space-5)' }}>
+                    <h4 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-2)', margin: '0 0 var(--space-3)' }}>
+                      💬 WhatsApp Conversation Timeline
+                    </h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2-5)', maxHeight: '240px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {selectedOrder.messages.map((msg, idx) => {
+                        const isOutbound = (msg.direction || 'OUTBOUND').toUpperCase() === 'OUTBOUND';
+                        const timeStr = msg.sentAt || msg.createdAt ? new Date(msg.sentAt || msg.createdAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        return (
+                          <div
+                            key={msg._id || idx}
+                            style={{
+                              padding: 'var(--space-2-5) var(--space-3)',
+                              borderRadius: 'var(--radius-md)',
+                              background: isOutbound ? 'rgba(99, 102, 241, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                              border: `1px solid ${isOutbound ? 'rgba(99, 102, 241, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                              alignSelf: isOutbound ? 'flex-end' : 'flex-start',
+                              maxWidth: '85%',
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px', fontSize: '0.72rem' }}>
+                              <span
+                                className={`badge ${isOutbound ? 'badge-primary' : 'badge-success'}`}
+                                style={{ padding: '1px 6px', fontSize: '0.68rem', textTransform: 'uppercase' }}
+                              >
+                                {isOutbound ? 'Outbound' : 'Inbound'}
+                              </span>
+                              {msg.status && (
+                                <span className="mono" style={{ color: 'var(--text-3)', fontSize: '0.7rem' }}>
+                                  [{msg.status}]
+                                </span>
+                              )}
+                              {timeStr && <span className="mono" style={{ color: 'var(--text-3)', marginLeft: 'auto' }}>{timeStr}</span>}
+                            </div>
+                            <div style={{ fontSize: '0.82rem', color: 'var(--text-1)', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                              {msg.body || (msg.templateName ? `Template: ${msg.templateName}` : 'Automated WhatsApp Message')}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 <h4 style={{ fontFamily: 'var(--font-mono)', fontSize: '0.68rem', letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--text-3)', margin: 'var(--space-6) 0 var(--space-4)' }}>
                   Interception timeline

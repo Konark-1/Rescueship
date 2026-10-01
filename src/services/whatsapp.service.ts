@@ -1,8 +1,9 @@
 import axios from 'axios';
 import crypto from 'crypto';
 import { config } from '../config/env';
-import { logger } from '../utils/logger';
+import { logger, maskPhone } from '../utils/logger';
 import { assertSafeCopy } from '../utils/customer-copy-guard';
+import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 
 export interface WhatsAppConfig {
   phoneNumberId?: string;
@@ -17,9 +18,12 @@ export interface ButtonConfig {
 }
 
 export interface WhatsAppResponse {
-  messaging_product: string;
-  contacts: Array<{ input: string; wa_id: string }>;
-  messages: Array<{ id: string }>;
+  messaging_product?: string;
+  contacts?: Array<{ input: string; wa_id: string }>;
+  messages?: Array<{ id: string }>;
+  success?: boolean;
+  suppressed?: boolean;
+  reason?: string;
 }
 
 export interface ParsedMessage {
@@ -111,7 +115,25 @@ export class WhatsAppService {
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
     assertSafeCopy(text); // R4 Boundary Guard
+    const normalizedTo = normalizeIndianPhone(to);
+    const { SuppressedPhone } = await import('../models/SuppressedPhone');
+    const isSuppressed = await SuppressedPhone.exists({ phone: normalizedTo });
+    if (isSuppressed) {
+      logger.warn('WhatsApp message aborted: phone is on opt-out suppression list', { phone: maskPhone(normalizedTo) });
+      return { success: false, suppressed: true, reason: 'customer_opted_out' } as any;
+    }
     return this.sendInteractiveButtons(to, text, [], merchantConfig);
+  }
+
+  /**
+   * Alias for sendText
+   */
+  public async sendTextMessage(
+    to: string,
+    text: string,
+    merchantConfig?: WhatsAppConfig
+  ): Promise<WhatsAppResponse> {
+    return this.sendText(to, text, merchantConfig);
   }
 
   /**
@@ -124,6 +146,14 @@ export class WhatsAppService {
     components: any[],
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
+    const normalizedTo = normalizeIndianPhone(to);
+    const { SuppressedPhone } = await import('../models/SuppressedPhone');
+    const isSuppressed = await SuppressedPhone.exists({ phone: normalizedTo });
+    if (isSuppressed) {
+      logger.warn('WhatsApp message aborted: phone is on opt-out suppression list', { phone: maskPhone(normalizedTo) });
+      return { success: false, suppressed: true, reason: 'customer_opted_out' } as any;
+    }
+
     const map = (merchantConfig as any)?.templateMap || {};
     const registeredName = map[templateName] || templateName;
     const { phoneNumberId, accessToken } = this.resolveCredentials(merchantConfig);
@@ -169,6 +199,19 @@ export class WhatsAppService {
   }
 
   /**
+   * Alias for sendTemplate
+   */
+  public async sendTemplateMessage(
+    to: string,
+    templateName: string,
+    language: string,
+    components: any[],
+    merchantConfig?: WhatsAppConfig
+  ): Promise<WhatsAppResponse> {
+    return this.sendTemplate(to, templateName, language, components, merchantConfig);
+  }
+
+  /**
    * Send an interactive quick-reply button message
    */
   public async sendInteractiveButtons(
@@ -178,6 +221,14 @@ export class WhatsAppService {
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
     assertSafeCopy(bodyText); // R4 Boundary Guard
+
+    const normalizedTo = normalizeIndianPhone(to);
+    const { SuppressedPhone } = await import('../models/SuppressedPhone');
+    const isSuppressed = await SuppressedPhone.exists({ phone: normalizedTo });
+    if (isSuppressed) {
+      logger.warn('WhatsApp message aborted: phone is on opt-out suppression list', { phone: maskPhone(normalizedTo) });
+      return { success: false, suppressed: true, reason: 'customer_opted_out' } as any;
+    }
 
     const { phoneNumberId, accessToken } = this.resolveCredentials(merchantConfig);
     const version = this.defaultApiVersion;

@@ -17,9 +17,13 @@ const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
+const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const DocsPage = lazy(() => import('./pages/DocsPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const SandboxPage = lazy(() => import('./pages/SandboxPage'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/TermsOfService'));
+const DPDPAddendum = lazy(() => import('./pages/DPDPAddendum'));
 
 // Route loading fallback
 const RouteLoadingFallback: React.FC = () => (
@@ -96,6 +100,9 @@ export const App: React.FC = () => {
               <Route path="/onboard" element={<Navigate to="/register" replace />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
+              <Route path="/dpa" element={<DPDPAddendum />} />
 
               {/* Protected Routes inside AppLayout */}
               <Route path="/dashboard" element={
@@ -136,6 +143,13 @@ export const App: React.FC = () => {
                 <ProtectedRoute>
                   <DashboardLayoutWrapper>
                     <AuditLogsPage />
+                  </DashboardLayoutWrapper>
+                </ProtectedRoute>
+              } />
+              <Route path="/reports" element={
+                <ProtectedRoute>
+                  <DashboardLayoutWrapper>
+                    <ReportsPage />
                   </DashboardLayoutWrapper>
                 </ProtectedRoute>
               } />

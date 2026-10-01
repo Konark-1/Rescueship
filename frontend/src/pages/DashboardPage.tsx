@@ -1,560 +1,303 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import api from '../services/api';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
-  BarChart, Bar, Legend
-} from 'recharts';
-import { ShoppingBag, RefreshCw, ShieldCheck, IndianRupee, AlertCircle, Zap, TrendingUp, ShieldAlert } from 'lucide-react';
-import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { CheckCircle, CreditCard, ShieldCheck, ArrowRight, AlertTriangle } from 'lucide-react';
+import api from '../services/api';
 import { AnimatedCounter } from '../components/motion/AnimatedCounter';
-import { useRealtime } from '../hooks/useRealtime';
-import { useOrderStore } from '../store/OrderStore';
-import { RescueMetrics } from '../components/RescueMetrics';
-import { TopRiskPincodes } from '../components/TopRiskPincodes';
 
-interface DashboardData {
-  totalOrders: number;
-  codToPrepaid: { count: number; conversionRate: number };
-  ndrRescues: { count: number; rescueRate: number };
-  revenueSaved: number;
-  activeNdrCases: number;
-  creditsRemaining: number;
-  rtoFeesSaved?: number;
-  estimatedRtoFeePerOrder?: number;
-  dashboardHeaderMessage?: string;
-  roiMultiple?: number;
-  riskMetrics?: {
-    flaggedHighRisk: number;
-    lossesPreventedInr: number;
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  customerName: string;
+  phone?: string;
+  status: string;
+  orderValue?: number;
+  carrier?: string;
+  ndrReason?: string;
+  rtoRisk?: {
+    level?: 'LOW' | 'MEDIUM' | 'HIGH';
+    score?: number;
   };
-  license?: {
-    status: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
-    daysRemaining: number;
-    accessExpiresAt?: string | null;
-  };
-
-  dailyConversions: { date: string; conversions: number }[];
-  ndrReasons: { name: string; value: number }[];
-  carrierPerformance: { carrier: string; rto: number; rescued: number }[];
-  recentOrders: { id: string; customer: string; status: string; amount: number; date: string }[];
+  createdAt?: string;
 }
 
-const EMPTY_DATA: DashboardData = {
-  totalOrders: 0,
-  codToPrepaid: { count: 0, conversionRate: 0 },
-  ndrRescues: { count: 0, rescueRate: 0 },
-  revenueSaved: 0,
-  activeNdrCases: 0,
-  creditsRemaining: 0,
-  riskMetrics: { flaggedHighRisk: 0, lossesPreventedInr: 0 },
-  dailyConversions: [],
-  ndrReasons: [],
-  carrierPerformance: [],
-  recentOrders: [],
-};
-
-const COLORS = ['var(--indigo)', 'var(--emerald)', 'var(--amber)', 'var(--rose)'];
-
-const chartTooltipStyle: React.CSSProperties = {
-  backgroundColor: 'var(--bg-deep)',
-  border: '1px solid var(--border-hover)',
-  borderRadius: 'var(--radius-sm)',
-  fontFamily: 'var(--font-mono)',
-  fontSize: '0.78rem',
-  boxShadow: '0 12px 32px var(--black-60)',
-};
-
-export const DashboardPage: React.FC = () => {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [usage, setUsage] = useState<{ ordersUsed: number; orderLimit: number }>({ ordersUsed: 0, orderLimit: 0 });
-  const [fetchError, setFetchError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const onboardingSkipped = user?.onboardingStatus === 'skipped';
-
-  const token = localStorage.getItem('token');
-
-  const fetchAnalytics = useCallback(async () => {
-    try {
-      const [analyticsRes, planRes] = await Promise.allSettled([
-        api.get('/api/analytics/dashboard'),
-        api.get('/api/billing/plan'),
-      ]);
-
-      if (analyticsRes.status === 'fulfilled') {
-        const apiData = analyticsRes.value.data;
-        if (apiData && typeof apiData === 'object' && Object.keys(apiData).length > 0) {
-          setData({
-            totalOrders: apiData.totalOrders ?? 0,
-            codToPrepaid: {
-              count: apiData.codToPrepaid?.count ?? apiData.conversionCount ?? 0,
-              conversionRate: apiData.codToPrepaid?.conversionRate ?? apiData.conversionRate ?? 0,
-            },
-            ndrRescues: {
-              count: apiData.ndrRescues?.count ?? apiData.rescuedCount ?? 0,
-              rescueRate: apiData.ndrRescues?.rescueRate ?? apiData.rescueRate ?? 0,
-            },
-            revenueSaved: apiData.revenueSaved ?? apiData.totalRevenueSaved ?? 0,
-            activeNdrCases: apiData.activeNdrCases ?? 0,
-            creditsRemaining: apiData.creditsRemaining ?? 0,
-            rtoFeesSaved: apiData.rtoFeesSaved ?? 0,
-            estimatedRtoFeePerOrder: apiData.estimatedRtoFeePerOrder ?? 140,
-            dashboardHeaderMessage: apiData.dashboardHeaderMessage ?? `RescueShip has saved you ₹${(apiData.rtoFeesSaved ?? 0).toLocaleString('en-IN')} in RTO fees this month.`,
-            roiMultiple: apiData.roiMultiple ?? 1,
-            license: apiData.license,
-            dailyConversions: Array.isArray(apiData.dailyConversions) ? apiData.dailyConversions : [],
-            ndrReasons: Array.isArray(apiData.ndrReasons) ? apiData.ndrReasons : [],
-            carrierPerformance: Array.isArray(apiData.carrierPerformance) ? apiData.carrierPerformance : [],
-            recentOrders: Array.isArray(apiData.recentOrders) ? apiData.recentOrders : [],
-            riskMetrics: apiData.riskMetrics || { flaggedHighRisk: 0, lossesPreventedInr: 0 },
-          });
-          useOrderStore.getState().resetMetrics();
-        } else {
-          setData(EMPTY_DATA);
-        }
-        setFetchError(null);
-      } else {
-        setData(prev => prev ?? EMPTY_DATA);
-        setFetchError('Unable to load live analytics — showing cached data.');
-      }
-
-      if (planRes.status === 'fulfilled' && planRes.value.data) {
-        setUsage({
-          ordersUsed: planRes.value.data.currentMonthOrders ?? 0,
-          orderLimit: planRes.value.data.planOrderLimit ?? 0,
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  const { liveMetrics } = useOrderStore();
-
-  // 🛡️ TARGETED SYNC: Avoid full refetch on individual events; OrderStore updates live metrics
-  const { isConnected } = useRealtime(token, {
-    onStatsRefresh: fetchAnalytics,
-  });
-
-  useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
-
-  if (loading || !data) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh', color: 'var(--text-3)', fontSize: '0.9rem' }}>
-        Loading dashboard…
-      </div>
-    );
-  }
-
-  const { ordersUsed, orderLimit } = usage;
-  const usagePercentage = orderLimit > 0 ? Math.round((ordersUsed / orderLimit) * 100) : 0;
-
-  return (
-    <div className="page">
-
-      {/* Page head */}
-      <header className="page-head">
-        <div>
-          <h1 className="page-head__title">Dashboard</h1>
-          <p className="page-head__sub">Track orders, automated NDR recovery performance, and rescued revenue.</p>
-        </div>
-        <div className="page-head__actions">
-          <span className={`badge ${isConnected ? 'badge-success' : 'badge-warning'}`}>
-            {isConnected ? 'Live updates' : 'Reconnecting…'}
-          </span>
-        </div>
-      </header>
-
-      {/* Golden Metric Anti-Refund ROI Banner */}
-      {data && (
-        <div
-          className="fade-in-up"
-          style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(99, 102, 241, 0.08) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div
-              style={{
-                width: '42px',
-                height: '42px',
-                borderRadius: '10px',
-                background: 'rgba(16, 185, 129, 0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--emerald)',
-                fontSize: '1.25rem',
-                fontWeight: 700,
-                flexShrink: 0,
-              }}
-            >
-              ₹
-            </div>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-1)' }}>
-                {data.dashboardHeaderMessage || `RescueShip has saved you ₹${(data.rtoFeesSaved || 0).toLocaleString('en-IN')} in RTO fees this month.`}
-              </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: 'var(--text-3)' }}>
-                Calculated at ₹{data.estimatedRtoFeePerOrder || 140} direct reverse-logistics shipping cost saved per rescued shipment (₹70 forward + ₹70 return).
-              </p>
-            </div>
-          </div>
-
-          {data.license && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span
-                className={`badge ${
-                  data.license.status === 'EXPIRED'
-                    ? 'badge-danger'
-                    : data.license.status === 'APPROACHING_EXPIRY'
-                    ? 'badge-warning'
-                    : 'badge-success'
-                }`}
-                style={{ padding: '6px 14px', fontSize: '0.8rem', fontWeight: 600 }}
-              >
-                {data.license.status === 'EXPIRED'
-                  ? '⚠️ License Expired'
-                  : `🛡️ License Active: ${data.license.daysRemaining}d Left`}
-              </span>
-              {(data.license.status === 'APPROACHING_EXPIRY' || data.license.status === 'EXPIRED' || (data.license.daysRemaining <= 10 && data.license.daysRemaining > 0)) && (
-                <button
-                  onClick={() => navigate('/billing?renew=true')}
-                  className="btn btn-sm btn-primary"
-                  style={{
-                    backgroundColor: data.license.status === 'EXPIRED' ? 'var(--rose)' : 'var(--amber)',
-                    borderColor: 'transparent',
-                    color: '#000',
-                    fontWeight: 700,
-                    padding: '5px 12px',
-                    fontSize: '0.78rem',
-                  }}
-                >
-                  {data.license.status === 'EXPIRED' ? 'Reactivate Now →' : 'Renew Plan →'}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* License Expired / Urgent Warning Banner */}
-      {data.license && data.license.status === 'EXPIRED' && (
-        <div className="alert alert--bad fade-in-up" role="alert" style={{ borderColor: 'var(--rose)', backgroundColor: 'rgba(239, 68, 68, 0.08)' }}>
-          <div className="alert__main">
-            <AlertCircle size={20} color="var(--rose)" />
-            <div>
-              <p className="alert__title" style={{ color: 'var(--rose)' }}>Subscription Expired — Automated Rescues Suspended</p>
-              <p className="alert__text">Your plan has expired. Automated WhatsApp NDR rescues and COD-to-prepaid conversion links are currently halted. Renew now to restore protection immediately.</p>
-            </div>
-          </div>
-          <button onClick={() => navigate('/billing?renew=true')} className="btn btn-primary btn-sm" style={{ backgroundColor: 'var(--rose)' }}>
-            Reactivate Protection →
-          </button>
-        </div>
-      )}
-
-      {/* Onboarding skipped */}
-      {onboardingSkipped && (
-        <div className="alert alert--bad fade-in-up" role="alert" style={{ borderColor: 'var(--amber)' }}>
-          <div className="alert__main">
-            <AlertCircle size={20} color="var(--amber)" />
-            <div>
-              <p className="alert__title">Setup unfinished — automated recovery is inactive</p>
-              <p className="alert__text">Connect your store, WhatsApp, courier and payments to start recovering RTO revenue. Takes ~10 minutes.</p>
-            </div>
-          </div>
-          <button onClick={() => navigate('/onboarding')} className="btn btn-primary btn-sm">Resume setup →</button>
-        </div>
-      )}
-
-      {/* Live-data warning banner */}
-      {fetchError && (
-        <div className="alert alert--bad fade-in-up" role="alert">
-          <div className="alert__main">
-            <AlertCircle size={20} color="var(--rose)" />
-            <div>
-              <p className="alert__title">Connection issue</p>
-              <p className="alert__text">{fetchError}</p>
-            </div>
-          </div>
-          <button onClick={() => { setLoading(true); fetchAnalytics(); }} className="btn btn-secondary btn-sm">Retry</button>
-        </div>
-      )}
-
-      {/* Usage limit warning */}
-      {orderLimit > 0 && usagePercentage >= 80 && (
-        <div className="alert alert--bad fade-in-up">
-          <div className="alert__main">
-            <AlertCircle size={20} color="var(--rose)" />
-            <div>
-              <p className="alert__title">Monthly order limit warning</p>
-              <p className="alert__text">
-                {ordersUsed.toLocaleString()} of {orderLimit.toLocaleString()} orders processed this cycle ({usagePercentage}%).
-              </p>
-            </div>
-          </div>
-          <button onClick={() => navigate('/billing')} className="btn btn-primary btn-sm">Upgrade plan →</button>
-        </div>
-      )}
-
-      {/* Order capacity ledger */}
-      {orderLimit > 0 && (
-        <div className="panel panel--accent fade-in-up">
-          <div className="panel__head">
-            <span className="panel__title"><Zap size={12} aria-hidden="true" /> Order capacity</span>
-            <span className="panel__aside">{usagePercentage}% consumed</span>
-          </div>
-          <div className="panel__body" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-5)' }}>
-            <div className="meter" style={{ flex: 1 }} data-warn={usagePercentage >= 80 || undefined}>
-              <div className="meter__fill" style={{ width: `${usagePercentage}%`, background: usagePercentage >= 80 ? 'linear-gradient(90deg, var(--amber), var(--rose))' : undefined }} />
-            </div>
-            <span style={{ fontFamily: 'var(--font-num)', fontSize: '1.3rem', fontWeight: 700, color: 'var(--text-1)', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-              {ordersUsed.toLocaleString()} / {orderLimit.toLocaleString()}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Pilot rescue metrics */}
-      <RescueMetrics />
-
-      {/* Stat cards */}
-      <motion.section
-        className="stat-grid"
-        initial="hidden"
-        animate="visible"
-        variants={{ hidden: {}, visible: { transition: { staggerChildren: 0.07 } } }}
-        aria-label="Key metrics"
-      >
-        <StatCard
-          tone="stat--indigo"
-          label="Total orders"
-          value={data.totalOrders || 0}
-          icon={<ShoppingBag size={15} />}
-        />
-        <StatCard
-          tone="stat--violet"
-          label="COD → prepaid"
-          value={(data.codToPrepaid?.count || 0) + liveMetrics.totalConversions}
-          sub={<><TrendingUp size={12} color="var(--emerald)" /><span className="pos">{data.codToPrepaid?.conversionRate || 0}% conversion rate</span></>}
-          icon={<RefreshCw size={15} />}
-        />
-        <StatCard
-          tone="stat--amber"
-          label="NDR rescues"
-          value={data.ndrRescues?.count || 0}
-          sub={<span className="pos">{data.ndrRescues?.rescueRate || 0}% rescue rate</span>}
-          icon={<ShieldCheck size={15} />}
-        />
-        <StatCard
-          tone="stat--emerald"
-          label="Revenue saved"
-          value={Math.round(((data.revenueSaved || 0) + liveMetrics.revenueSaved) / 100000 * 10) / 10}
-          prefix="₹"
-          suffix="L"
-          icon={<IndianRupee size={15} />}
-        />
-        <StatCard
-          tone="stat--rose"
-          label="Active NDR cases"
-          value={Math.max(0, (data.activeNdrCases || 0) + liveMetrics.activeNdrCases)}
-          live={Math.max(0, (data.activeNdrCases || 0) + liveMetrics.activeNdrCases) > 0}
-          icon={<AlertCircle size={15} />}
-        />
-        <StatCard
-          tone="stat--rose"
-          label="AI losses prevented"
-          value={data.riskMetrics?.lossesPreventedInr || 0}
-          prefix="₹"
-          sub={
-            <>
-              <ShieldAlert size={12} color="var(--rose)" style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
-              <span className="pos" style={{ color: 'var(--text-2)' }}>{data.riskMetrics?.flaggedHighRisk || 0} high-risk flagged</span>
-            </>
-          }
-          icon={<ShieldAlert size={15} color="var(--rose)" />}
-        />
-      </motion.section>
-
-      {/* Charts row */}
-      <section className="dash-grid dash-grid--main">
-        <div className="panel fade-in-up">
-          <div className="panel__head">
-            <span className="panel__title">Daily conversions</span>
-            <span className="panel__aside">last 7 days</span>
-          </div>
-          <div className="panel__body" style={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.dailyConversions || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--white-06)" vertical={false} />
-                <XAxis dataKey="date" tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
-                <RechartsTooltip
-                  cursor={{ stroke: 'var(--white-10)', strokeWidth: 1 }}
-                  contentStyle={chartTooltipStyle}
-                  itemStyle={{ color: 'var(--indigo-soft)' }}
-                />
-                <Line type="monotone" dataKey="conversions" stroke="var(--indigo)" strokeWidth={3} dot={{ r: 4, fill: 'var(--bg-void)', stroke: 'var(--indigo)', strokeWidth: 2 }} activeDot={{ r: 7, fill: 'var(--indigo)', stroke: '#fff' }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="panel fade-in-up">
-          <div className="panel__head">
-            <span className="panel__title">NDR reasons</span>
-            <span className="panel__aside">share of failures</span>
-          </div>
-          <div className="panel__body" style={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data.ndrReasons || []}
-                  cx="50%"
-                  cy="46%"
-                  innerRadius={62}
-                  outerRadius={92}
-                  paddingAngle={4}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {(data.ndrReasons || []).map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <RechartsTooltip contentStyle={chartTooltipStyle} itemStyle={{ color: 'var(--text-1)' }} />
-                <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-3)' }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-      </section>
-
-      {/* Top 5 High-Risk Pincodes Hotspots */}
-      <TopRiskPincodes />
-
-      {/* Bottom row */}
-      <section className="dash-grid">
-        <div className="panel fade-in-up">
-          <div className="panel__head">
-            <span className="panel__title">Carrier performance</span>
-            <span className="panel__aside">rescued vs. rto</span>
-          </div>
-          <div className="panel__body" style={{ height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.carrierPerformance || []} margin={{ top: 10, right: 10, left: -18, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--white-06)" vertical={false} />
-                <XAxis dataKey="carrier" tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: 'var(--text-3)', fontSize: 11, fontFamily: 'var(--font-mono)' }} axisLine={false} tickLine={false} />
-                <RechartsTooltip cursor={{ fill: 'var(--white-03)' }} contentStyle={chartTooltipStyle} />
-                <Legend wrapperStyle={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--text-3)' }} />
-                <Bar dataKey="rescued" name="Rescued" fill="var(--emerald)" radius={[4, 4, 0, 0]} maxBarSize={34} />
-                <Bar dataKey="rto" name="RTO" fill="var(--rose)" radius={[4, 4, 0, 0]} maxBarSize={34} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="panel fade-in-up" style={{ display: 'flex', flexDirection: 'column' }}>
-          <div className="panel__head">
-            <span className="panel__title">Recent orders</span>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/orders')}>View all →</button>
-          </div>
-          <div className="table-container" tabIndex={0} aria-label="Recent orders table">
-            <table className="custom-table">
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Customer</th>
-                  <th>Status</th>
-                  <th style={{ textAlign: 'right' }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(data.recentOrders || []).map((order) => (
-                  <tr key={order.id}>
-                    <td className="td-id">{order.id}</td>
-                    <td>
-                      <div className="td-main">{order.customer}</div>
-                      <div className="td-meta">{order.date}</div>
-                    </td>
-                    <td><span className={`badge ${getStatusBadge(order.status)}`}>{order.status}</span></td>
-                    <td className="td-num">₹{order.amount}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-};
-
-/* ── Stat card ── */
-interface StatCardProps {
-  tone: string;
+interface StatProps {
   label: string;
   value: number;
-  prefix?: string;
-  suffix?: string;
-  sub?: React.ReactNode;
   icon: React.ReactNode;
-  live?: boolean;
+  onClick?: () => void;
 }
 
-const StatCard: React.FC<StatCardProps> = ({ tone, label, value, prefix, suffix, sub, icon }) => (
-  <motion.div
-    className={`stat ${tone}`}
-    variants={{ hidden: { opacity: 0, y: 16 }, visible: { opacity: 1, y: 0 } }}
+export const Stat: React.FC<StatProps> = ({ label, value, icon, onClick }) => (
+  <div
+    className="stat dashboard-stat"
+    onClick={onClick}
+    role={onClick ? 'button' : undefined}
+    tabIndex={onClick ? 0 : undefined}
+    onKeyDown={(e) => {
+      if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+        e.preventDefault();
+        onClick();
+      }
+    }}
   >
     <div className="stat__top">
       <span className="stat__label">{label}</span>
       <span className="stat__icon">{icon}</span>
     </div>
     <div className="stat__value">
-      {prefix && <small>{prefix}</small>}
       <AnimatedCounter value={value} />
-      {suffix && <small>{suffix}</small>}
     </div>
-    {sub && <p className="stat__sub">{sub}</p>}
-  </motion.div>
+    <div className="dashboard-stat__hint">
+      <span>View in Orders</span>
+      <ArrowRight size={12} />
+    </div>
+  </div>
 );
 
-const getStatusBadge = (status: string) => {
-  if (!status) return 'badge-secondary';
-  switch (status.toLowerCase()) {
-    case 'delivered':
-      return 'badge-success';
-    case 'ndr initiated':
-    case 'ndr_detected':
-    case 'ndr_rescue_sent':
-      return 'badge-warning';
-    case 'rto':
-      return 'badge-danger';
-    case 'converted':
-    case 'converted_to_prepaid':
-    case 'ndr_rescued':
-      return 'badge-primary';
-    default:
-      return 'badge-secondary';
+interface OrderListProps {
+  orders: OrderItem[];
+  compact?: boolean;
+  onSelectOrder?: (order: OrderItem) => void;
+}
+
+export const OrderList: React.FC<OrderListProps> = ({ orders, compact = false, onSelectOrder }) => {
+  const getBadgeClass = (status: string) => {
+    const s = (status || '').toLowerCase();
+    if (s.includes('delivered') || s.includes('rescued') || s.includes('converted')) return 'badge-success';
+    if (s.includes('ndr') || s.includes('pending') || s.includes('review')) return 'badge-warning';
+    if (s.includes('rto') || s.includes('cancelled') || s.includes('failed')) return 'badge-danger';
+    return 'badge-secondary';
+  };
+
+  return (
+    <div className={`table-container ${compact ? 'table-container--compact' : ''}`} tabIndex={0} aria-label="Orders needing attention">
+      <table className="custom-table">
+        <thead>
+          <tr>
+            <th>Order ID</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th>Exception / Risk</th>
+            <th style={{ textAlign: 'right' }}>Amount</th>
+            <th style={{ textAlign: 'right' }}>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {orders.map((order) => {
+            const isHighRisk = order.rtoRisk?.level === 'HIGH';
+            return (
+              <tr
+                key={order.id || order.orderId}
+                onClick={() => onSelectOrder?.(order)}
+                style={{ cursor: onSelectOrder ? 'pointer' : 'default' }}
+                tabIndex={onSelectOrder ? 0 : undefined}
+                onKeyDown={(e) => {
+                  if (onSelectOrder && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    onSelectOrder(order);
+                  }
+                }}
+              >
+                <td className="td-id">{order.orderId}</td>
+                <td>
+                  <div className="td-main">{order.customerName || 'Customer'}</div>
+                  {order.phone && <div className="td-meta mono">{order.phone}</div>}
+                </td>
+                <td>
+                  <span className={`badge ${getBadgeClass(order.status)}`}>
+                    {order.status}
+                  </span>
+                </td>
+                <td>
+                  {order.ndrReason ? (
+                    <span className="td-exception" title={order.ndrReason}>
+                      <AlertTriangle size={12} color="var(--amber)" />
+                      {order.ndrReason}
+                    </span>
+                  ) : isHighRisk ? (
+                    <span className="badge badge-danger">High Risk ({order.rtoRisk?.score ?? 85}%)</span>
+                  ) : (
+                    <span className="td-meta">—</span>
+                  )}
+                </td>
+                <td className="td-num" style={{ textAlign: 'right' }}>
+                  ₹{(order.orderValue || 0).toLocaleString('en-IN')}
+                </td>
+                <td style={{ textAlign: 'right' }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectOrder?.(order);
+                    }}
+                  >
+                    Resolve →
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState<boolean>(true);
+  const [totalSaved, setTotalSaved] = useState<number>(0);
+  const [rescuedCount, setRescuedCount] = useState<number>(0);
+  const [conversionCount, setConversionCount] = useState<number>(0);
+  const [rtoArrestCount, setRtoArrestCount] = useState<number>(0);
+  const [ordersNeedingAttention, setOrdersNeedingAttention] = useState<OrderItem[]>([]);
+
+  const fetchDashboardData = useCallback(async () => {
+    try {
+      let loadedViaSummary = false;
+
+      // 1. Primary: /api/dashboard/summary
+      try {
+        const summaryRes = await api.get('/api/dashboard/summary');
+        if (summaryRes.data && typeof summaryRes.data === 'object') {
+          const s = summaryRes.data;
+          setTotalSaved(s.totalSaved ?? 0);
+          setRescuedCount(s.rescuedCount ?? 0);
+          setConversionCount(s.conversionCount ?? 0);
+          setRtoArrestCount(s.rtoArrestCount ?? 0);
+          setOrdersNeedingAttention(Array.isArray(s.ordersNeedingAttention) ? s.ordersNeedingAttention : []);
+          loadedViaSummary = true;
+        }
+      } catch {
+        loadedViaSummary = false;
+      }
+
+      // 2. Fallback: /api/analytics/dashboard + /api/orders
+      if (!loadedViaSummary) {
+        const [analyticsRes, ordersRes] = await Promise.allSettled([
+          api.get('/api/analytics/dashboard'),
+          api.get('/api/orders', { params: { limit: 25 } }),
+        ]);
+
+        if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data) {
+          const a = analyticsRes.value.data;
+          const saved = a.totalSaved ?? a.revenueSaved ?? a.rtoFeesSaved ?? 0;
+          const rescued = a.rescuedCount ?? a.ndrRescues?.count ?? 0;
+          const converted = a.conversionCount ?? a.codToPrepaid?.count ?? 0;
+          const arrested = a.rtoArrestCount ?? a.activeNdrCases ?? 0;
+
+          setTotalSaved(saved);
+          setRescuedCount(rescued);
+          setConversionCount(converted);
+          setRtoArrestCount(arrested);
+        }
+
+        if (ordersRes.status === 'fulfilled' && ordersRes.value.data) {
+          const rawOrders = ordersRes.value.data.orders || ordersRes.value.data.data || [];
+          const attention: OrderItem[] = rawOrders
+            .filter((o: any) => {
+              const st = (o.status || '').toLowerCase();
+              const isNdr = st.includes('ndr') || st.includes('rto') || st.includes('failed') || st.includes('review');
+              const isHigh = o.rtoRisk?.level === 'HIGH';
+              return isNdr || isHigh;
+            })
+            .map((o: any) => ({
+              id: o.id || o._id || o.orderId,
+              orderId: o.orderId || o.externalOrderId || o.id || o._id,
+              customerName: o.customerName || 'Customer',
+              phone: o.phone || o.customerPhone,
+              status: o.status,
+              orderValue: o.orderValue,
+              carrier: o.carrier,
+              ndrReason: o.ndr?.reason,
+              rtoRisk: o.rtoRisk,
+              createdAt: o.createdAt,
+            }));
+
+          setOrdersNeedingAttention(attention);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load dashboard metrics', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  const handleSelectOrder = (order: OrderItem) => {
+    navigate(`/orders?search=${encodeURIComponent(order.orderId || order.id)}`);
+  };
+
+  if (loading) {
+    return (
+      <div className="page dashboard-page">
+        <div className="dashboard-loading">
+          <div className="dashboard-spinner" />
+          <p>Loading dashboard summary…</p>
+        </div>
+      </div>
+    );
   }
+
+  return (
+    <div className="page dashboard-page">
+      {/* Section 1: Hero Metrics */}
+      <section className="dashboard-hero">
+        <h1 className="dashboard-hero__title">
+          ₹<AnimatedCounter value={totalSaved} /> Saved This Month
+        </h1>
+        <div className="dashboard-stats">
+          <Stat
+            label="Orders Rescued"
+            value={rescuedCount}
+            icon={<CheckCircle size={20} />}
+            onClick={() => navigate('/orders')}
+          />
+          <Stat
+            label="COD→Prepaid Conversions"
+            value={conversionCount}
+            icon={<CreditCard size={20} />}
+            onClick={() => navigate('/orders')}
+          />
+          <Stat
+            label="RTO Arrests"
+            value={rtoArrestCount}
+            icon={<ShieldCheck size={20} />}
+            onClick={() => navigate('/orders')}
+          />
+        </div>
+      </section>
+
+      {/* Section 2: Priority Action Queue */}
+      <section className="dashboard-actions">
+        <div className="dashboard-actions__head">
+          <h2>Orders Needing Attention ({ordersNeedingAttention.length})</h2>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => navigate('/orders')}
+          >
+            View all orders →
+          </button>
+        </div>
+
+        {ordersNeedingAttention.length === 0 ? (
+          <div className="empty-state">All clear — no orders need attention.</div>
+        ) : (
+          <OrderList
+            orders={ordersNeedingAttention}
+            compact
+            onSelectOrder={handleSelectOrder}
+          />
+        )}
+      </section>
+    </div>
+  );
 };
 
 export default DashboardPage;

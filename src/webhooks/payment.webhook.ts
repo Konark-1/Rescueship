@@ -4,6 +4,7 @@ import { rtoArrestService } from '../services/rto-arrest.service';
 import { config } from '../config/env';
 import { Order } from '../models';
 import { encryptionService } from '../services/encryption.service';
+import { SecurityAlertService } from '../services/security-alert.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -86,7 +87,19 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
 
   // 2. Reject if HMAC invalid
   if (!isValid) {
-    logger.warn('Payment webhook rejected: invalid HMAC signature');
+    logger.warn('Payment webhook rejected: invalid HMAC signature', {
+      ip: req.ip,
+      hasRazorpaySig: !!rzpSig,
+      hasCashfreeSig: !!cfSig,
+    });
+    SecurityAlertService.sendCriticalAlert('INVALID_PAYMENT_HMAC_SIGNATURE', {
+      ip: req.ip,
+      path: req.originalUrl,
+      hasRazorpaySig: !!rzpSig,
+      hasCashfreeSig: !!cfSig,
+    }).catch((err) => {
+      logger.warn('Failed to dispatch security alert for payment HMAC failure', { error: err?.message });
+    });
     res.status(401).json({ error: 'Invalid HMAC signature' });
     return;
   }

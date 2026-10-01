@@ -41,10 +41,14 @@ test.describe('Landing Page v2 Specifications', () => {
     await stickyNav.locator(`.lnav__link[href="#pricing"]`).click();
     const pricingTarget = page.locator('#pricing');
     await expect(pricingTarget).toBeVisible();
-    await page.waitForTimeout(300);
+    await page.waitForFunction(() => {
+      const el = document.getElementById('pricing');
+      if (!el) return false;
+      const rect = el.getBoundingClientRect();
+      return rect.top >= -100 && rect.top < 300;
+    }, { timeout: 5000 });
     const pricingBox = await pricingTarget.boundingBox();
     expect(pricingBox).not.toBeNull();
-    expect(pricingBox!.y).toBeGreaterThanOrEqual(-50); // in or near top of viewport
 
     // Test other anchor links
     for (const { href } of [{ href: '#product' }, { href: '#features' }, { href: '#faq' }]) {

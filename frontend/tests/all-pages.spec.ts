@@ -582,7 +582,9 @@ test.describe('Public pages', () => {
     await page.getByPlaceholder('Your email address').fill('new-e2e@rescueship.test');
     await page.getByPlaceholder('Create a strong password').fill('correct-horse-battery-staple');
 
-    await page.getByRole('checkbox').check();
+    for (const checkbox of await page.getByRole('checkbox').all()) {
+      await checkbox.check();
+    }
     await page.getByRole('button', { name: /Start Free Trial/i }).click();
 
     await expect(page).toHaveURL(/\/(billing|onboarding)/);
@@ -616,7 +618,7 @@ test.describe('Protected app pages', () => {
   const protectedPages = [
     {
       path: '/dashboard',
-      text: /Rescue Telemetry|Total Orders|Recovery Rate/i,
+      text: /Saved This Month|Rescue Telemetry|Total Orders|Recovery Rate/i,
     },
     {
       path: '/orders',
@@ -624,7 +626,11 @@ test.describe('Protected app pages', () => {
     },
     {
       path: '/settings',
-      text: /Settings|System settings/i,
+      text: /Settings|Delivery Rescues|System settings/i,
+    },
+    {
+      path: '/reports',
+      text: /Reports|Top Risk Pincodes|Carrier Performance/i,
     },
     {
       path: '/templates',
@@ -663,8 +669,8 @@ test.describe('Protected app pages', () => {
   test('Dashboard renders mocked analytics', async ({ page }) => {
     await page.goto('/dashboard');
 
-    await expect(page.locator('body')).toContainText(/1,284|1284|Total Orders|Revenue/i);
-    await expect(page.locator('body')).toContainText(/Aarav Sharma|Priya Patel|Recent Orders/i);
+    await expect(page.locator('body')).toContainText(/Saved This Month|Total Orders|Revenue/i);
+    await expect(page.locator('body')).toContainText(/Orders Rescued|COD→Prepaid|RTO Arrests|Orders Needing Attention/i);
   });
 
   test('Orders page supports search, row details modal, and close', async ({ page }) => {
@@ -684,26 +690,15 @@ test.describe('Protected app pages', () => {
     await expect(page.locator('body')).not.toContainText(/order\/#1001/i);
   });
 
-  test('Settings page loads, toggles settings, sends test message, and saves', async ({ page }) => {
+  test('Settings page loads, toggles settings, and saves', async ({ page }) => {
     await page.goto('/settings');
 
-    await expect(page.locator('body')).toContainText('Platform');
-    await expect(page.locator('body')).toContainText('Carrier');
-    await expect(page.locator('body')).toContainText(/WhatsApp/i);
-    await expect(page.locator('body')).toContainText('Payments');
+    await expect(page.locator('body')).toContainText(/Delivery Rescues/i);
+    await expect(page.locator('body')).toContainText(/COD → Prepaid Conversion|COD/i);
+    await expect(page.locator('body')).toContainText(/RTO Arrest/i);
+    await expect(page.locator('body')).toContainText(/WhatsApp Settings/i);
 
-    // Switch to WhatsApp Meta tab and send test message
-    await page.getByRole('button', { name: 'WhatsApp' }).click({ force: true });
-    await page.waitForTimeout(250);
-    await page.getByRole('button', { name: /Send test message/i }).click({ force: true });
-    await expect(page.locator('body')).toContainText(/Test message dispatched/i);
-
-    // Switch to COD Retention tab
-    await page.getByRole('button', { name: /COD Retention/i }).click({ force: true });
-    await page.waitForTimeout(250);
-    await expect(page.locator('body')).toContainText(/Enable COD-to-Prepaid Retention Offers/i);
-
-    await page.getByRole('button', { name: /Save settings/i }).click({ force: true });
+    await page.getByRole('button', { name: /Save settings/i }).first().click({ force: true });
     await expect(page.locator('body')).toContainText(/Settings saved successfully/i);
   });
 

@@ -11,3 +11,4 @@ export * from './DeliveryAttempt';
 export * from './MessageLog';
 export * from './WebhookEvent';
 export * from './Shipment';
+export * from './SuppressedPhone';

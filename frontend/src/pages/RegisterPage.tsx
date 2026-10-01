@@ -30,6 +30,7 @@ const RegisterPage: React.FC = () => {
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [dpaAccepted, setDpaAccepted] = useState(false);
   const [error, setError] = useState('');
   const [googlePrompt, setGooglePrompt] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -221,12 +222,16 @@ const RegisterPage: React.FC = () => {
             <input type="checkbox" required checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} />
             <span>I agree to the <Link to="/terms">Terms</Link> & <Link to="/privacy">Privacy Policy</Link></span>
           </label>
+          <label className="checkbox-label">
+            <input type="checkbox" required checked={dpaAccepted} onChange={(e) => setDpaAccepted(e.target.checked)} />
+            <span>I accept the <Link to="/dpa" target="_blank">Data Processor Addendum (DPDP Act 2023)</Link></span>
+          </label>
         </div>
 
         <motion.button 
           type="submit" 
           className="auth-button" 
-          disabled={loading || !termsAccepted}
+          disabled={loading || !termsAccepted || !dpaAccepted}
           whileTap={{ scale: 0.98 }}
         >
           {loading ? 'Creating account...' : 'Start Free Trial'}

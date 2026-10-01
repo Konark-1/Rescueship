@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingBag, Settings, MessageSquare,
-  CreditCard, FileText, LogOut, Menu, X, Code
+  CreditCard, FileText, LogOut, Menu, X, Code, BarChart2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import '../styles/app.css';
@@ -37,6 +37,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Templates', path: '/templates', icon: <MessageSquare size={17} /> },
       { name: 'Settings', path: '/settings', icon: <Settings size={17} /> },
+      { name: 'Reports', path: '/reports', icon: <BarChart2 size={17} /> },
     ],
   },
   {

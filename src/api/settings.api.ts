@@ -398,8 +398,8 @@ router.put('/', authenticateToken, limitOnlyCredentialChanges, async (req: Authe
       // Apply general settings updates
     if (updates.settings) {
       // MED-3 fix: Whitelist allowed setting fields to prevent arbitrary injection
-      const allowedCodFields = ['enabled', 'incentiveType', 'incentiveAmount', 'minOrderValue', 'maxOrderValue', 'messageTemplate', 'expiryMinutes'];
-      const allowedNdrFields = ['enabled', 'escalationChain', 'maxAttempts', 'autoReschedule', 'returnCoupon', 'addressCorrectionMode'];
+      const allowedCodFields = ['enabled', 'incentiveType', 'incentiveAmount', 'minOrderValue', 'maxOrderValue', 'messageTemplate', 'expiryMinutes', 'messageLanguage'];
+      const allowedNdrFields = ['enabled', 'escalationChain', 'maxAttempts', 'autoReschedule', 'returnCoupon', 'addressCorrectionMode', 'escalationEnabled', 'messageLanguage', 'rtoArrestEnabled'];
 
       // AI provider preference
       if (updates.settings.aiProvider) {
@@ -446,6 +446,22 @@ router.put('/', authenticateToken, limitOnlyCredentialChanges, async (req: Authe
           ...merchant.settings.ndrRescue,
           ...filtered,
         };
+      }
+      if (updates.settings.preDeliveryConfirmation) {
+        const pd = updates.settings.preDeliveryConfirmation;
+        if ('enabled' in pd && typeof pd.enabled === 'boolean') {
+          merchant.settings.preDeliveryConfirmation = {
+            ...merchant.settings.preDeliveryConfirmation,
+            enabled: pd.enabled,
+          };
+        }
+      }
+      if (updates.settings.rtoArrest) {
+        const ra = updates.settings.rtoArrest;
+        if ('enabled' in ra && typeof ra.enabled === 'boolean') {
+          (merchant.settings as any).rtoArrest = { enabled: ra.enabled };
+          merchant.settings.ndrRescue.rtoArrestEnabled = ra.enabled;
+        }
       }
       merchant.markModified('settings');
     }

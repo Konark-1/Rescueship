@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { requireFeature } from '../middleware/planGating.middleware';
-import { Order, AuditLog } from '../models';
+import { Order, AuditLog, MessageLog } from '../models';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -188,9 +188,13 @@ router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Res
     // Retrieve corresponding audit logs
     const auditLogs = await AuditLog.find({ orderId: order._id, merchantId }).sort({ timestamp: -1 });
 
+    // Retrieve corresponding WhatsApp message logs
+    const messages = await MessageLog.find({ orderId: order._id, merchantId }).sort({ createdAt: 1 });
+
     res.status(200).json({
       order,
       auditLogs,
+      messages,
     });
   } catch (err: any) {
     logger.error('Failed to get order details', { merchantId, orderId, error: err.message });

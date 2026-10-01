@@ -759,6 +759,9 @@ export default function LandingPage() {
           <span className="lp-foot__tag">autonomous ndr rescue · whatsapp</span>
         </span>
         <span className="lp-foot__links">
+          <Link to="/privacy">Privacy Policy</Link>
+          <Link to="/terms">Terms of Service</Link>
+          <Link to="/dpa">DPDP Addendum</Link>
           <Link to="/docs">API Docs</Link>
           <Link to="/login">Log in</Link>
           <Link to="/register" className="lp-foot__cta">Get started →</Link>

@@ -273,6 +273,7 @@ import sandboxRouter from './api/sandbox.api';
 import metricsRouter from './api/metrics.api';
 import plgRouter from './api/plg.api';
 import aiRouter from './api/ai.api';
+import dashboardRouter from './api/dashboard.api';
 import { startQualityMonitorWorker } from './jobs/quality-monitor.job';
 import { startTemplatePollerWorker } from './jobs/template-poller.job';
 import { authenticateToken } from './middleware/auth';
@@ -294,6 +295,7 @@ for (const gatedRouter of [
   auditLogsRouter,
   metricsRouter,
   exportRouter,
+  dashboardRouter,
 ]) {
   gatedRouter.use(authenticateToken, requireActiveSubscription);
 }
@@ -306,12 +308,14 @@ app.use('/api/metrics', apiLimiter, metricsRouter);
 app.use('/api/plg', apiLimiter, plgRouter);
 app.use('/api/ai', apiLimiter, standardMerchantLimiter, aiRouter);
 app.use('/api/orders', apiLimiter, standardMerchantLimiter, ordersRouter);
+app.use('/api/dashboard', apiLimiter, standardMerchantLimiter, dashboardRouter);
 app.use('/api/analytics', apiLimiter, standardMerchantLimiter, analyticsRouter);
 app.use('/api/settings', apiLimiter, standardMerchantLimiter, settingsRouter);
 app.use('/api/templates', apiLimiter, standardMerchantLimiter, templatesRouter);
 app.use('/api/billing', apiLimiter, standardMerchantLimiter, billingRouter);
 app.use('/api/audit-logs', apiLimiter, standardMerchantLimiter, auditLogsRouter);
 app.use('/api/realtime', apiLimiter, standardMerchantLimiter, realtimeRouter);
+
 
 // Export API — stricter per-merchant limit (5 req/min)
 app.use('/api/export', apiLimiter, exportMerchantLimiter, exportRouter);

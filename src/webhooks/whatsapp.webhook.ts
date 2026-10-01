@@ -160,6 +160,21 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const normalizedFrom = normalizeIndianPhone(parsed.from);
     logger.info('Parsed WhatsApp incoming message', { from: maskPhone(normalizedFrom), type: parsed.type, merchantId });
 
+    const customerReply = parsed.text || parsed.buttonPayload || '';
+    if (/stop|unsubscribe|don'?t\s*message/i.test(customerReply)) {
+      try {
+        const { SuppressedPhone } = await import('../models/SuppressedPhone');
+        await SuppressedPhone.findOneAndUpdate(
+          { phone: normalizedFrom },
+          { phone: normalizedFrom, merchantId: merchant._id, suppressedAt: new Date(), reason: 'customer_opt_out' },
+          { upsert: true, new: true }
+        );
+        logger.info('Customer opted out via WhatsApp reply — added to suppression list', { from: maskPhone(normalizedFrom) });
+      } catch (optErr: any) {
+        logger.error('Failed to record customer opt-out', { error: optErr?.message });
+      }
+    }
+
     // ─── 4b. Inbound Rate Limiting (Anti-DoS & AI Cost Drain Protection: max 10/hour) ───
     const rateLimitKey = `inbound_wa_limit:${merchantId}:${normalizedFrom}`;
     try {
