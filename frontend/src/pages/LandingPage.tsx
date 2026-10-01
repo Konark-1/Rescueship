@@ -386,20 +386,7 @@ export default function LandingPage() {
       <div className="lp-grain" aria-hidden="true" />
       <div className="lp-scan" aria-hidden="true" />
 
-      {/* 3. TOP BAR */}
-      <motion.header className="lp-top"
-        initial={reduced ? false : { opacity: 0, y: -16 }}
-        animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: -16 }}
-        transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}>
-        <a href="/" className="lp-brand"><span className="lp-brand__mark" aria-hidden="true">⚓</span> RescueShip</a>
-        <span className="lp-top__tag">Autonomous NDR Rescue</span>
-        <nav className="lp-top__nav" aria-label="Landing Navigation">
-          <Link to="/login" className="lp-top__link">Log in</Link>
-          <Link to="/register" className="lp-top__cta">Get started</Link>
-        </nav>
-      </motion.header>
-
-      {/* 4. HERO */}
+      {/* 3. HERO */}
       <section id="product" className="lp-hero">
         <motion.div className="lp-console"
           initial={reduced ? false : { opacity: 0, y: 50, scale: 0.95 }}

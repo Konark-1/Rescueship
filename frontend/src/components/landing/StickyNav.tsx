@@ -4,7 +4,7 @@ export function StickyNav() {
   return (
     <nav className="lnav" aria-label="Landing navigation">
       <div className="lnav__inner">
-        <a href="#product" className="lnav__brand">
+        <a href="#product" className="lnav__brand lp-brand">
           <span className="lnav__logo" aria-hidden="true">⚓</span>
           <span className="lnav__name">RescueShip</span>
         </a>
@@ -18,6 +18,7 @@ export function StickyNav() {
         </div>
 
         <div className="lnav__actions">
+          <Link to="/login" className="lnav__link">Log in</Link>
           <Link to="/register" className="lnav__cta">Start Free →</Link>
         </div>
       </div>

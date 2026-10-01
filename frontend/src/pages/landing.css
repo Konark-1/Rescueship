@@ -17,6 +17,7 @@ section[id] {
   color: var(--text-1);
   font-family: var(--font-body);
   overflow-x: clip; /* clip (not hidden) so the reel's position:sticky pins correctly */
+  padding-top: 64px;
 }
 
 /* ═══ BOOT OVERLAY ═══ */
