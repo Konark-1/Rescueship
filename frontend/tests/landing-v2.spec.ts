@@ -26,6 +26,7 @@ test.describe('Landing Page v2 Specifications', () => {
     // Verify anchor links exist using specific .lnav__link class
     const links = [
       { name: 'Pricing', href: '#pricing' },
+      { name: 'Calculate RTO', href: '#calculator' },
       { name: 'Product', href: '#product' },
       { name: 'Features', href: '#features' },
       { name: 'FAQ', href: '#faq' },
@@ -51,7 +52,7 @@ test.describe('Landing Page v2 Specifications', () => {
     expect(pricingBox).not.toBeNull();
 
     // Test other anchor links
-    for (const { href } of [{ href: '#product' }, { href: '#features' }, { href: '#faq' }]) {
+    for (const { href } of [{ href: '#calculator' }, { href: '#product' }, { href: '#features' }, { href: '#faq' }]) {
       await stickyNav.locator(`.lnav__link[href="${href}"]`).click();
       const target = page.locator(href);
       await expect(target).toBeVisible();

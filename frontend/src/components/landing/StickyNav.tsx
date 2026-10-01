@@ -12,6 +12,7 @@ export function StickyNav() {
         <div className="lnav__links">
           <a href="#product" className="lnav__link">Product</a>
           <a href="#features" className="lnav__link">Features</a>
+          <a href="#calculator" className="lnav__link">Calculate RTO</a>
           <a href="#pricing" className="lnav__link">Pricing</a>
           <a href="#faq" className="lnav__link">FAQ</a>
         </div>

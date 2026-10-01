@@ -21,7 +21,7 @@ export function RoiCalculator({ orders, onOrdersChange }: RoiCalculatorProps) {
   const plan = tierForOrders(orders);
 
   return (
-    <section className="roi" aria-labelledby="roi-heading">
+    <section id="calculator" className="roi" aria-labelledby="roi-heading">
       <div className="roi__container">
         <div className="roi__header">
           <span className="roi__eyebrow">
