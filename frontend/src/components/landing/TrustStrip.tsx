@@ -4,9 +4,9 @@ const TRUST_BADGES = [
   { icon: BadgeCheck, text: 'Meta-approved Utility templates' },
   { icon: Lock, text: 'AES-256-GCM encryption' },
   { icon: ShieldCheck, text: 'HMAC-verified webhooks' },
-  { icon: FileCheck, text: 'DPDP-ready processing' },
+  { icon: FileCheck, text: 'Privacy-first data handling' },
   { icon: IndianRupee, text: 'Razorpay & Cashfree native' },
-  { icon: Activity, text: '99.9% uptime' },
+  { icon: Activity, text: '24/7 uptime monitoring' },
 ];
 
 export function TrustStrip() {

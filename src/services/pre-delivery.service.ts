@@ -188,29 +188,22 @@ export class PreDeliveryService {
       }
       creditReserved = true;
 
-      // Prepare customer copy
+      // Prepare Meta-approved Utility Template (ndr_predelivery_en) components
       const customerName = order.customerName || 'Customer';
       const storeName = merchant.storeName || merchant.name || 'our store';
       const carrierName = (order.carrier || carrierPayload?.carrier || 'our courier partner').toUpperCase();
-      const codNote =
-        order.paymentMethod === 'cod'
-          ? `(Amount to collect: ₹${order.orderValue || 0} via Cash or UPI). `
-          : '';
+      const language = merchant.settings?.whatsappLanguage || 'en';
 
-      const bodyText = COPY.preDeliveryNotice({
-        name: customerName,
-        orderId: order.externalOrderId,
-        store: storeName,
-        carrier: carrierName,
-        codNote,
-      });
-
-      // Interactive Action Buttons
-      const buttons = [
-        { id: `predelivery_confirm:${order._id}`, title: "✅ Yes, I'm home" },
-        { id: `reschedule:${order._id}`, title: '📅 Reschedule' },
-        { id: `address:${order._id}`, title: '📍 Update Address' },
-        { id: `cancel:${order._id}`, title: "❌ I don't want it" },
+      const components = [
+        {
+          type: 'body',
+          parameters: [
+            { type: 'text', text: customerName },
+            { type: 'text', text: String(order.externalOrderId || '') },
+            { type: 'text', text: storeName },
+            { type: 'text', text: carrierName },
+          ],
+        },
       ];
 
       // Decrypt merchant WhatsApp access token
@@ -229,11 +222,12 @@ export class PreDeliveryService {
         businessAccountId: merchant.whatsappConfig?.businessAccountId,
       };
 
-      // Dispatch WhatsApp interactive message
-      await whatsAppService.sendInteractiveButtons(
+      // Dispatch WhatsApp Meta-approved Utility Template message
+      await whatsAppService.sendTemplate(
         order.customerPhone,
-        bodyText,
-        buttons,
+        'ndr_predelivery_en',
+        language,
+        components,
         waConfig
       );
 
@@ -252,8 +246,8 @@ export class PreDeliveryService {
       await recordOutbound({
         orderId: order._id.toString(),
         merchantId: merchant._id.toString(),
-        templateName: 'predelivery_confirmation',
-        body: bodyText,
+        templateName: 'ndr_predelivery_en',
+        body: `Hi ${customerName}! Your order ${order.externalOrderId} (${storeName}) is out for delivery today with ${carrierName}. Will you be available to receive it?`,
         hasDiscount: false,
       });
 

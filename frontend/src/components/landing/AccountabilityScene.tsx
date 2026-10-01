@@ -13,6 +13,7 @@ export function AccountabilityScene() {
                 <span className="account__log-dot account__log-dot--amber" aria-hidden="true" />
                 <span className="account__log-dot account__log-dot--green" aria-hidden="true" />
                 <span className="account__log-title">courier_telemetry.log</span>
+                <span className="account__log-sample">sample case</span>
               </div>
               <div className="account__log" role="region" aria-label="Courier audit log">
                 <div className="account__log-row">

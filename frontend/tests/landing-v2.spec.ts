@@ -87,7 +87,7 @@ test.describe('Landing Page v2 Specifications', () => {
     await expect(roiOut).toContainText('~450');
     await expect(roiOut).toContainText('failed deliveries intercepted / month');
     await expect(roiOut).toContainText('~270');
-    await expect(roiOut).toContainText('rescued at a 60% rescue rate');
+    await expect(roiOut).toContainText('rescued at a typical 60% rescue rate');
     await expect(roiOut).toContainText('67,500');
     await expect(roiOut).toContainText('freight saved / month');
     await expect(roiOut.locator('.roi__out-plan-name')).toHaveText('Growth');
@@ -107,7 +107,7 @@ test.describe('Landing Page v2 Specifications', () => {
     await expect(roiPlanName).toHaveText('Scale');
   });
 
-  test('4. Break-even line: renders coverage multiple > 1 for default values', async ({ page }) => {
+  test('4. Break-even line: renders coverage multiple > 1 and 90-day guarantee banner', async ({ page }) => {
     const breakeven = page.locator('.pricing__breakeven-text');
     await expect(breakeven).toBeVisible();
     const breakevenText = await breakeven.textContent();
@@ -118,11 +118,21 @@ test.describe('Landing Page v2 Specifications', () => {
     expect(match).not.toBeNull();
     const coverageMultiplier = parseFloat(match![1]);
     expect(coverageMultiplier).toBeGreaterThan(1);
+
+    // Verify 90-day guarantee banner
+    const guarantee = page.locator('.pricing__guarantee');
+    await expect(guarantee).toBeVisible();
+    await expect(guarantee).toContainText('90-day guarantee');
+    await expect(guarantee).toContainText("if your ROI ledger doesn't cover the license fee, we refund the difference");
   });
 
-  test('5. FAQ: accordion expands and collapses with correct aria-expanded state', async ({ page }) => {
+  test('5. FAQ: renders 6 items and accordion expands/collapses with correct aria-expanded state', async ({ page }) => {
     const faqSection = page.locator('.faq');
     await expect(faqSection).toBeVisible();
+
+    // Verify 6 FAQ items
+    const faqItems = page.locator('.faq__item');
+    await expect(faqItems).toHaveCount(6);
 
     // First question button aria-expanded is initially 'true'
     const firstFaqBtn = page.locator('.faq__q').first();
@@ -198,9 +208,20 @@ test.describe('Landing Page v2 Specifications', () => {
     await expect(banner).toContainText('CANCELLED PRE-TRANSIT');
   });
 
-  test('7. Timeline renders 8 steps with first step containing "Risk gate"', async ({ page }) => {
+  test('7. Timeline renders 8 steps, updated 11:49 copy, TrustStrip badges, and sample case tag', async ({ page }) => {
     const beats = page.locator('.lp-reel__beat');
     await expect(beats).toHaveCount(8);
     await expect(beats.first()).toContainText('Risk gate');
+    await expect(beats.nth(5)).toContainText('Escalation raised · attempt flagged · next-day slot committed to carrier');
+
+    // TrustStrip assertions
+    const trust = page.locator('.trust');
+    await expect(trust).toBeVisible();
+    await expect(trust).toContainText('24/7 uptime monitoring');
+    await expect(trust).toContainText('Privacy-first data handling');
+
+    // AccountabilityScene sample case tag
+    const logHeader = page.locator('.account__log-header');
+    await expect(logHeader).toContainText('sample case');
   });
 });

@@ -1334,6 +1334,18 @@ section[id] {
   margin-left: var(--space-2);
 }
 
+.account__log-sample {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-3);
+  margin-left: auto;
+  padding: 1px 6px;
+  background: var(--white-05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  letter-spacing: 0.04em;
+}
+
 .account__log {
   padding: var(--space-4);
   font-family: var(--font-mono);

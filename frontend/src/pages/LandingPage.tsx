@@ -120,7 +120,7 @@ const REEL_BEATS = [
   { tag: '11:47', role: 'wound', t: '“Door locked.” No knock.', d: 'Logged four minutes after the scan. No call, no doorbell.' },
   { tag: '11:47', role: 'engine', t: 'RescueShip intercepts.', d: 'The NDR is caught before the return journey begins.' },
   { tag: '11:48', role: 'engine', t: 'WhatsApp: “are you home?”', d: 'Verification, never accusation. The customer taps Yes.' },
-  { tag: '11:49', role: 'engine', t: 'Fake attempt escalated. Re-delivery locked.', d: 'Supervisor escalation filed; next-day slot committed to the carrier.' },
+  { tag: '11:49', role: 'engine', t: 'Fake attempt escalated. Re-delivery locked.', d: 'Escalation raised · attempt flagged · next-day slot committed to carrier' },
   { tag: '15:20', role: 'rescue', t: 'Delivered. ₹1,240 kept.', d: 'No reverse freight. No repack. No wasted ad spend.' },
   { tag: '15:21', role: 'engine', t: 'The loop learns.', d: 'Outcome + failure source feed your pincode risk index. Tomorrow routes smarter.' },
 ];

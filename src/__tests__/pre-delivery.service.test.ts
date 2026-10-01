@@ -27,6 +27,7 @@ jest.mock('../models', () => ({
 jest.mock('../services/whatsapp.service', () => ({
   whatsAppService: {
     sendInteractiveButtons: jest.fn().mockResolvedValue({ messaging_product: 'whatsapp' }),
+    sendTemplate: jest.fn().mockResolvedValue({ messaging_product: 'whatsapp' }),
   },
 }));
 
@@ -202,15 +203,19 @@ describe('PreDeliveryService', () => {
       const sent = await preDeliveryService.evaluateAndSendPreDelivery(order, mockMerchant, { carrier: 'Delhivery' });
       expect(sent).toBe(true);
 
-      // Verify WhatsApp interactive message was sent
-      expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
+      // Verify WhatsApp template message was sent
+      expect(whatsAppService.sendTemplate).toHaveBeenCalledWith(
         order.customerPhone,
-        expect.stringContaining('out for delivery today'),
+        'ndr_predelivery_en',
+        'en',
         expect.arrayContaining([
-          expect.objectContaining({ title: "✅ Yes, I'm home" }),
-          expect.objectContaining({ title: '📅 Reschedule' }),
-          expect.objectContaining({ title: '📍 Update Address' }),
-          expect.objectContaining({ title: "❌ I don't want it" }),
+          expect.objectContaining({
+            type: 'body',
+            parameters: expect.arrayContaining([
+              { type: 'text', text: order.customerName },
+              { type: 'text', text: order.externalOrderId },
+            ]),
+          }),
         ]),
         expect.any(Object)
       );

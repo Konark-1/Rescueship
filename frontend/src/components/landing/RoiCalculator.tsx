@@ -116,7 +116,7 @@ export function RoiCalculator({ orders, onOrdersChange }: RoiCalculatorProps) {
 
               <div className="roi__out-row">
                 <span className="roi__out-metric">~{rescued}</span>
-                <span className="roi__out-label">rescued at a 60% rescue rate</span>
+                <span className="roi__out-label">rescued at a typical 60% rescue rate</span>
               </div>
             </div>
 

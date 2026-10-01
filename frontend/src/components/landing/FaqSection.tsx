@@ -11,27 +11,32 @@ const FAQS: FaqItem[] = [
   {
     id: 'faq-1',
     q: 'Will this spam my customers?',
-    a: 'No. Max 3 messages per failed-delivery episode, Utility templates only, 60-second cooldown, and permanent opt-out is honored.',
+    a: 'No. Max 3 messages per failed-delivery episode, a 60-second cooldown between messages, and only Meta-approved Utility templates — no marketing blasts, no quiet-hour violations. If a customer ever asks to stop, that number is permanently suppressed.',
   },
   {
     id: 'faq-2',
-    q: 'Are the WhatsApp templates approved?',
-    a: 'Yes — four Meta-approved UTILITY templates. No marketing quiet-hours, prioritized delivery.',
+    q: 'How long does setup take?',
+    a: 'About 3 minutes. Connect your Shopify or WooCommerce store and your courier account — Shiprocket, Delhivery, or ClickPost. You start in Sandbox mode, where test rescues go to your own phone, and go live only when you\'re ready.',
   },
   {
     id: 'faq-3',
-    q: 'What if the courier ignores the reschedule?',
-    a: 'Dates are committed through carrier APIs (Shiprocket, Delhivery, ClickPost) and re-escalated at 4h / 12h / 24h until confirmed.',
+    q: "What if the customer doesn't respond?",
+    a: "Reminders go out at 4, 12, and 24 hours. If there's still silence before the return window closes, the order follows your courier's normal return process — and the full cost of that silence appears in your ROI ledger.",
   },
   {
     id: 'faq-4',
-    q: 'What data do you store?',
-    a: 'Order ID, phone, pincode, and delivery outcome. Encrypted at rest; audit logs auto-delete after 90 days; DPDP-ready processor terms.',
+    q: 'What if a re-attempt fails again?',
+    a: "Reschedule dates are written straight into your courier's system via API. If the re-attempt still fails, the case re-opens automatically and moves to the next rescue path — address fix, UPI conversion, or RTO arrest. Nothing is left hanging.",
   },
   {
     id: 'faq-5',
+    q: 'What data do you store?',
+    a: 'Only what a rescue needs: order ID, phone number, pincode, delivery outcome, and the WhatsApp conversation for that order. Courier and payment credentials are encrypted with AES-256-GCM; audit logs and delivery attempts auto-delete after 90 days. Full details in our Privacy Policy and Data Processor Addendum.',
+  },
+  {
+    id: 'faq-6',
     q: "What if it doesn't pay for itself?",
-    a: "30-day guarantee: if rescues don't cover your fee, full refund.",
+    a: "Every rescue is logged with its rupee value in your ROI ledger. If, by the end of your 90-day license, the ledger doesn't show savings above what you paid — we refund the difference. No arguments, no fine print.",
   },
 ];
 

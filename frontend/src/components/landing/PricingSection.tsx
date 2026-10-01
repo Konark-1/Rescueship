@@ -45,7 +45,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         <div className="pricing__guarantee" role="region" aria-label="Money back guarantee">
           <span className="pricing__guarantee-icon" aria-hidden="true">🛡️</span>
           <span className="pricing__guarantee-text">
-            <strong>30-day guarantee</strong> — if rescues don&apos;t cover your fee, full refund. No questions.
+            <strong>90-day guarantee</strong> — if your ROI ledger doesn&apos;t cover the license fee, we refund the difference.
           </span>
         </div>
 
