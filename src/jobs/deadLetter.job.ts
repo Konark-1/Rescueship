@@ -11,7 +11,16 @@ export const deadLetterWorker = new Worker(
       error: errorMessage,
     });
     
-    // In production, we would hook up SendGrid/SES, Slack hooks, or PagerDuty here.
+    try {
+      const { emailService } = await import('../services/email.service');
+      await emailService.sendEmail({
+        to: 'konarkofficial@gmail.com',
+        subject: `🚨 [RescueShip DLQ Alert] Job ${jobId} in queue "${originalQueue}" failed`,
+        text: `Dead-letter queue alert:\nJob: ${jobId}\nQueue: ${originalQueue}\nError: ${errorMessage}\nTimestamp: ${new Date().toISOString()}`,
+      });
+    } catch (mailErr: any) {
+      logger.warn('Failed to send DLQ email alert', { error: mailErr?.message });
+    }
   },
   {
     connection: redisConnection as any,

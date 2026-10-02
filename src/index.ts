@@ -274,6 +274,7 @@ import metricsRouter from './api/metrics.api';
 import plgRouter from './api/plg.api';
 import aiRouter from './api/ai.api';
 import dashboardRouter from './api/dashboard.api';
+import liveopsRouter from './api/liveops.api';
 import { startQualityMonitorWorker } from './jobs/quality-monitor.job';
 import { startTemplatePollerWorker } from './jobs/template-poller.job';
 import { authenticateToken } from './middleware/auth';
@@ -315,6 +316,7 @@ app.use('/api/templates', apiLimiter, standardMerchantLimiter, templatesRouter);
 app.use('/api/billing', apiLimiter, standardMerchantLimiter, billingRouter);
 app.use('/api/audit-logs', apiLimiter, standardMerchantLimiter, auditLogsRouter);
 app.use('/api/realtime', apiLimiter, standardMerchantLimiter, realtimeRouter);
+app.use('/api/liveops', apiLimiter, liveopsRouter);
 
 
 // Export API — stricter per-merchant limit (5 req/min)
