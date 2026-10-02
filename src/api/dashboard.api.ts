@@ -33,21 +33,21 @@ router.get('/summary', authenticateToken, async (req: AuthenticatedRequest, res:
     const [rescuedCount, conversionCount, rtoArrestCount, sumRtoResult, ordersNeedingAttention] = await Promise.all([
       // Count of orders with status 'ndr_rescued' this month
       Order.countDocuments({
-        merchantId,
+        merchantId: mId,
         status: 'ndr_rescued',
         createdAt: { $gte: startOfMonth },
       }),
 
       // Count of orders with status 'converted_to_prepaid' this month
       Order.countDocuments({
-        merchantId,
+        merchantId: mId,
         status: 'converted_to_prepaid',
         createdAt: { $gte: startOfMonth },
       }),
 
       // Count of orders with rtoArrestStatus: 'RESCUED' (or status === 'ndr_rescued' and rtoArrestAttemptedAt != null)
       Order.countDocuments({
-        merchantId,
+        merchantId: mId,
         $or: [
           { rtoArrestStatus: 'RESCUED' },
           { status: 'ndr_rescued', rtoArrestAttemptedAt: { $ne: null } },
@@ -74,7 +74,7 @@ router.get('/summary', authenticateToken, async (req: AuthenticatedRequest, res:
       // Orders needing attention: status in ['ndr_detected', 'ndr_pending_review', 'ndr_rescue_sent']
       // or failureSource: 'COURIER_REPORTED' and status not in ['delivered', 'cancelled', 'rto']
       Order.find({
-        merchantId,
+        merchantId: mId,
         $or: [
           { status: { $in: ['ndr_detected', 'ndr_pending_review', 'ndr_rescue_sent'] } },
           {
