@@ -2,35 +2,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import './sandbox.css';
 
-/* ─── API client ─── */
-const TOKEN_KEY = 'token';
-const getToken = () => localStorage.getItem(TOKEN_KEY);
-async function api<T = any>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-      ...init?.headers,
-    },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed (${res.status})`);
-  }
-  return res.json();
-}
+import api from '../services/api';
 
 const sandboxApi = {
-  status: () => api('/sandbox/status'),
+  status: () => api.get('/api/sandbox/status').then((r) => r.data),
   toggle: (enabled: boolean) =>
-    api('/sandbox/toggle', { method: 'POST', body: JSON.stringify({ enabled }) }),
-  simulate: () => api('/sandbox/simulate-ndr', { method: 'POST' }),
-  graduate: () => api('/sandbox/graduate', { method: 'POST' }),
-  alerts: () => api('/sandbox/alerts'),
+    api.post('/api/sandbox/toggle', { enabled }).then((r) => r.data),
+  simulate: () => api.post('/api/sandbox/simulate-ndr').then((r) => r.data),
+  graduate: () => api.post('/api/sandbox/graduate').then((r) => r.data),
+  alerts: () => api.get('/api/sandbox/alerts').then((r) => r.data),
   alertRead: (id: string) =>
-    api(`/sandbox/alerts/${id}/read`, { method: 'POST' }),
-  quality: () => api('/sandbox/quality'),
+    api.post(`/api/sandbox/alerts/${id}/read`).then((r) => r.data),
+  quality: () => api.get('/api/sandbox/quality').then((r) => r.data),
 };
 
 /* ─── Types ─── */
