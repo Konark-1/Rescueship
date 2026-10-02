@@ -16,26 +16,27 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
   suffix = '',
   decimals = 0,
   className = '',
-  animateOnView = true,
+  animateOnView = false,
 }) => {
   const containerRef = useRef<HTMLSpanElement>(null);
-  const isInView = useInView(containerRef, { once: true, amount: 0.3 });
+  const isInView = useInView(containerRef, { once: true, amount: 0.1 });
   
-  const [displayValue, setDisplayValue] = useState('0');
+  const [displayValue, setDisplayValue] = useState<string>(() =>
+    Math.round(value).toLocaleString(undefined, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    })
+  );
   const currentValueRef = useRef(0);
-  const isFirstRenderRef = useRef(true);
 
   useEffect(() => {
-    if (!animateOnView || isInView) {
+    const shouldAnimate = !animateOnView || isInView;
+    if (shouldAnimate) {
       const startVal = currentValueRef.current;
       const endVal = value;
 
-      // First time opening animation: 2.0s | Value switching: 1.0s
-      const animDuration = isFirstRenderRef.current ? 2.0 : 1.0;
-      isFirstRenderRef.current = false;
-
       const controls = animate(startVal, endVal, {
-        duration: animDuration,
+        duration: 0.9,
         ease: 'easeOut',
         onUpdate(latest) {
           currentValueRef.current = latest;
@@ -48,10 +49,23 @@ export const AnimatedCounter: React.FC<AnimatedCounterProps> = ({
         },
         onComplete() {
           currentValueRef.current = endVal;
+          setDisplayValue(
+            Math.round(endVal).toLocaleString(undefined, {
+              minimumFractionDigits: decimals,
+              maximumFractionDigits: decimals,
+            })
+          );
         },
       });
 
       return () => controls.stop();
+    } else {
+      setDisplayValue(
+        Math.round(value).toLocaleString(undefined, {
+          minimumFractionDigits: decimals,
+          maximumFractionDigits: decimals,
+        })
+      );
     }
   }, [isInView, value, animateOnView, decimals]);
 
