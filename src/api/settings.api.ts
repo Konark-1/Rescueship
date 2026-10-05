@@ -398,7 +398,7 @@ router.put('/', authenticateToken, limitOnlyCredentialChanges, async (req: Authe
       // Apply general settings updates
     if (updates.settings) {
       // MED-3 fix: Whitelist allowed setting fields to prevent arbitrary injection
-      const allowedCodFields = ['enabled', 'incentiveType', 'incentiveAmount', 'minOrderValue', 'maxOrderValue', 'messageTemplate', 'expiryMinutes', 'messageLanguage'];
+      const allowedCodFields = ['enabled', 'incentiveType', 'incentiveAmount', 'discountCap', 'minOrderValue', 'maxOrderValue', 'messageTemplate', 'expiryMinutes', 'messageLanguage'];
       const allowedNdrFields = ['enabled', 'escalationChain', 'maxAttempts', 'autoReschedule', 'returnCoupon', 'addressCorrectionMode', 'escalationEnabled', 'messageLanguage', 'rtoArrestEnabled'];
 
       // AI provider preference
@@ -417,6 +417,7 @@ router.put('/', authenticateToken, limitOnlyCredentialChanges, async (req: Authe
         if ('enabled' in c && typeof c.enabled !== 'boolean') { res.status(400).json({ error: 'codConversion.enabled must be boolean' }); return; }
         if ('incentiveType' in c && !['flat', 'percentage'].includes(c.incentiveType)) { res.status(400).json({ error: 'Invalid incentiveType' }); return; }
         if ('incentiveAmount' in c && !isNum(c.incentiveAmount, 0, 100000)) { res.status(400).json({ error: 'Invalid incentiveAmount' }); return; }
+        if ('discountCap' in c && !isNum(c.discountCap, 0, 100000)) { res.status(400).json({ error: 'Invalid discountCap' }); return; }
         if ('minOrderValue' in c && !isNum(c.minOrderValue, 0, 10000000)) { res.status(400).json({ error: 'Invalid minOrderValue' }); return; }
         if ('maxOrderValue' in c && !isNum(c.maxOrderValue, 0, 10000000)) { res.status(400).json({ error: 'Invalid maxOrderValue' }); return; }
         if ('expiryMinutes' in c && !isNum(c.expiryMinutes, 5, 10080)) { res.status(400).json({ error: 'Invalid expiryMinutes' }); return; }

@@ -61,6 +61,7 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
           wabaId: (m as any).whatsappConfig?.wabaId || null,
         },
         carrier: c.carrier || { status: 'disconnected' },
+        carriers: c.carriers || {},
         payment: c.payment || { status: 'disconnected' },
       },
       templates,
@@ -369,17 +370,12 @@ router.post('/carrier', authenticateToken, credentialValidationLimiter, async (r
 });
 
 router.post('/carrier/disconnect', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const merchant = await Merchant.findById(req.merchant!.merchantId);
-  if (!merchant) return res.status(404).json({ error: 'not found' });
-  (merchant as any).carrierConfig = undefined;
-  if ((merchant as any).connections) {
-    (merchant as any).connections.carrier = { status: 'disconnected', lastError: null };
-    merchant.markModified('connections');
+  try {
+    const result = await carrierConnectService.disconnectCarrier(req.merchant!.merchantId, req.body?.provider);
+    res.json(result);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
   }
-  merchant.markModified('carrierConfig');
-  await merchant.save();
-  logger.info('Carrier disconnected', { merchantId: req.merchant!.merchantId });
-  res.json({ ok: true, status: 'disconnected' });
 });
 
 // Per-merchant carrier webhook URL + secret (paste into carrier panel).

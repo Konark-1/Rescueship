@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, ShoppingBag, Settings, MessageSquare,
-  CreditCard, FileText, LogOut, Menu, X, Code, BarChart2
+  CreditCard, FileText, LogOut, Menu, X, Code, BarChart2, Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import '../styles/app.css';
@@ -43,6 +43,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'System',
     items: [
+      { name: 'Integrations', path: '/onboarding', icon: <Truck size={17} /> },
       { name: 'Billing', path: '/billing', icon: <CreditCard size={17} /> },
       { name: 'Audit Logs', path: '/audit-logs', icon: <FileText size={17} /> },
       { name: 'API Docs', path: '/docs', icon: <Code size={17} /> },

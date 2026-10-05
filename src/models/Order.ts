@@ -26,7 +26,7 @@ export interface IOrder extends Document {
   outForDeliveryAt?: Date | null;
   lastEventTimestamp?: Date | null;
   awb?: string | null;
-  carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | null;
+  carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | null;
   paymentLinkId?: string | null;
   paymentLinkUrl?: string | null;
   rtoFeeSaved?: number;
@@ -53,6 +53,10 @@ export interface IOrder extends Document {
     decisionClaimedAt?: Date;
     lastOutboundAt?: Date;
     lastOutboundMerchantId?: Types.ObjectId;
+    scheduledSlot?: string;
+    retentionOffered?: boolean;
+    retentionDiscount?: number;
+    retentionFinalAmount?: number;
     addressCorrectionStep?: any;
     addressUpdate?: {
       method?: 'location' | 'text' | 'both';
@@ -120,7 +124,7 @@ const OrderSchema = new Schema<IOrder>(
     awb: { type: String, default: null, index: true },
     outForDeliveryAt: { type: Date, default: null },
     lastEventTimestamp: { type: Date, default: null },
-    carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', null], default: null },
+    carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', 'bluedart', 'xpressbees', 'shadowfax', null], default: null },
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },
     rtoFeeSaved: { type: Number, default: 0 },
@@ -151,6 +155,10 @@ const OrderSchema = new Schema<IOrder>(
       decisionClaimedAt: { type: Date },
       lastOutboundAt: { type: Date },
       lastOutboundMerchantId: { type: Schema.Types.ObjectId, ref: 'Merchant' },
+      scheduledSlot: { type: String, default: null },
+      retentionOffered: { type: Boolean, default: false },
+      retentionDiscount: { type: Number, default: null },
+      retentionFinalAmount: { type: Number, default: null },
       addressCorrectionStep: { type: Schema.Types.Mixed },
       addressUpdate: {
         method: { type: String, enum: ['location', 'text', 'both', null], default: null },

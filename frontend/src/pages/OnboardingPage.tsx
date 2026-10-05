@@ -93,8 +93,12 @@ export default function OnboardingPage() {
   };
 
   useEffect(() => {
+    const stationParam = params.get('station') as Key | null;
+    if (stationParam && STATIONS.some((s) => s.key === stationParam)) {
+      setActive(stationParam);
+    }
     refresh().then((s: any) => {
-      if (s?.connections) {
+      if (s?.connections && !params.get('station')) {
         const isStoreConnected = s.connections.shopify?.status === 'connected' || s.connections.woocommerce?.status === 'connected';
         if (isStoreConnected) {
           const nextIncomplete = STATIONS.find((st) => {
@@ -108,7 +112,7 @@ export default function OnboardingPage() {
       }
     });
     return () => clearInterval(pollRef.current);
-  }, [token]);
+  }, [token, params]);
 
   useEffect(() => {
     if (params.get('connected') === 'shopify') {
@@ -248,22 +252,23 @@ export default function OnboardingPage() {
       setBusy(null);
     }
   };
-  const connectCarrier = async (provider: string, email: string, password: string, apiToken: string, apiKey: string) => {
+  const connectCarrier = async (creds: any) => {
+    const provider = creds.provider;
     setBusy('carrier'); setErr(null); push(`› validating ${provider} credentials…`);
     try {
-      await connectApi.carrier(token!, { provider, email, password, apiToken, apiKey });
-      push(`✓ ${provider} validated`);
+      await connectApi.carrier(token!, creds);
+      push(`✓ ${provider} validated & connected`);
       await refresh();
       advanceToNext('carrier');
       setBusy(null);
     }
     catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
   };
-  const handleDisconnectCarrier = async () => {
-    setBusy('carrier'); setErr(null); push('› disconnecting courier…');
+  const handleDisconnectCarrier = async (provider?: string) => {
+    setBusy('carrier'); setErr(null); push(`› disconnecting ${provider || 'courier'}…`);
     try {
-      await connectApi.carrierDisconnect(token!);
-      push('✓ courier disconnected');
+      await connectApi.carrierDisconnect(token!, provider);
+      push(`✓ ${provider || 'courier'} disconnected`);
       await refresh();
       setBusy(null);
     } catch (e: any) {
@@ -356,6 +361,16 @@ export default function OnboardingPage() {
         <span className="ob-topbar__pct" role="progressbar" aria-label="Onboarding setup progress" aria-valuenow={Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)} aria-valuemin={0} aria-valuemax={100}>{Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}% ready</span>
         {user && (
           <div className="ob-topbar__actions">
+            {user.onboardingStatus !== 'pending' && (
+              <button
+                type="button"
+                onClick={() => nav('/dashboard')}
+                className="ob-btn ob-btn--ghost"
+                style={{ marginRight: 8, padding: '4px 12px', fontSize: '0.85rem' }}
+              >
+                ← Back to Dashboard
+              </button>
+            )}
             <span className="ob-topbar__email">
               {user.email}
             </span>
@@ -485,7 +500,17 @@ export default function OnboardingPage() {
                   connectionDetails={state?.connections?.whatsapp}
                 />
               )}
-              {active === 'carrier' && <CarrierForm onConnect={connectCarrier} onDisconnect={handleDisconnectCarrier} busy={busy === 'carrier'} done={done('carrier')} provider={state?.connections?.carrier?.provider} />}
+              {active === 'carrier' && (
+                <CarrierForm
+                  onConnect={connectCarrier}
+                  onDisconnect={handleDisconnectCarrier}
+                  busy={busy === 'carrier'}
+                  done={done('carrier')}
+                  provider={state?.connections?.carrier?.provider}
+                  carriers={state?.connections?.carriers}
+                  token={token}
+                />
+              )}
               {active === 'payment' && <PaymentForm onConnect={connectPayment} busy={busy === 'payment'} done={done('payment')} gateway={state?.connections?.payment?.gateway} />}
 
               {err && <p className="ob-err" role="alert" aria-live="polite"><AlertTriangle size={14} aria-hidden="true" /> {err}</p>}
@@ -893,39 +918,203 @@ function WhatsAppPanel({
   );
 }
 
-function CarrierForm({ onConnect, onDisconnect, busy, done, provider }: any) {
-  const [p, setP] = useState<'shiprocket' | 'delhivery' | 'clickpost'>('shiprocket');
-  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [apiToken, setApiToken] = useState(''); const [apiKey, setApiKey] = useState('');
-  return done ? (
+function CarrierForm({ onConnect, onDisconnect, busy, provider, carriers, token }: any) {
+  type ProviderType = 'shiprocket' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'clickpost';
+  const [p, setP] = useState<ProviderType>('shiprocket');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [apiToken, setApiToken] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [loginId, setLoginId] = useState('');
+  const [licenseKey, setLicenseKey] = useState('');
+  const [customerCode, setCustomerCode] = useState('');
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [webhookData, setWebhookData] = useState<any[]>([]);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  // Fetch webhook URLs for connected carriers
+  useEffect(() => {
+    if (token) {
+      connectApi.carrierWebhooks(token)
+        .then((res: any) => {
+          if (res?.carriers) setWebhookData(res.carriers);
+        })
+        .catch(() => {});
+    }
+  }, [token, provider, carriers]);
+
+  // Determine connected carriers list
+  const connectedCarriers: { provider: string; status: string }[] = [];
+  if (carriers && Object.keys(carriers).length > 0) {
+    for (const [key, val] of Object.entries(carriers)) {
+      if ((val as any)?.status === 'connected') {
+        connectedCarriers.push({ provider: key, status: 'connected' });
+      }
+    }
+  } else if (provider) {
+    connectedCarriers.push({ provider, status: 'connected' });
+  }
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onConnect({
+      provider: p,
+      email,
+      password,
+      apiToken,
+      apiKey,
+      loginId,
+      licenseKey,
+      customerCode,
+    });
+    setShowAddForm(false);
+  };
+
+  const copyToClipboard = (url: string) => {
+    navigator.clipboard.writeText(url);
+    setCopiedUrl(url);
+    setTimeout(() => setCopiedUrl(null), 2500);
+  };
+
+  const carrierLabels: Record<ProviderType, string> = {
+    shiprocket: 'Shiprocket',
+    delhivery: 'Delhivery',
+    bluedart: 'Blue Dart',
+    xpressbees: 'Xpressbees',
+    shadowfax: 'Shadowfax',
+    clickpost: 'ClickPost',
+  };
+
+  return (
     <div>
-      <Done provider={`Connected · ${provider}`} />
-      <div style={{ marginTop: '14px', textAlign: 'center' }}>
-        <button
-          type="button"
-          className="ob-btn ob-btn--ghost"
-          style={{ fontSize: '0.82rem', padding: '7px 16px', color: 'var(--text-2)' }}
-          disabled={busy}
-          onClick={onDisconnect}
-        >
-          {busy ? (
-            'Disconnecting…'
-          ) : (
+      {connectedCarriers.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-1)', marginBottom: '10px' }}>
+            Connected Couriers ({connectedCarriers.length})
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {connectedCarriers.map((c) => {
+              const hook = webhookData.find((w) => w.provider === c.provider);
+              return (
+                <div
+                  key={c.provider}
+                  style={{
+                    background: 'var(--white-02)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '12px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--text-1)', textTransform: 'capitalize' }}>
+                        {carrierLabels[c.provider as ProviderType] || c.provider}
+                      </span>
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+                        Active
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      className="ob-btn ob-btn--ghost"
+                      style={{ fontSize: '0.75rem', padding: '4px 10px', color: 'var(--rose)' }}
+                      disabled={busy}
+                      onClick={() => onDisconnect(c.provider)}
+                    >
+                      Disconnect
+                    </button>
+                  </div>
+
+                  {hook?.webhookUrl && (
+                    <div style={{ fontSize: '0.76rem', color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--white-03)', padding: '6px 10px', borderRadius: '4px' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '320px' }}>
+                        Webhook: <code>{hook.webhookUrl}</code>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(hook.webhookUrl)}
+                        style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
+                      >
+                        {copiedUrl === hook.webhookUrl ? 'Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {!showAddForm && (
+            <div style={{ marginTop: '14px', textAlign: 'center' }}>
+              <button
+                type="button"
+                className="ob-btn ob-btn--ghost"
+                style={{ fontSize: '0.82rem', padding: '7px 16px', color: 'var(--emerald)' }}
+                onClick={() => setShowAddForm(true)}
+              >
+                + Connect another courier (e.g. Shiprocket + Blue Dart)
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(connectedCarriers.length === 0 || showAddForm) && (
+        <form className="ob-form" onSubmit={handleFormSubmit}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-2)' }}>Select Courier to Connect</span>
+            {showAddForm && connectedCarriers.length > 0 && (
+              <button type="button" onClick={() => setShowAddForm(false)} style={{ background: 'none', border: 'none', color: 'var(--text-3)', fontSize: '0.75rem', cursor: 'pointer' }}>Cancel</button>
+            )}
+          </div>
+
+          <div className="ob-seg" style={{ flexWrap: 'wrap', gap: '4px' }}>
+            {(['shiprocket', 'delhivery', 'bluedart', 'xpressbees', 'shadowfax', 'clickpost'] as const).map((x) => (
+              <button type="button" key={x} className={p === x ? 'on' : ''} onClick={() => setP(x)}>
+                {carrierLabels[x]}
+              </button>
+            ))}
+          </div>
+
+          {p === 'shiprocket' && (
             <>
-              <RefreshCw size={14} aria-hidden="true" /> Disconnect or change courier
+              <Field label="Email"><input className="ob-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field>
+              <Field label="Password"><input className="ob-input" type="password" autoComplete="off" spellCheck={false} value={password} onChange={(e) => setPassword(e.target.value)} required /></Field>
             </>
           )}
-        </button>
-      </div>
+
+          {p === 'delhivery' && (
+            <Field label="API Token"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiToken} onChange={(e) => setApiToken(e.target.value)} placeholder="Delhivery Client Token" required /></Field>
+          )}
+
+          {p === 'bluedart' && (
+            <>
+              <Field label="Login ID"><input className="ob-input" autoComplete="off" spellCheck={false} value={loginId} onChange={(e) => setLoginId(e.target.value)} placeholder="Blue Dart Login ID" required /></Field>
+              <Field label="License Key"><input className="ob-input" type="password" autoComplete="off" spellCheck={false} value={licenseKey} onChange={(e) => setLicenseKey(e.target.value)} placeholder="Blue Dart License Key" required /></Field>
+              <Field label="Customer Code (Optional)"><input className="ob-input" autoComplete="off" spellCheck={false} value={customerCode} onChange={(e) => setCustomerCode(e.target.value)} placeholder="Customer Account Code" /></Field>
+            </>
+          )}
+
+          {p === 'xpressbees' && (
+            <Field label="Xpressbees API Key (XBKey)"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="XBKey from Xpressbees portal" required /></Field>
+          )}
+
+          {p === 'shadowfax' && (
+            <Field label="Shadowfax API Token"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiToken} onChange={(e) => setApiToken(e.target.value)} placeholder="Shadowfax Authorization Token" required /></Field>
+          )}
+
+          {p === 'clickpost' && (
+            <Field label="ClickPost API Key"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="ClickPost API Key" required /></Field>
+          )}
+
+          <p className="ob-note">We validate these directly against the carrier API before saving — dead keys are rejected, never stored.</p>
+          <button className="ob-btn" disabled={busy}>Validate & connect {carrierLabels[p]}</button>
+        </form>
+      )}
     </div>
-  ) : (
-    <form className="ob-form" onSubmit={(e) => { e.preventDefault(); onConnect(p, email, password, apiToken, apiKey); }}>
-      <div className="ob-seg">{(['shiprocket', 'delhivery', 'clickpost'] as const).map((x) => <button type="button" key={x} className={p === x ? 'on' : ''} onClick={() => setP(x)}>{x}</button>)}</div>
-      {p === 'shiprocket' ? (<><Field label="Email"><input className="ob-input" value={email} onChange={(e) => setEmail(e.target.value)} required /></Field><Field label="Password"><input className="ob-input" type="password" autoComplete="off" spellCheck={false} value={password} onChange={(e) => setPassword(e.target.value)} required /></Field></>)
-        : p === 'delhivery' ? <Field label="API token"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiToken} onChange={(e) => setApiToken(e.target.value)} required /></Field>
-        : <Field label="API key"><input className="ob-input" autoComplete="off" spellCheck={false} value={apiKey} onChange={(e) => setApiKey(e.target.value)} required /></Field>}
-      <p className="ob-note">We validate these against the carrier before saving — dead keys are rejected, never stored.</p>
-      <button className="ob-btn" disabled={busy}>Validate & connect</button>
-    </form>
   );
 }
 

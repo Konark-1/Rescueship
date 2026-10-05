@@ -8,6 +8,7 @@ interface SettingsState {
   codConversionEnabled: boolean;
   discountType: 'percentage' | 'flat';
   discountValue: number;
+  discountCap: number;
   rtoArrestEnabled: boolean;
   language: 'en' | 'hi';
   escalationRemindersEnabled: boolean;
@@ -93,6 +94,7 @@ export const SettingsPage: React.FC = () => {
     codConversionEnabled: true,
     discountType: 'percentage',
     discountValue: 5,
+    discountCap: 0,
     rtoArrestEnabled: true,
     language: 'en',
     escalationRemindersEnabled: true,
@@ -110,6 +112,7 @@ export const SettingsPage: React.FC = () => {
           codConversionEnabled: s.codConversion?.enabled ?? true,
           discountType: (s.codConversion?.incentiveType as 'percentage' | 'flat') || 'percentage',
           discountValue: s.codConversion?.incentiveAmount ?? 5,
+          discountCap: s.codConversion?.discountCap ?? 0,
           rtoArrestEnabled: s.rtoArrest?.enabled ?? (s.ndrRescue?.rtoArrestEnabled ?? true),
           language: (s.ndrRescue?.messageLanguage || s.codConversion?.messageLanguage || 'en') as 'en' | 'hi',
           escalationRemindersEnabled: s.ndrRescue?.escalationEnabled ?? true,
@@ -144,6 +147,7 @@ export const SettingsPage: React.FC = () => {
             enabled: settings.codConversionEnabled,
             incentiveType: settings.discountType,
             incentiveAmount: Number(settings.discountValue),
+            discountCap: Number(settings.discountCap) || 0,
             messageLanguage: settings.language,
           },
           rtoArrest: {
@@ -207,6 +211,21 @@ export const SettingsPage: React.FC = () => {
           {message.text}
         </div>
       )}
+
+      {/* Section 0: 🔌 Couriers & Multi-Carrier Hub */}
+      <section className="panel fade-in-up">
+        <div className="panel__head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+          <div>
+            <span className="panel__title">🔌 Couriers & Multi-Carrier Hub</span>
+            <p style={{ margin: '4px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>
+              Connect multi-carrier APIs (Shiprocket, Delhivery, Blue Dart, Xpressbees, Shadowfax, ClickPost) & copy carrier webhook URLs.
+            </p>
+          </div>
+          <Link to="/onboarding?station=carrier" className="btn btn-primary btn-sm">
+            Manage Couriers & Webhooks →
+          </Link>
+        </div>
+      </section>
 
       {/* Section 1: 🚚 Delivery Rescues */}
       <section className="panel fade-in-up">
@@ -278,6 +297,25 @@ export const SettingsPage: React.FC = () => {
                 disabled={!settings.codConversionEnabled}
               />
             </div>
+
+            {settings.discountType === 'percentage' && (
+              <div className="form-group">
+                <label className="form-label" htmlFor="discount-cap-input">
+                  Max Cap Limit (₹)
+                </label>
+                <input
+                  id="discount-cap-input"
+                  type="number"
+                  min="0"
+                  max="10000"
+                  className="form-control"
+                  placeholder="e.g. 100 (0 for no cap)"
+                  value={settings.discountCap}
+                  onChange={(e) => setSettings((s) => ({ ...s, discountCap: Number(e.target.value) }))}
+                  disabled={!settings.codConversionEnabled}
+                />
+              </div>
+            )}
           </div>
         </div>
       </section>

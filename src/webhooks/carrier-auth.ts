@@ -26,7 +26,7 @@ import { Merchant } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
 
-export type CarrierProvider = 'shiprocket' | 'clickpost' | 'delhivery';
+export type CarrierProvider = 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax';
 
 export interface CarrierAuthResult {
   ok: true;
@@ -88,9 +88,11 @@ export async function authenticateCarrierWebhook(
 
   const rawBody: Buffer | undefined = (req as any).rawBody;
   let perTenantSecret: string | undefined;
-  if (carrierConfig?.webhookSecret) {
+  const specificConfig = carrierConfig?.carriers?.[provider];
+  const targetSecretEncrypted = specificConfig?.webhookSecret || carrierConfig?.webhookSecret;
+  if (targetSecretEncrypted) {
     try {
-      perTenantSecret = encryptionService.decrypt(carrierConfig.webhookSecret);
+      perTenantSecret = encryptionService.decrypt(targetSecretEncrypted);
     } catch (err: any) {
       logger.error('Carrier webhook secret cannot be decrypted; rejecting until reconnected', { merchantId: merchantIdStr, provider });
       return { ok: false, status: 401, error: `Invalid ${provider} signature` };

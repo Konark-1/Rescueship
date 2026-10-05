@@ -35,6 +35,53 @@ export interface NDREventData {
   attemptTime?: Date;
 }
 
+export function getISTDate(date: Date = new Date()): { istHour: number; istDayOfWeek: number; istDate: Date } {
+  const utcTime = date.getTime();
+  const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
+  const istDate = new Date(utcTime + istOffsetMs);
+  const istHour = istDate.getUTCHours();
+  const istDayOfWeek = istDate.getUTCDay(); // 0 = Sun, 1 = Mon, ..., 4 = Thu, 5 = Fri, 6 = Sat
+  return { istHour, istDayOfWeek, istDate };
+}
+
+export function isBeforeSameDayCutoff(attemptTime?: Date): boolean {
+  const time = attemptTime ? new Date(attemptTime) : new Date();
+  const { istHour } = getISTDate(time);
+  return istHour < 15; // Cutoff at 3:00 PM IST
+}
+
+export function getDeliveryTimingButtons(orderId: string, attemptTime?: Date): { bodyText: string; buttons: Array<{ id: string; title: string }> } {
+  const time = attemptTime ? new Date(attemptTime) : new Date();
+  const before3PM = isBeforeSameDayCutoff(time);
+  const { istDayOfWeek } = getISTDate(time);
+  const isThuFri = istDayOfWeek === 4 || istDayOfWeek === 5;
+
+  let bodyText: string;
+  const buttons: Array<{ id: string; title: string }> = [];
+
+  if (before3PM) {
+    bodyText = 'We could not confirm a delivery attempt at your doorstep. We have flagged this with delivery management. Delivery vans are still active in your area today.\n\nWhen should we deliver your order?';
+    buttons.push({ id: `resched:today:${orderId}`, title: '⚡ Deliver Today' });
+    buttons.push({ id: `resched:tomorrow:${orderId}`, title: '📅 Deliver Tomorrow' });
+    if (isThuFri) {
+      buttons.push({ id: `resched:weekend:${orderId}`, title: '🏖️ On Weekend' });
+    } else {
+      buttons.push({ id: `resched:day_after:${orderId}`, title: '📦 Day After' });
+    }
+  } else {
+    bodyText = 'We could not confirm a delivery attempt at your doorstep. We have flagged this with delivery management. Daytime delivery rounds in your area are completed for today.\n\nWhen should we deliver your order?';
+    buttons.push({ id: `resched:tomorrow:${orderId}`, title: '📅 Deliver Tomorrow' });
+    buttons.push({ id: `resched:day_after:${orderId}`, title: '📦 Day After' });
+    if (isThuFri) {
+      buttons.push({ id: `resched:weekend:${orderId}`, title: '🏖️ On Weekend' });
+    } else {
+      buttons.push({ id: `resched:weekend:${orderId}`, title: '🏖️ Next Slot' });
+    }
+  }
+
+  return { bodyText, buttons };
+}
+
 export class NDRService {
   private static instance: NDRService;
   private escalationQueue: Queue | null = null;
@@ -448,11 +495,57 @@ export class NDRService {
     return Math.min(1.0, score);
   }
 
-  private parseButtonPayload(payload: string): { action: 'reschedule' | 'address' | 'cancel' | 'pay_retention' | 'confirm_cancel' | 'predelivery_confirm'; subAction?: string; orderId?: string } | null {
+  public parseButtonPayload(payload: string): {
+    action:
+      | 'reschedule'
+      | 'address'
+      | 'address_skip'
+      | 'cancel'
+      | 'pay_retention'
+      | 'confirm_cancel'
+      | 'predelivery_confirm'
+      | 'verify_fake'
+      | 'verify_redeliver';
+    subAction?: string;
+    orderId?: string;
+  } | null {
     const raw = String(payload || '').trim();
     const parts = raw.split(':');
     if (parts.length >= 2) {
       const act = parts[0].toLowerCase();
+      if (act === 'verify') {
+        const sub = parts[1].toLowerCase();
+        const oId = parts[2]?.trim() || undefined;
+        if (sub === 'fake' || sub === 'did_not_visit' || sub === 'never_visited') {
+          return { action: 'verify_fake', subAction: 'fake', orderId: oId };
+        }
+        if (sub === 'redeliver' || sub === 'reattempt') {
+          return { action: 'verify_redeliver', subAction: 'redeliver', orderId: oId };
+        }
+        if (sub === 'cancel') {
+          return { action: 'cancel', orderId: oId };
+        }
+      }
+      if (act === 'resched' || act === 'reschedule') {
+        if (parts.length === 2) {
+          return { action: 'reschedule', subAction: 'tomorrow', orderId: parts[1].trim() || undefined };
+        }
+        return { action: 'reschedule', subAction: parts[1].toLowerCase(), orderId: parts[2]?.trim() || undefined };
+      }
+      if (act === 'address') {
+        const sub = parts[1].toLowerCase();
+        const oId = parts[2]?.trim() || undefined;
+        if (sub === 'skip' || sub === 'keep') {
+          return { action: 'address_skip', orderId: oId };
+        }
+        return { action: 'address', subAction: sub, orderId: oId };
+      }
+      if (act === 'retention' || act === 'pay_retention') {
+        return { action: 'pay_retention', orderId: parts[parts.length - 1]?.trim() || undefined };
+      }
+      if (act === 'confirm_cancel') {
+        return { action: 'confirm_cancel', orderId: parts[parts.length - 1]?.trim() || undefined };
+      }
       if (['reschedule', 'address', 'cancel', 'pay_retention', 'confirm_cancel', 'predelivery_confirm'].includes(act)) {
         if (parts.length === 2) {
           return { action: act as any, orderId: parts[1].trim() || undefined };
@@ -465,20 +558,30 @@ export class NDRService {
     if (/predelivery_confirm|yes_home|im_home|i'm home|available|yes,? i'm home/.test(t) && !/cancel|resched/.test(t)) {
       return { action: 'predelivery_confirm' };
     }
-    if (/resched|reattempt|tomorrow|deliver/.test(t)) {
+    if (/did\s*not\s*visit|never\s*visited|no\s*attempt|not\s*attempted|fake|rider\s*never|nobody\s*came|did\s*not\s*come/.test(t)) {
+      return { action: 'verify_fake' };
+    }
+    if (/attempt\s*redeliver|redeliver|try\s*again/.test(t) && !/cancel/.test(t)) {
+      return { action: 'verify_redeliver' };
+    }
+    if (/keep\s*address|skip|same\s*address|keep\s*current/.test(t)) {
+      return { action: 'address_skip' };
+    }
+    if (/resched|reattempt|tomorrow|deliver|today/.test(t) && !/cancel/.test(t)) {
       let subAction = 'tomorrow';
-      if (/day\s*after/i.test(t)) subAction = 'day_after';
+      if (/today/i.test(t)) subAction = 'today';
+      else if (/day\s*after/i.test(t)) subAction = 'day_after';
       else if (/weekend/i.test(t)) subAction = 'weekend';
       return { action: 'reschedule', subAction };
     }
-    if (/address|location|pin/.test(t)) {
+    if (/address|location|pin|change\s*address|update\s*address/.test(t)) {
       let subAction = 'both';
       if (/gps|pin/i.test(t) && !/text|landmark/i.test(t)) subAction = 'gps';
       else if (/landmark|text/i.test(t) && !/gps|pin/i.test(t)) subAction = 'text';
       return { action: 'address', subAction };
     }
-    if (/pay_retention|convert|prepaid/.test(t)) return { action: 'pay_retention' };
-    if (/confirm_cancel/.test(t)) return { action: 'confirm_cancel' };
+    if (/pay_retention|convert|prepaid|pay.*online|pay.*upi/i.test(t)) return { action: 'pay_retention' };
+    if (/confirm_cancel|cancel anyway|confirm.*cancel/i.test(t)) return { action: 'confirm_cancel' };
     if (/cancel|return|don'?t want|refuse/.test(t)) return { action: 'cancel' };
     return null;
   }
@@ -560,8 +663,12 @@ export class NDRService {
         return;
       }
 
-      if (order.status === 'ndr_rescued' || order.status === 'delivered') {
-        logger.info('Order already resolved', { orderId });
+      if (order.status === 'delivered' || order.status === 'returned') {
+        logger.info('Order already delivered or returned', { orderId });
+        return;
+      }
+      if (order.status === 'ndr_rescued' && (action === 'verify_fake' || action === 'verify_redeliver')) {
+        logger.info('Order already rescheduled / rescued', { orderId });
         return;
       }
 
@@ -582,27 +689,41 @@ export class NDRService {
         return;
       }
 
-      // Use the MERCHANT's carrier account; fall back to the platform Shiprocket account
-      // only when the merchant has not connected their own. Fail closed on bad ciphertext.
+      // Use the MERCHANT's carrier account; support multi-carrier map and single carrier fallback
       const cc: any = merchant.carrierConfig || {};
+      const targetCarrier = order.carrier || cc.provider || 'shiprocket';
+      const specificCarrierConfig = cc.carriers?.[targetCarrier] || (cc.provider === targetCarrier ? cc : {});
+
       let apiToken: string | undefined;
+      let apiKey: string | undefined;
       let carrierEmail: string | undefined;
       let carrierPassword: string | undefined;
+      let customerCode: string | undefined;
+      let licenseKey: string | undefined;
+      let loginId: string | undefined;
+
       try {
-        if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-        else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
-        if (cc.email) carrierEmail = encryptionService.decrypt(cc.email);
-        if (cc.password) carrierPassword = encryptionService.decrypt(cc.password);
+        if (specificCarrierConfig.apiToken) apiToken = encryptionService.decrypt(specificCarrierConfig.apiToken);
+        if (specificCarrierConfig.apiKey) apiKey = encryptionService.decrypt(specificCarrierConfig.apiKey);
+        if (specificCarrierConfig.email) carrierEmail = encryptionService.decrypt(specificCarrierConfig.email);
+        if (specificCarrierConfig.password) carrierPassword = encryptionService.decrypt(specificCarrierConfig.password);
+        if (specificCarrierConfig.customerCode) customerCode = encryptionService.decrypt(specificCarrierConfig.customerCode);
+        if (specificCarrierConfig.licenseKey) licenseKey = encryptionService.decrypt(specificCarrierConfig.licenseKey);
+        if (specificCarrierConfig.loginId) loginId = encryptionService.decrypt(specificCarrierConfig.loginId);
       } catch (err) {
-        logger.error('Stored carrier credentials cannot be decrypted; merchant must reconnect carrier', { merchantId: merchant._id });
+        logger.error('Stored carrier credentials cannot be decrypted; merchant must reconnect carrier', { merchantId: merchant._id, targetCarrier });
         throw new Error('Carrier credentials require reconnection');
       }
 
-      const carrierConfig = {
-        provider: order.carrier || cc.provider,
-        apiToken,
-        email: carrierEmail || config.shiprocket.email,
-        password: carrierPassword || config.shiprocket.password,
+      const carrierConfig: any = {
+        provider: targetCarrier,
+        apiToken: apiToken || apiKey,
+        apiKey: apiKey || apiToken,
+        email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+        password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
+        customerCode,
+        licenseKey,
+        loginId,
       };
 
       if (action === 'predelivery_confirm') {
@@ -611,9 +732,118 @@ export class NDRService {
         return;
       }
 
-      if (action === 'reschedule') {
+      if (action === 'verify_fake') {
+        if (!order.ndr) order.ndr = {} as any;
+        order.ndr.isFakeAttempt = true;
+        order.ndr.fakeRemarkScore = 1.0;
+        order.ndr.customerResponse = 'fake_remark_reported';
+        order.ndr.scheduledSlot = 'tomorrow';
+        if (typeof (order as any).save === 'function') await order.save();
+        else await Order.findByIdAndUpdate(order._id, { $set: { ndr: order.ndr } });
+
+        await NdrCase.findOneAndUpdate(
+          { orderId: order._id },
+          {
+            $set: {
+              customerResponseType: 'DENIAL_FAKE',
+              customerResponseAt: new Date(),
+              isFakeRemarkSuspicious: true,
+              resolutionType: 'fake_remark_escalated',
+            },
+          }
+        ).catch(() => {});
+
+        realtimeService.broadcast({
+          type: 'fake_remark_escalated',
+          merchantId: order.merchantId.toString(),
+          payload: {
+            orderId: order.externalOrderId,
+            awb: order.awb,
+            carrier: order.carrier,
+            reason: 'Customer reported delivery agent did not visit',
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        // 🛡️ Fail-Safe Autopilot: Pre-schedule next-day redelivery immediately with carrier.
+        // If customer drops off without replying further, order is safely rescued for tomorrow!
+        await this.rescheduleDelivery(order, merchant, 'tomorrow', { suppressMessage: true });
+
+        // Send Step 2A-1 Timing options (Deliver Today < 3PM vs Tomorrow vs Weekend/Day After)
+        const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          bodyText,
+          buttons,
+          this.getWaConfig(merchant)
+        );
+        return;
+      } else if (action === 'verify_redeliver') {
+        if (!order.ndr) order.ndr = {} as any;
+        order.ndr.customerResponse = 'reschedule_requested';
+        order.ndr.scheduledSlot = 'tomorrow';
+        if (typeof (order as any).save === 'function') await order.save();
+        else await Order.findByIdAndUpdate(order._id, { $set: { ndr: order.ndr } });
+
+        await NdrCase.findOneAndUpdate(
+          { orderId: order._id },
+          {
+            $set: {
+              customerResponseType: 'RESCHEDULE',
+              customerResponseAt: new Date(),
+              resolutionType: 'rescheduled',
+            },
+          }
+        ).catch(() => {});
+
+        // 🛡️ Fail-Safe Autopilot: Pre-schedule next-day redelivery immediately with carrier.
+        await this.rescheduleDelivery(order, merchant, 'tomorrow', { suppressMessage: true });
+
+        // Send Step 2B-1 Timing options
+        const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          bodyText,
+          buttons,
+          this.getWaConfig(merchant)
+        );
+        return;
+      } else if (action === 'reschedule') {
         const subChoice = parsed.subAction || 'tomorrow';
-        await this.rescheduleDelivery(order, merchant, subChoice);
+        if (!order.ndr) order.ndr = {} as any;
+        order.ndr.scheduledSlot = subChoice;
+        if (typeof (order as any).save === 'function') await order.save();
+        else await Order.findByIdAndUpdate(order._id, { $set: { 'ndr.scheduledSlot': subChoice } });
+
+        // Reschedule on carrier and advance customer to Step 2 (Address Confirmation with Skip)
+        await this.rescheduleDelivery(order, merchant, subChoice, { sendAddressStep: true });
+        return;
+      } else if (action === 'address_skip') {
+        const slot = order.ndr?.scheduledSlot;
+        const slotLabel = slot === 'today'
+          ? 'Today'
+          : slot === 'day_after'
+            ? 'Day After Tomorrow'
+            : slot === 'weekend'
+              ? 'the Weekend'
+              : 'Tomorrow';
+        const confirmMsg = `✅ Delivery confirmed for ${slotLabel} with your current address. We have notified the delivery hub for priority handling.`;
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          confirmMsg,
+          [],
+          this.getWaConfig(merchant)
+        );
+
+        await AuditLog.create({
+          merchantId: order.merchantId,
+          orderId: order._id,
+          action: 'customer_response_address_skip',
+          source: 'whatsapp_webhook',
+          payload: { buttonPayload, phone, slot: slotLabel },
+          status: 'success',
+        });
+        return;
       } else if (action === 'address') {
         const mode = parsed.subAction === 'gps'
           ? 'location_pin'
@@ -630,6 +860,7 @@ export class NDRService {
           order._id.toString(),
           mode as any
         );
+        return;
       } else if (action === 'cancel') {
         // ─── 🛡️ ANTI-EXPLOIT GUARD 1: Serial Abuser Cooldown (Anti-Farming) ───
         const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -647,36 +878,48 @@ export class NDRService {
           });
         }
 
-        // ─── ANTI-EXPLOIT RETENTION: Offer self-funding COD→Prepaid conversion ───
+        // ─── ANTI-EXPLOIT RETENTION: Offer dynamic self-funding COD→Prepaid conversion ───
         if (!isSerialAbuser && order.paymentMethod === 'cod' && !order.ndr?.retentionOffered) {
-          const incentiveType = merchant.settings?.codConversion?.incentiveType;
-          const incentiveAmount = merchant.settings?.codConversion?.incentiveAmount || 0;
+          const codSettings = merchant.settings?.codConversion || {};
+          const incentiveType = codSettings.incentiveType || 'flat';
+          const incentiveAmount = codSettings.incentiveAmount !== undefined ? codSettings.incentiveAmount : 100;
+          const discountCap = codSettings.discountCap;
 
           let discount = 0;
-          if (incentiveType === 'flat') discount = incentiveAmount;
-          else if (incentiveType === 'percentage') discount = Math.round((order.orderValue * incentiveAmount) / 100);
+          if (incentiveType === 'percentage') {
+            discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+            if (discountCap && discountCap > 0) {
+              discount = Math.min(discount, discountCap);
+            }
+          } else {
+            discount = incentiveAmount;
+          }
 
-          if (discount > 0 && order.orderValue > discount) {
-            const finalAmount = order.orderValue - discount;
+          if (discount > 0 && (order.orderValue || 0) > discount) {
+            const finalAmount = (order.orderValue || 0) - discount;
 
             if (!order.ndr) order.ndr = {} as any;
             order.ndr.retentionOffered = true;
+            order.ndr.retentionDiscount = discount;
+            order.ndr.retentionFinalAmount = finalAmount;
             order.ndr.customerResponse = 'cancel_retention_pending';
             await order.save();
+
+            await this.cancelEscalationJobs(order, merchant);
 
             const { orderService } = require('./order.service');
             const paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
 
             const retentionMsg = paymentLink?.shortUrl
-              ? `Before we cancel — convert to prepaid now and save ₹${discount}! Your new total is ₹${finalAmount}. Prepaid orders skip cash-collection queues and get priority dispatch.\n\nPay securely: ${paymentLink.shortUrl}`
-              : `Before we cancel — convert to prepaid now and save ₹${discount}! Your new total is ₹${finalAmount} via instant UPI.`;
+              ? `Before we cancel — convert to online payment now and save ₹${discount}! Your new total is ₹${finalAmount}. Prepaid orders skip cash-collection queues and get priority dispatch.\n\nPay securely: ${paymentLink.shortUrl}`
+              : `Before we cancel — convert to online payment now and save ₹${discount}! Your new total is ₹${finalAmount} via instant UPI.`;
 
             await whatsAppService.sendInteractiveButtons(
               order.customerPhone,
               retentionMsg,
               [
-                { id: `pay_retention:${order._id}`, title: `💳 Pay ₹${finalAmount} UPI` },
-                { id: `confirm_cancel:${order._id}`, title: '❌ No, cancel order' },
+                { id: `retention:pay:${order._id}`, title: `💳 Pay ₹${finalAmount} Online` },
+                { id: `confirm_cancel:${order._id}`, title: '⚠️ Cancel Anyway' },
               ],
               this.getWaConfig(merchant)
             );
@@ -739,13 +982,25 @@ export class NDRService {
           [],
           this.getWaConfig(merchant)
         );
+        return;
       } else if (action === 'pay_retention') {
-        const incentiveType = merchant.settings?.codConversion?.incentiveType;
-        const incentiveAmount = merchant.settings?.codConversion?.incentiveAmount || 0;
-        let discount = 0;
-        if (incentiveType === 'flat') discount = incentiveAmount;
-        else if (incentiveType === 'percentage') discount = Math.round((order.orderValue * incentiveAmount) / 100);
-        const finalAmount = order.orderValue - discount;
+        const codSettings = merchant.settings?.codConversion || {};
+        const incentiveType = codSettings.incentiveType || 'flat';
+        const incentiveAmount = codSettings.incentiveAmount !== undefined ? codSettings.incentiveAmount : 100;
+        const discountCap = codSettings.discountCap;
+
+        let discount = order.ndr?.retentionDiscount;
+        if (discount === undefined) {
+          if (incentiveType === 'percentage') {
+            discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+            if (discountCap && discountCap > 0) {
+              discount = Math.min(discount, discountCap);
+            }
+          } else {
+            discount = incentiveAmount;
+          }
+        }
+        const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 0) - (discount || 0));
 
         const { orderService } = require('./order.service');
         const paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
@@ -760,6 +1015,7 @@ export class NDRService {
           [],
           this.getWaConfig(merchant)
         );
+        return;
       } else if (action === 'confirm_cancel') {
         order.status = 'rto';
         if (order.ndr) {
@@ -804,6 +1060,7 @@ export class NDRService {
           [],
           this.getWaConfig(merchant)
         );
+        return;
       }
 
       await AuditLog.create({
@@ -892,11 +1149,15 @@ export class NDRService {
           }
         ).catch(() => {});
 
-        const fakeApology = 'We apologize for this experience. We have flagged this delivery attempt as suspicious with courier management and raised an immediate supervisor escalation to reschedule your delivery.';
+        // 🛡️ Fail-Safe Autopilot: Immediately pre-schedule next-day redelivery with carrier.
+        await this.rescheduleDelivery(order, merchant, 'tomorrow', { suppressMessage: true });
+
+        // Send Step 2A-1 Timing options (Deliver Today < 3PM vs Tomorrow vs Weekend/Day After)
+        const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
         await whatsAppService.sendInteractiveButtons(
           order.customerPhone,
-          fakeApology,
-          [],
+          bodyText,
+          buttons,
           this.getWaConfig(merchant)
         );
         return;
@@ -1015,12 +1276,16 @@ export class NDRService {
   public async rescheduleDelivery(
     order: any,
     merchant: any,
-    subChoice: string = 'tomorrow'
+    subChoice: string = 'tomorrow',
+    options?: { suppressMessage?: boolean; sendAddressStep?: boolean }
   ): Promise<{ success: boolean; dateStr: string; label: string; result?: any }> {
     let targetDate: Date;
     let label: string;
 
-    if (subChoice === 'day_after') {
+    if (subChoice === 'today') {
+      targetDate = new Date();
+      label = 'Today (Same-Day Priority)';
+    } else if (subChoice === 'day_after') {
       targetDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
       label = 'Day After Tomorrow';
     } else if (subChoice === 'weekend') {
@@ -1035,28 +1300,45 @@ export class NDRService {
     }
 
     const dateStr = targetDate.toISOString().split('T')[0];
+    const carrierReason = subChoice === 'today'
+      ? 'URGENT_SAME_DAY_REQUEST: Customer confirmed available at doorstep before 3 PM'
+      : `Customer requested reattempt for ${label} via WhatsApp`;
 
     logger.info('Rescheduling delivery with carrier', { awb: order.awb, dateStr, label });
 
     const cc: any = merchant?.carrierConfig || {};
+    const targetCarrier = order.carrier || cc.provider || 'shiprocket';
+    const specificCarrierConfig = cc.carriers?.[targetCarrier] || (cc.provider === targetCarrier ? cc : {});
+
     let apiToken: string | undefined;
+    let apiKey: string | undefined;
     let carrierEmail: string | undefined;
     let carrierPassword: string | undefined;
+    let customerCode: string | undefined;
+    let licenseKey: string | undefined;
+    let loginId: string | undefined;
 
     try {
-      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-      else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
-      if (cc.email) carrierEmail = encryptionService.decrypt(cc.email);
-      if (cc.password) carrierPassword = encryptionService.decrypt(cc.password);
+      if (specificCarrierConfig.apiToken) apiToken = encryptionService.decrypt(specificCarrierConfig.apiToken);
+      if (specificCarrierConfig.apiKey) apiKey = encryptionService.decrypt(specificCarrierConfig.apiKey);
+      if (specificCarrierConfig.email) carrierEmail = encryptionService.decrypt(specificCarrierConfig.email);
+      if (specificCarrierConfig.password) carrierPassword = encryptionService.decrypt(specificCarrierConfig.password);
+      if (specificCarrierConfig.customerCode) customerCode = encryptionService.decrypt(specificCarrierConfig.customerCode);
+      if (specificCarrierConfig.licenseKey) licenseKey = encryptionService.decrypt(specificCarrierConfig.licenseKey);
+      if (specificCarrierConfig.loginId) loginId = encryptionService.decrypt(specificCarrierConfig.loginId);
     } catch (err: any) {
-      logger.warn('Failed to decrypt carrier credentials for reschedule', { error: err?.message });
+      logger.warn('Failed to decrypt carrier credentials for reschedule', { error: err?.message, targetCarrier });
     }
 
-    const carrierConfig = {
-      provider: order.carrier || cc.provider,
-      apiToken,
-      email: carrierEmail || config.shiprocket.email,
-      password: carrierPassword || config.shiprocket.password,
+    const carrierConfig: any = {
+      provider: targetCarrier,
+      apiToken: apiToken || apiKey,
+      apiKey: apiKey || apiToken,
+      email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+      password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
+      customerCode,
+      licenseKey,
+      loginId,
     };
 
     if (order.carrier && order.awb) {
@@ -1065,21 +1347,24 @@ export class NDRService {
         {
           awb: order.awb,
           newDate: dateStr,
-          reason: `Customer requested reattempt for ${label} via WhatsApp`,
+          reason: carrierReason,
         },
         carrierConfig
       );
 
       if (result.success) {
         order.status = 'ndr_rescued';
+        const finalResolution = order.ndr?.resolution === 'fake_remark_escalated' ? 'fake_remark_escalated' : 'rescheduled';
         const ndrUpdate: Record<string, any> = { status: 'ndr_rescued' };
         if (order.ndr) {
-          order.ndr.customerResponse = 'reschedule';
+          order.ndr.customerResponse = order.ndr.customerResponse || 'reschedule';
           order.ndr.resolvedAt = new Date();
-          order.ndr.resolution = 'rescheduled';
-          ndrUpdate['ndr.customerResponse'] = 'reschedule';
+          order.ndr.resolution = finalResolution;
+          order.ndr.scheduledSlot = subChoice;
+          ndrUpdate['ndr.customerResponse'] = order.ndr.customerResponse;
           ndrUpdate['ndr.resolvedAt'] = new Date();
-          ndrUpdate['ndr.resolution'] = 'rescheduled';
+          ndrUpdate['ndr.resolution'] = finalResolution;
+          ndrUpdate['ndr.scheduledSlot'] = subChoice;
         }
         if (typeof (order as any).save === 'function') {
           await (order as any).save();
@@ -1093,13 +1378,28 @@ export class NDRService {
           $inc: { 'billing.totalRescues': 1 },
         });
 
-        const rescheduleMsg = COPY.escalated({ window: label });
-        await whatsAppService.sendInteractiveButtons(
-          order.customerPhone,
-          rescheduleMsg,
-          [],
-          this.getWaConfig(merchant)
-        );
+        if (!options?.suppressMessage) {
+          if (options?.sendAddressStep) {
+            const addressPrompt = `Delivery scheduled for ${label}! 📦\n\nTo ensure the delivery executive reaches you smoothly, would you like to update your delivery address or share a GPS location pin?`;
+            await whatsAppService.sendInteractiveButtons(
+              order.customerPhone,
+              addressPrompt,
+              [
+                { id: `address:update:${order._id}`, title: '📍 Update Address' },
+                { id: `address:skip:${order._id}`, title: '⏭️ Keep Address' },
+              ],
+              this.getWaConfig(merchant)
+            );
+          } else {
+            const rescheduleMsg = COPY.escalated({ window: label });
+            await whatsAppService.sendInteractiveButtons(
+              order.customerPhone,
+              rescheduleMsg,
+              [],
+              this.getWaConfig(merchant)
+            );
+          }
+        }
 
         return { success: true, dateStr, label, result };
       } else {

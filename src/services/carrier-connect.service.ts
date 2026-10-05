@@ -11,8 +11,17 @@ import { Merchant } from '../models';
 import { logger } from '../utils/logger';
 import { generateCarrierWebhookSecret } from '../webhooks/carrier-auth';
 
-export type Provider = 'shiprocket' | 'delhivery' | 'clickpost';
-export interface CarrierCreds { provider: Provider; email?: string; password?: string; apiToken?: string; apiKey?: string; }
+export type Provider = 'shiprocket' | 'delhivery' | 'clickpost' | 'bluedart' | 'xpressbees' | 'shadowfax';
+export interface CarrierCreds {
+  provider: Provider;
+  email?: string;
+  password?: string;
+  apiToken?: string;
+  apiKey?: string;
+  customerCode?: string;
+  licenseKey?: string;
+  loginId?: string;
+}
 
 const HTTP_TIMEOUT_MS = 10000;
 const MAX_CRED_LEN = 512;
@@ -28,18 +37,69 @@ async function validateShiprocket(c: CarrierCreds) {
   const { data } = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', { email, password }, { timeout: HTTP_TIMEOUT_MS });
   return data.token as string; // throws on 401
 }
+
 async function validateDelhivery(c: CarrierCreds) {
   const apiToken = assertStr(c.apiToken, 'apiToken');
-  await axios.get('https://track.delhivery.com/api/v1/packages/json', { headers: { 'Content-Type': 'application/json', Authorization: `Token ${apiToken}` }, params: { id: '0' }, timeout: HTTP_TIMEOUT_MS }); // 401/403 throws
+  await axios.get('https://track.delhivery.com/api/v1/packages/json', {
+    headers: { 'Content-Type': 'application/json', Authorization: `Token ${apiToken}` },
+    params: { id: '0' },
+    timeout: HTTP_TIMEOUT_MS,
+  });
 }
+
 async function validateClickpost(c: CarrierCreds) {
-  const apiKey = assertStr(c.apiKey, 'apiKey');
+  const apiKey = assertStr(c.apiKey || c.apiToken, 'apiKey');
   const res = await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { key: apiKey }, timeout: HTTP_TIMEOUT_MS });
   if (typeof res.data !== 'object' || !res.data || (typeof res.data === 'string' && res.data.includes('<html'))) {
     throw new Error('Invalid ClickPost API key or service response.');
   }
   if (res.data?.meta?.success === false) {
     throw new Error(res.data?.meta?.message || 'Invalid ClickPost API key.');
+  }
+}
+
+async function validateBluedart(c: CarrierCreds) {
+  // Blue Dart enterprise credentials require Login ID and License Key (or API Key if through REST gateway)
+  if (c.apiKey) {
+    assertStr(c.apiKey, 'apiKey');
+  } else {
+    assertStr(c.loginId, 'loginId');
+    assertStr(c.licenseKey, 'licenseKey');
+    if (c.customerCode) assertStr(c.customerCode, 'customerCode');
+  }
+}
+
+async function validateXpressbees(c: CarrierCreds) {
+  const key = assertStr(c.apiKey || c.apiToken, 'apiKey');
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      // Validate with a light status check
+      await axios.get('https://shipment.xpressbees.com/api/v1/courier/serviceability', {
+        headers: { XBKey: key },
+        timeout: HTTP_TIMEOUT_MS,
+      });
+    } catch (err: any) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        throw new Error('Invalid Xpressbees API Key (XBKey)');
+      }
+      // Non-auth errors (e.g. 404/422 on empty params) confirm key reached the gateway
+    }
+  }
+}
+
+async function validateShadowfax(c: CarrierCreds) {
+  const key = assertStr(c.apiKey || c.apiToken, 'apiKey');
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      await axios.get('https://api.shadowfax.in/api/v2/clients/details', {
+        headers: { Authorization: `Token ${key}` },
+        timeout: HTTP_TIMEOUT_MS,
+      });
+    } catch (err: any) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        throw new Error('Invalid Shadowfax API Token');
+      }
+    }
   }
 }
 
@@ -56,43 +116,59 @@ export class CarrierConnectService {
     if (creds.provider === 'shiprocket') shiprocketToken = await validateShiprocket(creds);
     else if (creds.provider === 'delhivery') await validateDelhivery(creds);
     else if (creds.provider === 'clickpost') await validateClickpost(creds);
+    else if (creds.provider === 'bluedart') await validateBluedart(creds);
+    else if (creds.provider === 'xpressbees') await validateXpressbees(creds);
+    else if (creds.provider === 'shadowfax') await validateShadowfax(creds);
     else throw new Error('Unsupported carrier');
 
     // 2. store encrypted (engine reads these unchanged)
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) throw new Error('Merchant not found');
 
-    // Per-merchant webhook secret: the carrier presents it as x-api-key / signature.
-    // Keep the existing one across reconnects so the merchant's carrier panel keeps working.
     const existing: any = (merchant as any).carrierConfig || {};
-    const webhookSecretPlain = existing.webhookSecret
-      ? (() => { try { return encryptionService.decrypt(existing.webhookSecret); } catch { return generateCarrierWebhookSecret(); } })()
-      : generateCarrierWebhookSecret();
+    const existingCarriers: any = existing.carriers || {};
+    const existingCarrierData: any = existingCarriers[creds.provider] || (existing.provider === creds.provider ? existing : {});
 
-    const store: any = { provider: creds.provider, webhookSecret: encryptionService.encrypt(webhookSecretPlain) };
+    const webhookSecretPlain = existingCarrierData.webhookSecret
+      ? (() => { try { return encryptionService.decrypt(existingCarrierData.webhookSecret); } catch { return generateCarrierWebhookSecret(); } })()
+      : (existing.webhookSecret ? (() => { try { return encryptionService.decrypt(existing.webhookSecret); } catch { return generateCarrierWebhookSecret(); } })() : generateCarrierWebhookSecret());
+
+    const store: any = { provider: creds.provider, webhookSecret: encryptionService.encrypt(webhookSecretPlain), connectedAt: new Date() };
     if (creds.apiToken) store.apiToken = encryptionService.encrypt(creds.apiToken.trim());
     if (creds.apiKey) {
       const enc = encryptionService.encrypt(creds.apiKey.trim());
       store.apiKey = enc;
-      // logistics.service reads piToken for every carrier; keep both names in sync.
-      if (creds.provider === 'clickpost' && !creds.apiToken) store.apiToken = enc;
+      if (!creds.apiToken) store.apiToken = enc;
     }
     if (creds.email) store.email = encryptionService.encrypt(creds.email.trim());
     if (creds.password) store.password = encryptionService.encrypt(creds.password);
+    if (creds.customerCode) store.customerCode = encryptionService.encrypt(creds.customerCode.trim());
+    if (creds.licenseKey) store.licenseKey = encryptionService.encrypt(creds.licenseKey.trim());
+    if (creds.loginId) store.loginId = encryptionService.encrypt(creds.loginId.trim());
     if (shiprocketToken) store.shiprocketToken = encryptionService.encrypt(shiprocketToken);
-    (merchant as any).carrierConfig = store;
+
+    // Save multi-carrier map and update primary provider for backward compatibility
+    existingCarriers[creds.provider] = store;
+    (merchant as any).carrierConfig = {
+      ...existing,
+      ...store,
+      carriers: existingCarriers,
+    };
     merchant.markModified('carrierConfig');
+
     const currentConn = (merchant as any).connections || {};
+    const currentCarriersConn = currentConn.carriers || {};
+    currentCarriersConn[creds.provider] = { status: 'connected', connectedAt: new Date(), provider: creds.provider, lastError: null };
+
     (merchant as any).connections = {
-      shopify: currentConn.shopify || { status: 'disconnected' },
-      whatsapp: currentConn.whatsapp || { status: 'disconnected' },
-      payment: currentConn.payment || { status: 'disconnected' },
+      ...currentConn,
       carrier: { status: 'connected', connectedAt: new Date(), provider: creds.provider, lastError: null },
+      carriers: currentCarriersConn,
     };
     merchant.markModified('connections');
     await merchant.save();
+
     logger.info('Carrier connected', { merchantId, provider: creds.provider });
-    // The merchant pastes webhookUrl + webhookSecret into their carrier panel.
     return {
       status: 'connected',
       provider: creds.provider,
@@ -101,21 +177,91 @@ export class CarrierConnectService {
     };
   }
 
-  /** Return (and lazily create) the merchant's carrier webhook credentials for display in the dashboard. */
-  async webhookCredentials(merchantId: string): Promise<{ provider: Provider | null; webhookUrl: string | null; webhookSecret: string | null }> {
+  async disconnectCarrier(merchantId: string, provider?: Provider) {
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) throw new Error('Merchant not found');
+
+    const cfg: any = (merchant as any).carrierConfig || {};
+    const carriers: any = { ...(cfg.carriers || {}) };
+    const conns: any = (merchant as any).connections || {};
+    const connCarriers: any = { ...(conns.carriers || {}) };
+
+    if (provider && carriers[provider]) {
+      delete carriers[provider];
+      delete connCarriers[provider];
+      const remainingKeys = Object.keys(carriers);
+      if (remainingKeys.length > 0) {
+        const nextProvider = remainingKeys[0];
+        (merchant as any).carrierConfig = {
+          ...carriers[nextProvider],
+          carriers,
+        };
+        (merchant as any).connections = {
+          ...conns,
+          carrier: { status: 'connected', connectedAt: new Date(), provider: nextProvider, lastError: null },
+          carriers: connCarriers,
+        };
+      } else {
+        (merchant as any).carrierConfig = undefined;
+        (merchant as any).connections = {
+          ...conns,
+          carrier: { status: 'disconnected', lastError: null },
+          carriers: {},
+        };
+      }
+    } else {
+      // Disconnect all
+      (merchant as any).carrierConfig = undefined;
+      (merchant as any).connections = {
+        ...conns,
+        carrier: { status: 'disconnected', lastError: null },
+        carriers: {},
+      };
+    }
+
+    merchant.markModified('carrierConfig');
+    merchant.markModified('connections');
+    await merchant.save();
+    logger.info('Carrier(s) disconnected', { merchantId, provider: provider || 'all' });
+    return { ok: true, status: 'disconnected', provider: provider || 'all' };
+  }
+
+  /** Return carrier webhook credentials for all connected carriers. */
+  async webhookCredentials(merchantId: string): Promise<{
+    provider: Provider | null;
+    webhookUrl: string | null;
+    webhookSecret: string | null;
+    carriers: Array<{ provider: Provider; status: 'connected' | 'disconnected'; webhookUrl: string; webhookSecret: string | null }>;
+  }> {
     const merchant = await Merchant.findById(merchantId).select('carrierConfig');
     const cfg: any = (merchant as any)?.carrierConfig;
-    if (!merchant || !cfg?.provider) return { provider: null, webhookUrl: null, webhookSecret: null };
+    const allProviders: Provider[] = ['shiprocket', 'delhivery', 'clickpost', 'bluedart', 'xpressbees', 'shadowfax'];
 
-    let plain: string | null = null;
-    if (cfg.webhookSecret) {
-      try { plain = encryptionService.decrypt(cfg.webhookSecret); } catch { plain = null; }
-    }
-    if (!plain) {
-      plain = generateCarrierWebhookSecret();
-      await Merchant.updateOne({ _id: merchant._id }, { $set: { 'carrierConfig.webhookSecret': encryptionService.encrypt(plain) } });
-    }
-    return { provider: cfg.provider, webhookUrl: carrierWebhookUrl(cfg.provider, merchantId), webhookSecret: plain };
+    const connectedMap: Record<string, any> = cfg?.carriers || (cfg?.provider ? { [cfg.provider]: cfg } : {});
+
+    const list = allProviders.map((p) => {
+      const isConnected = !!connectedMap[p];
+      let plainSecret: string | null = null;
+      if (isConnected && connectedMap[p]?.webhookSecret) {
+        try { plainSecret = encryptionService.decrypt(connectedMap[p].webhookSecret); } catch { plainSecret = null; }
+      }
+      return {
+        provider: p,
+        status: (isConnected ? 'connected' : 'disconnected') as 'connected' | 'disconnected',
+        webhookUrl: carrierWebhookUrl(p, merchantId),
+        webhookSecret: plainSecret,
+      };
+    });
+
+    const primary = cfg?.provider || null;
+    const primaryInfo = list.find((x) => x.provider === primary);
+
+    return {
+      provider: primary,
+      webhookUrl: primary ? carrierWebhookUrl(primary, merchantId) : null,
+      webhookSecret: primaryInfo?.webhookSecret || null,
+      carriers: list,
+    };
   }
 }
 export const carrierConnectService = new CarrierConnectService();

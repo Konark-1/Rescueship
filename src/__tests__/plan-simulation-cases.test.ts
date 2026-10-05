@@ -429,8 +429,10 @@ describe('RescueShip Plan Simulation Test Suite (12 Core Test Cases)', () => {
     );
     expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
       '919876543210',
-      expect.stringContaining('apologize'),
-      [],
+      expect.stringContaining('When should we deliver your order?'),
+      expect.arrayContaining([
+        expect.objectContaining({ id: expect.stringContaining('resched:') }),
+      ]),
       expect.any(Object)
     );
   });

@@ -99,13 +99,61 @@ export const DELHIVERY_STATUS_MAP: Record<string, { status: InternalShipmentStat
   CLOSED: { status: 'lost', isNdr: false },
 };
 
+/**
+ * Blue Dart Status Maps
+ */
+export const BLUEDART_STATUS_MAP: Record<string, { status: InternalShipmentStatus; isNdr: boolean }> = {
+  MANIFESTED: { status: 'awb_generated', isNdr: false },
+  IN_TRANSIT: { status: 'in_transit', isNdr: false },
+  OUT_FOR_DELIVERY: { status: 'out_for_delivery', isNdr: false },
+  UNDELIVERED: { status: 'ndr_detected', isNdr: true },
+  UD: { status: 'ndr_detected', isNdr: true },
+  NOT_DELIVERED: { status: 'ndr_detected', isNdr: true },
+  DELIVERED: { status: 'delivered', isNdr: false },
+  RTO: { status: 'rto_initiated', isNdr: false },
+  RETURN_TO_ORIGIN: { status: 'rto_initiated', isNdr: false },
+  RETURNED: { status: 'returned', isNdr: false },
+  CANCELLED: { status: 'cancelled', isNdr: false },
+};
+
+/**
+ * Xpressbees Status Maps
+ */
+export const XPRESSBEES_STATUS_MAP: Record<string, { status: InternalShipmentStatus; isNdr: boolean }> = {
+  MANIFESTED: { status: 'awb_generated', isNdr: false },
+  IN_TRANSIT: { status: 'in_transit', isNdr: false },
+  OUT_FOR_DELIVERY: { status: 'out_for_delivery', isNdr: false },
+  UNDELIVERED: { status: 'ndr_detected', isNdr: true },
+  FAILED: { status: 'ndr_detected', isNdr: true },
+  DELIVERED: { status: 'delivered', isNdr: false },
+  RTO: { status: 'rto_initiated', isNdr: false },
+  RTO_DELIVERED: { status: 'returned', isNdr: false },
+  CANCELLED: { status: 'cancelled', isNdr: false },
+};
+
+/**
+ * Shadowfax Status Maps
+ */
+export const SHADOWFAX_STATUS_MAP: Record<string, { status: InternalShipmentStatus; isNdr: boolean }> = {
+  ORDER_CREATED: { status: 'awb_generated', isNdr: false },
+  PICKED_UP: { status: 'picked_up', isNdr: false },
+  IN_TRANSIT: { status: 'in_transit', isNdr: false },
+  OUT_FOR_DELIVERY: { status: 'out_for_delivery', isNdr: false },
+  UNDELIVERED: { status: 'ndr_detected', isNdr: true },
+  DELIVERY_FAILED: { status: 'ndr_detected', isNdr: true },
+  DELIVERED: { status: 'delivered', isNdr: false },
+  RTO: { status: 'rto_initiated', isNdr: false },
+  RETURNED: { status: 'returned', isNdr: false },
+  CANCELLED: { status: 'cancelled', isNdr: false },
+};
+
 const TERMINAL_SET = new Set<InternalShipmentStatus>(['delivered', 'returned', 'cancelled', 'lost']);
 
 /**
  * Normalize any carrier status string or numeric code to canonical status
  */
 export function normalizeCarrierStatus(
-  carrier: 'shiprocket' | 'clickpost' | 'delhivery' | string,
+  carrier: 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | string,
   rawStatus: string | number | undefined,
   remark?: string
 ): NormalizedCarrierResult {
@@ -129,6 +177,15 @@ export function normalizeCarrierStatus(
       break;
     case 'delhivery':
       match = DELHIVERY_STATUS_MAP[cleanKey];
+      break;
+    case 'bluedart':
+      match = BLUEDART_STATUS_MAP[cleanKey];
+      break;
+    case 'xpressbees':
+      match = XPRESSBEES_STATUS_MAP[cleanKey];
+      break;
+    case 'shadowfax':
+      match = SHADOWFAX_STATUS_MAP[cleanKey];
       break;
     default:
       match = SHIPROCKET_STATUS_MAP[cleanKey];

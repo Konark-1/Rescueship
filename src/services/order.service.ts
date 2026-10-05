@@ -955,13 +955,20 @@ export class OrderService {
   ): Promise<{ linkId: string; shortUrl: string } | null> {
     const incentiveType = merchant?.settings?.codConversion?.incentiveType || 'percentage';
     const incentiveAmount = merchant?.settings?.codConversion?.incentiveAmount ?? 5;
+    const discountCap = merchant?.settings?.codConversion?.discountCap;
 
-    const computedDiscount: number =
-      discount !== undefined
-        ? discount
-        : incentiveType === 'flat'
-          ? incentiveAmount
-          : Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+    let computedDiscount: number;
+    if (discount !== undefined) {
+      computedDiscount = discount;
+    } else if (incentiveType === 'flat') {
+      computedDiscount = incentiveAmount;
+    } else {
+      let pctDiscount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+      if (discountCap && discountCap > 0) {
+        pctDiscount = Math.min(pctDiscount, discountCap);
+      }
+      computedDiscount = pctDiscount;
+    }
 
     const computedFinalAmount: number =
       finalAmount !== undefined

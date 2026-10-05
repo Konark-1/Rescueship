@@ -3,13 +3,17 @@ import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { redisConnection } from '../config/redis';
 
-export type CarrierType = 'shiprocket' | 'clickpost' | 'delhivery';
+export type CarrierType = 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax';
 
 export interface CarrierConfig {
   provider?: CarrierType;
-  apiToken?: string; // For ClickPost / Delhivery, orcached Shiprocket token
+  apiToken?: string; // For ClickPost / Delhivery / Xpressbees / Shadowfax
+  apiKey?: string;
   email?: string; // Shiprocket specific
   password?: string; // Shiprocket specific
+  customerCode?: string; // Blue Dart specific
+  licenseKey?: string; // Blue Dart specific
+  loginId?: string; // Blue Dart specific
 }
 
 export interface RescheduleParams {
@@ -163,6 +167,12 @@ export class LogisticsService {
       return this.rescheduleClickPost(params, carrierConfig);
     } else if (carrier === 'delhivery') {
       return this.rescheduleDelhivery(params, carrierConfig);
+    } else if (carrier === 'bluedart') {
+      return this.rescheduleBlueDart(params, carrierConfig);
+    } else if (carrier === 'xpressbees') {
+      return this.rescheduleXpressbees(params, carrierConfig);
+    } else if (carrier === 'shadowfax') {
+      return this.rescheduleShadowfax(params, carrierConfig);
     } else {
       throw new Error(`Unsupported carrier: ${carrier}`);
     }
@@ -184,6 +194,12 @@ export class LogisticsService {
       return this.updateAddressClickPost(params, carrierConfig);
     } else if (carrier === 'delhivery') {
       return this.updateAddressDelhivery(params, carrierConfig);
+    } else if (carrier === 'bluedart') {
+      return this.updateAddressBlueDart(params, carrierConfig);
+    } else if (carrier === 'xpressbees') {
+      return this.updateAddressXpressbees(params, carrierConfig);
+    } else if (carrier === 'shadowfax') {
+      return this.updateAddressShadowfax(params, carrierConfig);
     } else {
       throw new Error(`Unsupported carrier: ${carrier}`);
     }
@@ -213,6 +229,12 @@ export class LogisticsService {
       return this.cancelClickPost(params, carrierConfig);
     } else if (carrier === 'delhivery') {
       return this.cancelDelhivery(params, carrierConfig);
+    } else if (carrier === 'bluedart') {
+      return this.cancelBlueDart(params, carrierConfig);
+    } else if (carrier === 'xpressbees') {
+      return this.cancelXpressbees(params, carrierConfig);
+    } else if (carrier === 'shadowfax') {
+      return this.cancelShadowfax(params, carrierConfig);
     } else {
       throw new Error(`Unsupported carrier: ${carrier}`);
     }
@@ -648,6 +670,338 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Delhivery COD amendment failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  /* ----------------- Blue Dart Implementation ----------------- */
+
+  private async rescheduleBlueDart(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      const loginId = carrierConfig?.loginId;
+      const licenseKey = carrierConfig?.licenseKey;
+
+      if (!apiKey && (!loginId || !licenseKey)) {
+        throw new Error('Blue Dart credentials (API Key or LoginID + LicenseKey) are not configured');
+      }
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Blue Dart reattempt scheduled (test mode)', carrierResponse: { status: 'SUCCESS' } };
+      }
+
+      const deferredDate = sanitizeDeferredDate(params.newDate);
+      const url = 'https://api.bluedart.com/v1/shipments/alt-instruction';
+      const payload = {
+        awb: params.awb,
+        instructionType: 'RESCHEDULE',
+        requestedDate: deferredDate,
+        remarks: sanitizeString(params.reason, 150, 'Customer requested reschedule'),
+        customerCode: carrierConfig?.customerCode,
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : { 'X-BD-Login': loginId, 'X-BD-License': licenseKey }),
+        },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === 'SUCCESS' || response.data?.success === true,
+        message: response.data?.message || 'Updated Blue Dart NDR',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Blue Dart reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async updateAddressBlueDart(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      const loginId = carrierConfig?.loginId;
+      const licenseKey = carrierConfig?.licenseKey;
+
+      if (!apiKey && (!loginId || !licenseKey)) {
+        throw new Error('Blue Dart credentials are not configured');
+      }
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Blue Dart address updated (test mode)', carrierResponse: { status: 'SUCCESS' } };
+      }
+
+      const url = 'https://api.bluedart.com/v1/shipments/alt-instruction';
+      const payload = {
+        awb: params.awb,
+        instructionType: 'ADDRESS_UPDATE',
+        address: sanitizeString(params.address, 200),
+        pincode: sanitizePincode(params.pincode),
+        city: sanitizeString(params.city, 50),
+        phone: params.phone,
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : { 'X-BD-Login': loginId, 'X-BD-License': licenseKey }),
+        },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === 'SUCCESS' || response.data?.success === true,
+        message: response.data?.message || 'Updated Blue Dart address',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Blue Dart address update failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelBlueDart(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      const loginId = carrierConfig?.loginId;
+      const licenseKey = carrierConfig?.licenseKey;
+
+      if (!apiKey && (!loginId || !licenseKey)) {
+        throw new Error('Blue Dart credentials are not configured');
+      }
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Blue Dart RTO requested (test mode)', carrierResponse: { status: 'SUCCESS' } };
+      }
+
+      const url = 'https://api.bluedart.com/v1/shipments/alt-instruction';
+      const payload = {
+        awb: params.awb,
+        instructionType: 'RTO',
+        remarks: sanitizeString(params.reason, 150, 'Customer cancelled order'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : { 'X-BD-Login': loginId, 'X-BD-License': licenseKey }),
+        },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === 'SUCCESS' || response.data?.success === true,
+        message: response.data?.message || 'Blue Dart cancellation / RTO requested',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Blue Dart cancel failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  /* ----------------- Xpressbees Implementation ----------------- */
+
+  private async rescheduleXpressbees(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('Xpressbees API Key (XBKey) is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Xpressbees reattempt scheduled (test mode)', carrierResponse: { status: true } };
+      }
+
+      const url = 'https://shipment.xpressbees.com/api/v1/shipments/ndr';
+      const payload = {
+        awb: params.awb,
+        action: 'REATTEMPT',
+        reattempt_date: sanitizeDeferredDate(params.newDate),
+        remarks: sanitizeString(params.reason, 150, 'Customer requested reschedule'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', XBKey: apiKey },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === true || response.data?.success === true,
+        message: response.data?.message || 'Updated Xpressbees NDR',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Xpressbees reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async updateAddressXpressbees(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('Xpressbees API Key (XBKey) is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Xpressbees address updated (test mode)', carrierResponse: { status: true } };
+      }
+
+      const url = 'https://shipment.xpressbees.com/api/v1/shipments/ndr';
+      const payload = {
+        awb: params.awb,
+        action: 'ADDRESS_UPDATE',
+        alternate_address: sanitizeString(params.address, 200),
+        pincode: sanitizePincode(params.pincode),
+        city: sanitizeString(params.city, 50),
+        alternate_mobile: params.phone,
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', XBKey: apiKey },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === true || response.data?.success === true,
+        message: response.data?.message || 'Updated Xpressbees address',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Xpressbees address update failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelXpressbees(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('Xpressbees API Key (XBKey) is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Xpressbees RTO requested (test mode)', carrierResponse: { status: true } };
+      }
+
+      const url = 'https://shipment.xpressbees.com/api/v1/shipments/ndr';
+      const payload = {
+        awb: params.awb,
+        action: 'RTO',
+        remarks: sanitizeString(params.reason, 150, 'Customer cancelled order'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', XBKey: apiKey },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === true || response.data?.success === true,
+        message: response.data?.message || 'Xpressbees RTO requested',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Xpressbees cancel failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  /* ----------------- Shadowfax Implementation ----------------- */
+
+  private async rescheduleShadowfax(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('Shadowfax API Token is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Shadowfax reattempt scheduled (test mode)', carrierResponse: { success: true } };
+      }
+
+      const url = 'https://api.shadowfax.in/v3/ndr/update';
+      const payload = {
+        awb: params.awb,
+        action: 'reschedule',
+        preferred_date: sanitizeDeferredDate(params.newDate),
+        reason: sanitizeString(params.reason, 150, 'Customer requested reschedule'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Token ${apiKey}` },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.success === true || response.data?.status === 200,
+        message: response.data?.message || 'Updated Shadowfax NDR',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Shadowfax reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async updateAddressShadowfax(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('Shadowfax API Token is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Shadowfax address updated (test mode)', carrierResponse: { success: true } };
+      }
+
+      const url = 'https://api.shadowfax.in/v3/ndr/update';
+      const payload = {
+        awb: params.awb,
+        action: 'address_update',
+        address: sanitizeString(params.address, 200),
+        pincode: sanitizePincode(params.pincode),
+        city: sanitizeString(params.city, 50),
+        contact: params.phone,
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Token ${apiKey}` },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.success === true || response.data?.status === 200,
+        message: response.data?.message || 'Updated Shadowfax address',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Shadowfax address update failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelShadowfax(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('Shadowfax API Token is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Shadowfax RTO requested (test mode)', carrierResponse: { success: true } };
+      }
+
+      const url = 'https://api.shadowfax.in/v3/ndr/update';
+      const payload = {
+        awb: params.awb,
+        action: 'rto',
+        reason: sanitizeString(params.reason, 150, 'Customer cancelled order'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Token ${apiKey}` },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.success === true || response.data?.status === 200,
+        message: response.data?.message || 'Shadowfax RTO requested',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Shadowfax cancel failed', { awb: params.awb, error: error.response?.data || error.message });
       return { success: false, message: error.message, carrierResponse: error.response?.data };
     }
   }

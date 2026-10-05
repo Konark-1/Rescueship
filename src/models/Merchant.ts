@@ -43,6 +43,7 @@ export interface IMerchant extends Document {
       enabled: boolean;
       incentiveType: 'flat' | 'percentage';
       incentiveAmount: number;
+      discountCap?: number;
       minOrderValue: number;
       messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
     };
@@ -104,6 +105,7 @@ export interface IMerchant extends Document {
     shopify?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; shopDomain?: string; lastError?: string };
     whatsapp?: { status: 'disconnected' | 'connecting' | 'connected' | 'templates_pending' | 'templates_rejected' | 'error'; connectedAt?: Date; lastError?: string };
     carrier?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; provider?: string; lastError?: string };
+    carriers?: Record<string, { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; provider?: string; lastError?: string }>;
     payment?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; gateway?: string; lastError?: string };
     woocommerce?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; url?: string; lastError?: string };
   };
@@ -223,6 +225,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         enabled: { type: Boolean, default: false },
         incentiveType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
         incentiveAmount: { type: Number, default: 0 },
+        discountCap: { type: Number, default: 0 },
         minOrderValue: { type: Number, default: 0 },
         messageLanguage: { type: String, enum: ['en', 'hi', 'ta', 'te', 'bn', 'mr'], default: 'en' },
       },
