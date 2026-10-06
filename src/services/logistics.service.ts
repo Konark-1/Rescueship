@@ -3,15 +3,17 @@ import { config } from '../config/env';
 import { logger } from '../utils/logger';
 import { redisConnection } from '../config/redis';
 
-export type CarrierType = 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax';
+export type CarrierType = 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom';
 
 export interface CarrierConfig {
   provider?: CarrierType;
-  apiToken?: string; // For ClickPost / Delhivery / Xpressbees / Shadowfax
+  mode?: 'api' | 'webhook_only' | string;
+  apiToken?: string; // For ClickPost / Delhivery / Xpressbees / Shadowfax / DTDC
   apiKey?: string;
   email?: string; // Shiprocket specific
-  password?: string; // Shiprocket specific
-  customerCode?: string; // Blue Dart specific
+  password?: string; // Shiprocket / Ecom Express specific
+  username?: string; // Ecom Express specific
+  customerCode?: string; // Blue Dart / DTDC specific
   licenseKey?: string; // Blue Dart specific
   loginId?: string; // Blue Dart specific
 }
@@ -161,6 +163,15 @@ export class LogisticsService {
   ): Promise<RescheduleResult> {
     logger.info('Rescheduling delivery', { carrier, awb: params.awb });
 
+    if (carrierConfig?.mode === 'webhook_only') {
+      logger.info('Delivery reschedule recorded in RescueShip (carrier is in Webhook-Only mode)', { carrier, awb: params.awb });
+      return {
+        success: true,
+        message: `Delivery reschedule recorded in RescueShip (Webhook-Only mode for ${carrier}). Reattempt details saved.`,
+        carrierResponse: { webhookOnly: true, recorded: true },
+      };
+    }
+
     if (carrier === 'shiprocket') {
       return this.rescheduleShiprocket(params, carrierConfig);
     } else if (carrier === 'clickpost') {
@@ -173,6 +184,12 @@ export class LogisticsService {
       return this.rescheduleXpressbees(params, carrierConfig);
     } else if (carrier === 'shadowfax') {
       return this.rescheduleShadowfax(params, carrierConfig);
+    } else if (carrier === 'ecomexpress') {
+      return this.rescheduleEcomExpress(params, carrierConfig);
+    } else if (carrier === 'dtdc') {
+      return this.rescheduleDTDC(params, carrierConfig);
+    } else if (carrier === 'custom') {
+      return { success: true, message: 'Reschedule recorded for custom courier', carrierResponse: { custom: true } };
     } else {
       throw new Error(`Unsupported carrier: ${carrier}`);
     }
@@ -188,6 +205,15 @@ export class LogisticsService {
   ): Promise<RescheduleResult> {
     logger.info('Updating delivery address on carrier', { carrier, awb: params.awb });
 
+    if (carrierConfig?.mode === 'webhook_only') {
+      logger.info('Delivery address update recorded in RescueShip (carrier is in Webhook-Only mode)', { carrier, awb: params.awb });
+      return {
+        success: true,
+        message: `Delivery address update recorded in RescueShip (Webhook-Only mode for ${carrier}). Corrected address saved.`,
+        carrierResponse: { webhookOnly: true, recorded: true },
+      };
+    }
+
     if (carrier === 'shiprocket') {
       return this.updateAddressShiprocket(params, carrierConfig);
     } else if (carrier === 'clickpost') {
@@ -200,6 +226,12 @@ export class LogisticsService {
       return this.updateAddressXpressbees(params, carrierConfig);
     } else if (carrier === 'shadowfax') {
       return this.updateAddressShadowfax(params, carrierConfig);
+    } else if (carrier === 'ecomexpress') {
+      return this.updateAddressEcomExpress(params, carrierConfig);
+    } else if (carrier === 'dtdc') {
+      return this.updateAddressDTDC(params, carrierConfig);
+    } else if (carrier === 'custom') {
+      return { success: true, message: 'Address update recorded for custom courier', carrierResponse: { custom: true } };
     } else {
       throw new Error(`Unsupported carrier: ${carrier}`);
     }
@@ -223,6 +255,15 @@ export class LogisticsService {
   ): Promise<RescheduleResult> {
     logger.info('Cancelling delivery / requesting RTO on carrier', { carrier, awb: params.awb });
 
+    if (carrierConfig?.mode === 'webhook_only') {
+      logger.info('Delivery cancellation / RTO recorded in RescueShip (carrier is in Webhook-Only mode)', { carrier, awb: params.awb });
+      return {
+        success: true,
+        message: `Delivery cancellation recorded in RescueShip (Webhook-Only mode for ${carrier}).`,
+        carrierResponse: { webhookOnly: true, recorded: true },
+      };
+    }
+
     if (carrier === 'shiprocket') {
       return this.cancelShiprocket(params, carrierConfig);
     } else if (carrier === 'clickpost') {
@@ -235,6 +276,12 @@ export class LogisticsService {
       return this.cancelXpressbees(params, carrierConfig);
     } else if (carrier === 'shadowfax') {
       return this.cancelShadowfax(params, carrierConfig);
+    } else if (carrier === 'ecomexpress') {
+      return this.cancelEcomExpress(params, carrierConfig);
+    } else if (carrier === 'dtdc') {
+      return this.cancelDTDC(params, carrierConfig);
+    } else if (carrier === 'custom') {
+      return { success: true, message: 'Cancellation / RTO recorded for custom courier', carrierResponse: { custom: true } };
     } else {
       throw new Error(`Unsupported carrier: ${carrier}`);
     }
@@ -1002,6 +1049,218 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Shadowfax cancel failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+  /* ----------------- Ecom Express Implementation ----------------- */
+
+  private async rescheduleEcomExpress(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const username = carrierConfig?.username || carrierConfig?.email;
+      const password = carrierConfig?.password;
+      if (!username || !password) throw new Error('Ecom Express credentials (username/password) are not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Ecom Express reattempt scheduled (test mode)', carrierResponse: { status: true } };
+      }
+
+      const url = 'https://api.ecomexpress.in/apiv2/ndr_action/';
+      const payload = {
+        username,
+        password,
+        awb: params.awb,
+        action: 'SCHEDULE_DELIVERY',
+        re_attempt_date: sanitizeDeferredDate(params.newDate),
+        remarks: sanitizeString(params.reason, 150, 'Customer requested reschedule'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === 'success' || response.data?.success === true,
+        message: response.data?.message || 'Updated Ecom Express NDR',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Ecom Express reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async updateAddressEcomExpress(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const username = carrierConfig?.username || carrierConfig?.email;
+      const password = carrierConfig?.password;
+      if (!username || !password) throw new Error('Ecom Express credentials (username/password) are not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Ecom Express address updated (test mode)', carrierResponse: { status: true } };
+      }
+
+      const url = 'https://api.ecomexpress.in/apiv2/ndr_action/';
+      const payload = {
+        username,
+        password,
+        awb: params.awb,
+        action: 'REATTEMPT_WITH_NEW_ADDRESS',
+        address: sanitizeString(params.address, 200),
+        pincode: sanitizePincode(params.pincode),
+        city: sanitizeString(params.city, 50),
+        mobile: params.phone,
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === 'success' || response.data?.success === true,
+        message: response.data?.message || 'Updated Ecom Express address',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Ecom Express address update failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelEcomExpress(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const username = carrierConfig?.username || carrierConfig?.email;
+      const password = carrierConfig?.password;
+      if (!username || !password) throw new Error('Ecom Express credentials (username/password) are not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'Ecom Express RTO requested (test mode)', carrierResponse: { status: true } };
+      }
+
+      const url = 'https://api.ecomexpress.in/apiv2/ndr_action/';
+      const payload = {
+        username,
+        password,
+        awb: params.awb,
+        action: 'RTO',
+        remarks: sanitizeString(params.reason, 150, 'Customer cancelled order'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json' },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.status === 'success' || response.data?.success === true,
+        message: response.data?.message || 'Ecom Express RTO requested',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('Ecom Express cancel failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  /* ----------------- DTDC Implementation ----------------- */
+
+  private async rescheduleDTDC(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('DTDC API Key / Access Token is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'DTDC reattempt scheduled (test mode)', carrierResponse: { success: true } };
+      }
+
+      const url = 'https://api.dtdc.com/ndr/update';
+      const payload = {
+        reference_number: params.awb,
+        action: 'REATTEMPT',
+        next_attempt_date: sanitizeDeferredDate(params.newDate),
+        remarks: sanitizeString(params.reason, 150, 'Customer requested reschedule'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': apiKey },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.success === true || response.data?.status === 200,
+        message: response.data?.message || 'Updated DTDC NDR',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('DTDC reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async updateAddressDTDC(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('DTDC API Key / Access Token is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'DTDC address updated (test mode)', carrierResponse: { success: true } };
+      }
+
+      const url = 'https://api.dtdc.com/ndr/update';
+      const payload = {
+        reference_number: params.awb,
+        action: 'ADDRESS_UPDATE',
+        address: sanitizeString(params.address, 200),
+        pincode: sanitizePincode(params.pincode),
+        city: sanitizeString(params.city, 50),
+        phone: params.phone,
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': apiKey },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.success === true || response.data?.status === 200,
+        message: response.data?.message || 'Updated DTDC address',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('DTDC address update failed', { awb: params.awb, error: error.response?.data || error.message });
+      return { success: false, message: error.message, carrierResponse: error.response?.data };
+    }
+  }
+
+  private async cancelDTDC(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    try {
+      const apiKey = carrierConfig?.apiKey || carrierConfig?.apiToken;
+      if (!apiKey) throw new Error('DTDC API Key / Access Token is not configured');
+
+      if (process.env.NODE_ENV === 'test') {
+        return { success: true, message: 'DTDC RTO requested (test mode)', carrierResponse: { success: true } };
+      }
+
+      const url = 'https://api.dtdc.com/ndr/update';
+      const payload = {
+        reference_number: params.awb,
+        action: 'RTO',
+        remarks: sanitizeString(params.reason, 150, 'Customer cancelled order'),
+      };
+
+      const response = await axios.post(url, payload, {
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': apiKey },
+        timeout: 15000,
+      });
+
+      return {
+        success: response.data?.success === true || response.data?.status === 200,
+        message: response.data?.message || 'DTDC RTO requested',
+        carrierResponse: response.data,
+      };
+    } catch (error: any) {
+      logger.error('DTDC cancel failed', { awb: params.awb, error: error.response?.data || error.message });
       return { success: false, message: error.message, carrierResponse: error.response?.data };
     }
   }

@@ -158,8 +158,12 @@ export class WhatsAppDispatcherService {
 
     // ─── 3. Template Resolution & Pre-Send Validation ───
     const lang = merchant.settings?.ndrRescue?.messageLanguage || 'en';
+    const effectiveCategory = (order.paymentMethod === 'prepaid' && category === 'COD_COLLECTION_ISSUE')
+      ? 'CUSTOMER_NOT_AVAILABLE'
+      : category;
+
     const mapping = templateMapperService.getMappingForCategory(
-      category,
+      effectiveCategory,
       lang,
       (merchant.whatsappConfig as any)?.templateMap
     );

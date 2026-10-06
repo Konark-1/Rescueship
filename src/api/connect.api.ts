@@ -49,6 +49,7 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
     const storeConnected = c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected';
     const allGreen = storeConnected && ['whatsapp', 'carrier', 'payment'].every((k) => (k === 'whatsapp' ? waStatus === 'connected' : c[k]?.status === 'connected'));
     res.json({
+      merchantId: req.merchant!.merchantId,
       storeName: (m as any).storeName || (m as any).shopify?.shopDomain || null,
       ownerPhone: (m as any).ownerPhone || null,
       connections: {

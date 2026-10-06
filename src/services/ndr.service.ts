@@ -273,7 +273,9 @@ export class NDRService {
           externalOrderId: order.externalOrderId,
           customerPhone: order.customerPhone,
           failureReason: ndrData.reason,
-          failureCategory: this.classifyRemark(ndrData.reason),
+          failureCategory: (order.paymentMethod === 'prepaid' && this.classifyRemark(ndrData.reason) === 'COD_COLLECTION_ISSUE')
+            ? 'CUSTOMER_NOT_AVAILABLE'
+            : this.classifyRemark(ndrData.reason),
           whatsappMessageSentAt: new Date(),
           status: 'OPEN',
           isFakeRemarkSuspicious: isFake,
@@ -598,7 +600,10 @@ export class NDRService {
 
   private async sendVerifyRescue(order: any, merchant: any): Promise<void> {
     const { whatsAppDispatcherService } = require('./whatsapp/whatsapp-dispatcher.service');
-    const category = this.classifyRemark(order.ndr?.reason || '');
+    let category = this.classifyRemark(order.ndr?.reason || '');
+    if (order.paymentMethod === 'prepaid' && category === 'COD_COLLECTION_ISSUE') {
+      category = 'CUSTOMER_NOT_AVAILABLE';
+    }
     const name = order.customerName || 'Customer';
     const orderId = String(order.externalOrderId || '');
 
@@ -697,6 +702,7 @@ export class NDRService {
       let apiToken: string | undefined;
       let apiKey: string | undefined;
       let carrierEmail: string | undefined;
+      let carrierUsername: string | undefined;
       let carrierPassword: string | undefined;
       let customerCode: string | undefined;
       let licenseKey: string | undefined;
@@ -706,6 +712,7 @@ export class NDRService {
         if (specificCarrierConfig.apiToken) apiToken = encryptionService.decrypt(specificCarrierConfig.apiToken);
         if (specificCarrierConfig.apiKey) apiKey = encryptionService.decrypt(specificCarrierConfig.apiKey);
         if (specificCarrierConfig.email) carrierEmail = encryptionService.decrypt(specificCarrierConfig.email);
+        if (specificCarrierConfig.username) carrierUsername = encryptionService.decrypt(specificCarrierConfig.username);
         if (specificCarrierConfig.password) carrierPassword = encryptionService.decrypt(specificCarrierConfig.password);
         if (specificCarrierConfig.customerCode) customerCode = encryptionService.decrypt(specificCarrierConfig.customerCode);
         if (specificCarrierConfig.licenseKey) licenseKey = encryptionService.decrypt(specificCarrierConfig.licenseKey);
@@ -717,9 +724,11 @@ export class NDRService {
 
       const carrierConfig: any = {
         provider: targetCarrier,
+        mode: specificCarrierConfig.mode,
         apiToken: apiToken || apiKey,
         apiKey: apiKey || apiToken,
         email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+        username: carrierUsername,
         password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
         customerCode,
         licenseKey,
@@ -1313,6 +1322,7 @@ export class NDRService {
     let apiToken: string | undefined;
     let apiKey: string | undefined;
     let carrierEmail: string | undefined;
+    let carrierUsername: string | undefined;
     let carrierPassword: string | undefined;
     let customerCode: string | undefined;
     let licenseKey: string | undefined;
@@ -1322,6 +1332,7 @@ export class NDRService {
       if (specificCarrierConfig.apiToken) apiToken = encryptionService.decrypt(specificCarrierConfig.apiToken);
       if (specificCarrierConfig.apiKey) apiKey = encryptionService.decrypt(specificCarrierConfig.apiKey);
       if (specificCarrierConfig.email) carrierEmail = encryptionService.decrypt(specificCarrierConfig.email);
+      if (specificCarrierConfig.username) carrierUsername = encryptionService.decrypt(specificCarrierConfig.username);
       if (specificCarrierConfig.password) carrierPassword = encryptionService.decrypt(specificCarrierConfig.password);
       if (specificCarrierConfig.customerCode) customerCode = encryptionService.decrypt(specificCarrierConfig.customerCode);
       if (specificCarrierConfig.licenseKey) licenseKey = encryptionService.decrypt(specificCarrierConfig.licenseKey);
@@ -1332,9 +1343,11 @@ export class NDRService {
 
     const carrierConfig: any = {
       provider: targetCarrier,
+      mode: specificCarrierConfig.mode,
       apiToken: apiToken || apiKey,
       apiKey: apiKey || apiToken,
       email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+      username: carrierUsername,
       password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
       customerCode,
       licenseKey,
@@ -1354,8 +1367,13 @@ export class NDRService {
 
       if (result.success) {
         order.status = 'ndr_rescued';
+        const rtoFee = merchant?.settings?.estimatedRtoLossPerOrder || 140;
+        order.rtoFeeSaved = rtoFee;
         const finalResolution = order.ndr?.resolution === 'fake_remark_escalated' ? 'fake_remark_escalated' : 'rescheduled';
-        const ndrUpdate: Record<string, any> = { status: 'ndr_rescued' };
+        const ndrUpdate: Record<string, any> = {
+          status: 'ndr_rescued',
+          rtoFeeSaved: rtoFee,
+        };
         if (order.ndr) {
           order.ndr.customerResponse = order.ndr.customerResponse || 'reschedule';
           order.ndr.resolvedAt = new Date();
@@ -1370,6 +1388,26 @@ export class NDRService {
           await (order as any).save();
         } else {
           await Order.findByIdAndUpdate(order._id, { $set: ndrUpdate });
+        }
+
+        try {
+          await NdrCase.findOneAndUpdate(
+            { orderId: order._id, merchantId: order.merchantId },
+            {
+              $set: {
+                status: 'REATTEMPT_REQUESTED',
+                customerResponseType: 'RESCHEDULE',
+                customerResponseAt: new Date(),
+                resolutionType: 'rescheduled',
+                reattemptRequestedAt: new Date(),
+                carrierReattemptStatus: 'SUCCESS',
+                rtoFeeSaved: rtoFee,
+                estimatedLossPrevented: rtoFee,
+              },
+            }
+          );
+        } catch (caseErr: any) {
+          logger.warn('Failed to update NdrCase on reschedule', { error: caseErr?.message });
         }
 
         await this.cancelEscalationJobs(order, merchant);

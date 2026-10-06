@@ -8,9 +8,9 @@
 |------|------|-------------|
 | `index.ts` | Barrel export | Re-exports all 12 models |
 | `indexes.ts` | Index definitions | Compound, partial unique, and TTL index setup for all collections |
-| `Merchant.ts` | Tenant profile | `Merchant` model — credentials vault, billing, settings, quality stats (15KB) |
-| `Order.ts` | Order ledger | `Order` model — status, AWB, payment links, address updates |
-| `NdrCase.ts` | NDR tracker | `NdrCase` model — failure classification, customer response, carrier sync |
+| `Merchant.ts` | Tenant profile | `Merchant` model — credentials vault, multi-carrier configuration (`carrierConfig.carriers` for all 8 carriers + custom), billing, settings, quality stats (15KB) |
+| `Order.ts` | Order ledger | `Order` model — status, universal payment support (`paymentMethod: 'cod' | 'prepaid'`), carrier enum (Shiprocket, Delhivery, Blue Dart, Xpressbees, Shadowfax, Ecom Express, DTDC, ClickPost, Custom), AWB, `rtoFeeSaved` financial metric, payment links, address updates |
+| `NdrCase.ts` | NDR tracker | `NdrCase` model — failure classification & category sanitization, customer response, carrier sync, `rtoFeeSaved` & `estimatedLossPrevented` ROI metrics |
 | `RescueLedger.ts` | Attribution ledger | `RescueLedger` model — append-only, holdout outcomes, fake scores, Meta costs |
 | `Shipment.ts` | Package status | `Shipment` model — AWB tracking, COD amendment history |
 | `AuditLog.ts` | SOC-2 audit trail | `AuditLog` model — immutable, 90-day TTL, pre-hooks block updates/deletes |

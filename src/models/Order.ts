@@ -26,7 +26,7 @@ export interface IOrder extends Document {
   outForDeliveryAt?: Date | null;
   lastEventTimestamp?: Date | null;
   awb?: string | null;
-  carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | null;
+  carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom' | null;
   paymentLinkId?: string | null;
   paymentLinkUrl?: string | null;
   rtoFeeSaved?: number;
@@ -124,7 +124,7 @@ const OrderSchema = new Schema<IOrder>(
     awb: { type: String, default: null, index: true },
     outForDeliveryAt: { type: Date, default: null },
     lastEventTimestamp: { type: Date, default: null },
-    carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', 'bluedart', 'xpressbees', 'shadowfax', null], default: null },
+    carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', 'bluedart', 'xpressbees', 'shadowfax', 'ecomexpress', 'dtdc', 'custom', null], default: null },
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },
     rtoFeeSaved: { type: Number, default: 0 },

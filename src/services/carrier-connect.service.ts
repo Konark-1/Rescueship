@@ -11,11 +11,14 @@ import { Merchant } from '../models';
 import { logger } from '../utils/logger';
 import { generateCarrierWebhookSecret } from '../webhooks/carrier-auth';
 
-export type Provider = 'shiprocket' | 'delhivery' | 'clickpost' | 'bluedart' | 'xpressbees' | 'shadowfax';
+export type Provider = 'shiprocket' | 'delhivery' | 'clickpost' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom';
 export interface CarrierCreds {
   provider: Provider;
+  webhookOnly?: boolean;
+  carrierName?: string;
   email?: string;
   password?: string;
+  username?: string;
   apiToken?: string;
   apiKey?: string;
   customerCode?: string;
@@ -103,6 +106,41 @@ async function validateShadowfax(c: CarrierCreds) {
   }
 }
 
+async function validateEcomexpress(c: CarrierCreds) {
+  const username = assertStr(c.username || c.email, 'username');
+  const password = assertStr(c.password, 'password');
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      await axios.post(
+        'https://api.ecomexpress.in/apiv2/pincode/',
+        { username, password },
+        { timeout: HTTP_TIMEOUT_MS }
+      );
+    } catch (err: any) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        throw new Error('Invalid Ecom Express credentials');
+      }
+    }
+  }
+}
+
+async function validateDtdc(c: CarrierCreds) {
+  const apiKey = assertStr(c.apiKey || c.apiToken, 'apiKey');
+  if (c.customerCode) assertStr(c.customerCode, 'customerCode');
+  if (process.env.NODE_ENV !== 'test') {
+    try {
+      await axios.get('https://api.dtdc.com/tracking', {
+        headers: { 'X-Access-Token': apiKey },
+        timeout: HTTP_TIMEOUT_MS,
+      });
+    } catch (err: any) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        throw new Error('Invalid DTDC API Key / Access Token');
+      }
+    }
+  }
+}
+
 /** Where the carrier should POST NDR events for this merchant. */
 export function carrierWebhookUrl(provider: Provider, merchantId: string): string {
   const base = (process.env.API_PUBLIC_URL || process.env.API_BASE_URL || '').replace(/\/$/, '');
@@ -113,13 +151,29 @@ export class CarrierConnectService {
   async validateAndSave(merchantId: string, creds: CarrierCreds) {
     // 1. validate (throws → we never store)
     let shiprocketToken: string | undefined;
-    if (creds.provider === 'shiprocket') shiprocketToken = await validateShiprocket(creds);
-    else if (creds.provider === 'delhivery') await validateDelhivery(creds);
-    else if (creds.provider === 'clickpost') await validateClickpost(creds);
-    else if (creds.provider === 'bluedart') await validateBluedart(creds);
-    else if (creds.provider === 'xpressbees') await validateXpressbees(creds);
-    else if (creds.provider === 'shadowfax') await validateShadowfax(creds);
-    else throw new Error('Unsupported carrier');
+    if (creds.webhookOnly) {
+      // Webhook-only mode requires no outbound API credentials
+    } else if (creds.provider === 'shiprocket') {
+      shiprocketToken = await validateShiprocket(creds);
+    } else if (creds.provider === 'delhivery') {
+      await validateDelhivery(creds);
+    } else if (creds.provider === 'clickpost') {
+      await validateClickpost(creds);
+    } else if (creds.provider === 'bluedart') {
+      await validateBluedart(creds);
+    } else if (creds.provider === 'xpressbees') {
+      await validateXpressbees(creds);
+    } else if (creds.provider === 'shadowfax') {
+      await validateShadowfax(creds);
+    } else if (creds.provider === 'ecomexpress') {
+      await validateEcomexpress(creds);
+    } else if (creds.provider === 'dtdc') {
+      await validateDtdc(creds);
+    } else if (creds.provider === 'custom') {
+      // Custom courier / aggregator
+    } else {
+      throw new Error('Unsupported carrier');
+    }
 
     // 2. store encrypted (engine reads these unchanged)
     const merchant = await Merchant.findById(merchantId);
@@ -133,7 +187,13 @@ export class CarrierConnectService {
       ? (() => { try { return encryptionService.decrypt(existingCarrierData.webhookSecret); } catch { return generateCarrierWebhookSecret(); } })()
       : (existing.webhookSecret ? (() => { try { return encryptionService.decrypt(existing.webhookSecret); } catch { return generateCarrierWebhookSecret(); } })() : generateCarrierWebhookSecret());
 
-    const store: any = { provider: creds.provider, webhookSecret: encryptionService.encrypt(webhookSecretPlain), connectedAt: new Date() };
+    const store: any = {
+      provider: creds.provider,
+      mode: creds.webhookOnly ? 'webhook_only' : 'api',
+      carrierName: creds.carrierName || undefined,
+      webhookSecret: encryptionService.encrypt(webhookSecretPlain),
+      connectedAt: new Date(),
+    };
     if (creds.apiToken) store.apiToken = encryptionService.encrypt(creds.apiToken.trim());
     if (creds.apiKey) {
       const enc = encryptionService.encrypt(creds.apiKey.trim());
@@ -141,6 +201,7 @@ export class CarrierConnectService {
       if (!creds.apiToken) store.apiToken = enc;
     }
     if (creds.email) store.email = encryptionService.encrypt(creds.email.trim());
+    if (creds.username) store.username = encryptionService.encrypt(creds.username.trim());
     if (creds.password) store.password = encryptionService.encrypt(creds.password);
     if (creds.customerCode) store.customerCode = encryptionService.encrypt(creds.customerCode.trim());
     if (creds.licenseKey) store.licenseKey = encryptionService.encrypt(creds.licenseKey.trim());
@@ -231,11 +292,18 @@ export class CarrierConnectService {
     provider: Provider | null;
     webhookUrl: string | null;
     webhookSecret: string | null;
-    carriers: Array<{ provider: Provider; status: 'connected' | 'disconnected'; webhookUrl: string; webhookSecret: string | null }>;
+    carriers: Array<{
+      provider: Provider;
+      carrierName?: string | null;
+      mode?: string | null;
+      status: 'connected' | 'disconnected';
+      webhookUrl: string;
+      webhookSecret: string | null;
+    }>;
   }> {
     const merchant = await Merchant.findById(merchantId).select('carrierConfig');
     const cfg: any = (merchant as any)?.carrierConfig;
-    const allProviders: Provider[] = ['shiprocket', 'delhivery', 'clickpost', 'bluedart', 'xpressbees', 'shadowfax'];
+    const allProviders: Provider[] = ['shiprocket', 'delhivery', 'clickpost', 'bluedart', 'xpressbees', 'shadowfax', 'ecomexpress', 'dtdc', 'custom'];
 
     const connectedMap: Record<string, any> = cfg?.carriers || (cfg?.provider ? { [cfg.provider]: cfg } : {});
 
@@ -247,6 +315,8 @@ export class CarrierConnectService {
       }
       return {
         provider: p,
+        carrierName: connectedMap[p]?.carrierName || null,
+        mode: connectedMap[p]?.mode || (isConnected ? 'api' : null),
         status: (isConnected ? 'connected' : 'disconnected') as 'connected' | 'disconnected',
         webhookUrl: carrierWebhookUrl(p, merchantId),
         webhookSecret: plainSecret,

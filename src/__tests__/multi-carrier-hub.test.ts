@@ -37,6 +37,9 @@ import { normalizeCarrierStatus } from '../services/courier/shipment-status.map'
 import { parseBluedartWebhook } from '../webhooks/bluedart.webhook';
 import { parseXpressbeesWebhook } from '../webhooks/xpressbees.webhook';
 import { parseShadowfaxWebhook } from '../webhooks/shadowfax.webhook';
+import { parseEcomexpressWebhook } from '../webhooks/ecomexpress.webhook';
+import { parseDtdcWebhook } from '../webhooks/dtdc.webhook';
+import { parseCustomWebhook } from '../webhooks/custom.webhook';
 
 describe('Multi-Carrier Hub & Top Logistics Providers Suite', () => {
   const testMerchantId = '6aa2874f2b6be7572c5c0289';
@@ -93,6 +96,40 @@ describe('Multi-Carrier Hub & Top Logistics Providers Suite', () => {
         normalizedStatus: 'out_for_delivery',
         isNdr: false,
         isTerminal: false,
+      });
+    });
+
+    it('normalizes Ecom Express status codes properly', () => {
+      expect(normalizeCarrierStatus('ecomexpress', 'UD', 'Customer not reachable')).toEqual({
+        normalizedStatus: 'ndr_detected',
+        isNdr: true,
+        isTerminal: false,
+      });
+
+      expect(normalizeCarrierStatus('ecomexpress', 'DL')).toEqual({
+        normalizedStatus: 'delivered',
+        isNdr: false,
+        isTerminal: true,
+      });
+
+      expect(normalizeCarrierStatus('ecomexpress', 'RTO')).toEqual({
+        normalizedStatus: 'rto_initiated',
+        isNdr: false,
+        isTerminal: false,
+      });
+    });
+
+    it('normalizes DTDC status codes properly', () => {
+      expect(normalizeCarrierStatus('dtdc', 'NOT_DELIVERED', 'Door locked')).toEqual({
+        normalizedStatus: 'ndr_detected',
+        isNdr: true,
+        isTerminal: false,
+      });
+
+      expect(normalizeCarrierStatus('dtdc', 'DELIVERED')).toEqual({
+        normalizedStatus: 'delivered',
+        isNdr: false,
+        isTerminal: true,
       });
     });
   });
@@ -158,6 +195,68 @@ describe('Multi-Carrier Hub & Top Logistics Providers Suite', () => {
       expect(result.externalOrderId).toBe('ORD-303');
       expect(result.reason).toBe('Address incomplete');
     });
+
+    it('parses Ecom Express webhook payload correctly', () => {
+      const mockReq: any = {
+        body: {
+          airwaybill_number: 'EE444555666',
+          reason_code: 'UD',
+          reason: 'Customer not reachable on phone',
+          order_number: 'ORD-404',
+          mobile: '9777788888',
+        },
+        path: '/ndr',
+        get: () => null,
+      };
+
+      const result: any = parseEcomexpressWebhook(mockReq);
+      expect(result.awb).toBe('EE444555666');
+      expect(result.isNdr).toBe(true);
+      expect(result.externalOrderId).toBe('ORD-404');
+      expect(result.reason).toBe('Customer not reachable on phone');
+      expect(result.phone).toBe('9777788888');
+    });
+
+    it('parses DTDC webhook payload correctly', () => {
+      const mockReq: any = {
+        body: {
+          consignment_number: 'DTDC111222333',
+          status: 'NOT_DELIVERED',
+          remarks: 'Premises locked on visit',
+          reference_number: 'ORD-505',
+          contact: '9666677777',
+        },
+        path: '/ndr',
+        get: () => null,
+      };
+
+      const result: any = parseDtdcWebhook(mockReq);
+      expect(result.awb).toBe('DTDC111222333');
+      expect(result.isNdr).toBe(true);
+      expect(result.reason).toBe('Premises locked on visit');
+      expect(result.phone).toBe('9666677777');
+    });
+
+    it('parses Custom / Aggregator webhook payload correctly', () => {
+      const mockReq: any = {
+        body: {
+          waybill: 'NIMBUS_998877',
+          status: 'UNDELIVERED',
+          reason: 'Customer requested evening delivery',
+          order_id: 'ORD-NIM-01',
+          recipient_phone: '9555544444',
+        },
+        path: '/ndr',
+        get: () => null,
+      };
+
+      const result: any = parseCustomWebhook(mockReq);
+      expect(result.awb).toBe('NIMBUS_998877');
+      expect(result.isNdr).toBe(true);
+      expect(result.reason).toBe('Customer requested evening delivery');
+      expect(result.phone).toBe('9555544444');
+      expect(result.externalOrderId).toBe('ORD-NIM-01');
+    });
   });
 
   describe('3. Multi-Carrier Credential Saving & Disconnect', () => {
@@ -189,14 +288,36 @@ describe('Multi-Carrier Hub & Top Logistics Providers Suite', () => {
       expect(mockMerchantStore.connections?.carriers?.xpressbees?.status).toBe('connected');
     });
 
-    it('generates webhook credentials list for all 6 top providers', async () => {
+    it('connects a carrier in Webhook-Only mode without requiring API keys', async () => {
+      const hookRes = await carrierConnectService.validateAndSave(testMerchantId, {
+        provider: 'dtdc',
+        webhookOnly: true,
+      });
+
+      expect(hookRes.status).toBe('connected');
+      expect(hookRes.provider).toBe('dtdc');
+      expect(hookRes.webhookUrl).toContain('/webhooks/dtdc/ndr');
+
+      const carriers = mockMerchantStore.carrierConfig?.carriers;
+      expect(carriers.dtdc).toBeDefined();
+      expect(carriers.dtdc.mode).toBe('webhook_only');
+      expect(mockMerchantStore.connections?.carriers?.dtdc?.status).toBe('connected');
+    });
+
+    it('generates webhook credentials list for all 9 top and custom providers', async () => {
       const creds = await carrierConnectService.webhookCredentials(testMerchantId);
       expect(creds.carriers).toBeDefined();
-      expect(creds.carriers.length).toBe(6);
+      expect(creds.carriers.length).toBe(9);
 
       const bdInfo = creds.carriers.find((c) => c.provider === 'bluedart');
       const xbInfo = creds.carriers.find((c) => c.provider === 'xpressbees');
       const srInfo = creds.carriers.find((c) => c.provider === 'shiprocket');
+      const eeInfo = creds.carriers.find((c) => c.provider === 'ecomexpress');
+      const dtdcInfo = creds.carriers.find((c) => c.provider === 'dtdc');
+      const customInfo = creds.carriers.find((c) => c.provider === 'custom');
+
+      expect(customInfo).toBeDefined();
+      expect(customInfo?.webhookUrl).toContain('/webhooks/custom/ndr');
 
       expect(bdInfo?.status).toBe('connected');
       expect(bdInfo?.webhookUrl).toContain('/webhooks/bluedart/ndr');
@@ -207,6 +328,11 @@ describe('Multi-Carrier Hub & Top Logistics Providers Suite', () => {
       expect(xbInfo?.webhookSecret).toBeTruthy();
 
       expect(srInfo?.status).toBe('disconnected');
+      expect(eeInfo?.status).toBe('disconnected');
+      expect(eeInfo?.webhookUrl).toContain('/webhooks/ecomexpress/ndr');
+      expect(dtdcInfo?.status).toBe('connected');
+      expect(dtdcInfo?.mode).toBe('webhook_only');
+      expect(dtdcInfo?.webhookUrl).toContain('/webhooks/dtdc/ndr');
     });
 
     it('allows disconnecting an individual courier while retaining others', async () => {
@@ -261,6 +387,63 @@ describe('Multi-Carrier Hub & Top Logistics Providers Suite', () => {
 
       expect(res.success).toBe(true);
       expect(res.message).toContain('Shadowfax');
+    });
+
+    it('dispatches reschedule action to Ecom Express in test mode', async () => {
+      const res = await logisticsService.rescheduleDelivery('ecomexpress', {
+        awb: 'EE_AWB_004',
+        newDate: '2026-10-12',
+        reason: 'Customer requested reschedule',
+      }, {
+        username: 'TEST_EE_USER',
+        password: 'TEST_EE_PASS',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.message).toContain('Ecom Express');
+    });
+
+    it('dispatches address update action to DTDC in test mode', async () => {
+      const res = await logisticsService.updateDeliveryAddress('dtdc', {
+        awb: 'DTDC_AWB_005',
+        address: 'Plot 15, Knowledge Park III',
+        city: 'Greater Noida',
+        pincode: '201308',
+        phone: '9666677777',
+      }, {
+        apiKey: 'DTDC_TOKEN_789',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.message).toContain('DTDC');
+    });
+
+    it('dispatches action to custom / aggregator courier cleanly', async () => {
+      const res = await logisticsService.rescheduleDelivery('custom', {
+        awb: 'NIMBUS_998877',
+        reason: 'Customer requested evening slot',
+      });
+
+      expect(res.success).toBe(true);
+      expect(res.message).toContain('custom courier');
+    });
+
+    it('gracefully records action for courier in webhook-only mode without throwing', async () => {
+      const res = await logisticsService.rescheduleDelivery(
+        'bluedart',
+        {
+          awb: 'BD_HOOK_ONLY_001',
+          newDate: '2026-10-14',
+          reason: 'Customer requested delay',
+        },
+        {
+          mode: 'webhook_only',
+        }
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.message).toContain('Webhook-Only mode');
+      expect(res.carrierResponse?.webhookOnly).toBe(true);
     });
   });
 });

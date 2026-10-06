@@ -13,7 +13,7 @@
 | `ResetPasswordPage.tsx` | `/reset-password` | Token-based password reset confirmation |
 | `DashboardPage.tsx` | `/dashboard` | Real-time telemetry with SSE, Recharts, AnimatedCounters |
 | `OrdersPage.tsx` | `/orders` | Order management: search, filters, timeline modal |
-| `OnboardingPage.tsx` | `/onboarding` | 4-station wizard: Store, WhatsApp, Carrier, Payment |
+| `OnboardingPage.tsx` | `/onboarding` | 4-station wizard: Store, WhatsApp, Multi-Carrier Hub (8 couriers + custom, Direct API & Webhook-only modes), Payment |
 | `SandboxPage.tsx` | `/sandbox` | NDR simulation, WABA quality monitoring |
 | `SettingsPage.tsx` | `/settings` | Platform/carrier/WhatsApp/payment credential management |
 | `TemplatesPage.tsx` | `/templates` | Meta WhatsApp template registry + mobile preview |

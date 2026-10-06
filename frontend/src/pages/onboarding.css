@@ -244,3 +244,168 @@
 @media (prefers-reduced-motion: reduce) {
   .ob-scan, .ob-marker, .ob-check, .ob-spin, .ob-feed__line, .animate-spin { animation-play-state: paused !important; animation: none !important; }
 }
+
+/* ── MULTI-CARRIER SELECTION & ONBOARDING HUB ── */
+.ob-carrier-section { display: flex; flex-direction: column; gap: 18px; width: 100%; max-width: 640px; }
+.ob-carrier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 6px; }
+.ob-carrier-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  background: var(--white-03);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.ob-carrier-card:hover {
+  background: var(--white-06);
+  border-color: var(--indigo-40);
+  transform: translateY(-1px);
+}
+.ob-carrier-card.is-selected {
+  background: var(--indigo-08);
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 1px var(--indigo), 0 4px 12px var(--indigo-15);
+}
+.ob-carrier-card.is-connected {
+  border-color: var(--emerald-40);
+}
+.ob-carrier-card__top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+.ob-carrier-card__icon { font-size: 1.25rem; }
+.ob-carrier-card__check {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1.5px solid var(--text-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.ob-carrier-card.is-selected .ob-carrier-card__check {
+  background: var(--indigo);
+  border-color: var(--indigo);
+  color: #fff;
+}
+.ob-carrier-card__name { font-size: 0.88rem; font-weight: 600; color: var(--text-1); margin: 0 0 2px 0; }
+.ob-carrier-card__badge { font-size: 0.68rem; color: var(--text-3); }
+.ob-carrier-card__status-dot {
+  position: absolute;
+  top: 8px;
+  right: 32px;
+  font-size: 0.65rem;
+  background: var(--emerald-15);
+  color: var(--emerald);
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+.ob-carrier-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.ob-carrier-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-3);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.ob-carrier-tab:hover { color: var(--text-1); }
+.ob-carrier-tab.active {
+  color: var(--indigo-soft);
+  border-bottom-color: var(--indigo);
+}
+.ob-carrier-tab.connected {
+  color: var(--emerald);
+}
+
+.ob-mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--white-03);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+.ob-mode-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-3);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+.ob-mode-btn:hover { color: var(--text-1); }
+.ob-mode-btn.active {
+  background: var(--bg-card);
+  color: var(--text-1);
+  border-color: var(--border);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+}
+.ob-mode-btn small { font-size: 0.68rem; font-weight: normal; color: var(--text-3); }
+
+.ob-guide-box {
+  background: var(--indigo-08);
+  border: 1px solid var(--indigo-20);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 0.78rem;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+.ob-guide-box strong { color: var(--indigo-soft); display: block; margin-bottom: 2px; }
+
+.ob-connected-box {
+  background: var(--emerald-06);
+  border: 1px solid var(--emerald-20);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ob-webhook-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  gap: 8px;
+}
+.ob-webhook-code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--emerald);
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

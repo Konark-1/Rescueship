@@ -1,142 +1,82 @@
-import { Router, Request, Response } from 'express';
-import { Queue } from 'bullmq';
-import { Types } from 'mongoose';
-import crypto from 'crypto';
-import { redisConnection } from '../config/redis';
-import { Merchant, AuditLog } from '../models';
-import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
-import { encryptionService } from '../services/encryption.service';
-import { logger } from '../utils/logger';
-import { makeJobId } from '../utils/job-id';
+import { Router, Request } from 'express';
+import { createCarrierNdrHandler, safeStr } from './carrier-ndr.handler';
+import { normalizeCarrierStatus } from '../services/courier/shipment-status.map';
 
 const router = Router();
-const codConversionQueue = new Queue('cod-conversion', { connection: redisConnection as any });
 
-router.post('/order-created', async (req: Request, res: Response): Promise<void> => {
-  const merchantIdStr = typeof req.query.merchant_id === 'string' ? req.query.merchant_id : '';
-  const authHeader = req.get('Authorization') || '';
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
-
-  // Uniform 401 for missing/invalid/unknown merchant and bad token — no enumeration oracle.
-  if (!merchantIdStr || !Types.ObjectId.isValid(merchantIdStr) || !token) {
-    res.status(401).json({ error: 'Invalid API token' });
-    return;
-  }
-
-  const merchant = await Merchant.findById(merchantIdStr).select('_id platformConfig.customApiSecret');
-  if (!merchant) {
-    res.status(401).json({ error: 'Invalid API token' });
-    return;
-  }
-
-  // Per-merchant secret; fail closed if missing or undecryptable (never accept ciphertext as the token).
-  let secret: string | undefined;
-  if (merchant.platformConfig?.customApiSecret) {
-    try {
-      secret = encryptionService.decrypt(merchant.platformConfig.customApiSecret);
-    } catch {
-      logger.error('Custom API secret cannot be decrypted; merchant must regenerate it', { merchantId: merchantIdStr });
-    }
-  }
-  if (!secret) {
-    logger.warn('Custom API secret not configured for merchant', { merchantId: merchantIdStr });
-    res.status(401).json({ error: 'Invalid API token' });
-    return;
-  }
-
-  const tokenBuf = Buffer.from(token);
-  const secretBuf = Buffer.from(secret);
-  if (tokenBuf.length !== secretBuf.length || !crypto.timingSafeEqual(tokenBuf, secretBuf)) {
-    logger.warn('Custom API token verification failed', { merchantId: merchantIdStr });
-    res.status(401).json({ error: 'Invalid API token' });
-    return;
-  }
-
+export function parseCustomWebhook(req: Request) {
   const body = req.body ?? {};
-  const orderId = body.order_id;
-  const total = typeof body.total === 'number' ? body.total : parseFloat(body.total);
-  if (
-    (typeof orderId !== 'string' && typeof orderId !== 'number') ||
-    !Number.isFinite(total) || total <= 0 ||
-    typeof body.payment_method !== 'string' ||
-    typeof body.phone !== 'string' || !body.phone
-  ) {
-    res.status(400).json({ error: 'Invalid payload. Required fields: order_id, total, payment_method, phone' });
-    return;
-  }
-  const externalOrderId = String(orderId).slice(0, 128);
-  if (!/^[A-Za-z0-9_-]+$/.test(externalOrderId)) {
-    res.status(400).json({ error: 'order_id may only contain letters, numbers, "-" and "_"' });
-    return;
-  }
+  const awb = safeStr(
+    body.awb ||
+      body.waybill ||
+      body.tracking_number ||
+      body.tracking_id ||
+      body.consignment_number ||
+      body.shipment_id ||
+      body.docket_no ||
+      body.lr_no,
+    64
+  );
+  if (!awb) return { error: 'Missing awb or tracking number in custom payload' };
 
-  const eventId = req.get('X-Custom-Webhook-ID') || externalOrderId;
-  const idemKey = IdempotencyGuard.key('custom', merchantIdStr, eventId);
+  const rawStatus = safeStr(
+    body.status ||
+      body.event ||
+      body.shipment_status ||
+      body.current_status ||
+      body.event_type ||
+      body.action,
+    64
+  );
+  const remarks = safeStr(
+    body.remarks ||
+      body.reason ||
+      body.ndr_reason ||
+      body.comment ||
+      body.failure_reason ||
+      body.sub_status,
+    256
+  );
 
-  let claim;
-  try {
-    claim = await IdempotencyGuard.claim(idemKey);
-  } catch (err) {
-    if (err instanceof IdempotencyUnavailableError) {
-      res.status(503).json({ error: 'Temporarily unavailable, retry later' });
-      return;
-    }
-    throw err;
-  }
-  if (claim === 'duplicate') {
-    logger.info('Duplicate Custom webhook, skipping', { merchantId: merchantIdStr, eventId });
-    res.status(200).json({ status: 'ignored', reason: 'duplicate' });
-    return;
-  }
+  const normalized = normalizeCarrierStatus('custom', rawStatus, remarks);
+  const isNdr = (req.path || '').includes('/ndr') || normalized.isNdr;
+  const status = isNdr ? 'UNDELIVERED' : normalized.normalizedStatus.toUpperCase();
 
-  try {
-    if (body.payment_method.toLowerCase() !== 'cod') {
-      res.status(200).json({ status: 'ignored', reason: 'prepaid' });
-      return;
-    }
+  const attemptTimeRaw = body.attempt_time || body.status_date || body.event_date || body.timestamp || body.date;
+  const attemptTime = attemptTimeRaw ? new Date(attemptTimeRaw) : undefined;
 
-    await codConversionQueue.add(
-      'convert-cod',
-      {
-        action: 'process_new_cod',
-        merchantId: merchantIdStr,
-        orderData: {
-          externalOrderId,
-          platform: 'custom',
-          customerPhone: body.phone,
-          customerName: typeof body.customer_name === 'string' ? body.customer_name.slice(0, 120) : 'Customer',
-          orderValue: total,
-          paymentMethod: 'cod',
-          pincode: body.pincode || body.shipping_pincode || body.shipping_address?.zip || undefined,
-          city: body.city || body.shipping_city || body.shipping_address?.city || undefined,
-          state: body.state || body.shipping_state || body.shipping_address?.province || body.shipping_address?.state || undefined,
-          shippingAddress: body.shipping_address || undefined,
-        },
-      },
-      {
-        jobId: makeJobId('cod', merchantIdStr, 'custom', externalOrderId),
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-        removeOnComplete: true,
-        removeOnFail: true,
-      }
-    );
+  return {
+    awb,
+    externalOrderId: safeStr(
+      body.order_id ||
+        body.external_order_id ||
+        body.order_number ||
+        body.reference_number ||
+        body.client_order_id,
+      128
+    ),
+    reason: remarks || (isNdr ? 'Delivery attempt failed / NDR event' : ''),
+    phone: safeStr(
+      body.phone ||
+        body.customer_phone ||
+        body.mobile ||
+        body.recipient_phone ||
+        body.contact,
+      32
+    ) || undefined,
+    status,
+    isNdr,
+    attemptTime,
+    eventId: req.get('x-custom-event-id') || req.get('x-event-id') || `${awb}_${status || 'ndr'}_${Date.now()}`,
+  };
+}
 
-    await AuditLog.create({
-      merchantId: merchant._id,
-      action: 'webhook_received',
-      source: 'custom',
-      payload: { eventId, orderId: externalOrderId, total },
-      status: 'success',
-    });
+const handler = createCarrierNdrHandler(
+  'custom',
+  () => process.env.CUSTOM_WEBHOOK_SECRET || undefined,
+  parseCustomWebhook
+);
 
-    await IdempotencyGuard.markProcessed(idemKey);
-    res.status(200).json({ status: 'queued', message: 'Custom webhook queued successfully' });
-  } catch (err: any) {
-    logger.error('Failed to handle Custom webhook', { merchantId: merchantIdStr, eventId, error: err.message });
-    await IdempotencyGuard.release(idemKey);
-    res.status(500).json({ error: 'Failed to process webhook' });
-  }
-});
+router.post(['/', '/ndr', '/tracking'], handler);
 
 export default router;

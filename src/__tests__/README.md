@@ -1,11 +1,14 @@
 # __tests__/
 
-> **Purpose**: Jest test suites — 25 suites covering 168 tests for backend services, APIs, and security.
+> **Purpose**: Jest test suites — 40 suites covering 334 tests for backend services, APIs, multi-carrier logistics hub, and security.
 
 ## File Catalog
 
 | File | Tests |
 |------|-------|
+| `multi-carrier-hub.test.ts` | Status normalization maps (8 couriers + custom), inbound webhook parsers (Blue Dart, Xpressbees, Shadowfax, Ecom Express, DTDC, Custom), multi-carrier credential persistence, disconnect isolation, dynamic multi-carrier action dispatching |
+| `logistics.service.test.ts` | Direct carrier dispatch, webhook-only safe execution, reattempt and address sync |
+| `sequential-ndr-funnel.test.ts` | Multi-stage interactive NDR resolution, WhatsApp button fallbacks, cancellation gates |
 | `analytics.service.test.ts` | Dashboard metrics, daily conversions, carrier performance |
 | `auth.api.test.ts` | Registration, login, Google OAuth, password reset, token revocation |
 | `customer-copy-guard.test.ts` | Accusatory language detection and rejection |
@@ -25,11 +28,14 @@
 | `security-vault.test.ts` | IDOR prevention, cross-tenant isolation, credential masking |
 | `vulnerability-remediation.test.ts` | Security remediations, input sanitation, session management |
 | `merchant-digest.service.test.ts` | Event buffering, hourly aggregation, email dispatch, quota alerts |
+| `webhook-security.test.ts` | HMAC validation, replay protection, multi-tenant secret isolation |
+| `universal-order-ingestion.test.ts` | Universal order ingestion (WooCommerce & Shopify prepaid & COD), phone normalization, quarantined shipment linking, prepaid courier remark sanitization, and financial attribution metrics (reschedule, address updates, RTO arrest) |
+| `subscription-lifecycle.test.ts` | SaaS billing plans, quota enforcement, upgrade/downgrade |
 | `whatsapp.service.test.ts` | Template dispatch, cooldown enforcement, credit deduction |
 
 ## Key Invariants
 
-- ALL 25 suites / 168 tests MUST pass before any deploy
+- ALL 40 suites / 334 tests MUST pass before any deploy
 - Run with: `npm test` (uses `jest --forceExit`)
 - Tests use in-memory mocks — do NOT connect to real MongoDB/Redis
 - Config: `jest.config.ts` in project root, uses `ts-jest`

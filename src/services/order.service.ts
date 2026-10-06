@@ -675,26 +675,42 @@ export class OrderService {
 
   public getCarrierConfig(merchant: any, carrier?: string): any {
     const cc: any = merchant?.carrierConfig || {};
+    const targetCarrier = carrier || cc.provider;
+    const specific: any = cc.carriers?.[targetCarrier] || (cc.provider === targetCarrier ? cc : {});
+
     let apiToken: string | undefined;
     let apiKey: string | undefined;
     let email: string | undefined;
     let password: string | undefined;
+    let username: string | undefined;
+    let customerCode: string | undefined;
+    let licenseKey: string | undefined;
+    let loginId: string | undefined;
 
     try {
-      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-      else if (cc.apiKey) apiKey = encryptionService.decrypt(cc.apiKey);
-      if (cc.email) email = encryptionService.decrypt(cc.email);
-      if (cc.password) password = encryptionService.decrypt(cc.password);
+      if (specific.apiToken) apiToken = encryptionService.decrypt(specific.apiToken);
+      if (specific.apiKey) apiKey = encryptionService.decrypt(specific.apiKey);
+      if (specific.email) email = encryptionService.decrypt(specific.email);
+      if (specific.password) password = encryptionService.decrypt(specific.password);
+      if (specific.username) username = encryptionService.decrypt(specific.username);
+      if (specific.customerCode) customerCode = encryptionService.decrypt(specific.customerCode);
+      if (specific.licenseKey) licenseKey = encryptionService.decrypt(specific.licenseKey);
+      if (specific.loginId) loginId = encryptionService.decrypt(specific.loginId);
     } catch {
-      // Proceed with defaults / environment fallback
+      // Proceed with defaults / fallback
     }
 
     return {
-      provider: carrier || cc.provider,
-      apiToken: apiToken || cc.apiToken,
-      apiKey: apiKey || cc.apiKey,
-      email: email || process.env.SHIPROCKET_EMAIL,
-      password: password || process.env.SHIPROCKET_PASSWORD,
+      provider: targetCarrier,
+      mode: specific.mode,
+      apiToken: apiToken || apiKey,
+      apiKey: apiKey || apiToken,
+      email: email || (targetCarrier === 'shiprocket' ? process.env.SHIPROCKET_EMAIL : undefined),
+      password: password || (targetCarrier === 'shiprocket' ? process.env.SHIPROCKET_PASSWORD : undefined),
+      username,
+      customerCode,
+      licenseKey,
+      loginId,
     };
   }
 

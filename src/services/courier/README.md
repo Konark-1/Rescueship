@@ -7,7 +7,7 @@
 | File | Role | Key Exports |
 |------|------|-------------|
 | `cod-adjustment.service.ts` | COD balance modification | `CodAdjustmentService` singleton — `adjustCodAmount(params)`. Idempotent. Guards overpayment. Flags `COD_AMENDMENT_MANUAL_REQUIRED` on carrier rejection. |
-| `shipment-status.map.ts` | Status normalization | `SHIPROCKET_STATUS_MAP`, `CLICKPOST_STATUS_MAP`, `DELHIVERY_STATUS_MAP`, `normalizeCarrierStatus(carrier, rawStatus, remark)` |
+| `shipment-status.map.ts` | Status normalization | `SHIPROCKET_STATUS_MAP`, `DELHIVERY_STATUS_MAP`, `BLUEDART_STATUS_MAP`, `XPRESSBEES_STATUS_MAP`, `SHADOWFAX_STATUS_MAP`, `ECOMEXPRESS_STATUS_MAP`, `DTDC_STATUS_MAP`, `CLICKPOST_STATUS_MAP`, and `normalizeCarrierStatus(carrier, rawStatus, remark)` |
 
 ## Key Invariants
 

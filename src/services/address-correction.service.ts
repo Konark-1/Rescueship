@@ -8,7 +8,7 @@
  *   Mode 3: 📍+✏️ Both → Step 1: GPS → Step 2: Text → Combined → push
  */
 
-import { Order, Merchant, AuditLog } from '../models';
+import { Order, Merchant, AuditLog, NdrCase } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { logisticsService } from './logistics.service';
 import { geocodingService } from './geocoding.service';
@@ -190,9 +190,11 @@ export class AddressCorrectionService {
           pincode: this.extractPincode(geocodedAddress),
         });
 
+        const rtoFee = merchant?.settings?.estimatedRtoLossPerOrder || 140;
         if (!order.ndr) order.ndr = {};
         if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
         order.ndr.addressUpdate.collectionState = 'complete';
+        order.rtoFeeSaved = rtoFee;
         order.status = 'ndr_rescued';
         if (typeof order.save === 'function') await order.save();
 
@@ -202,12 +204,31 @@ export class AddressCorrectionService {
             {
               $set: {
                 'ndr.addressCorrectionStep': 'done',
-                'ndr.resolution': 'location_pin_updated',
+                'ndr.resolution': 'address_updated',
                 'ndr.addressUpdate.collectionState': 'complete',
+                rtoFeeSaved: rtoFee,
                 status: 'ndr_rescued',
               },
             }
           );
+        }
+
+        try {
+          await NdrCase.findOneAndUpdate(
+            { orderId: order._id, merchantId: order.merchantId },
+            {
+              $set: {
+                status: 'LOCATION_RECEIVED',
+                customerResponseType: 'LOCATION_PIN',
+                customerResponseAt: new Date(),
+                resolutionType: 'address_updated',
+                rtoFeeSaved: rtoFee,
+                estimatedLossPrevented: rtoFee,
+              },
+            }
+          );
+        } catch (caseErr: any) {
+          logger.warn('Failed to update NdrCase on location response', { error: caseErr?.message });
         }
 
         const confirmMsg = '✅ Thank you! We have shared your location with the courier driver. 🚚';
@@ -328,12 +349,14 @@ export class AddressCorrectionService {
         pincode,
       });
 
+      const rtoFee = merchant?.settings?.estimatedRtoLossPerOrder || 140;
       if (!order.ndr) order.ndr = {};
       if (!order.ndr.addressUpdate) order.ndr.addressUpdate = {};
       order.ndr.addressUpdate.collectionState = 'complete';
       order.ndr.addressUpdate.textAddress = text;
       (order.ndr.addressUpdate as any).landmark = extracted.landmark;
       (order.ndr.addressUpdate as any).driverNote = extracted.driverNote;
+      order.rtoFeeSaved = rtoFee;
       order.status = 'ndr_rescued';
       if (typeof order.save === 'function') await order.save();
 
@@ -343,16 +366,36 @@ export class AddressCorrectionService {
           {
             $set: {
               'ndr.addressCorrectionStep': 'done',
-              'ndr.resolution': 'both_mode_address_updated',
+              'ndr.resolution': 'address_updated',
               'ndr.customerProvidedAddress': text,
               'ndr.addressUpdate.collectionState': 'complete',
               'ndr.addressUpdate.textAddress': text,
               'ndr.addressUpdate.landmark': extracted.landmark,
               'ndr.addressUpdate.driverNote': extracted.driverNote,
+              rtoFeeSaved: rtoFee,
               status: 'ndr_rescued',
             },
           }
         );
+      }
+
+      try {
+        await NdrCase.findOneAndUpdate(
+          { orderId: order._id, merchantId: order.merchantId },
+          {
+            $set: {
+              status: 'ADDRESS_RECEIVED',
+              customerResponseType: 'TEXT_ADDRESS',
+              customerResponseAt: new Date(),
+              customerResponseText: text,
+              resolutionType: 'address_updated',
+              rtoFeeSaved: rtoFee,
+              estimatedLossPrevented: rtoFee,
+            },
+          }
+        );
+      } catch (caseErr: any) {
+        logger.warn('Failed to update NdrCase on text address response', { error: caseErr?.message });
       }
 
       await AuditLog.create({

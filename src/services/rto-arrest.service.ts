@@ -210,24 +210,42 @@ export class RtoArrestService {
 
     // 1. Resolve carrier credentials
     const cc: any = merchant.carrierConfig || {};
+    const targetCarrier = (order.carrier as any) || cc.provider;
+    const specific: any = cc.carriers?.[targetCarrier] || (cc.provider === targetCarrier ? cc : {});
+
     let apiToken: string | undefined;
+    let apiKey: string | undefined;
     let carrierEmail: string | undefined;
     let carrierPassword: string | undefined;
+    let carrierUsername: string | undefined;
+    let customerCode: string | undefined;
+    let licenseKey: string | undefined;
+    let loginId: string | undefined;
 
     try {
-      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-      else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
-      if (cc.email) carrierEmail = encryptionService.decrypt(cc.email);
-      if (cc.password) carrierPassword = encryptionService.decrypt(cc.password);
+      if (specific.apiToken) apiToken = encryptionService.decrypt(specific.apiToken);
+      if (specific.apiKey) apiKey = encryptionService.decrypt(specific.apiKey);
+      if (specific.email) carrierEmail = encryptionService.decrypt(specific.email);
+      if (specific.password) carrierPassword = encryptionService.decrypt(specific.password);
+      if (specific.username) carrierUsername = encryptionService.decrypt(specific.username);
+      if (specific.customerCode) customerCode = encryptionService.decrypt(specific.customerCode);
+      if (specific.licenseKey) licenseKey = encryptionService.decrypt(specific.licenseKey);
+      if (specific.loginId) loginId = encryptionService.decrypt(specific.loginId);
     } catch (err: any) {
       logger.warn('Failed to decrypt carrier credentials for RTO abort override', { error: err?.message });
     }
 
     const carrierConfig: CarrierConfig = {
-      provider: (order.carrier as any) || cc.provider,
-      apiToken,
+      provider: targetCarrier,
+      mode: specific.mode,
+      apiToken: apiToken || apiKey,
+      apiKey: apiKey || apiToken,
       email: carrierEmail,
+      username: carrierUsername,
       password: carrierPassword,
+      customerCode,
+      licenseKey,
+      loginId,
     };
 
     // 2. Call courier to reschedule / abort RTO
@@ -245,7 +263,11 @@ export class RtoArrestService {
     // 3. Transition order status to ndr_rescued via state machine
     await orderStateMachineService.transitionOrder(order, 'ndr_rescued');
 
+    const rtoFee = merchant?.settings?.estimatedRtoLossPerOrder || 140;
     order.rtoArrestStatus = 'RESCUED';
+    if (!order.rtoFeeSaved) {
+      order.rtoFeeSaved = rtoFee;
+    }
     await order.save();
 
     // 4. Update NdrCase
@@ -257,6 +279,8 @@ export class RtoArrestService {
           resolutionType: 'rescheduled',
           reattemptRequestedAt: new Date(),
           carrierReattemptStatus: carrierRes.success ? 'SUCCESS' : 'MANUAL_REQUIRED',
+          rtoFeeSaved: rtoFee,
+          estimatedLossPrevented: rtoFee,
         },
       }
     );

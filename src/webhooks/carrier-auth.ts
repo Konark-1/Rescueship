@@ -26,7 +26,7 @@ import { Merchant } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
 
-export type CarrierProvider = 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax';
+export type CarrierProvider = 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom';
 
 export interface CarrierAuthResult {
   ok: true;

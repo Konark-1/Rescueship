@@ -13,7 +13,7 @@ Welcome to the RescueShip integration guide. This document explains how to set u
    `https://api.rescueship.com/webhooks/shopify`
 7. Click **Save**.
 
-Note: Shopify signs webhooks with a header `X-Shopify-Hmac-Sha256`. Ensure your RescueShip settings have the correct secret for verification.
+Note: Shopify signs webhooks with a header `X-Shopify-Hmac-Sha256`. Ensure your RescueShip settings have the correct secret for verification. RescueShip ingests all orders (COD and Prepaid) to ensure customer phone numbers are stored for future carrier NDR delivery rescues.
 
 ## 2. WooCommerce Integration
 
@@ -24,6 +24,8 @@ Note: Shopify signs webhooks with a header `X-Shopify-Hmac-Sha256`. Ensure your 
 5. Delivery URL: `https://api.rescueship.com/webhooks/woocommerce`
 6. Secret: Use the secret key from your RescueShip dashboard.
 7. Click **Save Webhook**.
+
+> **Universal Ingestion Note**: RescueShip processes both Cash on Delivery and Prepaid orders. Ingesting prepaid orders preserves consignee contact details so that when courier partners report non-delivery issues (NDR), RescueShip can immediately engage the buyer for delivery rescheduling or address verification.
 
 ## 3. Custom Integration (Custom Webhooks)
 

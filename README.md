@@ -2,7 +2,7 @@
 
 [![Production Frontend](https://img.shields.io/badge/Render-rescueship--frontend.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship-frontend.onrender.com)
 [![Production Backend](https://img.shields.io/badge/Render-rescueship.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship.onrender.com)
-[![Test Suite](https://img.shields.io/badge/Tests-276%20passed%20(36%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
+[![Test Suite](https://img.shields.io/badge/Tests-334%20passed%20(40%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
 [![Meta WhatsApp API](https://img.shields.io/badge/Meta_Cloud_API-v22.0-25D366?style=flat&logo=whatsapp)](https://developers.facebook.com/docs/whatsapp/cloud-api)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)](https://react.dev/)
@@ -41,7 +41,8 @@ By intercepting courier non-delivery reports within **90 seconds** and executing
 ```
                                     ┌────────────────────────────────────────────────────────┐
                                     │               Courier Logs Delivery Failure            │
-                                    │    (Delhivery / Shiprocket / ClickPost / Bluedart)    │
+                                    │ (Shiprocket / Delhivery / Blue Dart / Xpressbees /     │
+                                    │  Shadowfax / Ecom Express / DTDC / ClickPost / Custom) │
                                     └───────────────────────────┬────────────────────────────┘
                                                                 │ Webhook (< 10s)
                                                                 ▼
@@ -80,9 +81,54 @@ By intercepting courier non-delivery reports within **90 seconds** and executing
                                     │                 Courier Partner Systems                │
                                     │    • Delhivery Waypoint & Next-day slot locked         │
                                     │    • Shiprocket Escalation API triggered               │
+                                    │    • Blue Dart / Xpressbees / Shadowfax / Ecom / DTDC  │
+                                    │      automated reattempts & address corrections synced │
                                     │    • Line-haul return transit halted in hub            │
                                     └────────────────────────────────────────────────────────┘
 ```
+
+---
+
+## 🚚 Multi-Carrier Logistics Hub & Supported Providers
+
+RescueShip integrates out-of-the-box with India's top 8 logistics networks and aggregators, supporting unified NDR interception, automated reattempt scheduling, dynamic address corrections, and RTO arrest across all providers:
+
+| Logistics Partner | Ingestion Webhook | Action Dispatching | Integration Modes |
+| :--- | :--- | :--- | :--- |
+| **Shiprocket** | `/webhooks/shiprocket/ndr` | Escalation API, Next-Day Reattempt, COD Adjustment | Direct API & Webhook-Only |
+| **Delhivery** | `/webhooks/delhivery/ndr` | Waypoint Reattempt Slotting, Address Update API | Direct API & Webhook-Only |
+| **Blue Dart Express (DHL)** | `/webhooks/bluedart/ndr` | Waybill Rescheduling, Consignee Remarks Sync | Direct API & Webhook-Only |
+| **Xpressbees** | `/webhooks/xpressbees/ndr` | Real-Time Reattempt Dispatch, Street/Pin Rectification | Direct API & Webhook-Only |
+| **Shadowfax** | `/webhooks/shadowfax/ndr` | Doorstep Slot Reschedule, RTO Cancellation Halt | Direct API & Webhook-Only |
+| **Ecom Express** | `/webhooks/ecomexpress/ndr` | Field Remark Parsing, Reattempt Instruction Dispatch | Direct API & Webhook-Only |
+| **DTDC** | `/webhooks/dtdc/ndr` | Consignment Tracking, Address Amendment Sync | Direct API & Webhook-Only |
+| **ClickPost** | `/webhooks/clickpost/ndr` | Logistics Intelligence Parsing, Reattempt Dispatch | Direct API & Webhook-Only |
+| **Custom / Aggregators** | `/webhooks/custom/ndr` | Universal Payload Ingestion (NimbusPost, Shipway, Shyplite, India Post, Private Fleets) | Webhook-Only & Universal API |
+
+### Dual Integration Modes
+
+Every carrier can be operated in one of two modes depending on merchant infrastructure:
+
+1. **⚡ Direct API Integration**:
+   - Merchants supply carrier credentials (API Key, Secret / Password, and Client / Account ID).
+   - In-app setup guidance provides exact dashboard navigation paths for each carrier to retrieve credentials.
+   - RescueShip automatically dispatches customer reschedule selections, corrected GPS addresses, and RTO arrest instructions directly into the carrier's operations portal in real-time.
+
+2. **🔗 Webhook-Only Mode**:
+   - **Zero API credentials required**.
+   - Merchants simply copy their dedicated webhook URL:
+     ```
+     https://rescueship.onrender.com/webhooks/{provider}/ndr?merchant_id={merchantId}
+     ```
+   - The carrier or aggregator posts delivery failure events to this URL. RescueShip intercepts the failure, engages the buyer via WhatsApp, captures address corrections or UPI conversions, and updates the merchant dashboard—bypassing carrier API integration complexity.
+
+### Multi-Select & Sub-Tab Onboarding (Station 3)
+
+The onboarding wizard (`CarrierForm`) allows merchants to:
+- **Multi-Select Carriers**: Select any combination of delivery partners simultaneously from an interactive grid.
+- **Independent Configuration Sub-Tabs**: Configure each chosen carrier with dedicated credentials or webhook URLs without context loss.
+- **Isolated Connection Management**: Test, connect, or disconnect individual carriers without overwriting or disrupting other active integrations.
+- **Custom Courier Name Labeling**: Support custom or private courier fleets with merchant-defined labels and universal payload ingestion.
 
 ---
 
@@ -106,6 +152,20 @@ RescueShip is built on strict logistics unit economics—**never** on free money
 ### 4. Payment-Gated Transit Reversal
 - In high-urgency Return-to-Origin (RTO) situations where parcels are sitting in sorting hubs, transit reversal is **strictly gated on a verified payment capture webhook** from Razorpay or Cashfree.
 - Tapping a WhatsApp button alone does **not** halt transit; only a captured monetary transaction instructs the carrier's line-haul API to halt the reverse shipment.
+
+### 5. Universal Order Ingestion & Phone Preservation (Shopify & WooCommerce)
+- **Zero Order Drop Policy**: RescueShip does not ignore prepaid orders. Both COD and Prepaid orders across Shopify and WooCommerce are stored immediately upon store order creation (`status: 'new'`) with contact details normalized via `normalizeIndianPhone`.
+- **The Missing Phone Problem in Carrier Webhooks Solved**: Major Indian couriers (Delhivery, ClickPost, Blue Dart) frequently omit consignee phone numbers in their NDR event payloads. If prepaid orders were skipped on store creation, subsequent courier failure webhooks would abort with `ndr_skipped_no_phone`. By ingesting prepaid orders upon creation, RescueShip links the incoming AWB to the stored order record, ensuring **100% of prepaid NDRs are rescued** via WhatsApp.
+- **Quarantined Shipment Reconciliation**: Tracking numbers and AWBs detected in store order metadata or fulfillments automatically un-quarantine previously orphaned carrier shipments.
+
+### 6. Courier Remark Sanitization for Prepaid Parcels
+- Delivery executives frequently log erroneous remarks like *"Cash not ready"* or *"COD payment issue"* on parcels that were already prepaid online.
+- RescueShip detects prepaid status and automatically sanitizes the failure category from `COD_COLLECTION_ISSUE` to `CUSTOMER_NOT_AVAILABLE`.
+- This ensures prepaid buyers are never confused with COD payment links (`ndr_cod_convert_en`), receiving only the non-intrusive delivery reschedule template (`ndr_reschedule_en`).
+
+### 7. Verified Attribution & Direct ROI Accounting
+- Every rescued order (via rescheduling, address update, or RTO arrest) explicitly records prevented return freight losses (`order.rtoFeeSaved` and `NdrCase.estimatedLossPrevented`), computed directly from merchant parameters (default ₹140 per shipment: ₹70 forward + ₹70 reverse).
+- Attributions feed the Sunday weekly WhatsApp ROI report and live merchant dashboard with zero speculative inflation.
 
 ---
 
@@ -143,7 +203,7 @@ All customer-facing WhatsApp interactions utilize pre-approved **UTILITY** templ
 - **Database**: MongoDB with Mongoose (strict multi-tenant isolation by `merchantId`).
 - **Background Queues**: Redis (ioredis), BullMQ for asynchronous webhook dispatch, retry backoffs, and escalation workers.
 - **Security & Cryptography**: AES-256-GCM encryption for stored merchant carrier tokens and payment keys (`encryption.service.ts`), HMAC SHA-256 webhook signatures.
-- **Logistics APIs**: Native connectors for Delhivery, Shiprocket, ClickPost, and generic webhooks.
+- **Logistics APIs**: Native connectors for Shiprocket, Delhivery, Blue Dart Express (DHL), Xpressbees, Shadowfax, Ecom Express, DTDC, ClickPost, and universal custom couriers/aggregators.
 - **Payment Gateways**: Razorpay and Cashfree UPI intent generation and webhook capture.
 
 ---
@@ -205,7 +265,7 @@ npm run dev
 
 RescueShip maintains an exhaustive, mathematically proven testing posture across all layers:
 
-- **Backend**: **36 test suites**, **276 tests (100% passing)** covering webhook HMACs, carrier APIs, 3-mode address correction, atomic `SET NX` concurrency locks, rate limiting, and failure telemetry.
+- **Backend**: **40 test suites**, **334 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), webhook HMACs, carrier APIs, 3-mode address correction, atomic `SET NX` concurrency locks, rate limiting, and failure telemetry.
 - **Frontend**: **5 test suites**, **90 Playwright E2E tests (100% passing)** covering all dashboard views, onboarding, sandbox, and WhatsApp customer rescue simulators.
 
 ```bash

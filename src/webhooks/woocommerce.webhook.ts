@@ -3,11 +3,12 @@ import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
-import { Merchant, AuditLog } from '../models';
+import { Merchant, AuditLog, Order, WebhookEvent } from '../models';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
+import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 
 const router = Router();
 const codConversionQueue = new Queue('cod-conversion', { connection: redisConnection as any });
@@ -80,16 +81,8 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
 
   try {
     const isCOD = String(body.payment_method || '').toLowerCase() === 'cod';
-    if (!isCOD) {
-      res.status(200).json({ status: 'ignored', reason: 'prepaid' });
-      return;
-    }
-
-    const phone = body.billing?.phone;
-    if (!phone || typeof phone !== 'string') {
-      res.status(200).json({ status: 'ignored', reason: 'no_phone' });
-      return;
-    }
+    const rawPhone = body.billing?.phone || body.shipping?.phone || '';
+    const phone = rawPhone ? normalizeIndianPhone(rawPhone) : '';
 
     const orderValue = parseFloat(body.total);
     if (!Number.isFinite(orderValue) || orderValue <= 0 || body.id === undefined || body.id === null) {
@@ -97,6 +90,104 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
       return;
     }
     const externalOrderId = String(body.id);
+    const customerName =
+      `${body.billing?.first_name || ''} ${body.billing?.last_name || ''}`.trim() ||
+      `${body.shipping?.first_name || ''} ${body.shipping?.last_name || ''}`.trim() ||
+      'Customer';
+    const zip = body.shipping?.postcode || body.billing?.postcode || null;
+    const city = body.shipping?.city || body.billing?.city || null;
+    const state = body.shipping?.state || body.billing?.state || null;
+    const shippingAddress = body.shipping || body.billing || null;
+
+    if (!isCOD) {
+      logger.info('WooCommerce order is prepaid, storing order record and skipping COD conversion', {
+        merchantId: merchantIdStr,
+        orderId: body.id,
+      });
+
+      try {
+        await Order.create({
+          merchantId: merchant._id,
+          externalOrderId,
+          platform: 'woocommerce',
+          customerPhone: phone || '0000000000',
+          customerName,
+          orderValue,
+          paymentMethod: 'prepaid',
+          shippingPincode: zip,
+          shippingCity: city,
+          shippingState: state,
+          shippingAddress,
+          failureSource: 'NONE',
+          attemptCount: 0,
+          status: 'new',
+        });
+        await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.currentMonthOrders': 1 } });
+      } catch (orderCreateErr: any) {
+        // If duplicate key error, ignore safely (idempotent across redeliveries)
+        if (orderCreateErr?.code !== 11000 && !orderCreateErr?.message?.includes('E11000')) {
+          logger.warn('Error creating prepaid WooCommerce order', { error: orderCreateErr.message });
+        }
+      }
+
+      // Auto-reconcile any quarantined shipments if tracking number exists in metadata
+      if (Array.isArray(body.meta_data)) {
+        for (const meta of body.meta_data) {
+          const key = String(meta.key || '').toLowerCase();
+          if (key.includes('tracking') || key.includes('awb')) {
+            const trackingVal = typeof meta.value === 'string' ? meta.value : meta.value?.tracking_number;
+            if (trackingVal) {
+              try {
+                const { Shipment } = await import('../models');
+                const quarantined = await Shipment.findOne({ merchantId: merchant._id, awbNumber: trackingVal });
+                if (quarantined) {
+                  const existingOrder = await Order.findOne({ merchantId: merchant._id, externalOrderId });
+                  if (existingOrder) {
+                    quarantined.orderId = existingOrder._id as any;
+                  }
+                  quarantined.isQuarantined = false;
+                  quarantined.quarantineReason = null;
+                  await quarantined.save();
+                  logger.info('Auto-reconciled quarantined shipment on WooCommerce prepaid order arrival', { awb: trackingVal, externalOrderId });
+                }
+              } catch (e: any) {
+                logger.warn('Failed to auto-reconcile quarantined shipment for WooCommerce order', { error: e.message });
+              }
+            }
+          }
+        }
+      }
+
+      try {
+        await WebhookEvent.create({
+          merchantId: merchant._id,
+          source: 'WOOCOMMERCE',
+          topic: req.get('X-WC-Webhook-Topic') || 'order.created',
+          eventId,
+          rawPayload: body,
+          processed: true,
+          duplicate: false,
+          processedAt: new Date(),
+        });
+      } catch { /* ignore duplicate webhook event */ }
+
+      await AuditLog.create({
+        merchantId: merchant._id,
+        action: 'webhook_received',
+        source: 'woocommerce',
+        payload: { eventId, orderId: body.id, total: body.total, paymentMethod: 'prepaid' },
+        status: 'success',
+      });
+
+      await IdempotencyGuard.markProcessed(idemKey);
+      res.status(200).json({ status: 'stored', message: 'Prepaid WooCommerce order ingested for NDR tracking' });
+      return;
+    }
+
+    if (!phone) {
+      res.status(200).json({ status: 'ignored', reason: 'no_phone' });
+      return;
+    }
 
     await codConversionQueue.add(
       'convert-cod',
@@ -107,13 +198,13 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           externalOrderId,
           platform: 'woocommerce',
           customerPhone: phone,
-          customerName: `${body.billing?.first_name || ''} ${body.billing?.last_name || ''}`.trim() || 'Customer',
+          customerName,
           orderValue,
           paymentMethod: 'cod',
-          pincode: body.shipping?.postcode || body.billing?.postcode || undefined,
-          city: body.shipping?.city || body.billing?.city || undefined,
-          state: body.shipping?.state || body.billing?.state || undefined,
-          shippingAddress: body.shipping || body.billing || undefined,
+          pincode: zip || undefined,
+          city: city || undefined,
+          state: state || undefined,
+          shippingAddress: shippingAddress || undefined,
         },
       },
       {
@@ -129,7 +220,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
       merchantId: merchant._id,
       action: 'webhook_received',
       source: 'woocommerce',
-      payload: { eventId, orderId: body.id, total: body.total },
+      payload: { eventId, orderId: body.id, total: body.total, paymentMethod: 'cod' },
       status: 'success',
     });
 

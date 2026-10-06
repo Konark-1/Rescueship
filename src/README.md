@@ -19,18 +19,19 @@
 | `public/` | Static demo UI | Dev health dashboard and mock Shopify checkout |
 | `schemas/` | Zod validators | Webhook payload schemas (Shiprocket, WhatsApp, Razorpay, Shopify) |
 | `scripts/` | Admin CLI | License grants, simulation, key updates |
-| `services/` | Business logic | 25+ services with subdirs: analytics/, courier/, state-machine/, whatsapp/ |
+| `services/` | Business logic | 30+ services with subdirs: analytics/, courier/, state-machine/, whatsapp/ (Multi-carrier hub, NDR pipelines, address AI, prepaid remark sanitization, financial attribution) |
 | `templates/` | WhatsApp templates | 4 Meta-approved JSON payloads (COD + NDR, English + Hindi) |
 | `types/` | TypeScript types | `ErrorType` enum, `AppError` class |
 | `utils/` | Utilities | Circuit breaker, idempotency, logger, phone normalizer |
-| `webhooks/` | Webhook handlers | 10 handlers (Shopify, WooCommerce, Shiprocket, Delhivery, ClickPost, Meta, Razorpay, Cashfree, custom) |
-| `__tests__/` | Jest tests | 18 suites, 116 tests |
+| `webhooks/` | Webhook handlers | 15 handlers (Shopify & WooCommerce universal ingestion for prepaid & COD, Shiprocket, Delhivery, Blue Dart, Xpressbees, Shadowfax, Ecom Express, DTDC, ClickPost, WhatsApp/Meta, Razorpay, Cashfree, Payment, Custom) |
+| `__tests__/` | Jest tests | 40 suites, 334 tests |
 
 ## Key Invariants
 
 - Every DB query MUST scope to `merchantId` (tenant isolation)
 - All third-party secrets encrypted via AES-256-GCM before storage
-- Webhook endpoints MUST verify HMAC signatures
+- Webhook endpoints MUST verify HMAC signatures or tenant authentication tokens
+- Universal Order Ingestion: Store both prepaid and COD orders to preserve phone numbers for carrier NDR matching
 - Workers MUST check `merchant.settings.globalPause` before dispatching
-- `npm test` must pass 18 suites / 116 tests before deploy
+- `npm test` must pass 40 suites / 334 tests before deploy
 - `npm run build` (tsc) must produce zero errors

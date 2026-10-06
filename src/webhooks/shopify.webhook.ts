@@ -8,6 +8,7 @@ import { AuditLog, Merchant, Order, WebhookEvent } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
+import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 
 const router = Router();
 const codConversionQueue = new Queue('cod-conversion', { connection: redisConnection as any });
@@ -127,14 +128,16 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
 
     if (!isCOD) {
       logger.info('Shopify order is prepaid, storing order record and skipping conversion', { merchantId, orderId: body.id });
-      const phone = body.customer?.phone || body.billing_address?.phone || body.shipping_address?.phone || '';
+      const rawPhone = body.customer?.phone || body.billing_address?.phone || body.shipping_address?.phone || '';
+      const phone = rawPhone ? normalizeIndianPhone(rawPhone) : '0000000000';
       const zip = body.shipping_address?.zip || body.billing_address?.zip || null;
       const city = body.shipping_address?.city || body.billing_address?.city || null;
       const province = body.shipping_address?.province || body.billing_address?.province || null;
+      const externalOrderId = String(body.id);
       try {
         await Order.create({
           merchantId,
-          externalOrderId: String(body.id),
+          externalOrderId,
           platform: 'shopify',
           customerPhone: phone || '0000000000',
           customerName: `${body.customer?.first_name || ''} ${body.customer?.last_name || ''}`.trim() || 'Customer',
@@ -151,6 +154,31 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
         await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.currentMonthOrders': 1 } });
       } catch { /* already exists */ }
 
+      // Auto-reconcile any quarantined shipments matching fulfillments in this order
+      if (Array.isArray(body.fulfillments)) {
+        for (const f of body.fulfillments) {
+          const awb = f.tracking_number || (f.tracking_numbers && f.tracking_numbers[0]);
+          if (awb) {
+            try {
+              const { Shipment } = require('../models');
+              const quarantined = await Shipment.findOne({ merchantId, awbNumber: awb });
+              if (quarantined) {
+                quarantined.shopifyOrderId = externalOrderId;
+                quarantined.orderNumber = String(body.order_number || body.name || externalOrderId);
+                if (quarantined.isQuarantined) {
+                  quarantined.isQuarantined = false;
+                  quarantined.quarantineReason = null;
+                }
+                await quarantined.save();
+                logger.info('Auto-reconciled quarantined shipment on Shopify prepaid order arrival', { awb, externalOrderId });
+              }
+            } catch (shipmentReconcileErr: any) {
+              logger.warn('Failed to auto-reconcile quarantined shipment for prepaid order', { error: shipmentReconcileErr?.message });
+            }
+          }
+        }
+      }
+
       try {
         await WebhookEvent.create({
           merchantId,
@@ -164,8 +192,16 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
         });
       } catch { /* ignore */ }
 
+      await AuditLog.create({
+        merchantId,
+        action: 'webhook_received',
+        source: 'shopify',
+        payload: { webhookId: shopifyWebhookId, orderId: body.id, total: body.total_price, shopDomain, paymentMethod: 'prepaid' },
+        status: 'success',
+      });
+
       await IdempotencyGuard.markProcessed(idemKey);
-      res.status(200).json({ status: 'ignored', reason: 'prepaid' });
+      res.status(200).json({ status: 'stored', message: 'Prepaid Shopify order ingested for NDR tracking' });
       return;
     }
 
