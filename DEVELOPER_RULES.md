@@ -49,8 +49,18 @@ All developers, contributors, and AI assistants modifying the RescueShip codebas
 
 ---
 
-## 🧪 6. Verification Requirements Before Check-in
-1. **Run TypeScript Check**: Execute `npx tsc --noEmit` in root. Zero errors allowed.
-2. **Run Frontend Build**: Execute `npm run build` in `frontend/`. Zero errors allowed.
-3. **Run Playwright E2E Tests**: Execute `npm run test:e2e` in `frontend/`. All test suites must pass.
+## 🛡️ 6. Enterprise Concurrency & Infrastructure Resilience
+1. **Tenant-Scoped Concurrency Locks**: Concurrency locks in webhook ingestion MUST be scoped to the authenticated tenant (`lock:ndr:${merchantId}:${provider}:${awb}`). Never lock on provider + AWB alone to prevent cross-tenant lock starvation.
+2. **Delayed Retry Duplicate Scan Trapping**: Delivery attempts MUST populate `carrier`, `carrierScanCode`, and `scanTimestamp`. Always intercept MongoDB duplicate key error (`err.code === 11000`), mark idempotency key processed, and return HTTP 200 `{ status: 'ignored', reason: 'duplicate_scan' }` before queueing downstream jobs.
+3. **Meta Cloud API 24h Outbound Tier Rate Limiting**: All outbound template dispatchers MUST query Redis `meta:24h:${merchantId}` against `merchant.metaTierLimit || 1000`. Suppress dispatch if threshold is reached to prevent WABA suspension.
+4. **Graceful Worker Teardown**: All BullMQ workers MUST implement optional chaining (`?.close()`) during teardown in `stopAllWorkers()`. The Express shutdown pipeline must cleanly disconnect Redis, MongoDB, and drain queues before exiting.
+5. **Streaming Over In-Memory Arrays**: Large-scale data exports (CSV/JSON) MUST use Node.js native streams and MongoDB cursors (`Order.find().cursor()`). Never load arrays into memory with `.lean()` for bulk exports.
+
+---
+
+## 🧪 7. Verification Requirements Before Check-in
+1. **Run Full Jest Suite**: Execute `npm test` in root. All 47 test suites (390+ assertions) must pass.
+2. **Run TypeScript Check**: Execute `npx tsc --noEmit` in root. Zero errors allowed.
+3. **Run Frontend Build**: Execute `npm run build` in `frontend/`. Zero errors allowed.
+4. **Run Playwright E2E Tests**: Execute `npm run test:e2e` in `frontend/`. All test suites must pass.
 

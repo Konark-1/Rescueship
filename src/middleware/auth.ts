@@ -62,27 +62,33 @@ export async function authenticateToken(
 ): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
+    let token: string | undefined;
 
-    if (!authHeader) {
-      logger.warn('Authentication failed: no Authorization header', {
+    if (authHeader) {
+      const parts = authHeader.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        token = parts[1];
+      } else {
+        logger.warn('Authentication failed: malformed Authorization header', {
+          ip: req.ip,
+          path: req.path,
+        });
+        res.status(401).json({ error: 'Invalid authorization format. Use: Bearer <token>' });
+        return;
+      }
+    } else if (typeof req.query.token === 'string' && req.query.token.length > 0) {
+      token = req.query.token;
+    }
+
+    if (!token) {
+      logger.warn('Authentication failed: no Authorization header or token query param', {
         ip: req.ip,
         path: req.path,
       });
-      res.status(401).json({ error: 'Authentication required. Provide a Bearer token.' });
+      res.status(401).json({ error: 'Authentication required. Provide a Bearer token or ?token= query parameter.' });
       return;
     }
 
-    const parts = authHeader.split(' ');
-    if (parts.length !== 2 || parts[0] !== 'Bearer') {
-      logger.warn('Authentication failed: malformed Authorization header', {
-        ip: req.ip,
-        path: req.path,
-      });
-      res.status(401).json({ error: 'Invalid authorization format. Use: Bearer <token>' });
-      return;
-    }
-
-    const token = parts[1];
     const secret = getJwtSecret();
 
     const decoded = jwt.verify(token, secret) as MerchantTokenPayload;

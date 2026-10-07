@@ -2,7 +2,8 @@ import { Router, Response } from 'express';
 import { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { requireFeature } from '../middleware/planGating.middleware';
-import { Order, AuditLog, MessageLog } from '../models';
+import { Order, AuditLog, MessageLog, Merchant } from '../models';
+import { whatsAppDispatcherService } from '../services/whatsapp/whatsapp-dispatcher.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -81,6 +82,10 @@ router.get('/export', authenticateToken, requireFeature('csv_export'), exportOrd
  */
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
   const page = parseInt(req.query.page as string, 10) || 1;
   const limit = Math.min(parseInt(req.query.limit as string, 10) || 10, 200);
   const skip = (page - 1) * limit;
@@ -149,6 +154,15 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
       Order.countDocuments(query),
     ]);
 
+    const merchantDoc = await Merchant.findById(merchantId).select('metaTierLimit');
+    const metaTierLimit = merchantDoc?.metaTierLimit ?? 1000;
+    const tierCheck = await whatsAppDispatcherService.checkMetaTierLimit(merchantId, metaTierLimit);
+    const metaTier = {
+      metaTierLimit: tierCheck.limit,
+      current24hCount: tierCheck.current,
+      isLimitReached: !tierCheck.allowed,
+    };
+
     res.status(200).json({
       orders,
       pagination: {
@@ -157,6 +171,7 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
         total,
         pages: Math.ceil(total / limit),
       },
+      metaTier,
     });
   } catch (err: any) {
     logger.error('Failed to list orders', { merchantId, error: err.message });

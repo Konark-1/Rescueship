@@ -115,4 +115,142 @@ router.get('/high-risk-pincodes', authenticateToken, async (req: AuthenticatedRe
   }
 });
 
+/**
+ * GET /api/analytics/roi
+ * Expose Financial ROI calculation:
+ * (Rescued Orders * ₹140 avg freight) + (Retained GMV * Margin) - WhatsApp HSM Costs
+ */
+router.get('/roi', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const startDateStr = req.query.startDate as string;
+  const endDateStr = req.query.endDate as string;
+
+  const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const endDate = endDateStr ? new Date(endDateStr) : new Date();
+
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const roi = await analyticsService.getFinancialROI(merchantId, startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data: roi,
+      ...roi,
+    });
+  } catch (err: any) {
+    logger.error('Failed to get financial ROI', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve financial ROI' });
+  }
+});
+
+/**
+ * GET /api/analytics/fraud-index
+ * Expose Courier Fraud Index:
+ * Aggregate fake delivery attempts grouped by Carrier Name with disputed freight calculations.
+ */
+router.get('/fraud-index', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const startDateStr = req.query.startDate as string;
+  const endDateStr = req.query.endDate as string;
+
+  const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const endDate = endDateStr ? new Date(endDateStr) : new Date();
+
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const fraudIndex = await analyticsService.getFraudIndex(merchantId, startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data: fraudIndex,
+      ...fraudIndex,
+    });
+  } catch (err: any) {
+    logger.error('Failed to get fraud index', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve fraud index' });
+  }
+});
+
+/**
+ * GET /api/analytics/funnel
+ * Expose AI Rescue Funnel stats:
+ * NDR Triggered → WhatsApp Sent → Customer Replied → Rescued with AI Parser telemetry.
+ */
+router.get('/funnel', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const startDateStr = req.query.startDate as string;
+  const endDateStr = req.query.endDate as string;
+
+  const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const endDate = endDateStr ? new Date(endDateStr) : new Date();
+
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const funnel = await analyticsService.getRescueFunnelStats(merchantId, startDate, endDate);
+    res.status(200).json({
+      success: true,
+      data: funnel,
+      ...funnel,
+    });
+  } catch (err: any) {
+    logger.error('Failed to get rescue funnel', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve rescue funnel' });
+  }
+});
+
+/**
+ * GET /api/analytics/fraud-disputes/export
+ * Export CSV containing disputed fake delivery attempts:
+ * AWB, Courier Remark, WhatsApp Customer Reply Timestamp, Proof of Fake Attempt
+ */
+router.get('/fraud-disputes/export', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const carrier = req.query.carrier as string;
+  const startDateStr = req.query.startDate as string;
+  const endDateStr = req.query.endDate as string;
+
+  const startDate = startDateStr ? new Date(startDateStr) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const endDate = endDateStr ? new Date(endDateStr) : new Date();
+
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const rows = await analyticsService.getDisputeExportRows(merchantId, carrier, startDate, endDate);
+    const headers = ['AWB', 'Carrier', 'Courier Remark', 'WhatsApp Customer Reply Timestamp', 'Proof of Fake Attempt'];
+    const csvLines = [headers.join(',')];
+
+    for (const r of rows) {
+      const escape = (val: string) => `"${(val || '').replace(/"/g, '""')}"`;
+      csvLines.push([
+        escape(r.awb),
+        escape(r.carrier),
+        escape(r.courierRemark),
+        escape(r.customerReplyTimestamp),
+        escape(r.proofOfFakeAttempt),
+      ].join(','));
+    }
+
+    const csvContent = csvLines.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=fraud-disputes-${Date.now()}.csv`);
+    res.status(200).send(csvContent);
+  } catch (err: any) {
+    logger.error('Failed to export fraud dispute CSV', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to export fraud dispute CSV' });
+  }
+});
+
 export default router;

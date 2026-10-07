@@ -1,22 +1,25 @@
-const API = import.meta.env.VITE_API_URL || '';
-const h = (token: string, body?: any) => ({
-  method: body ? 'POST' : 'GET',
-  headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
-  body: body ? JSON.stringify(body) : undefined,
-});
+/**
+ * connect.ts
+ * ─────────────────────────────────────────────────────────────
+ * Centralized connector API client using standardized Axios instance.
+ * Automatically inherits 401 token handling and 502/503/504 retry backoffs.
+ */
+
+import api from '../services/api';
+
 const call = async (token: string, path: string, body?: any) => {
-  const r = await fetch(`${API}/api/connect${path}`, h(token, body));
-  // Session expired/invalid — drop dead credentials and force a fresh login
-  // instead of letting a sticky 401 corrupt every subsequent station.
-  if (r.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    if (window.location.pathname !== '/login') window.location.href = '/login';
-    throw new Error('Session expired — please sign in again.');
+  const config = token ? { headers: { Authorization: `Bearer ${token}` } } : undefined;
+  try {
+    if (body !== undefined) {
+      const res = await api.post(`/api/connect${path}`, body, config);
+      return res.data;
+    }
+    const res = await api.get(`/api/connect${path}`, config);
+    return res.data;
+  } catch (err: any) {
+    const message = err.response?.data?.error || err.response?.data?.message || err.message || 'Request failed';
+    throw new Error(message);
   }
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || `Request failed (${r.status})`);
-  return data;
 };
 
 export const connectApi = {

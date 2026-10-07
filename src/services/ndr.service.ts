@@ -604,6 +604,20 @@ export class NDRService {
     if (order.paymentMethod === 'prepaid' && category === 'COD_COLLECTION_ISSUE') {
       category = 'CUSTOMER_NOT_AVAILABLE';
     }
+
+    // ─── 🛡️ ANTI-FARMING SERIAL CANCELLATION COOLDOWN GUARD (P0) ───
+    if (category === 'COD_COLLECTION_ISSUE') {
+      const { cooldownService } = require('./cooldown.service');
+      const isCooldown = await cooldownService.checkAntiFarmingCooldown(
+        order.customerPhone,
+        merchant._id.toString()
+      );
+      if (isCooldown) {
+        logger.warn(`[ANTI-FARMING] Cooldown triggered for phone ${order.customerPhone}`);
+        // Bypass the discount logic entirely and dispatch the standard ndr_reschedule_en
+        category = 'CUSTOMER_NOT_AVAILABLE';
+      }
+    }
     const name = order.customerName || 'Customer';
     const orderId = String(order.externalOrderId || '');
 
@@ -872,19 +886,14 @@ export class NDRService {
         return;
       } else if (action === 'cancel') {
         // ─── 🛡️ ANTI-EXPLOIT GUARD 1: Serial Abuser Cooldown (Anti-Farming) ───
-        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-        const recentCancels = await Order.countDocuments({
-          customerPhone: normalizedPhone,
-          status: { $in: ['rto', 'cancelled', 'returned'] },
-          updatedAt: { $gte: thirtyDaysAgo },
-        });
+        const { cooldownService } = require('./cooldown.service');
+        const isSerialAbuser = await cooldownService.checkAntiFarmingCooldown(
+          normalizedPhone,
+          merchant._id.toString()
+        );
 
-        const isSerialAbuser = recentCancels >= 3;
         if (isSerialAbuser) {
-          logger.warn('Serial abuser detected (>= 3 cancellations in last 30 days): skipping retention offer and executing clean cancel', {
-            phone: normalizedPhone,
-            recentCancels,
-          });
+          logger.warn(`[ANTI-FARMING] Cooldown triggered for phone ${order.customerPhone || normalizedPhone}`);
         }
 
         // ─── ANTI-EXPLOIT RETENTION: Offer dynamic self-funding COD→Prepaid conversion ───

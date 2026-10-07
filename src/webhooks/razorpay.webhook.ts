@@ -35,6 +35,29 @@ function str(v: unknown, max = 128): string | undefined {
  * fully validated, and one-shot provisioning dedups against the verify path.
  */
 router.post('/payment', async (req: Request, res: Response): Promise<void> => {
+  // Check for verification probe from merchant onboarding
+  const probeNonce = (req.get('x-razorpay-verification-nonce') ||
+    req.get('x-verification-nonce') ||
+    req.body?.verification_nonce ||
+    req.body?.payload?.verification_nonce ||
+    req.query?.verification_nonce) as string | undefined;
+
+  if (probeNonce && typeof probeNonce === 'string') {
+    try {
+      const boundMerchantId = await (redisConnection as any).get(`rz_verify_nonce:${probeNonce}`);
+      if (boundMerchantId) {
+        // Valid probe! Consume nonce and mark status as verified
+        await (redisConnection as any).del(`rz_verify_nonce:${probeNonce}`);
+        await (redisConnection as any).setex(`rz_verify_status:${boundMerchantId}`, 60, 'verified');
+        logger.info('Razorpay webhook verification probe confirmed', { merchantId: boundMerchantId, nonce: probeNonce });
+        res.status(200).json({ status: 'verified', merchantId: boundMerchantId, probe: true });
+        return;
+      }
+    } catch (probeErr: any) {
+      logger.warn('Failed to verify probe nonce in Redis', { error: probeErr.message });
+    }
+  }
+
   const signature = req.get('X-Razorpay-Signature');
   const rawBuf: Buffer | undefined = (req as any).rawBody;
   const rawBody = rawBuf ? rawBuf.toString('utf8') : '';

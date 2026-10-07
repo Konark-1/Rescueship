@@ -7,6 +7,7 @@
 | File | Role | Key Exports |
 |------|------|-------------|
 | `escalation-worker.ts` | Standalone escalation worker | `runEscalationWorker()` — standalone consumer for `escalation` BullMQ queue |
+| `carrier-dispatch.worker.ts` | Carrier dispatch & DLQ worker | `carrierDispatchWorker`, `carrierDlqWorker`, `carrierDispatchQueue`, `processCarrierJob()` — handles outbound logistics updates and 429 rate limit backoffs |
 
 ## Architecture & Deployment
 

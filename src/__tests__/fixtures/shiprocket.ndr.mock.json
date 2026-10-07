@@ -1,0 +1,8 @@
+{
+  "data": {
+    "shipment_status": "RTO INITIATED",
+    "awb_code": "12345",
+    "order_id": "999",
+    "etd": "2026-10-08 14:00:00"
+  }
+}

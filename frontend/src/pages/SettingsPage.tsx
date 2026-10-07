@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
+import { RazorpaySettings } from '../components/settings/RazorpaySettings';
+import { CashfreeSettings } from '../components/settings/CashfreeSettings';
+import { WhatsAppTemplates } from '../components/settings/WhatsAppTemplates';
 
 interface SettingsState {
   ndrRescueEnabled: boolean;
@@ -87,6 +90,7 @@ export const SettingsPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' | '' }>({ text: '', type: '' });
+  const [paymentGateway, setPaymentGateway] = useState<'razorpay' | 'cashfree'>('razorpay');
 
   const [settings, setSettings] = useState<SettingsState>({
     ndrRescueEnabled: true,
@@ -317,6 +321,32 @@ export const SettingsPage: React.FC = () => {
               </div>
             )}
           </div>
+
+          <div style={{ marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-1)' }}>Payment Gateway Provider</span>
+              <div style={{ display: 'inline-flex', padding: 2, background: 'var(--bg-input, #12121a)', borderRadius: 'var(--radius-sm, 8px)', border: '1px solid var(--border)' }}>
+                <button
+                  type="button"
+                  onClick={() => setPaymentGateway('razorpay')}
+                  className={`btn btn-xs ${paymentGateway === 'razorpay' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ borderRadius: '6px', fontSize: '0.8rem', padding: '4px 12px' }}
+                >
+                  Razorpay
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentGateway('cashfree')}
+                  className={`btn btn-xs ${paymentGateway === 'cashfree' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{ borderRadius: '6px', fontSize: '0.8rem', padding: '4px 12px' }}
+                >
+                  Cashfree
+                </button>
+              </div>
+            </div>
+
+            {paymentGateway === 'razorpay' ? <RazorpaySettings /> : <CashfreeSettings />}
+          </div>
         </div>
       </section>
 
@@ -365,6 +395,10 @@ export const SettingsPage: React.FC = () => {
             checked={settings.escalationRemindersEnabled}
             onChange={(checked) => setSettings((s) => ({ ...s, escalationRemindersEnabled: checked }))}
           />
+
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <WhatsAppTemplates />
+          </div>
         </div>
       </section>
 

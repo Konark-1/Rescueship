@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import api from '../services/api';
 import './rescue-metrics.css';
 
 interface Metrics {
@@ -12,17 +13,21 @@ interface Metrics {
   revenue: number;
 }
 
-const API = import.meta.env.VITE_API_URL || '';
-
 export const RescueMetrics: React.FC = () => {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token') || '';
-    fetch(`${API}/api/metrics/my`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { if (d.success) setMetrics(d.metrics); })
+    let cancelled = false;
+    api.get('/api/metrics/my')
+      .then(r => {
+        if (!cancelled && r.data?.success) {
+          setMetrics(r.data.metrics);
+        }
+      })
       .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (!metrics) return <div className="metrics-loading">Loading metrics…</div>;

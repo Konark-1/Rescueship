@@ -16,7 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { Tier, Cycle, StoreMetrics } from '../lib/billing';
+import type { Tier, Cycle, StoreMetrics } from '../config/pricing.config';
 import {
   TIERS,
   CYCLES,
@@ -25,9 +25,8 @@ import {
   lossFor,
   recommendedTier,
   inr,
-  billingApi,
-  loadRazorpay,
-} from '../lib/billing';
+} from '../config/pricing.config';
+import { billingApi, loadRazorpay } from '../services/billing.api';
 import { connectApi } from '../lib/connect';
 import './billing.css';
 
@@ -487,7 +486,11 @@ export default function BillingPage() {
                         {inr(p.monthly)}<small>/mo</small>
                       </span>
                       <span className="bl-tier-card__subtext">
-                        {cycle === 'quarterly' ? `Billed ${inr(p.upfront)} / 3 mos` : `Billed ${inr(p.upfront)} annually`}
+                        {cycle === 'quarterly'
+                          ? `Billed ${inr(p.upfront)} / 3 mos`
+                          : cycle === 'semi'
+                          ? `Billed ${inr(p.upfront)} / 6 mos`
+                          : `Billed ${inr(p.upfront)} annually`}
                       </span>
                     </div>
                   </div>

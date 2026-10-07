@@ -6,9 +6,11 @@ export interface IAuditLog extends Document {
   action: string;
   source: string;
   payload: Record<string, any>;
+  metadata?: Record<string, any>;
   status: 'success' | 'failed' | 'retrying';
   error?: string | null;
   timestamp: Date;
+  piiAnonymized?: boolean;
 }
 
 const AuditLogSchema = new Schema<IAuditLog>(
@@ -18,9 +20,11 @@ const AuditLogSchema = new Schema<IAuditLog>(
     action: { type: String, required: true },
     source: { type: String, required: true },
     payload: { type: Schema.Types.Mixed, default: {} },
+    metadata: { type: Schema.Types.Mixed, default: {} },
     status: { type: String, enum: ['success', 'failed', 'retrying'], default: 'success' },
     error: { type: String, default: null },
     timestamp: { type: Date, default: Date.now },
+    piiAnonymized: { type: Boolean, default: false },
   },
   {
     timestamps: false,

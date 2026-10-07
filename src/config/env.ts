@@ -170,6 +170,26 @@ const REQUIRED_VARS: string[] = [
 
 validateRequiredVars(REQUIRED_VARS);
 
+/* ------------------------------------------------------------------ */
+/*  AI / Gemini Runtime Guard                                         */
+/* ------------------------------------------------------------------ */
+const DEPRECATED_GEMINI_MODELS = [
+  'gemini-1.5-flash',
+  'gemini-1.5-pro',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash',
+  'gemini-3.6-flash',
+];
+
+if (process.env.GEMINI_MODEL && DEPRECATED_GEMINI_MODELS.includes(process.env.GEMINI_MODEL)) {
+  // eslint-disable-next-line no-console
+  console.warn(
+    `[WARN] Deprecated GEMINI_MODEL detected (${process.env.GEMINI_MODEL}). Upgrading runtime model to gemini-3.8-flash for high-fidelity address decoding.`
+  );
+}
+// Force runtime model to gemini-3.8-flash as mandated for enterprise tier
+process.env.GEMINI_MODEL = 'gemini-3.8-flash';
+
 /**
  * Fully-typed, validated application configuration.
  *

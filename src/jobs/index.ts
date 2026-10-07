@@ -9,6 +9,7 @@ import { setupReconciliationWorker, scheduleReconciliation } from './reconciliat
 import { setupWeeklyRoiReportWorker, scheduleWeeklyRoiReport } from './weeklyRoiReport.job';
 import { setupSubscriptionLifecycleWorker, scheduleSubscriptionLifecycle } from './subscription-lifecycle.job';
 import { setupDigestWorker, scheduleDigestJob } from './digest.job';
+import { piiAnonymizationWorker, schedulePiiAnonymization } from './pii-anonymization.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -22,6 +23,7 @@ export * from './ndr-lifecycle.job';
 export * from './weeklyRoiReport.job';
 export * from './subscription-lifecycle.job';
 export * from './digest.job';
+export * from './pii-anonymization.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
@@ -54,6 +56,7 @@ export function startAllWorkers(): void {
     weeklyRoiReportWorker,
     subscriptionLifecycleWorker,
     digestWorker,
+    piiAnonymizationWorker,
   ].filter(Boolean);
 
   for (const worker of workers) {
@@ -89,6 +92,10 @@ export function startAllWorkers(): void {
     logger.error('Failed to schedule hourly merchant digest cron job', { error: err.message });
   });
 
+  schedulePiiAnonymization().catch((err) => {
+    logger.error('Failed to schedule daily DPDP PII anonymization cron job', { error: err.message });
+  });
+
   logger.info('✅  All BullMQ workers running');
 }
 
@@ -100,17 +107,18 @@ export async function stopAllWorkers(): Promise<void> {
   logger.info('🛑  Stopping all BullMQ workers gracefully…');
   
   await Promise.all([
-    codConversionWorker.close(),
-    ndrRescueWorker.close(),
-    whatsappSendWorker.close(),
-    escalationWorker.close(),
-    deadLetterWorker.close(),
-    ndrLifecycleWorker.close(),
-    monthlyResetWorker.close(),
-    reconciliationWorker.close(),
+    codConversionWorker?.close(),
+    ndrRescueWorker?.close(),
+    whatsappSendWorker?.close(),
+    escalationWorker?.close(),
+    deadLetterWorker?.close(),
+    ndrLifecycleWorker?.close(),
+    monthlyResetWorker?.close(),
+    reconciliationWorker?.close(),
     weeklyRoiReportWorker?.close(),
     subscriptionLifecycleWorker?.close(),
     digestWorker?.close(),
+    piiAnonymizationWorker?.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

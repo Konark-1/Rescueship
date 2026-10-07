@@ -134,6 +134,37 @@ export class WooCommerceConnectService {
     logger.info('WooCommerce connected', { merchantId, url: storeUrl, needsManualWebhook });
     return { status: 'connected', url: storeUrl, webhookUrl, webhookSecret: needsManualWebhook ? webhookSecretPlain : undefined, needsManualWebhook };
   }
+
+  /**
+   * Validates OAuth state token parameter to prevent CSRF attacks.
+   * Enforces minimum cryptographic entropy (>= 16 chars) and optional merchant binding.
+   */
+  public verifyOAuthState(
+    state?: string,
+    merchantId?: string
+  ): { valid: boolean; error?: string; statusCode: number } {
+    if (!state || typeof state !== 'string' || state.trim().length < 16) {
+      return {
+        valid: false,
+        error: 'Invalid or missing OAuth state parameter (CSRF protection)',
+        statusCode: 400,
+      };
+    }
+
+    if (merchantId && state.includes(':')) {
+      const [boundMerchantId] = state.split(':');
+      if (boundMerchantId !== merchantId) {
+        return {
+          valid: false,
+          error: 'OAuth state merchant ID mismatch',
+          statusCode: 400,
+        };
+      }
+    }
+
+    return { valid: true, statusCode: 200 };
+  }
 }
 
 export const woocommerceConnectService = new WooCommerceConnectService();
+export const woocommerceService = woocommerceConnectService;

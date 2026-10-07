@@ -1,6 +1,16 @@
 import { Schema, model, Document, Model } from 'mongoose';
 import bcrypt from 'bcryptjs';
 
+export interface IPincodeRule {
+  pincode: string;
+  forcePrepaid: boolean;
+  mandateAdvance: boolean;
+  advanceAmount?: number;
+  syncStatus?: 'synced' | 'pending' | 'failed';
+  lastSyncedAt?: Date;
+  syncError?: string;
+}
+
 export interface IMerchant extends Document {
   name: string;
   email: string;
@@ -71,7 +81,10 @@ export interface IMerchant extends Document {
       pincodeRiskThreshold?: number;
       customerRtoScoreThreshold?: number;
     };
+    pincodeRules?: IPincodeRule[];
   };
+  pincodeRules?: IPincodeRule[];
+  metaTierLimit?: number;
   accessGrantedAt?: Date;
   accessExpiresAt?: Date;
   licenseStatus?: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
@@ -257,7 +270,19 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         pincodeRiskThreshold: { type: Number, default: 0.25 },
         customerRtoScoreThreshold: { type: Number, default: 0.6 },
       },
+      pincodeRules: [
+        {
+          pincode: { type: String, required: true },
+          forcePrepaid: { type: Boolean, default: false },
+          mandateAdvance: { type: Boolean, default: false },
+          advanceAmount: { type: Number, default: 50 },
+          syncStatus: { type: String, enum: ['synced', 'pending', 'failed'], default: 'pending' },
+          lastSyncedAt: { type: Date },
+          syncError: { type: String },
+        },
+      ],
     },
+    metaTierLimit: { type: Number, default: 1000 },
     accessGrantedAt: { type: Date, default: null },
     accessExpiresAt: { type: Date, default: null, index: true },
     licenseStatus: {
@@ -343,6 +368,17 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       startedAt: Date,
       assistedSetupRequestedAt: Date,
     },
+    pincodeRules: [
+      {
+        pincode: { type: String, required: true },
+        forcePrepaid: { type: Boolean, default: false },
+        mandateAdvance: { type: Boolean, default: false },
+        advanceAmount: { type: Number, default: 50 },
+        syncStatus: { type: String, enum: ['synced', 'pending', 'failed'], default: 'pending' },
+        lastSyncedAt: { type: Date },
+        syncError: { type: String },
+      },
+    ],
   },
   {
     timestamps: true,

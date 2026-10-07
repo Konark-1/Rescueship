@@ -67,6 +67,15 @@ router.get(
         ? (req.query.status as string).split(',').map((s) => s.trim())
         : undefined;
 
+      if (type === 'orders' && format === 'csv') {
+        await exportService.streamExportOrders(merchantId, res, {
+          startDate,
+          endDate,
+          statusFilter,
+        });
+        return;
+      }
+
       const result = await exportService.generateExport({
         merchantId,
         type: type as ExportType,

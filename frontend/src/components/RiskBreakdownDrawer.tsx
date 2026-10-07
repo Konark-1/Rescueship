@@ -9,9 +9,10 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onActionComplete: () => void;
+  metaTierLimitReached?: boolean;
 }
 
-export const RiskBreakdownDrawer: FC<Props> = ({ order, isOpen, onClose, onActionComplete }) => {
+export const RiskBreakdownDrawer: FC<Props> = ({ order, isOpen, onClose, onActionComplete, metaTierLimitReached = false }) => {
   if (!order || !order.rtoRisk) return null;
 
   const risk = order.rtoRisk;
@@ -289,22 +290,38 @@ export const RiskBreakdownDrawer: FC<Props> = ({ order, isOpen, onClose, onActio
 
               {risk.level === 'MEDIUM' && (
                 <button
+                  disabled={metaTierLimitReached}
+                  title={metaTierLimitReached ? "Daily Meta Tier Limit Reached. Rescues paused until 00:00 IST to protect your WABA reputation." : undefined}
                   onClick={() => handleAction('whatsapp_verify')}
                   className="btn btn-warning"
-                  style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: metaTierLimitReached ? 0.6 : 1,
+                    cursor: metaTierLimitReached ? 'not-allowed' : 'pointer'
+                  }}
                 >
-                  <MessageSquare size={15} /> Send WhatsApp Confirmation
+                  <MessageSquare size={15} /> {metaTierLimitReached ? 'WhatsApp Paused (Tier Limit)' : 'Send WhatsApp Confirmation'}
                 </button>
               )}
 
               {risk.level === 'HIGH' && (
                 <>
                   <button
+                    disabled={metaTierLimitReached}
+                    title={metaTierLimitReached ? "Daily Meta Tier Limit Reached. Rescues paused until 00:00 IST to protect your WABA reputation." : undefined}
                     onClick={() => handleAction('require_deposit')}
                     className="btn btn-primary"
-                    style={{ width: '100%', justifyContent: 'center', gap: '8px' }}
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      gap: '8px',
+                      opacity: metaTierLimitReached ? 0.6 : 1,
+                      cursor: metaTierLimitReached ? 'not-allowed' : 'pointer'
+                    }}
                   >
-                    <CreditCard size={15} /> Request ₹100 Partial Deposit
+                    <CreditCard size={15} /> {metaTierLimitReached ? 'Deposit Request Paused (Tier Limit)' : 'Request ₹100 Partial Deposit'}
                   </button>
                   <button
                     onClick={() => handleAction('manual_review_approve')}

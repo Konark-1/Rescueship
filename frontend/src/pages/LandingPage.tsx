@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
 import { Link } from 'react-router-dom';
+import api from '../services/api';
 import {
   DeliveryTruckIcon,
   LockedDoorIcon,
@@ -335,19 +336,14 @@ export default function LandingPage() {
     if (!email || !storeUrl) return;
     setSubmitting(true); setError(null);
     try {
-      const API = import.meta.env.VITE_API_URL || '';
-      const res = await fetch(`${API}/api/plg/signup`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, storeUrl }),
-      });
-      if (!res.ok) {
-        const d = await res.json().catch(() => ({}));
-        throw new Error(d.error || d.message || 'Signup failed. Try again.');
-      }
+      await api.post('/api/plg/signup', { name, email, storeUrl });
       setSubmitted(true);
-    } catch (err: any) { setError(err.message); }
-    finally { setSubmitting(false); }
+    } catch (err: any) {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Signup failed. Try again.';
+      setError(msg);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const failedOrders = orders.filter((o) => o.status === 'failed' || o.status === 'pending');

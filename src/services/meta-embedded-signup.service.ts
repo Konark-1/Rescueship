@@ -52,6 +52,28 @@ async function get(path: string, params: Record<string, any>, token: string) {
 }
 
 export class MetaEmbeddedSignupService {
+  /** Check if required Meta OAuth environment variables are configured. */
+  public initialize(): { initialized: boolean; error?: string; statusCode?: number } {
+    const appId = process.env.META_APP_ID;
+    const appSecret = process.env.META_APP_SECRET;
+    const redirectUri = process.env.META_REDIRECT_URI;
+
+    if (!appId || !appSecret || !redirectUri) {
+      const missing = [
+        !appId && 'META_APP_ID',
+        !appSecret && 'META_APP_SECRET',
+        !redirectUri && 'META_REDIRECT_URI',
+      ].filter(Boolean).join(', ');
+
+      return {
+        initialized: false,
+        error: `Meta Embedded Signup unconfigured: missing ${missing}`,
+        statusCode: 503,
+      };
+    }
+    return { initialized: true, statusCode: 200 };
+  }
+
   /** 1. code → short-lived user access token */
   private async exchangeCode(code: string): Promise<string> {
     const c = cfg();
@@ -111,6 +133,13 @@ export class MetaEmbeddedSignupService {
    * Returns a plain summary — NEVER the raw token.
    */
   async connect(merchantId: string, code: string, businessIdHint?: string) {
+    const init = this.initialize();
+    if (!init.initialized) {
+      const err: any = new Error(init.error);
+      err.statusCode = init.statusCode || 503;
+      throw err;
+    }
+
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) throw new Error('Merchant not found');
 

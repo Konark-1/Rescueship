@@ -1,5 +1,5 @@
 import { useState, useId } from 'react';
-import { AVG_RESCUE_VALUE, tierForOrders } from '../../lib/plans';
+import { AVG_RESCUE_VALUE, tierForOrders } from '../../config/pricing.config';
 import { Calculator } from 'lucide-react';
 
 export interface RoiCalculatorProps {

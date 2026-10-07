@@ -8,6 +8,7 @@ export interface IOrder extends Document {
   customerName?: string;
   orderValue: number;
   paymentMethod: 'cod' | 'prepaid';
+  financial_status?: 'COD' | 'PREPAID';
   status:
     | 'new'
     | 'cod_conversion_sent'
@@ -29,6 +30,17 @@ export interface IOrder extends Document {
   carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom' | null;
   paymentLinkId?: string | null;
   paymentLinkUrl?: string | null;
+  cashfreeOrderId?: string | null;
+  payment_session_id?: string | null;
+  paymentSessionId?: string | null;
+  paid?: boolean;
+  paymentGateway?: string | null;
+  piiAnonymized?: boolean;
+  customer?: {
+    phone?: string;
+    name?: string;
+    address?: string;
+  };
   rtoFeeSaved?: number;
   rtoArrestAttemptedAt?: Date | null;
   rtoArrestStatus?: 'TRIGGERED' | 'RESCUED' | 'RETURNED' | null;
@@ -101,6 +113,15 @@ const OrderSchema = new Schema<IOrder>(
     customerName: { type: String },
     orderValue: { type: Number, required: true },
     paymentMethod: { type: String, enum: ['cod', 'prepaid'], required: true },
+    financial_status: {
+      type: String,
+      enum: ['COD', 'PREPAID', null],
+      default: function (this: any) {
+        if (this.paymentMethod === 'cod') return 'COD';
+        if (this.paymentMethod === 'prepaid') return 'PREPAID';
+        return null;
+      },
+    },
     status: {
       type: String,
       enum: [
@@ -127,6 +148,13 @@ const OrderSchema = new Schema<IOrder>(
     carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', 'bluedart', 'xpressbees', 'shadowfax', 'ecomexpress', 'dtdc', 'custom', null], default: null },
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },
+    cashfreeOrderId: { type: String, default: null, index: true },
+    payment_session_id: { type: String, default: null },
+    paymentSessionId: { type: String, default: null },
+    paid: { type: Boolean, default: false },
+    paymentGateway: { type: String, default: null },
+    piiAnonymized: { type: Boolean, default: false, index: true },
+    customer: { type: Schema.Types.Mixed, default: {} },
     rtoFeeSaved: { type: Number, default: 0 },
     rtoArrestAttemptedAt: { type: Date, default: null },
     rtoArrestStatus: { type: String, enum: ['TRIGGERED', 'RESCUED', 'RETURNED', null], default: null },

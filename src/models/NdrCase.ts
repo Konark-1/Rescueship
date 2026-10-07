@@ -42,6 +42,7 @@ export interface INdrCase extends Document {
   attemptCount?: number;
   closedAt?: Date | null;
   lastWebhookAt?: Date | null;
+  piiAnonymized?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -105,6 +106,7 @@ const NdrCaseSchema = new Schema<INdrCase>(
     attemptCount: { type: Number, default: 1 },
     closedAt: { type: Date, default: null },
     lastWebhookAt: { type: Date, default: null },
+    piiAnonymized: { type: Boolean, default: false, index: true },
   },
   {
     timestamps: true,

@@ -83,7 +83,7 @@ export class GeminiService {
   public constructor() {
     this.apiUrl = process.env.GEMINI_API_URL || 'https://generativelanguage.googleapis.com/v1beta';
     this.apiKey = process.env.GEMINI_API_KEY;
-    this.model = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    this.model = process.env.GEMINI_MODEL || 'gemini-3.8-flash';
 
     if (!this.getApiKey()) {
       logger.warn('[GeminiService] GEMINI_API_KEY not set — Gemini features disabled');
@@ -102,7 +102,7 @@ export class GeminiService {
   }
 
   private getModel(): string {
-    return process.env.GEMINI_MODEL || this.model || 'gemini-2.0-flash';
+    return process.env.GEMINI_MODEL || this.model || 'gemini-3.8-flash';
   }
 
   public isConfigured(): boolean {
@@ -201,6 +201,31 @@ export class GeminiService {
       logger.error('Gemini address parse failed', { error: (err as Error).message });
       return null;
     }
+  }
+
+  /**
+   * Extract landmark and structured address details from raw text instructions
+   * using Gemini NLP or structured fallback.
+   */
+  async extractLandmarksFromText(textInstructions: string): Promise<string> {
+    const raw = String(textInstructions || '').trim();
+    if (!raw) {
+      return 'Customer landmark provided via WhatsApp';
+    }
+
+    try {
+      const parsed = await this.parseAddress(raw);
+      if (parsed?.cleanAddress) {
+        if (parsed.landmark && !parsed.cleanAddress.toLowerCase().includes(parsed.landmark.toLowerCase())) {
+          return `${parsed.cleanAddress} [Landmark: ${parsed.landmark}]`;
+        }
+        return parsed.cleanAddress;
+      }
+    } catch (err: any) {
+      logger.warn('Failed in Gemini landmark extraction, returning raw instruction', { error: err?.message });
+    }
+
+    return raw;
   }
 
   async chat(options: GeminiChatOptions): Promise<GeminiResponse> {

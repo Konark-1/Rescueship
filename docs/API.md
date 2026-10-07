@@ -147,7 +147,9 @@ Headers required: `Authorization: Bearer <token>`
 ## Exports (`/export`)
 Headers required: `Authorization: Bearer <token>` (Rate limit: 5 requests/minute)
 
-- `GET /export/orders` - stream filtered orders as CSV with headers matching Shopify/Delhivery format.
+- `GET /export/orders` - Stream filtered orders directly as CSV via Node.js Transform streams. Streams unlimited order volumes (e.g. 60,000+ records) with <60MB peak memory delta.
+  - **Query Params**: `startDate`, `endDate`, `status`, `paymentMethod`, `riskLevel`
+  - **Response Headers**: `Content-Type: text/csv`, `Content-Disposition: attachment; filename="orders-export-....csv"`, `Transfer-Encoding: chunked`
 
 ## Realtime SSE Stream (`/realtime`)
 Headers required: `Authorization: Bearer <token>`
@@ -161,17 +163,34 @@ Headers required: `Authorization: Bearer <token>`
 
 ## Webhooks (`/webhooks`)
 
-Webhooks receive real-time updates from carriers, payment gateways, and WhatsApp. Verified via HMAC SHA-256 signatures.
+Webhooks receive real-time updates from carriers, payment gateways, and WhatsApp. Verified via HMAC SHA-256 signatures and tenant-scoped concurrency locks (`lock:ndr:${merchantId}:${provider}:${awb}`).
 
-- `POST /webhooks/shopify` (`X-Shopify-Hmac-Sha256`)
-- `POST /webhooks/woocommerce` (`X-WC-Webhook-Signature`)
-- `POST /webhooks/shiprocket` (`x-webhook-signature`)
-- `POST /webhooks/delhivery` (`X-Hub-Signature-256`)
-- `POST /webhooks/clickpost` (`X-ClickPost-Signature`)
-- `POST /webhooks/whatsapp` (Meta Cloud API v22.0 signature)
-- `POST /webhooks/razorpay` (`X-Razorpay-Signature`)
-- `POST /webhooks/cashfree` (`X-Cashfree-Signature`)
-- `POST /webhooks/payment` (Unified payment capture dispatcher)
-- `POST /webhooks/custom` (Custom ERP / enterprise webhook)
+### Meta WhatsApp Cloud API
+- `GET /webhooks/whatsapp` - Meta Webhook Verification Challenge Handshake.
+  - **Query Params**: `hub.mode=subscribe`, `hub.verify_token`, `hub.challenge`
+  - **Response**: `200 OK` with raw `hub.challenge` string on token match; `403 Forbidden` on mismatch.
+- `POST /webhooks/whatsapp` (`X-Hub-Signature-256`) - Inbound customer responses (button clicks, text, GPS pin) and delivery callbacks (`sent`, `delivered`, `read`, `failed`).
 
-See `INTEGRATION_GUIDE.md` for webhook setup.
+### Courier Partners (Multi-Carrier Logistics Hub)
+Courier webhooks accept tenant context via `?merchant_id={merchantId}` and authenticate via carrier webhook secret or `x-api-key` header.
+- `POST /webhooks/shiprocket/ndr` (`x-webhook-signature`) - Shiprocket v2 nested data schema.
+- `POST /webhooks/delhivery/ndr` (`X-Hub-Signature-256`)
+- `POST /webhooks/bluedart/ndr`
+- `POST /webhooks/xpressbees/ndr`
+- `POST /webhooks/shadowfax/ndr`
+- `POST /webhooks/ecomexpress/ndr`
+- `POST /webhooks/dtdc/ndr`
+- `POST /webhooks/clickpost/ndr` (`X-ClickPost-Signature`)
+- `POST /webhooks/custom/ndr` - Universal carrier NDR ingestion.
+
+### Payment Gateways
+- `POST /webhooks/razorpay` (`X-Razorpay-Signature`) - Payment links, subscription lifecycle.
+- `POST /webhooks/cashfree` (`x-webhook-signature`, `x-webhook-timestamp`) - Cashfree UPI Intent capture confirmations. Enforces 300s timestamp skew window and HMAC SHA-256 signature verification.
+- `POST /webhooks/payment` - Unified payment capture dispatcher.
+
+### E-commerce Platforms
+- `POST /webhooks/shopify` (`X-Shopify-Hmac-Sha256`) - Universal order ingestion (COD & Prepaid).
+- `POST /webhooks/woocommerce` (`X-WC-Webhook-Signature`) - Universal order ingestion.
+- `POST /webhooks/custom/order` - Universal custom ERP order creation.
+
+See `INTEGRATION_GUIDE.md` for webhook configuration and credential setup.

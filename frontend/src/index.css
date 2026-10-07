@@ -1,3 +1,50 @@
+@import "tailwindcss";
+
+@theme {
+  --color-void: var(--bg-void);
+  --color-deep: var(--bg-deep);
+  --color-sidebar: var(--bg-sidebar);
+  --color-surface: var(--bg-surface);
+  --color-card: var(--bg-card);
+  --color-card-hover: var(--bg-card-hover);
+  --color-glass: var(--bg-glass);
+
+  --color-border-subtle: var(--border);
+  --color-border-hover: var(--border-hover);
+
+  --color-indigo: var(--indigo);
+  --color-indigo-dark: var(--indigo-dark);
+  --color-indigo-soft: var(--indigo-soft);
+  --color-violet: var(--violet);
+
+  --color-emerald: var(--emerald);
+  --color-emerald-light: var(--emerald-light);
+
+  --color-amber: var(--amber);
+  --color-amber-light: var(--amber-light);
+
+  --color-rose: var(--rose);
+  --color-rose-light: var(--rose-light);
+
+  --color-danger: var(--danger);
+  --color-cyan: var(--cyan);
+
+  --color-text-1: var(--text-1);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-mono);
+  --font-display: var(--font-display);
+
+  --radius-xs: var(--radius-xs);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+}
+
 :root {
   /* ── Core Backgrounds & Surfaces ── */
   --bg-void: #050508;

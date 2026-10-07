@@ -47,6 +47,33 @@ export class AddressCorrectionService {
     return AddressCorrectionService.instance;
   }
 
+  public async fetchNominatim(lat: number, lng: number): Promise<string> {
+    return geocodingService.reverseGeocode(lat, lng);
+  }
+
+  /**
+   * Reverse geocode with strict 2000ms timeout and Gemini NLP fallback.
+   */
+  public async reverseGeocodeWithFallback(
+    lat: number,
+    lng: number,
+    textInstructions: string = ''
+  ): Promise<string> {
+    const nominatimPromise = this.fetchNominatim(lat, lng);
+    const timeoutPromise = new Promise<string>((_, reject) =>
+      setTimeout(() => reject(new Error('NOMINATIM_TIMEOUT')), 2000)
+    );
+
+    try {
+      const address = await Promise.race([nominatimPromise, timeoutPromise]);
+      return address;
+    } catch (error) {
+      logger.warn(`[NOMINATIM FALLBACK] Rate limit or timeout. Falling back to Gemini NLP.`);
+      // Fallback to Gemini text-landmark extraction
+      return geminiService.extractLandmarksFromText(textInstructions || `${lat}, ${lng}`);
+    }
+  }
+
   /**
    * Initiate the 3-mode address correction flow.
    * Called when customer clicks "Update Address" button in NDR template.
@@ -142,9 +169,17 @@ export class AddressCorrectionService {
     const waConfig = this.getWaConfig(merchant);
 
     try {
-      const geocodedAddress = await geocodingService.reverseGeocode(
+      const textInstructions =
+        location.address ||
+        location.name ||
+        order.ndr?.addressUpdate?.textAddress ||
+        order.ndr?.addressUpdate?.landmark ||
+        '';
+
+      const geocodedAddress = await this.reverseGeocodeWithFallback(
         location.latitude,
-        location.longitude
+        location.longitude,
+        textInstructions
       );
 
       logger.info('Reverse geocoded customer location', {

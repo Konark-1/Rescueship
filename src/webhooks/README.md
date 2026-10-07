@@ -17,22 +17,25 @@
 | `dtdc.webhook.ts` | DTDC | Consignment status & delivery exception tracking (`/webhooks/dtdc/ndr`) |
 | `clickpost.webhook.ts` | ClickPost | Logistics intelligence & NDR events (`/webhooks/clickpost/ndr`) |
 | `custom.webhook.ts` | Custom ERP / Couriers | Universal order creation (`/webhooks/custom/order`) and universal NDR ingestion (`/webhooks/custom/ndr`) |
-| `whatsapp.webhook.ts` | Meta Cloud API | Inbound customer messages (text, buttons, GPS pins), delivery status callbacks |
-| `razorpay.webhook.ts` | Razorpay | `payment.captured`, `payment_link.paid`, `subscription.*` |
-| `cashfree.webhook.ts` | Cashfree | Payment confirmations (`/webhooks/cashfree`) |
+| `whatsapp.webhook.ts` | Meta Cloud API | Inbound customer messages (text, buttons, GPS pins), delivery status callbacks, and `GET /webhooks/whatsapp` verification challenge handshake (`hub.challenge`) |
+| `razorpay.webhook.ts` | Razorpay | `payment.captured`, `payment_link.paid`, `subscription.*`, and webhook verification probe (`/verify-webhook`) |
+| `cashfree.webhook.ts` | Cashfree | Cashfree v2023 payment confirmations (`/webhooks/cashfree`) with HMAC SHA-256 signature and 300s replay window |
 | `payment.webhook.ts` | Payment Gateways | Universal payment capture webhook fallback |
-| `carrier-ndr.handler.ts` | Shared | Unified NDR processing factory for all 8 carriers + custom aggregators |
+| `carrier-ndr.handler.ts` | Shared | Unified NDR processing factory for all 8 carriers + custom aggregators with tenant-scoped concurrency locks and duplicate scan interception |
 | `carrier-auth.ts` | Shared | `generateCarrierWebhookSecret()`, HMAC validation, and tenant auth token verification |
 
 ## Architecture & Data Flow
 
-`Webhook → HMAC verification (../middleware/webhookVerify.ts) → Schema validation (../schemas/) → Idempotency check (../utils/idempotency.ts) → BullMQ job dispatch → Worker processing`
+`Webhook → Tenant resolution / Auth (carrier-auth.ts) → Tenant-scoped Lock (lock:ndr:merchant:provider:awb) → Idempotency check (IdempotencyGuard) → DB Record (DeliveryAttempt unique scan trap) → BullMQ job dispatch → Worker processing`
 
 ## Key Invariants
 
 - ALL webhooks MUST verify HMAC signatures — unsigned requests rejected with 401
 - ALL webhooks MUST pass through idempotency guard — duplicate events silently dropped
-- Headers: Shopify `X-Shopify-Hmac-Sha256`, Razorpay `X-Razorpay-Signature`, Meta `X-Hub-Signature-256`, WooCommerce `X-WC-Webhook-Signature`
+- Inbound carrier NDR processing MUST acquire a tenant-scoped concurrency lock: `lock:ndr:${merchantId}:${provider}:${awb}`
+- Delayed carrier retry scans MUST trap MongoDB 11000 duplicate key on `DeliveryAttempt` and return HTTP 200 `{ status: 'ignored', reason: 'duplicate_scan' }`
+- Meta webhook endpoint MUST support `GET` verification challenge handshake matching `META_VERIFY_TOKEN`
+- Headers: Shopify `X-Shopify-Hmac-Sha256`, Razorpay `X-Razorpay-Signature`, Meta `X-Hub-Signature-256`, WooCommerce `X-WC-Webhook-Signature`, Cashfree `x-webhook-signature`
 - Handlers MUST return 200 quickly and defer processing to BullMQ jobs
 - Courier webhooks accept tenant context via `?merchant_id={merchantId}` and authenticate via carrier secret or tenant token
 - `carrier-ndr.handler.ts` is the shared NDR entry point for all 8 carriers and custom aggregators

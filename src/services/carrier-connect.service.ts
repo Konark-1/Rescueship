@@ -5,11 +5,29 @@
  * creds BEFORE encrypting+saving, so a merchant can never store dead
  * keys (self-serve safety). Reuses provider base URLs; never logs creds.
  */
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { encryptionService } from './encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
 import { generateCarrierWebhookSecret } from '../webhooks/carrier-auth';
+import { CarrierRateLimitError } from '../utils/errors.util';
+
+// ─── 🔒 HTTP 429 Rate-Limit Interceptor for Carrier APIs ───
+export function setupCarrierAxiosInterceptor(instance: AxiosInstance | typeof axios = axios) {
+  return instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+      if (error?.response && error.response.status === 429) {
+        const msg = error.response.data?.message || 'Carrier Rate Limit Exceeded (429)';
+        throw new CarrierRateLimitError(msg);
+      }
+      return Promise.reject(error);
+    }
+  );
+}
+
+// Register on global axios instance so all carrier API calls inherit it
+setupCarrierAxiosInterceptor(axios);
 
 export type Provider = 'shiprocket' | 'delhivery' | 'clickpost' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom';
 export interface CarrierCreds {

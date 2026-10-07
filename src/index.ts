@@ -387,27 +387,72 @@ async function bootstrap() {
       logger.warn('⚠️  Redis is currently unavailable or has exceeded quota. Core API is running, BullMQ background queues are safely paused.');
     }
 
-    // Graceful Shutdown Handler
+    // 5. Enterprise Graceful Shutdown Handler (SIGTERM / SIGINT)
+    let isShuttingDown = false;
     const shutdown = async (signal: string) => {
-      logger.info(`Received ${signal}. Starting graceful shutdown…`);
-      
-      // Stop accepting requests
-      server.close(() => {
-        logger.info('Express server closed');
-      });
+      if (isShuttingDown) return;
+      isShuttingDown = true;
+      logger.info(`[SHUTDOWN] Received ${signal}. Initiating graceful teardown of RescueShip…`);
 
-      // Stop workers
-      await stopAllWorkers();
+      // Set emergency fallback watchdog (force exit after 10s if tasks hang)
+      const forceExitTimer = setTimeout(() => {
+        logger.error('[SHUTDOWN] Teardown exceeded 10s timeout, forcing process termination');
+        process.exit(1);
+      }, 10000);
+      forceExitTimer.unref();
 
-      // Shutdown SSE Realtime Service
-      realtimeService.shutdown();
+      try {
+        // 1. Stop accepting new incoming HTTP connections
+        await new Promise<void>((resolve) => {
+          server.close((err) => {
+            if (err) logger.warn('[SHUTDOWN] Warning while closing HTTP server', { error: err.message });
+            else logger.info('[SHUTDOWN] Express HTTP server stopped');
+            resolve();
+          });
+        });
 
-      // Disconnect connections
-      await disconnectRedis();
-      await disconnectDatabase();
+        // 2. Gracefully drain and stop all BullMQ background workers
+        try {
+          await stopAllWorkers();
+        } catch (workerErr: any) {
+          logger.warn('[SHUTDOWN] Error stopping BullMQ workers', { error: workerErr.message });
+        }
 
-      logger.info('Graceful shutdown completed successfully');
-      process.exit(0);
+        // 3. Stop carrier dispatch & DLQ workers if active
+        try {
+          const { carrierDispatchWorker, carrierDlqWorker } = await import('./workers/carrier-dispatch.worker');
+          await Promise.all([
+            carrierDispatchWorker?.close(),
+            carrierDlqWorker?.close(),
+          ]);
+        } catch {}
+
+        // 4. Teardown SSE Realtime connections
+        try {
+          realtimeService.shutdown();
+        } catch {}
+
+        // 5. Close Redis connection
+        try {
+          await disconnectRedis();
+        } catch (redisErr: any) {
+          logger.warn('[SHUTDOWN] Error disconnecting Redis', { error: redisErr.message });
+        }
+
+        // 6. Close MongoDB connection
+        try {
+          await disconnectDatabase();
+        } catch (dbErr: any) {
+          logger.warn('[SHUTDOWN] Error disconnecting MongoDB', { error: dbErr.message });
+        }
+
+        logger.info('✅ [SHUTDOWN] Graceful teardown complete. Goodbye.');
+        clearTimeout(forceExitTimer);
+        process.exit(0);
+      } catch (fatalShutdownErr: any) {
+        logger.error('[SHUTDOWN] Fatal error during shutdown sequence', { error: fatalShutdownErr.message });
+        process.exit(1);
+      }
     };
 
     process.on('SIGTERM', () => shutdown('SIGTERM'));

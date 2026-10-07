@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, X, Plus, RefreshCw, XCircle } from 'lucide-react';
+import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, X, Plus, RefreshCw, XCircle, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import api from '../services/api';
+import { Toggle } from '../components/settings/WhatsAppTemplates';
 
 interface TemplateComponent {
   type: string;
@@ -104,11 +105,11 @@ export default function TemplatesPage() {
   };
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'approved':
         return <span className="badge badge-success"><CheckCircle size={11} /> Approved</span>;
       case 'pending':
-        return <span className="badge badge-warning"><Clock size={11} /> In Review</span>;
+        return <span className="badge badge-warning" style={{ backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#ca8a04', border: '1px solid rgba(234, 179, 8, 0.3)' }}><Clock size={11} /> ⏳ Pending Meta Review</span>;
       case 'rejected':
         return <span className="badge badge-danger"><XCircle size={11} /> Rejected</span>;
       default:
@@ -212,6 +213,26 @@ export default function TemplatesPage() {
                   </div>
 
                   <div className="wa-preview__input">Type a message…</div>
+                </div>
+
+                <div style={{ marginTop: 'var(--space-4)', width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--white-02)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Automation "Go Live" Status</span>
+                    <Toggle
+                      id={`live-toggle-${selectedTemplate._id}`}
+                      label="Automation Go Live Status"
+                      aria-label={`Automation Go Live Status for ${selectedTemplate.templateName}`}
+                      checked={selectedTemplate.status?.toLowerCase() === 'approved'}
+                      disabled={selectedTemplate.status?.toLowerCase() !== 'approved'}
+                      onChange={() => {}}
+                    />
+                  </div>
+                  {selectedTemplate.status?.toLowerCase() !== 'approved' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', fontSize: '0.75rem', color: 'var(--amber, #f59e0b)' }}>
+                      <AlertTriangle size={12} />
+                      <span>{selectedTemplate.status?.toLowerCase() === 'pending' ? '⏳ Pending Meta Review — Go Live is locked until Meta approves.' : 'Template must be approved by Meta before going live.'}</span>
+                    </div>
+                  )}
                 </div>
 
                 <button

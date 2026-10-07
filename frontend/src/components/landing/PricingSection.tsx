@@ -1,5 +1,5 @@
 import { PlanPicker } from './PlanPicker';
-import { AVG_RESCUE_VALUE, tierForOrders } from '../../lib/plans';
+import { AVG_RESCUE_VALUE, tierForOrders } from '../../config/pricing.config';
 
 export interface PricingSectionProps {
   orders: number;

@@ -1,0 +1,55 @@
+# RescueShip Enterprise Production Keepalive & Uptime Monitoring
+# Targets: Render Backend (srv-dah653142hec73evd020) and Netlify Frontend (Site: rescueship)
+# Primary Keepalive: cron-job.org (5-minute interval)
+# Secondary Keepalive & Cold-Start Guard: BetterStack / UptimeRobot (3-minute interval)
+
+version: 1
+monitors:
+  - id: rescueship-backend-health
+    name: "RescueShip Production Backend Deep Health Probe"
+    url: "https://rescueship.onrender.com/health"
+    type: http
+    interval: 180 # 3 minutes (180s) to prevent Render free/starter instance sleep
+    timeout: 30
+    request:
+      method: GET
+      headers:
+        User-Agent: "RescueShip-Uptime-Guard/1.0 (Keepalive & Resilience Probe)"
+        Accept: "application/json"
+    expect:
+      http_status_codes:
+        - 200
+      response_body_contains: '"status":"healthy"'
+      max_response_time_ms: 5000
+    alerting:
+      consecutive_failures_threshold: 2
+      notification_channels:
+        - email: "konarkofficial@gmail.com"
+        - webhook: "https://rescueship.onrender.com/api/liveops/uptime-alert"
+      recovery_notification: true
+      escalation_wait_minutes: 10
+
+  - id: rescueship-frontend-availability
+    name: "RescueShip Production Frontend Availability"
+    url: "https://rescueship.netlify.app"
+    type: http
+    interval: 180
+    timeout: 15
+    request:
+      method: GET
+    expect:
+      http_status_codes:
+        - 200
+      response_body_contains: "RescueShip"
+    alerting:
+      consecutive_failures_threshold: 3
+      notification_channels:
+        - email: "konarkofficial@gmail.com"
+
+heartbeat:
+  service_name: "RescueShip Enterprise"
+  render_service_id: "srv-dah653142hec73evd020"
+  netlify_site_id: "50a5e507-c497-49b0-b441-7251fe527838"
+  primary_keepalive_service: "cron-job.org (every 5m to /health)"
+  secondary_uptime_service: "BetterStack / UptimeRobot (every 3m to /health)"
+  cold_start_mitigation: "Active — Dual heartbeat ensures zero cold-start delay for morning carrier webhooks"

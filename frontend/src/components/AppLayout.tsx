@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useRealtime } from '../hooks/useRealtime';
 import {
   LayoutDashboard, ShoppingBag, Settings, MessageSquare,
   CreditCard, FileText, LogOut, Menu, X, Code, BarChart2, Truck
@@ -52,10 +53,17 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // 🛡️ INVISIBLE TRAP 1 SAFEGUARD: Only mount SSE when strictly authenticated with a valid token
+  const { isConnected } = useRealtime(
+    isAuthenticated ? token : null,
+    undefined,
+    isAuthenticated && Boolean(token)
+  );
 
   const handleLogout = () => {
     logout();
@@ -172,7 +180,34 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             <span className="app-header__crumb-page">{currentPage?.name || 'Dashboard'}</span>
           </div>
 
-          <div className="app-header-actions">
+          <div className="app-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '0.72rem',
+                fontFamily: 'var(--font-mono, monospace)',
+                fontWeight: 600,
+                color: isConnected ? 'var(--emerald, #10b981)' : 'var(--text-3, #9ca3af)',
+                padding: '3px 9px',
+                borderRadius: '12px',
+                background: isConnected ? 'rgba(16, 185, 129, 0.08)' : 'rgba(255, 255, 255, 0.04)',
+                border: `1px solid ${isConnected ? 'rgba(16, 185, 129, 0.25)' : 'var(--border)'}`,
+              }}
+              title={isConnected ? 'Live SSE telemetry pipeline connected' : 'Connecting to live telemetry...'}
+            >
+              <span
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  borderRadius: '50%',
+                  backgroundColor: isConnected ? 'var(--emerald, #10b981)' : '#9ca3af',
+                  boxShadow: isConnected ? '0 0 6px #10b981' : 'none',
+                }}
+              />
+              {isConnected ? 'LIVE SSE' : 'STANDBY'}
+            </div>
             <Link to="/settings" className="btn btn-ghost btn-sm">
               Settings
             </Link>

@@ -11,6 +11,7 @@ import {
   UserX,
   RotateCw,
 } from 'lucide-react';
+import { Switch } from './ui/switch';
 import './top-risk-pincodes.css';
 
 export interface PincodeRiskItem {
@@ -32,10 +33,25 @@ export interface PincodeRiskItem {
   recommendedAction: string;
 }
 
+export interface PincodeRuleState {
+  forcePrepaid: boolean;
+  mandateAdvance: boolean;
+  advanceAmount?: number;
+  syncStatus?: 'synced' | 'pending' | 'failed';
+}
+
 export const TopRiskPincodes: React.FC = () => {
   const [pincodes, setPincodes] = useState<PincodeRiskItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [rules, setRules] = useState<Record<string, PincodeRuleState>>({});
+  const [syncingPincode, setSyncingPincode] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3500);
+  };
 
   const fetchHighRiskPincodes = useCallback(async () => {
     setLoading(true);
@@ -56,9 +72,95 @@ export const TopRiskPincodes: React.FC = () => {
     }
   }, []);
 
+  const fetchPincodeRules = useCallback(async () => {
+    try {
+      const res = await api.get('/api/settings/pincode-rules');
+      if (res.data?.success && Array.isArray(res.data.rules)) {
+        const rulesMap: Record<string, PincodeRuleState> = {};
+        res.data.rules.forEach((r: any) => {
+          if (r.pincode) {
+            rulesMap[r.pincode] = {
+              forcePrepaid: !!r.forcePrepaid,
+              mandateAdvance: !!r.mandateAdvance,
+              advanceAmount: r.advanceAmount ?? 50,
+              syncStatus: r.syncStatus,
+            };
+          }
+        });
+        setRules(rulesMap);
+      }
+    } catch {
+      // Non-blocking if settings endpoint is still initializing
+    }
+  }, []);
+
   useEffect(() => {
     fetchHighRiskPincodes();
-  }, [fetchHighRiskPincodes]);
+    fetchPincodeRules();
+  }, [fetchHighRiskPincodes, fetchPincodeRules]);
+
+  const handleToggleRule = async (
+    pincode: string,
+    field: 'forcePrepaid' | 'mandateAdvance',
+    newValue: boolean
+  ) => {
+    const currentRule = rules[pincode] || {
+      forcePrepaid: false,
+      mandateAdvance: false,
+      advanceAmount: 50,
+      syncStatus: 'pending',
+    };
+
+    const previousRule = { ...currentRule };
+    const updatedRule: PincodeRuleState = {
+      ...currentRule,
+      [field]: newValue,
+    };
+
+    // Optimistic UI update
+    setRules((prev) => ({
+      ...prev,
+      [pincode]: updatedRule,
+    }));
+    setSyncingPincode(pincode);
+
+    try {
+      const res = await api.put('/api/settings/pincode-rules', {
+        pincode,
+        rules: {
+          forcePrepaid: updatedRule.forcePrepaid,
+          mandateAdvance: updatedRule.mandateAdvance,
+          advanceAmount: updatedRule.advanceAmount ?? 50,
+        },
+      });
+
+      const syncStatus = res.data?.syncStatus || 'synced';
+      setRules((prev) => ({
+        ...prev,
+        [pincode]: {
+          ...updatedRule,
+          syncStatus,
+        },
+      }));
+
+      const actionName = field === 'forcePrepaid' ? 'Force Prepaid' : 'Mandate ₹50 Advance';
+      showToast(
+        newValue
+          ? `Enabled ${actionName} for ${pincode} (${syncStatus === 'synced' ? 'synced' : 'pending sync'})`
+          : `Disabled ${actionName} for ${pincode}`,
+        'success'
+      );
+    } catch {
+      // Rollback optimistic update
+      setRules((prev) => ({
+        ...prev,
+        [pincode]: previousRule,
+      }));
+      showToast(`Failed to sync rule for ${pincode} to storefront. Reverting.`, 'error');
+    } finally {
+      setSyncingPincode(null);
+    }
+  };
 
   return (
     <section className="panel fade-in-up top-risk-panel">
@@ -117,6 +219,7 @@ export const TopRiskPincodes: React.FC = () => {
                   <th>Avg Attempts</th>
                   <th>Risk Tier</th>
                   <th>Actionable Recommendation</th>
+                  <th style={{ minWidth: '220px' }}>Storefront Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -207,6 +310,76 @@ export const TopRiskPincodes: React.FC = () => {
                           <span>{item.recommendedAction}</span>
                         </div>
                       </td>
+                      <td style={{ verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <label
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '0.78rem',
+                              cursor: syncingPincode === item.pincode ? 'wait' : 'pointer',
+                              color: rules[item.pincode]?.forcePrepaid
+                                ? '#ffffff'
+                                : 'var(--text-3, #9ca3af)',
+                              fontWeight: rules[item.pincode]?.forcePrepaid ? 600 : 400,
+                            }}
+                          >
+                            <Switch
+                              checked={!!rules[item.pincode]?.forcePrepaid}
+                              onCheckedChange={(checked) =>
+                                handleToggleRule(item.pincode, 'forcePrepaid', checked)
+                              }
+                              disabled={syncingPincode === item.pincode}
+                              aria-label={`Force Prepaid Only for ${item.pincode}`}
+                            />
+                            <span>🚫 Force Prepaid Only</span>
+                          </label>
+
+                          <label
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '0.78rem',
+                              cursor: syncingPincode === item.pincode ? 'wait' : 'pointer',
+                              color: rules[item.pincode]?.mandateAdvance
+                                ? '#ffffff'
+                                : 'var(--text-3, #9ca3af)',
+                              fontWeight: rules[item.pincode]?.mandateAdvance ? 600 : 400,
+                            }}
+                          >
+                            <Switch
+                              checked={!!rules[item.pincode]?.mandateAdvance}
+                              onCheckedChange={(checked) =>
+                                handleToggleRule(item.pincode, 'mandateAdvance', checked)
+                              }
+                              disabled={syncingPincode === item.pincode}
+                              aria-label={`Mandate ₹50 Advance for ${item.pincode}`}
+                            />
+                            <span>💰 Mandate ₹50 Advance</span>
+                          </label>
+
+                          {rules[item.pincode]?.syncStatus && (
+                            <div style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span
+                                style={{
+                                  width: '6px',
+                                  height: '6px',
+                                  borderRadius: '50%',
+                                  backgroundColor:
+                                    rules[item.pincode].syncStatus === 'synced'
+                                      ? 'var(--emerald, #10b981)'
+                                      : 'var(--amber, #f59e0b)',
+                                }}
+                              />
+                              <span style={{ color: 'var(--text-3, #9ca3af)' }}>
+                                {rules[item.pincode].syncStatus === 'synced' ? 'Storefront Synced' : 'Sync Pending'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -215,6 +388,23 @@ export const TopRiskPincodes: React.FC = () => {
           </div>
         )}
       </div>
+
+      {toast && (
+        <div
+          className="toast-notification"
+          role="status"
+          style={{
+            borderColor: toast.type === 'error' ? 'var(--rose, #f43f5e)' : 'var(--indigo, #4f46e5)',
+          }}
+        >
+          {toast.type === 'error' ? (
+            <AlertTriangle size={18} color="var(--rose, #f43f5e)" />
+          ) : (
+            <CheckCircle2 size={18} color="var(--emerald, #10b981)" />
+          )}
+          <span>{toast.message}</span>
+        </div>
+      )}
     </section>
   );
 };

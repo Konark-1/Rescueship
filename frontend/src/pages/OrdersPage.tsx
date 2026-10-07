@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import api from '../services/api';
 import { motion, AnimatePresence } from 'motion/react';
-import { PackageSearch } from 'lucide-react';
+import { PackageSearch, AlertTriangle } from 'lucide-react';
 import { TabPill } from '../components/motion/TabPill';
 import ExportButton from '../components/ExportButton';
 import { useOrderStore } from '../store/OrderStore';
-import { useRealtime } from '../hooks/useRealtime';
 import { RiskBadge } from '../components/RiskBadge';
 import { RiskBreakdownDrawer } from '../components/RiskBreakdownDrawer';
 
@@ -76,7 +75,6 @@ export const FailureSourceBadge: React.FC<{ source?: string | null }> = ({ sourc
 };
 
 export const OrdersPage: React.FC = () => {
-  const token = localStorage.getItem('token');
   const { orders: globalOrders, setOrders: setGlobalOrders } = useOrderStore();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(false);
@@ -87,9 +85,15 @@ export const OrdersPage: React.FC = () => {
   const [riskFilter, setRiskFilter] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH'>('ALL');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedRiskOrder, setSelectedRiskOrder] = useState<Order | null>(null);
-
-  // Subscribe to live SSE stream for real-time table updates
-  useRealtime(token);
+  const [metaTier, setMetaTier] = useState<{
+    metaTierLimit: number;
+    current24hCount: number;
+    isLimitReached: boolean;
+  }>({
+    metaTierLimit: 1000,
+    current24hCount: 0,
+    isLimitReached: false,
+  });
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -106,6 +110,9 @@ export const OrdersPage: React.FC = () => {
       const data = res.data;
       const list = data.orders || data.data || [];
       setOrders(list);
+      if (data.metaTier) {
+        setMetaTier(data.metaTier);
+      }
       // Sync global store on first page load so SSE events can update rows in real-time
       if (page === 1) {
         setGlobalOrders(list);
@@ -208,6 +215,32 @@ export const OrdersPage: React.FC = () => {
           <ExportButton exportType="ndr_report" label="NDR report" />
         </div>
       </header>
+
+      {/* Meta Tier Hard Pre-Flight Guard Banner */}
+      {metaTier.isLimitReached && (
+        <div
+          data-testid="meta-tier-orders-banner"
+          style={{
+            background: 'rgba(239, 68, 68, 0.12)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: 'var(--radius-md, 8px)',
+            padding: '12px 16px',
+            marginBottom: 'var(--space-4, 16px)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            color: '#fca5a5',
+          }}
+        >
+          <AlertTriangle size={18} style={{ color: '#ef4444', flexShrink: 0 }} />
+          <div style={{ fontSize: '0.86rem', lineHeight: '1.4' }}>
+            <strong style={{ color: '#fef2f2' }}>
+              Daily Meta Tier Limit Reached ({metaTier.current24hCount}/{metaTier.metaTierLimit}):
+            </strong>{' '}
+            Rescues paused until 00:00 IST to protect your WABA reputation and deliverability. Manual triggers are currently restricted.
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="panel">
@@ -520,8 +553,13 @@ export const OrdersPage: React.FC = () => {
 
               <div className="modal__foot">
                 <button className="btn btn-ghost" onClick={closeModal}>Close</button>
-                <button className="btn btn-primary" onClick={() => alert('Re-triggering WhatsApp Bot for ' + selectedOrder.orderId)}>
-                  Re-trigger rescue bot
+                <button
+                  className="btn btn-primary"
+                  disabled={metaTier.isLimitReached}
+                  title={metaTier.isLimitReached ? "Daily Meta Tier Limit Reached. Rescues paused until 00:00 IST to protect your WABA reputation." : undefined}
+                  onClick={() => alert('Re-triggering WhatsApp Bot for ' + selectedOrder.orderId)}
+                >
+                  {metaTier.isLimitReached ? 'Rescue Bot Paused (Tier Limit)' : 'Re-trigger rescue bot'}
                 </button>
               </div>
             </motion.div>
@@ -535,6 +573,7 @@ export const OrdersPage: React.FC = () => {
         isOpen={!!selectedRiskOrder}
         onClose={() => setSelectedRiskOrder(null)}
         onActionComplete={fetchOrders}
+        metaTierLimitReached={metaTier.isLimitReached}
       />
     </div>
   );

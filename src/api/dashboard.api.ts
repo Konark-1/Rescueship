@@ -1,7 +1,8 @@
 import { Router, Response } from 'express';
 import { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
-import { Order } from '../models';
+import { Order, Merchant } from '../models';
+import { whatsAppDispatcherService } from '../services/whatsapp/whatsapp-dispatcher.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -111,12 +112,23 @@ router.get('/summary', authenticateToken, async (req: AuthenticatedRequest, res:
       ? sumRtoFeeSaved
       : rescuedCount * 250 + rtoArrestCount * 250 + conversionCount * 50;
 
+    // Evaluate rolling 24-hour Meta Tier Limit
+    const merchantDoc = await Merchant.findById(mId).select('metaTierLimit');
+    const metaTierLimit = merchantDoc?.metaTierLimit ?? 1000;
+    const tierCheck = await whatsAppDispatcherService.checkMetaTierLimit(merchantId, metaTierLimit);
+    const metaTier = {
+      metaTierLimit: tierCheck.limit,
+      current24hCount: tierCheck.current,
+      isLimitReached: !tierCheck.allowed,
+    };
+
     res.status(200).json({
       totalSaved,
       rescuedCount,
       conversionCount,
       rtoArrestCount,
       ordersNeedingAttention,
+      metaTier,
     });
   } catch (err: any) {
     logger.error('Failed to get dashboard summary', { merchantId, error: err.message });

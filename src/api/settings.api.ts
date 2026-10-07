@@ -559,4 +559,179 @@ router.get('/ai-providers', authenticateToken, async (req: AuthenticatedRequest,
   }
 });
 
+/**
+ * POST /api/settings/razorpay/verify-webhook
+ * Generates a verification probe nonce stored in Redis for 60s.
+ * Merchants use this to test that their Razorpay dashboard webhook configuration
+ * is correctly delivering events to RescueShip.
+ */
+router.post('/razorpay/verify-webhook', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const { redisConnection } = await import('../config/redis');
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const base = (process.env.API_PUBLIC_URL || config.server.apiBaseUrl).replace(/\/$/, '');
+    const webhookUrl = `${base}/webhooks/razorpay/payment`;
+
+    if (redisConnection && typeof (redisConnection as any).setex === 'function') {
+      await (redisConnection as any).setex(`rz_verify:${merchantId}`, 60, nonce);
+      await (redisConnection as any).setex(`rz_verify_nonce:${nonce}`, 60, merchantId);
+      // Clear previous status if any
+      await (redisConnection as any).del(`rz_verify_status:${merchantId}`);
+    }
+
+    res.status(200).json({
+      verificationNonce: nonce,
+      webhookUrl,
+      expiresIn: 60,
+      instructions: 'Configure this webhook URL in your Razorpay Dashboard with event payment_link.paid, or send a test payload with verification_nonce.',
+    });
+  } catch (err: any) {
+    logger.error('Failed to create Razorpay webhook verification probe', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to initiate webhook verification' });
+  }
+});
+
+/**
+ * GET /api/settings/razorpay/verify-webhook-status
+ * Polls whether the webhook probe was received within the 60-second window.
+ */
+router.get('/razorpay/verify-webhook-status', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const { redisConnection } = await import('../config/redis');
+    if (!redisConnection || typeof (redisConnection as any).get !== 'function') {
+      res.status(200).json({ verified: false, pending: false, message: 'Redis unavailable' });
+      return;
+    }
+
+    const status = await (redisConnection as any).get(`rz_verify_status:${merchantId}`);
+    if (status === 'verified') {
+      res.status(200).json({ verified: true, message: 'Webhook probe successfully received and verified!' });
+      return;
+    }
+
+    const activeNonce = await (redisConnection as any).get(`rz_verify:${merchantId}`);
+    res.status(200).json({
+      verified: false,
+      pending: !!activeNonce,
+      message: activeNonce ? 'Waiting for webhook probe from Razorpay...' : 'Verification window expired. Please initiate again.',
+    });
+  } catch (err: any) {
+    logger.error('Failed to check webhook verification status', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to check verification status' });
+  }
+});
+
+/**
+ * GET /api/settings/meta-tier
+ * Retrieve rolling 24-hour Meta messaging tier rate limit status
+ */
+router.get('/meta-tier', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const { whatsAppDispatcherService } = await import('../services/whatsapp/whatsapp-dispatcher.service');
+    const merchant = await Merchant.findById(merchantId).select('metaTierLimit');
+    const limit = merchant?.metaTierLimit ?? 1000;
+    const tierCheck = await whatsAppDispatcherService.checkMetaTierLimit(merchantId, limit);
+    res.status(200).json({
+      metaTierLimit: tierCheck.limit,
+      current24hCount: tierCheck.current,
+      isLimitReached: !tierCheck.allowed,
+    });
+  } catch (err: any) {
+    logger.error('Failed to get meta-tier limit', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve meta tier status' });
+  }
+});
+
+/**
+ * GET /api/settings/pincode-rules
+ * Retrieve active geo-risk pincode restrictions for the authenticated merchant
+ */
+router.get('/pincode-rules', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const merchant = await Merchant.findById(merchantId).select('pincodeRules settings.pincodeRules');
+    const rules = merchant?.pincodeRules || merchant?.settings?.pincodeRules || [];
+    res.status(200).json({
+      success: true,
+      rules,
+    });
+  } catch (err: any) {
+    logger.error('Failed to retrieve pincode rules', { merchantId, error: err.message });
+    res.status(500).json({ error: 'Failed to retrieve pincode rules' });
+  }
+});
+
+/**
+ * PUT /api/settings/pincode-rules
+ * Set or update geo-risk restriction for a pincode and sync to Shopify / WooCommerce
+ */
+router.put('/pincode-rules', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { pincode, rules } = req.body;
+  if (!pincode || typeof pincode !== 'string' || !pincode.trim()) {
+    res.status(400).json({ error: 'Valid pincode is required' });
+    return;
+  }
+
+  if (!rules || typeof rules !== 'object') {
+    res.status(400).json({ error: 'Rules object is required' });
+    return;
+  }
+
+  try {
+    const { storefrontSyncService } = await import('../services/storefront-sync.service');
+    const result = await storefrontSyncService.applyRestrictions(merchantId, pincode, {
+      forcePrepaid: Boolean(rules.forcePrepaid),
+      mandateAdvance: Boolean(rules.mandateAdvance),
+      advanceAmount: typeof rules.advanceAmount === 'number' ? rules.advanceAmount : 50,
+    });
+
+    res.status(200).json({
+      success: true,
+      pincode: result.pincode,
+      rules: {
+        forcePrepaid: result.rule.forcePrepaid,
+        mandateAdvance: result.rule.mandateAdvance,
+        advanceAmount: result.rule.advanceAmount,
+      },
+      syncStatus: result.syncStatus,
+      rule: result.rule,
+      message:
+        result.syncStatus === 'synced'
+          ? 'Pincode rule updated and successfully synced to storefront'
+          : 'Pincode rule updated (storefront sync pending)',
+    });
+  } catch (err: any) {
+    logger.error('Failed to update pincode rules', { merchantId, pincode, error: err.message });
+    res.status(500).json({ error: err.message || 'Failed to update pincode rule' });
+  }
+});
+
 export default router;

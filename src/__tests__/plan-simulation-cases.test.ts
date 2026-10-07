@@ -317,21 +317,32 @@ describe('RescueShip Plan Simulation Test Suite (12 Core Test Cases)', () => {
     expect(isFake).toBe(true);
   });
 
-  // Test Case 9: RTO Initiated
-  it('Test Case 9: Shiprocket RTO webhook sets status to rto_initiated', () => {
-    const req: any = {
-      body: {
-        awb: 'AWB123456',
-        order_id: '1001',
-        current_status: 'RTO INITIATED',
+  // Test Case 9: Shiprocket v2 RTO Initiated Webhook Schema
+  it('Test Case 9: Shiprocket v2 RTO webhook with nested data sets status to rto_initiated', () => {
+    const v2Payload = {
+      data: {
+        shipment_status: 'RTO INITIATED',
+        awb_code: '12345',
+        order_id: '999',
+        etd: '2026-10-08 14:00:00',
       },
+    };
+
+    const req: any = {
+      body: v2Payload,
       path: '/tracking',
       get: jest.fn(),
     };
 
+    // Ensure root level lacks deprecated v1 keys
+    expect((req.body as any).current_status).toBeUndefined();
+    expect((req.body as any).awb).toBeUndefined();
+
     const parsed = parseShiprocketWebhook(req);
     expect('error' in parsed).toBe(false);
     if (!('error' in parsed)) {
+      expect(parsed.awb).toBe('12345');
+      expect(parsed.externalOrderId).toBe('999');
       expect(parsed.status).toBe('RTO_INITIATED');
       expect(parsed.isNdr).toBe(false);
     }

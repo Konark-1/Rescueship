@@ -1,5 +1,5 @@
 import { useState, useId } from 'react';
-import { PLANS, tierForOrders, type Plan } from '../../lib/plans';
+import { PLANS, tierForOrders, type Plan } from '../../config/pricing.config';
 import { SlidersHorizontal } from 'lucide-react';
 
 export interface PlanPickerProps {

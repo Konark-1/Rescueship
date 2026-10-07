@@ -15,6 +15,7 @@ import { redisConnection } from '../config/redis';
 const router = Router();
 
 function safeEqualStr(a: string, b: string): boolean {
+  if (!a || !b) return false;
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
   return ab.length === bb.length && ab.length > 0 && crypto.timingSafeEqual(ab, bb);
@@ -38,16 +39,27 @@ export function extractGoogleMapsCoordinates(text: string): { latitude: number; 
 }
 
 /**
- * GET Route: WhatsApp Webhook Verification
+ * GET Route: WhatsApp / Meta Webhook Verification Handshake
  */
 router.get('/', (req: Request, res: Response): void => {
   const mode = req.query['hub.mode'];
   const token = req.query['hub.verify_token'];
   const challenge = req.query['hub.challenge'];
 
+  const expectedToken =
+    process.env.META_VERIFY_TOKEN ||
+    process.env.WHATSAPP_VERIFY_TOKEN ||
+    config.whatsapp?.verifyToken;
+
   logger.info('Received WhatsApp webhook verification request', { mode, tokenPresent: typeof token === 'string' && token.length > 0 });
 
-  if (mode === 'subscribe' && typeof token === 'string' && safeEqualStr(token, config.whatsapp.verifyToken)) {
+  if (
+    mode === 'subscribe' &&
+    typeof token === 'string' &&
+    typeof expectedToken === 'string' &&
+    expectedToken.length > 0 &&
+    safeEqualStr(token, expectedToken)
+  ) {
     logger.info('WhatsApp webhook verified successfully');
     res.status(200).send(typeof challenge === 'string' ? challenge : '');
   } else {

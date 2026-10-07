@@ -156,11 +156,45 @@ export class WhatsAppDispatcherService {
       }
     }
 
+    // ─── 2b. Meta Cloud API 24-Hour Tier Rate Limiting ───
+    const metaTierLimit = merchant.metaTierLimit || 1000;
+    const tierCheck = await this.checkMetaTierLimit(merchantId, metaTierLimit);
+    if (!tierCheck.allowed) {
+      logger.warn(
+        `[META THROTTLE] 24h Meta outbound tier limit reached for merchant ${merchantId} (${tierCheck.current}/${metaTierLimit})`
+      );
+      await AuditLog.create({
+        merchantId: merchant._id,
+        orderId: order._id,
+        action: 'whatsapp_throttled_meta_tier_limit',
+        source: 'whatsapp_dispatcher',
+        payload: { currentUsage: tierCheck.current, metaTierLimit },
+        status: 'success',
+      });
+      return {
+        success: false,
+        suppressed: true,
+        suppressReason: `Meta 24h tier limit reached (${tierCheck.current}/${metaTierLimit})`,
+      };
+    }
+
     // ─── 3. Template Resolution & Pre-Send Validation ───
     const lang = merchant.settings?.ndrRescue?.messageLanguage || 'en';
-    const effectiveCategory = (order.paymentMethod === 'prepaid' && category === 'COD_COLLECTION_ISSUE')
+    let effectiveCategory = (order.paymentMethod === 'prepaid' && category === 'COD_COLLECTION_ISSUE')
       ? 'CUSTOMER_NOT_AVAILABLE'
       : category;
+
+    if (effectiveCategory === 'COD_COLLECTION_ISSUE') {
+      const { cooldownService } = require('../cooldown.service');
+      const isCooldown = await cooldownService.checkAntiFarmingCooldown(
+        normalizedPhone,
+        merchantId
+      );
+      if (isCooldown) {
+        logger.warn(`[ANTI-FARMING] Cooldown triggered for phone ${phone}`);
+        effectiveCategory = 'CUSTOMER_NOT_AVAILABLE';
+      }
+    }
 
     const mapping = templateMapperService.getMappingForCategory(
       effectiveCategory,
@@ -290,7 +324,45 @@ export class WhatsAppDispatcherService {
       } catch (redisErr) {}
     }
 
+    // Increment 24-hour rolling Meta tier usage counter
+    await this.incrementMetaTierUsage(merchantId);
+
     return { success: true, messageId: metaMessageId };
+  }
+
+  /**
+   * Evaluates rolling 24-hour Meta messaging tier rate limit in Redis.
+   */
+  public async checkMetaTierLimit(
+    merchantId: string,
+    limit: number = 1000
+  ): Promise<{ allowed: boolean; current: number; limit: number }> {
+    if (!redisConnection) return { allowed: true, current: 0, limit };
+    try {
+      const tierKey = `meta:24h:${merchantId}`;
+      const countStr = await redisConnection.get(tierKey);
+      const current = countStr ? parseInt(countStr, 10) : 0;
+      return { allowed: current < limit, current, limit };
+    } catch {
+      return { allowed: true, current: 0, limit };
+    }
+  }
+
+  /**
+   * Atomically increments rolling 24-hour Meta tier usage counter and enforces 86400s TTL.
+   */
+  public async incrementMetaTierUsage(merchantId: string): Promise<number> {
+    if (!redisConnection) return 1;
+    try {
+      const tierKey = `meta:24h:${merchantId}`;
+      const count = await redisConnection.incr(tierKey);
+      if (count === 1) {
+        await redisConnection.expire(tierKey, 86400); // 24 hours rolling TTL
+      }
+      return count;
+    } catch {
+      return 1;
+    }
   }
 
   private resolveMerchantWaConfig(merchant: any): WhatsAppConfig {

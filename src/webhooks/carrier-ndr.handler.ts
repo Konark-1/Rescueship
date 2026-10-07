@@ -13,6 +13,7 @@
 import { Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
+import { randomUUID } from 'crypto';
 import { redisConnection } from '../config/redis';
 import { Order, Merchant, AuditLog, WebhookEvent, DeliveryAttempt, RescueLedger, Shipment } from '../models';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
@@ -20,6 +21,7 @@ import { authenticateCarrierWebhook, CarrierProvider } from './carrier-auth';
 import { orderStateMachineService } from '../services/state-machine/order-state-machine.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
+import { acquireLock, releaseLock } from '../utils/distributed-lock.util';
 
 const ndrRescueQueue = new Queue('ndr-rescue', { connection: redisConnection as any });
 
@@ -60,34 +62,49 @@ export function createCarrierNdrHandler(
       return;
     }
 
+    // ─── 🔒 1. Authenticate Carrier Webhook to Resolve Tenant Scope ───
     const auth = await authenticateCarrierWebhook(req, provider, platformSecret());
     if (!auth.ok) {
       logger.warn(`${provider} webhook rejected`, { reason: auth.error, ip: req.ip });
       res.status(auth.status).json({ error: auth.error });
       return;
     }
-    const merchantId: Types.ObjectId = auth.merchantId;
+    const merchantId = auth.merchantId;
 
-    const eventId = parsed.eventId || `${parsed.awb}_${parsed.status || 'ndr'}`;
-    const idemKey = IdempotencyGuard.key(provider, merchantId.toString(), eventId);
+    // ─── 🔒 2. Redis Concurrency Lock (SET NX) Scoped to Tenant to Prevent Retry Storms & Cross-Tenant Collisions ───
+    const lockKey = `lock:ndr:${merchantId.toString()}:${provider}:${parsed.awb}`;
+    const uniqueValue = randomUUID();
+    const acquired = await acquireLock(lockKey, 10000, uniqueValue);
 
-    let claim;
-    try {
-      claim = await IdempotencyGuard.claim(idemKey);
-    } catch (err) {
-      if (err instanceof IdempotencyUnavailableError) {
-        res.status(503).json({ error: 'Temporarily unavailable, retry later' });
-        return;
-      }
-      throw err;
-    }
-    if (claim === 'duplicate') {
-      logger.info(`Duplicate ${provider} webhook, skipping`, { merchantId, eventId });
-      res.status(200).json({ status: 'ignored', reason: 'duplicate' });
+    if (!acquired) {
+      logger.warn(`[DUPLICATE WEBHOOK DROPPED] Lock exists for ${lockKey}`);
+      res.status(200).json({ status: 'ignored', reason: 'duplicate_lock_active', lockKey });
       return;
     }
 
+    let idemKey: string | undefined;
+
     try {
+
+      const eventId = parsed.eventId || `${parsed.awb}_${parsed.status || 'ndr'}`;
+      idemKey = IdempotencyGuard.key(provider, merchantId.toString(), eventId);
+
+      let claim;
+      try {
+        claim = await IdempotencyGuard.claim(idemKey);
+      } catch (err) {
+        if (err instanceof IdempotencyUnavailableError) {
+          res.status(503).json({ error: 'Temporarily unavailable, retry later' });
+          return;
+        }
+        throw err;
+      }
+      if (claim === 'duplicate') {
+        logger.info(`Duplicate ${provider} webhook, skipping`, { merchantId, eventId });
+        res.status(200).json({ status: 'ignored', reason: 'duplicate' });
+        return;
+      }
+
       // 1. Durably record raw WebhookEvent
       try {
         await WebhookEvent.create({
@@ -228,6 +245,7 @@ export function createCarrierNdrHandler(
       }
 
       // ─── 5. Record DeliveryAttempt for Failed Delivery ───
+      const attemptTime = parsed.attemptTime || new Date();
       try {
         await DeliveryAttempt.create({
           merchantId,
@@ -235,8 +253,11 @@ export function createCarrierNdrHandler(
           awb: parsed.awb,
           status: parsed.status,
           remark: parsed.reason,
-          attemptTime: parsed.attemptTime || new Date(),
+          attemptTime,
           courierCode: provider,
+          carrier: provider,
+          carrierScanCode: parsed.status,
+          scanTimestamp: parsed.attemptTime || undefined,
           isFakeRemark: false,
           rawWebhook: req.body,
         });
@@ -244,7 +265,7 @@ export function createCarrierNdrHandler(
         if (order) {
           const updateFields: any = {
             failureSource: 'COURIER_REPORTED',
-            lastAttemptAt: parsed.attemptTime || new Date(),
+            lastAttemptAt: attemptTime,
           };
           if (!order.shippingPincode && parsed.pincode) updateFields.shippingPincode = parsed.pincode;
           if (!order.shippingCity && parsed.city) updateFields.shippingCity = parsed.city;
@@ -259,6 +280,21 @@ export function createCarrierNdrHandler(
           );
         }
       } catch (attemptErr: any) {
+        if (
+          attemptErr?.code === 11000 ||
+          (attemptErr?.name === 'MongoServerError' && attemptErr?.code === 11000) ||
+          attemptErr?.message?.includes('E11000')
+        ) {
+          logger.warn(`[DUPLICATE SCAN DROPPED] Carrier scan already processed for AWB ${parsed.awb}`, {
+            awb: parsed.awb,
+            carrier: provider,
+            status: parsed.status,
+            scanTimestamp: parsed.attemptTime,
+          });
+          await IdempotencyGuard.markProcessed(idemKey);
+          res.status(200).json({ status: 'ignored', reason: 'duplicate_scan' });
+          return;
+        }
         logger.warn('Failed to record DeliveryAttempt', { error: attemptErr?.message });
       }
 
@@ -301,8 +337,12 @@ export function createCarrierNdrHandler(
       res.status(200).json({ status: 'queued', message: `${provider} NDR registered` });
     } catch (err: any) {
       logger.error(`Failed to handle ${provider} webhook`, { merchantId, awb: parsed.awb, error: err.message });
-      await IdempotencyGuard.release(idemKey);
+      if (idemKey) {
+        await IdempotencyGuard.release(idemKey);
+      }
       res.status(500).json({ error: 'Failed to process webhook' });
+    } finally {
+      await releaseLock(lockKey, uniqueValue);
     }
   };
 }

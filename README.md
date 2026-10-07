@@ -2,7 +2,7 @@
 
 [![Production Frontend](https://img.shields.io/badge/Render-rescueship--frontend.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship-frontend.onrender.com)
 [![Production Backend](https://img.shields.io/badge/Render-rescueship.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship.onrender.com)
-[![Test Suite](https://img.shields.io/badge/Tests-334%20passed%20(40%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
+[![Test Suite](https://img.shields.io/badge/Tests-390%20passed%20(47%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
 [![Meta WhatsApp API](https://img.shields.io/badge/Meta_Cloud_API-v22.0-25D366?style=flat&logo=whatsapp)](https://developers.facebook.com/docs/whatsapp/cloud-api)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)](https://react.dev/)
@@ -265,8 +265,8 @@ npm run dev
 
 RescueShip maintains an exhaustive, mathematically proven testing posture across all layers:
 
-- **Backend**: **40 test suites**, **334 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), webhook HMACs, carrier APIs, 3-mode address correction, atomic `SET NX` concurrency locks, rate limiting, and failure telemetry.
-- **Frontend**: **5 test suites**, **90 Playwright E2E tests (100% passing)** covering all dashboard views, onboarding, sandbox, and WhatsApp customer rescue simulators.
+- **Backend**: **47 test suites**, **390 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), Cashfree v2023 UPI Intent & HMAC signature parity, anti-farming cancellation cooldowns, Nominatim IP throttling with Gemini NLP fallbacks, DPDP Act 180-day automated PII redaction, BullMQ Dead Letter Queue (`carrier-dlq`) for HTTP 429s, Redis `SET NX` concurrency locks with Lua atomic release, cross-tenant lock scoping, delayed-retry scan deduplication, Meta 24h tier limits, and graceful shutdown pipelines.
+- **Frontend**: **5 test suites**, **90 Playwright E2E tests (100% passing)** covering all dashboard views, onboarding, sandbox, WCAG 2.1 AA accessibility compliance, and WhatsApp customer rescue simulators.
 
 ```bash
 # 1. Run all backend tests (Jest)
