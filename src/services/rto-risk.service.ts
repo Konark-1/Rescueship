@@ -2,6 +2,7 @@ import { Types } from 'mongoose';
 import { Order } from '../models';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { logger } from '../utils/logger';
+import { pincodeRiskService } from './analytics/pincode-risk.service';
 
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 export type RecommendedAction = 'auto_ship' | 'whatsapp_verify' | 'require_deposit' | 'manual_review';
@@ -43,11 +44,28 @@ export class RtoRiskService {
       factors.push('incomplete_address_no_flat_pincode');
     }
 
-    // 2. Pincode Risk Factor (+5 to +25 pts)
+    // 2. Pincode Risk Factor (+10 to +35 pts)
     if (input.pincode) {
-      if (['111111', '123456', '999999', '000000'].includes(input.pincode)) {
+      const cleanPin = String(input.pincode).trim().replace(/\D/g, '');
+      if (['111111', '123456', '999999', '000000'].includes(cleanPin)) {
         score += 25;
         factors.push('dummy_pincode');
+      } else {
+        try {
+          const pinRisk = await pincodeRiskService.getPincodeRiskScore(cleanPin, merchantId);
+          if (pinRisk >= 0.50) {
+            score += 35;
+            factors.push('critical_rto_pincode_hotspot');
+          } else if (pinRisk >= 0.35) {
+            score += 25;
+            factors.push('high_rto_pincode_cluster');
+          } else if (pinRisk >= 0.25) {
+            score += 10;
+            factors.push('moderate_rto_pincode_risk');
+          }
+        } catch (err: any) {
+          logger.warn('Failed to calculate dynamic pincode risk in assessOrder', { pincode: cleanPin, error: err?.message });
+        }
       }
     }
 

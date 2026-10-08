@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { LayoutDashboard, ShoppingBag, ArrowLeft } from 'lucide-react';
 import './sandbox.css';
 
 import api from '../services/api';
@@ -87,10 +88,11 @@ export default function SandboxPage() {
     try {
       const s = await sandboxApi.toggle(next);
       setStatus(s?.sandbox || s);
-      pushFeed(next ? 'sandbox enabled — outbound WhatsApp redirects to your phone' : 'sandbox disabled');
+      pushFeed(next ? 'sandbox enabled — outbound WhatsApp redirects to your phone' : 'sandbox disabled — live mode active ✓');
     } catch (e: any) {
-      setError(e.message);
-      pushFeed(`toggle failed: ${e.message}`);
+      const errMsg = e.response?.data?.error || e.message || 'Toggle failed';
+      setError(errMsg);
+      pushFeed(`toggle failed: ${errMsg}`);
     }
   };
 
@@ -100,14 +102,21 @@ export default function SandboxPage() {
     pushFeed('generating simulated NDR…');
     try {
       const sim = await sandboxApi.simulate();
-      setLastSim(sim?.simulation || sim);
-      pushFeed(`NDR simulated · AWB ${sim?.simulation?.awb || sim?.awb || 'SIM'} · reason: ${sim?.simulation?.reason || sim?.reason || 'NDR'}`);
-      pushFeed(`rescue dispatched → ${sim?.template || 'ndr_rescue_en'}`);
+      const simData = sim?.simulation || sim;
+      setLastSim(simData);
+      const awb = simData?.awb || 'SIM';
+      const reason = simData?.reason || 'NDR';
+      pushFeed(`NDR simulated · AWB ${awb} · reason: ${reason}`);
+      pushFeed(`rescue dispatched → ${simData?.template || 'ndr_rescue_en'}`);
       pushFeed(`WhatsApp redirected to owner phone ✓`);
+      if (sim?.whatsapp?.message) {
+        pushFeed(sim.whatsapp.message);
+      }
       await loadStatus();
     } catch (e: any) {
-      setError(e.message);
-      pushFeed(`simulate failed: ${e.message}`);
+      const errMsg = e.response?.data?.error || e.message || 'Simulation failed';
+      setError(errMsg);
+      pushFeed(`simulate failed: ${errMsg}`);
     } finally {
       setSimulating(false);
     }
@@ -148,9 +157,21 @@ export default function SandboxPage() {
   return (
     <div className="sb">
       {/* Header */}
-      <header className="sb-top">
-        <Link to="/dashboard" className="sb-back">← Dashboard</Link>
-        <h1 className="sb-title">Sandbox & Safety</h1>
+      <header className="sb-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Link to="/dashboard" className="sb-back" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <ArrowLeft size={16} /> Dashboard
+          </Link>
+          <h1 className="sb-title" style={{ margin: 0 }}>Sandbox & Safety</h1>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Link to="/dashboard" className="btn btn-sm btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+            <LayoutDashboard size={14} /> Open Dashboard
+          </Link>
+          <Link to="/orders" className="btn btn-sm btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}>
+            <ShoppingBag size={14} /> View Orders
+          </Link>
+        </div>
       </header>
 
       <div className="sb-body">
@@ -186,6 +207,22 @@ export default function SandboxPage() {
                 <span className="sb-badge sb-badge--grad">✓ Graduated</span>
               )}
             </div>
+            {status?.graduated && status?.enabled && (
+              <div style={{ marginTop: '14px', padding: '12px 14px', background: 'rgba(34, 197, 94, 0.08)', border: '1px solid rgba(34, 197, 94, 0.25)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '0.86rem', color: 'var(--emerald, #22c55e)' }}>🎉 Your store has graduated!</div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>Test simulations passed. You are ready to switch to autonomous Live Mode for real buyers.</div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-xs btn-primary"
+                  onClick={handleToggle}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 600, padding: '6px 12px' }}
+                >
+                  🚀 Activate Live Mode Now
+                </button>
+              </div>
+            )}
             {error && <p className="sb-error">⚠ {error}</p>}
           </section>
 
@@ -204,7 +241,9 @@ export default function SandboxPage() {
                 />
               </div>
               <span className="sb-geo__label">
-                {status?.testRescuesSucceeded ?? 0} / {status?.graduationThreshold ?? 3}
+                {status?.graduated
+                  ? '3 / 3 (100% · Graduated)'
+                  : `${status?.testRescuesSucceeded ?? 0} / ${status?.graduationThreshold ?? 3}`}
               </span>
             </div>
             <div className="sb-sim-row">
@@ -220,9 +259,27 @@ export default function SandboxPage() {
               )}
             </div>
             {lastSim && (
-              <div className="sb-sim-result">
-                <span className="sb-sim-result__awb">AWB {lastSim.awb || 'SIM'}</span>
-                <span className="sb-sim-result__reason">{lastSim.reason || 'simulated_ndr'}</span>
+              <div className="sb-sim-result" style={{ marginTop: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span className="sb-sim-result__awb">AWB {lastSim.awb || 'SIM'}</span>
+                  <span className="sb-sim-result__reason">{lastSim.reason || 'simulated_ndr'}</span>
+                </div>
+                <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: '8px', padding: '12px' }}>
+                  <div style={{ fontSize: '0.82rem', color: 'var(--text-1)', lineHeight: 1.5, marginBottom: '10px' }}>
+                    <strong>RescueShip Simulated WhatsApp Alert:</strong> Package {lastSim.awb || 'SIM'} was marked undelivered (<em>{lastSim.reason || 'customer_unavailable'}</em>). Customer interactive options:
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button type="button" className="btn btn-xs btn-primary" onClick={() => pushFeed('Simulated action: Customer tapped "Deliver Today"')}>
+                      ✓ Deliver Today
+                    </button>
+                    <button type="button" className="btn btn-xs btn-secondary" onClick={() => pushFeed('Simulated action: Customer converted COD to UPI Prepaid')}>
+                      ⚡ Pay UPI Now (5% OFF)
+                    </button>
+                    <button type="button" className="btn btn-xs btn-ghost" onClick={() => pushFeed('Simulated action: Customer updated address via GPS pin')}>
+                      📍 Fix Address
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
             {status && !status.graduated && status.testRescuesSucceeded >= status.graduationThreshold && (

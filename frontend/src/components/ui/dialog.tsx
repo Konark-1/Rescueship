@@ -33,8 +33,8 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 export const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, style, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { showCloseX?: boolean }
+>(({ className, children, showCloseX = true, style, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -64,23 +64,25 @@ export const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close
-        className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
-        style={{
-          position: 'absolute',
-          right: '16px',
-          top: '16px',
-          background: 'none',
-          border: 'none',
-          color: 'var(--text-3, #9ca3af)',
-          cursor: 'pointer',
-          padding: '4px',
-          borderRadius: '4px',
-        }}
-        aria-label="Close"
-      >
-        <X size={18} />
-      </DialogPrimitive.Close>
+      {showCloseX && (
+        <DialogPrimitive.Close
+          className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none"
+          style={{
+            position: 'absolute',
+            right: '16px',
+            top: '16px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-3, #9ca3af)',
+            cursor: 'pointer',
+            padding: '4px',
+            borderRadius: '4px',
+          }}
+          aria-label="Close"
+        >
+          <X size={18} />
+        </DialogPrimitive.Close>
+      )}
     </DialogPrimitive.Content>
   </DialogPortal>
 ));

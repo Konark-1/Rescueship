@@ -7,6 +7,7 @@ import ExportButton from '../components/ExportButton';
 import { useOrderStore } from '../store/OrderStore';
 import { RiskBadge } from '../components/RiskBadge';
 import { RiskBreakdownDrawer } from '../components/RiskBreakdownDrawer';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 
 interface OrderTimeline {
   event: string;
@@ -411,32 +412,18 @@ export const OrdersPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Order detail modal */}
-      <AnimatePresence>
+      {/* Radix Accessible Order detail dialog */}
+      <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && closeModal()}>
         {selectedOrder && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="modal-overlay"
-            onClick={closeModal}
-          >
-            <motion.div
-              initial={{ scale: 0.94, opacity: 0, y: 12 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 12 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="modal"
-              onClick={e => e.stopPropagation()}
-              role="dialog"
-              aria-label={`Order details ${selectedOrder.orderId}`}
-            >
-              <div className="modal__head">
-                <span className="modal__dot modal__dot--r" />
-                <span className="modal__dot modal__dot--a" />
-                <span className="modal__dot modal__dot--g" />
-                <span className="modal__title">order/{selectedOrder.orderId}</span>
-              </div>
+          <DialogContent style={{ maxWidth: '640px' }} showCloseX={false}>
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem' }}>
+                order/{selectedOrder.orderId}
+              </DialogTitle>
+              <DialogDescription>
+                Live delivery status, customer contact, and interception timeline.
+              </DialogDescription>
+            </DialogHeader>
 
               <div className="modal__body">
                 {modalLoading && (
@@ -551,7 +538,7 @@ export const OrdersPage: React.FC = () => {
                 </ul>
               </div>
 
-              <div className="modal__foot">
+              <div className="modal__foot" style={{ marginTop: 'var(--space-4)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <button className="btn btn-ghost" onClick={closeModal}>Close</button>
                 <button
                   className="btn btn-primary"
@@ -562,10 +549,9 @@ export const OrdersPage: React.FC = () => {
                   {metaTier.isLimitReached ? 'Rescue Bot Paused (Tier Limit)' : 'Re-trigger rescue bot'}
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </DialogContent>
+          )}
+        </Dialog>
 
       {/* RTO Risk Breakdown Slide-out Drawer */}
       <RiskBreakdownDrawer

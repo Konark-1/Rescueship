@@ -45,15 +45,36 @@ export const FraudWatchtower: React.FC = () => {
   }
 
   if (error) {
+    const isPlanGated =
+      error.toLowerCase().includes('scale') ||
+      error.toLowerCase().includes('growth') ||
+      error.toLowerCase().includes('plan');
+
     return (
-      <Card style={{ padding: '32px', textAlign: 'center' }}>
-        <AlertTriangle size={36} color="var(--rose, #f43f5e)" style={{ margin: '0 auto 12px' }} />
-        <CardTitle style={{ color: 'var(--text-1)' }}>Unable to Load Carrier Fraud Telemetry</CardTitle>
-        <CardDescription style={{ marginTop: '8px', marginBottom: '16px' }}>{error}</CardDescription>
-        <Button variant="secondary" onClick={() => refetch()} style={{ margin: '0 auto' }}>
-          <RefreshCw size={14} />
-          <span>Retry</span>
-        </Button>
+      <Card style={{ padding: '36px 24px', textAlign: 'center' }}>
+        {isPlanGated ? (
+          <ShieldAlert size={36} color="var(--indigo, #6366f1)" style={{ margin: '0 auto 12px' }} />
+        ) : (
+          <AlertTriangle size={36} color="var(--rose, #f43f5e)" style={{ margin: '0 auto 12px' }} />
+        )}
+        <CardTitle style={{ color: 'var(--text-1)' }}>
+          {isPlanGated ? 'Carrier Fraud Watchtower is a Scale & Fleet Feature' : 'Unable to Load Carrier Fraud Telemetry'}
+        </CardTitle>
+        <CardDescription style={{ marginTop: '8px', marginBottom: '20px', maxWidth: '520px', marginInline: 'auto' }}>
+          {isPlanGated
+            ? 'Audit fake delivery remarks across Delhivery, Blue Dart & Shadowfax, and generate one-click reverse-freight dispute dossiers.'
+            : error}
+        </CardDescription>
+        {isPlanGated ? (
+          <Button variant="default" onClick={() => { window.location.href = '/billing'; }} style={{ margin: '0 auto' }}>
+            <span>Upgrade to Scale Plan →</span>
+          </Button>
+        ) : (
+          <Button variant="secondary" onClick={() => refetch()} style={{ margin: '0 auto' }}>
+            <RefreshCw size={14} />
+            <span>Retry</span>
+          </Button>
+        )}
       </Card>
     );
   }

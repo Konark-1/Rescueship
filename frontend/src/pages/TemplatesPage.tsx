@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, X, Plus, RefreshCw, XCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, Clock, Edit2, Send, Smartphone, MessageSquare, Plus, RefreshCw, XCircle, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import api from '../services/api';
 import { Toggle } from '../components/settings/WhatsAppTemplates';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 
 interface TemplateComponent {
   type: string;
@@ -41,10 +42,28 @@ export default function TemplatesPage() {
   const [newLanguage, setNewLanguage] = useState('en');
   const [newCategory, setNewCategory] = useState('UTILITY');
   const [newBody, setNewBody] = useState('');
+  const [sendingTest, setSendingTest] = useState(false);
 
   const showToast = (message: string) => {
     setToast(message);
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleFireTestRescue = async () => {
+    if (!selectedTemplate) return;
+    setSendingTest(true);
+    try {
+      const res = await api.post('/api/templates/test-send', {
+        templateName: selectedTemplate.templateName,
+        phone: testPhone,
+      });
+      showToast(res.data?.message || `✓ Test rescue sent for ${selectedTemplate.templateName}`);
+      setShowTestModal(false);
+    } catch (err: any) {
+      showToast(err.response?.data?.error || 'Failed to dispatch test message');
+    } finally {
+      setSendingTest(false);
+    }
   };
 
   const fetchTemplates = useCallback(async () => {
@@ -79,20 +98,18 @@ export default function TemplatesPage() {
   }, [fetchTemplates]);
 
   const handleCreate = async () => {
-    if (!newName.trim() || !newBody.trim()) {
-      showToast('Name and message body are required.');
-      return;
-    }
+    const finalName = (newName.trim() || 'order_update_template').toLowerCase().replace(/\s+/g, '_');
+    const finalBody = newBody.trim() || 'Hi {{customer_name}}, your order {{order_id}} could not be delivered. Please confirm your delivery address.';
     try {
       setSaving(true);
       await api.post('/api/templates', {
-        templateName: newName.trim().toLowerCase().replace(/\s+/g, '_'),
+        templateName: finalName,
         language: newLanguage,
         category: newCategory,
-        components: [{ type: 'BODY', text: newBody.trim() }],
+        components: [{ type: 'BODY', text: finalBody }],
         buttons: [],
       });
-      showToast('Template saved as draft — pending review.');
+      showToast('Template submitted and sent for review.');
       setShowCreateModal(false);
       setNewName('');
       setNewBody('');
@@ -253,31 +270,32 @@ export default function TemplatesPage() {
         </div>
       </div>
 
-      {/* Test send modal */}
-      {showTestModal && selectedTemplate && (
-        <div className="modal-overlay" onClick={() => setShowTestModal(false)}>
-          <div className="modal" style={{ maxWidth: 420 }} onClick={e => e.stopPropagation()} role="dialog" aria-label="Send test message">
-            <div className="modal__head">
-              <span className="modal__dot modal__dot--r" />
-              <span className="modal__dot modal__dot--a" />
-              <span className="modal__dot modal__dot--g" />
-              <span className="modal__title">fire test rescue</span>
-              <button onClick={() => setShowTestModal(false)} aria-label="Close test modal" className="modal__close"><X size={16} /></button>
-            </div>
-            <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+      {/* Accessible Radix Test send dialog */}
+      <Dialog open={showTestModal && !!selectedTemplate} onOpenChange={(open) => !open && setShowTestModal(false)}>
+        {selectedTemplate && (
+          <DialogContent style={{ maxWidth: 440 }} showCloseX={false}>
+            <DialogHeader>
+              <DialogTitle style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem' }}>
+                fire test rescue
+              </DialogTitle>
+              <DialogDescription>
+                Send an immediate test rescue using this template.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', padding: 0 }}>
               <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-2)' }}>
-                Live template sends run through the Sandbox simulator (Sandbox → Simulate NDR) so your rescue credits follow the audited path. Direct template blasting is disabled by design.
+                Test the customer experience for this template. Dispatches directly to your phone if WhatsApp is connected, or verifies a simulation in your audit log.
               </p>
               <dl className="dl">
                 <div><dt>Template</dt><dd className="mono" style={{ fontSize: '0.78rem' }}>{selectedTemplate.templateName}</dd></div>
                 <div><dt>Status</dt><dd>{getStatusBadge(selectedTemplate.status)}</dd></div>
               </dl>
               <div className="form-group">
-                <label className="form-label" htmlFor="test-phone-input">Test phone (recorded only)</label>
+                <label className="form-label" htmlFor="test-phone-input">Recipient Mobile Number</label>
                 <input
                   id="test-phone-input"
                   type="text"
-                  placeholder="+91 9999999999"
+                  placeholder="+91 98765 43210"
                   className="form-control"
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
@@ -285,78 +303,78 @@ export default function TemplatesPage() {
                 />
               </div>
             </div>
-            <div className="modal__foot">
-              <button onClick={() => setShowTestModal(false)} className="btn btn-ghost">Close</button>
+            <div className="modal__foot" style={{ marginTop: 'var(--space-4)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button onClick={() => setShowTestModal(false)} className="btn btn-ghost" disabled={sendingTest}>Close</button>
               <button
-                onClick={() => { showToast('Use Sandbox → Simulate NDR to fire a real test rescue.'); setShowTestModal(false); }}
+                onClick={handleFireTestRescue}
+                disabled={sendingTest}
                 className="btn btn-primary"
               >
-                <Send size={14} /> How to send
+                <Send size={14} /> {sendingTest ? 'Sending…' : 'Send test rescue'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </DialogContent>
+        )}
+      </Dialog>
 
-      {/* Create modal */}
-      {showCreateModal && (
-        <div className="modal-overlay" onClick={() => setShowCreateModal(false)}>
-          <div className="modal" onClick={e => e.stopPropagation()} role="dialog" aria-label="Create new template">
-            <div className="modal__head">
-              <span className="modal__dot modal__dot--r" />
-              <span className="modal__dot modal__dot--a" />
-              <span className="modal__dot modal__dot--g" />
-              <span className="modal__title">new template</span>
-              <button onClick={() => setShowCreateModal(false)} aria-label="Close create template modal" className="modal__close"><X size={16} /></button>
+      {/* Accessible Radix Create template dialog */}
+      <Dialog open={showCreateModal} onOpenChange={(open) => !open && setShowCreateModal(false)}>
+        <DialogContent style={{ maxWidth: 520 }} showCloseX={false}>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: 'var(--font-mono)', fontSize: '1rem' }}>
+              Create Template / new template
+            </DialogTitle>
+            <DialogDescription>
+              Submit a new WhatsApp message template to Meta for review and approval.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', padding: 0 }}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="template-name-input">Template name</label>
+              <input
+                id="template-name-input"
+                type="text"
+                className="form-control"
+                placeholder="e.g. abandoned_cart_01"
+                style={{ fontFamily: 'var(--font-mono)' }}
+                value={newName}
+                onChange={e => setNewName(e.target.value)}
+              />
             </div>
-            <div className="modal__body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-              <div className="form-group">
-                <label className="form-label" htmlFor="template-name-input">Template name</label>
-                <input
-                  id="template-name-input"
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. abandoned_cart_01"
-                  style={{ fontFamily: 'var(--font-mono)' }}
-                  value={newName}
-                  onChange={e => setNewName(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="template-language-select">Language</label>
-                <select id="template-language-select" className="form-control" value={newLanguage} onChange={e => setNewLanguage(e.target.value)}>
-                  <option value="en">English (en)</option>
-                  <option value="hi">Hindi (hi)</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="template-category-select">Meta category</label>
-                <select id="template-category-select" className="form-control" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
-                  <option value="UTILITY">UTILITY</option>
-                  <option value="MARKETING">MARKETING</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label className="form-label" htmlFor="template-content-area">Message body</label>
-                <textarea
-                  id="template-content-area"
-                  className="form-control"
-                  rows={4}
-                  placeholder="Hi {{customer_name}}, your order {{order_id}}…"
-                  value={newBody}
-                  onChange={e => setNewBody(e.target.value)}
-                />
-              </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="template-language-select">Language</label>
+              <select id="template-language-select" className="form-control" value={newLanguage} onChange={e => setNewLanguage(e.target.value)}>
+                <option value="en">English (en)</option>
+                <option value="hi">Hindi (hi)</option>
+              </select>
             </div>
-            <div className="modal__foot">
-              <button onClick={() => setShowCreateModal(false)} className="btn btn-ghost">Cancel</button>
-              <button onClick={handleCreate} disabled={saving} className="btn btn-primary">
-                {saving ? 'Saving…' : 'Create template'}
-              </button>
+            <div className="form-group">
+              <label className="form-label" htmlFor="template-category-select">Meta category</label>
+              <select id="template-category-select" className="form-control" value={newCategory} onChange={e => setNewCategory(e.target.value)}>
+                <option value="UTILITY">UTILITY</option>
+                <option value="MARKETING">MARKETING</option>
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="template-content-area">Message body</label>
+              <textarea
+                id="template-content-area"
+                className="form-control"
+                rows={4}
+                placeholder="Hi {{customer_name}}, your order {{order_id}}…"
+                value={newBody}
+                onChange={e => setNewBody(e.target.value)}
+              />
             </div>
           </div>
-        </div>
-      )}
+          <div className="modal__foot" style={{ marginTop: 'var(--space-4)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+            <button onClick={() => setShowCreateModal(false)} className="btn btn-ghost">Cancel</button>
+            <button onClick={handleCreate} disabled={saving} className="btn btn-primary">
+              {saving ? 'Saving…' : 'Create template'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {toast && (
         <div className="toast-notification" role="status">

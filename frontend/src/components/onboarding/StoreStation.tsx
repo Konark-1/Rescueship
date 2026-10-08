@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { RefreshCw, Zap, KeyRound } from 'lucide-react';
 import { Field, Done } from './Field';
 
@@ -44,6 +47,14 @@ export function ManualWebhook({ info }: { info: { webhookUrl: string; webhookSec
   );
 }
 
+const wooCommerceSchema = z.object({
+  url: z.string().min(1, 'Store URL is required'),
+  consumerKey: z.string().min(1, 'Consumer key is required'),
+  consumerSecret: z.string().min(1, 'Consumer secret is required'),
+});
+
+type WooCommerceFormValues = z.infer<typeof wooCommerceSchema>;
+
 export function WooCommerceForm({
   onConnect,
   busy,
@@ -51,27 +62,37 @@ export function WooCommerceForm({
   onConnect: (url: string, key: string, secret: string) => void;
   busy: any;
 }) {
-  const [url, setUrl] = useState('');
-  const [consumerKey, setConsumerKey] = useState('');
-  const [consumerSecret, setConsumerSecret] = useState('');
-  const urlValid = /^https:\/\/.+/i.test(url.trim());
+  const {
+    register,
+    handleSubmit,
+    watch,
+    formState: { errors },
+  } = useForm<WooCommerceFormValues>({
+    resolver: zodResolver(wooCommerceSchema),
+    defaultValues: { url: '', consumerKey: '', consumerSecret: '' },
+  });
+
+  const urlValue = watch('url');
+  const urlValid = /^https:\/\/.+/i.test(urlValue?.trim() || '');
+
+  const onSubmit = (data: WooCommerceFormValues) => {
+    onConnect(data.url.trim(), data.consumerKey.trim(), data.consumerSecret.trim());
+  };
 
   return (
-    <form
-      className="ob-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onConnect(url.trim(), consumerKey.trim(), consumerSecret.trim());
-      }}
-    >
+    <form className="ob-form" onSubmit={handleSubmit(onSubmit)}>
       <Field label="Store URL">
         <input
           className="ob-input"
           placeholder="https://yourstore.com"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          {...register('url')}
           required
         />
+        {errors.url && (
+          <span style={{ color: 'var(--rose)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+            {errors.url.message}
+          </span>
+        )}
       </Field>
       <Field label="Consumer key">
         <input
@@ -79,10 +100,14 @@ export function WooCommerceForm({
           placeholder="ck_…"
           autoComplete="off"
           spellCheck={false}
-          value={consumerKey}
-          onChange={(e) => setConsumerKey(e.target.value)}
+          {...register('consumerKey')}
           required
         />
+        {errors.consumerKey && (
+          <span style={{ color: 'var(--rose)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+            {errors.consumerKey.message}
+          </span>
+        )}
       </Field>
       <Field label="Consumer secret">
         <input
@@ -91,10 +116,14 @@ export function WooCommerceForm({
           autoComplete="off"
           spellCheck={false}
           placeholder="cs_…"
-          value={consumerSecret}
-          onChange={(e) => setConsumerSecret(e.target.value)}
+          {...register('consumerSecret')}
           required
         />
+        {errors.consumerSecret && (
+          <span style={{ color: 'var(--rose)', fontSize: '0.75rem', marginTop: '4px', display: 'block' }}>
+            {errors.consumerSecret.message}
+          </span>
+        )}
       </Field>
       <div className="ob-steps">
         <p className="ob-steps__title">How to get these (2 min):</p>
@@ -122,7 +151,7 @@ export function WooCommerceForm({
       </div>
       <button
         className="ob-btn"
-        disabled={busy || !urlValid || !consumerKey.trim() || !consumerSecret.trim()}
+        disabled={busy || !urlValid}
       >
         {busy ? 'Validating…' : 'Validate & connect'}
       </button>

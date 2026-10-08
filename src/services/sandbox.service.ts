@@ -47,7 +47,8 @@ class SandboxService {
       logger.info(`[Sandbox] Enabled for ${merchantId}`, { merchantId });
     } else if (!enabled && sandbox.enabled) {
       sandbox.enabled = false;
-      logger.info(`[Sandbox] Disabled for ${merchantId}`, { merchantId });
+      sandbox.graduated = true;
+      logger.info(`[Sandbox] Disabled for ${merchantId} — live mode enabled`, { merchantId });
     }
 
     (merchant as any).sandbox = sandbox;
@@ -106,11 +107,11 @@ class SandboxService {
    * Generate a simulated NDR payload for sandbox testing.
    * Merchant can trigger this to see the full rescue flow without a real courier event.
    */
-  generateSimulatedNDR(merchantId: string, ownerPhone: string): SandboxNDRSimulation {
+  generateSimulatedNDR(merchantId: string, ownerPhone?: string): SandboxNDRSimulation {
     const reason = SIMULATED_REASONS[Math.floor(Math.random() * SIMULATED_REASONS.length)];
     return {
       orderId: `SANDBOX-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
-      customerPhone: ownerPhone, // always self in sandbox
+      customerPhone: ownerPhone || '+919999999999', // safe simulated recipient
       reason,
       courier: 'SandboxSim',
       awb: `SIM${Date.now().toString(36).toUpperCase()}`,

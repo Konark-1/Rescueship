@@ -16,6 +16,8 @@ export interface Plan {
   maxOrders: number;
   priceMonthly: number;
   blurb: string;
+  flagship?: string;
+  features?: string[];
 }
 
 export interface TierConfig {
@@ -24,13 +26,45 @@ export interface TierConfig {
   orders: number;
   base: number;
   blurb: string;
+  flagship?: string;
+  features?: string[];
 }
 
 export const TIERS: TierConfig[] = [
-  { key: 'starter', name: 'Starter', orders: 1000,  base: 4999,  blurb: 'For early D2C brands feeling the first RTO sting.' },
-  { key: 'growth',  name: 'Growth',  orders: 5000,  base: 11999, blurb: 'Where recovery becomes a line item you watch grow.' },
-  { key: 'scale',   name: 'Scale',   orders: 12000, base: 24999, blurb: 'For scaling brands that refuse to lose orders.' },
-  { key: 'fleet',   name: 'Fleet',   orders: 25000, base: 44999, blurb: 'For high-volume ops with multi-carrier delivery.' },
+  {
+    key: 'starter',
+    name: 'Starter',
+    orders: 1000,
+    base: 4999,
+    blurb: 'For early D2C brands feeling the first RTO sting.',
+    features: ['1,000 Orders/mo', 'Auto WhatsApp NDR Ping', 'Shiprocket & Delhivery'],
+  },
+  {
+    key: 'growth',
+    name: 'Growth',
+    orders: 5000,
+    base: 11999,
+    blurb: 'Where recovery becomes a line item you watch grow.',
+    features: ['5,000 Orders/mo', 'Interactive UPI QR Recovery', 'ClickPost & Custom Carriers'],
+  },
+  {
+    key: 'scale',
+    name: 'Scale',
+    orders: 12000,
+    base: 24999,
+    blurb: 'For scaling brands that refuse to lose orders.',
+    flagship: 'Carrier Fraud Watchtower & Storefront Sync',
+    features: ['12,000 Orders/mo', 'Carrier Fraud Watchtower', 'Storefront Geo-Risk Sync (Shopify/Woo)', 'Gemini AI Telemetry'],
+  },
+  {
+    key: 'fleet',
+    name: 'Fleet',
+    orders: 25000,
+    base: 44999,
+    blurb: 'For high-volume ops with multi-carrier delivery.',
+    flagship: 'Dedicated SLAs & Enterprise Gateways',
+    features: ['25,000 Orders/mo', 'Carrier Fraud Watchtower & Storefront Sync', 'Dedicated WhatsApp Gateway', 'Custom SLA Guarantee'],
+  },
 ];
 
 /** Aliased for components expecting `PLANS` (e.g. PlanPicker, PricingSection) */
@@ -40,6 +74,8 @@ export const PLANS: Plan[] = TIERS.map((t) => ({
   maxOrders: t.orders,
   priceMonthly: t.base,
   blurb: t.blurb,
+  flagship: t.flagship,
+  features: t.features,
 }));
 
 export const CYCLES: { key: Cycle; label: string; months: number; discount: number; tag: string }[] = [

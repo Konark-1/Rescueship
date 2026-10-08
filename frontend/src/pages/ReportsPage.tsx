@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
+import React, { useState, Suspense, lazy } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
 import api from '../services/api';
 import { TabPill } from '../components/motion/TabPill';
@@ -28,39 +28,36 @@ const REPORT_TABS = [
   { id: 'audit', label: 'Audit Logs' },
 ];
 
+import { useQuery } from '@tanstack/react-query';
+
 export const ReportsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('pincodes');
 
-  // Carrier Performance State
-  const [carriers, setCarriers] = useState<CarrierStat[]>([]);
-  const [carrierLoading, setCarrierLoading] = useState<boolean>(false);
-  const [carrierError, setCarrierError] = useState<string | null>(null);
-
-  // Fetch Carrier Stats
-  const fetchCarrierPerformance = useCallback(async () => {
-    setCarrierLoading(true);
-    setCarrierError(null);
-    try {
+  // Carrier Performance Query via TanStack Query
+  const {
+    data: carriersData,
+    isLoading: carrierLoading,
+    error: carrierQueryError,
+    refetch: refetchCarriers,
+  } = useQuery<CarrierStat[]>({
+    queryKey: ['analytics-carriers'],
+    queryFn: async () => {
       const res = await api.get('/api/analytics/carriers');
       const data = res.data?.carriers || res.data || [];
-      if (Array.isArray(data)) {
-        setCarriers(data);
-      } else {
-        setCarriers([]);
-      }
-    } catch (err: any) {
-      console.warn('Could not load carrier performance', err);
-      setCarrierError(err?.response?.data?.error || 'Unable to load carrier performance metrics.');
-    } finally {
-      setCarrierLoading(false);
-    }
-  }, []);
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: activeTab === 'carrier',
+    staleTime: 60000,
+  });
 
-  useEffect(() => {
-    if (activeTab === 'carrier') {
-      fetchCarrierPerformance();
-    }
-  }, [activeTab, fetchCarrierPerformance]);
+  const carriers = carriersData || [];
+  const carrierError = carrierQueryError
+    ? (carrierQueryError as any)?.response?.data?.error || (carrierQueryError as any)?.message || 'Unable to load carrier performance metrics.'
+    : null;
+
+  const fetchCarrierPerformance = () => {
+    refetchCarriers();
+  };
 
   return (
     <div className="page reports-page">

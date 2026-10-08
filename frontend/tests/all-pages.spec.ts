@@ -686,7 +686,7 @@ test.describe('Protected app pages', () => {
     await expect(page.locator('body')).toContainText(/order\/#/i);
     await expect(page.locator('body')).toContainText(/Timeline/i);
 
-    await page.getByRole('button', { name: /Close/i }).click();
+    await page.keyboard.press('Escape');
     await expect(page.locator('body')).not.toContainText(/order\/#1001/i);
   });
 

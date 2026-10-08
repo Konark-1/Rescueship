@@ -41,6 +41,47 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
           </span>
         </div>
 
+        {/* Enterprise NDR Command Center feature callout */}
+        <div
+          style={{
+            margin: '1rem 0',
+            padding: '12px 18px',
+            background: 'linear-gradient(90deg, rgba(99, 102, 241, 0.1) 0%, rgba(16, 185, 129, 0.08) 100%)',
+            border: '1px solid rgba(99, 102, 241, 0.25)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+            <div>
+              <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#f3f4f6' }}>
+                Enterprise NDR Command Center Included
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                Carrier Fraud Watchtower rider audits + Storefront Geo-Risk Sync to Shopify &amp; WooCommerce.
+              </div>
+            </div>
+          </div>
+          <span
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: '#34d399',
+              background: 'rgba(16, 185, 129, 0.15)',
+              padding: '3px 10px',
+              borderRadius: '20px',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+            }}
+          >
+            Included in Scale &amp; Fleet
+          </span>
+        </div>
+
         {/* 2. Guarantee banner */}
         <div className="pricing__guarantee" role="region" aria-label="Money back guarantee">
           <span className="pricing__guarantee-icon" aria-hidden="true">🛡️</span>

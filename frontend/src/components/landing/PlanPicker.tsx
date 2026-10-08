@@ -136,6 +136,26 @@ export function PlanPicker({
                   <p className="bl-tier-card__volume">
                     Up to {plan.maxOrders.toLocaleString('en-IN')} orders/mo · {plan.blurb}
                   </p>
+                  {plan.flagship && (
+                    <div style={{ marginTop: '6px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          fontSize: '0.72rem',
+                          background: 'rgba(99, 102, 241, 0.15)',
+                          color: '#a5b4fc',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontWeight: 600,
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                        }}
+                      >
+                        ⭐ {plan.flagship}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

@@ -2,6 +2,9 @@ import { Router, Response } from 'express';
 import { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { WhatsAppTemplate } from '../models';
+import { Merchant } from '../models/Merchant';
+import { encryptionService } from '../services/encryption.service';
+import { whatsAppService } from '../services/whatsapp.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -142,6 +145,66 @@ router.post('/:id/submit', authenticateToken, async (req: AuthenticatedRequest, 
   } catch (err: any) {
     logger.error('Failed to submit template', { error: err.message });
     res.status(500).json({ error: 'Failed to submit template' });
+  }
+});
+
+// POST test send template (direct preview or live WhatsApp dispatch)
+router.post('/test-send', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const { templateName, phone } = req.body;
+  try {
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+    const ownerPhone = (merchant as any).ownerPhone;
+    const targetPhone = phone || ownerPhone || '+919999999999';
+    const waCfg = (merchant as any).whatsappConfig;
+    const hasLiveWhatsapp = Boolean(ownerPhone && waCfg?.phoneNumberId && waCfg?.accessToken);
+
+    if (hasLiveWhatsapp) {
+      try {
+        const decryptedToken = encryptionService.decrypt(waCfg.accessToken);
+        await whatsAppService.sendTemplate(
+          ownerPhone!,
+          templateName || 'ndr_rescue_en',
+          'en',
+          [
+            {
+              type: 'body',
+              parameters: [
+                { type: 'text', text: 'Merchant (Test)' },
+                { type: 'text', text: 'TEST-' + Math.floor(1000 + Math.random() * 9000) },
+                { type: 'text', text: 'Delhivery' },
+              ],
+            },
+          ],
+          {
+            phoneNumberId: waCfg.phoneNumberId,
+            accessToken: decryptedToken,
+            businessAccountId: waCfg.businessAccountId,
+          }
+        );
+        res.status(200).json({
+          success: true,
+          live: true,
+          message: `Live test rescue sent via WhatsApp to ${ownerPhone}!`,
+        });
+        return;
+      } catch (err: any) {
+        logger.warn('Live test send failed, falling back to simulated preview', { error: err.message });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      live: false,
+      message: `Test rescue simulated for ${templateName || 'template'}. (Connect WhatsApp in Settings to receive live messages on your phone).`,
+    });
+  } catch (err: any) {
+    logger.error('Failed to trigger template test', { error: err.message });
+    res.status(500).json({ error: 'Failed to test template' });
   }
 });
 

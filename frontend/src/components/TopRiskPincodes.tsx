@@ -150,13 +150,16 @@ export const TopRiskPincodes: React.FC = () => {
           : `Disabled ${actionName} for ${pincode}`,
         'success'
       );
-    } catch {
+    } catch (err: any) {
       // Rollback optimistic update
       setRules((prev) => ({
         ...prev,
         [pincode]: previousRule,
       }));
-      showToast(`Failed to sync rule for ${pincode} to storefront. Reverting.`, 'error');
+      const errorMsg =
+        err?.response?.data?.error ||
+        `Failed to sync rule for ${pincode} to storefront. Reverting.`;
+      showToast(errorMsg, 'error');
     } finally {
       setSyncingPincode(null);
     }
@@ -169,6 +172,19 @@ export const TopRiskPincodes: React.FC = () => {
           <MapPin size={16} color="var(--rose, #f43f5e)" aria-hidden="true" />
           <span className="panel__title">Top 5 High-Risk Pincodes</span>
           <span className="top-risk-badge top-risk-badge--critical">30-Day Hotspots</span>
+          <span
+            style={{
+              fontSize: '0.72rem',
+              color: 'var(--indigo-soft, #a5b4fc)',
+              background: 'rgba(99, 102, 241, 0.12)',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              border: '1px solid rgba(99, 102, 241, 0.25)',
+              fontWeight: 500,
+            }}
+          >
+            ⚡ Storefront Sync Active
+          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button

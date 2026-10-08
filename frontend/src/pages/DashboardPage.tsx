@@ -10,6 +10,7 @@ import { ActionQueue } from '../components/dashboard/ActionQueue';
 const TrendCharts = lazy(() => import('../components/dashboard/TrendCharts'));
 import type { UrgentOrderItem } from '../components/dashboard/ActionQueue';
 import { useFinancialROI } from '../hooks/useFinancialROI';
+import { useQuery } from '@tanstack/react-query';
 
 export interface OrderItem extends UrgentOrderItem {}
 
@@ -42,26 +43,34 @@ export const DashboardPage: React.FC = () => {
   // Phase 2 Task 2.2: Custom hook fetching live Financial ROI
   const { roi, loading: roiLoading } = useFinancialROI();
 
-  const fetchRoiChartData = useCallback(async () => {
-    try {
+  // TanStack Query for Analytics ROI High-Volume Telemetry
+  const { data: rawRoiData } = useQuery({
+    queryKey: ['analytics-roi-records'],
+    queryFn: async () => {
       const res = await api.get('/api/analytics/roi');
-      const data = res.data;
-      const records = data?.records || (Array.isArray(data) ? data : []);
-      if (records.length > 0) {
-        // High-volume aggregation: mathematically calculate sum across all records
-        const total = records.reduce((acc: number, curr: any) => acc + (Number(curr.amount || curr.saved || 0)), 0);
-        setRoiChartData([
-          { period: 'Week 1', saved: Math.round(total * 0.25) },
-          { period: 'Week 2', saved: Math.round(total * 0.25) },
-          { period: 'Week 3', saved: Math.round(total * 0.25) },
-          { period: 'Week 4', saved: Math.round(total * 0.25) },
-        ]);
-      } else if (data?.chartData) {
-        setRoiChartData(data.chartData);
-      }
-    } catch {
-      // Use baseline if endpoint is unmocked
+      return res.data;
+    },
+    staleTime: 60000,
+  });
+
+  useEffect(() => {
+    if (!rawRoiData) return;
+    const records = rawRoiData?.records || (Array.isArray(rawRoiData) ? rawRoiData : []);
+    if (records.length > 0) {
+      const total = records.reduce((acc: number, curr: any) => acc + (Number(curr.amount || curr.saved || 0)), 0);
+      setRoiChartData([
+        { period: 'Week 1', saved: Math.round(total * 0.25) },
+        { period: 'Week 2', saved: Math.round(total * 0.25) },
+        { period: 'Week 3', saved: Math.round(total * 0.25) },
+        { period: 'Week 4', saved: Math.round(total * 0.25) },
+      ]);
+    } else if (rawRoiData?.chartData) {
+      setRoiChartData(rawRoiData.chartData);
     }
+  }, [rawRoiData]);
+
+  const fetchRoiChartData = useCallback(async () => {
+    // Retained for programmatic triggers
   }, []);
 
   const handleSimulateNdr = async () => {

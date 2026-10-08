@@ -37,6 +37,9 @@ jest.mock('../models', () => {
             if (matchStage.merchantId && o.merchantId?.toString() !== matchStage.merchantId?.toString()) {
               return false;
             }
+            if (matchStage.shippingPincode && o.shippingPincode !== matchStage.shippingPincode) {
+              return false;
+            }
             if (matchStage.customerPhone?.$in && !matchStage.customerPhone.$in.includes(o.customerPhone)) {
               return false;
             }
@@ -49,7 +52,7 @@ jest.mock('../models', () => {
         if (matched.length === 0) return [];
         const total = matched.length;
         const rto = matched.filter((o) => ['rto', 'returned', 'cancelled'].includes(o.status)).length;
-        return [{ _id: null, total, rto }];
+        return [{ _id: null, total, rto, totalOrders: total, failedOrders: rto }];
       }),
     },
     Merchant: {
@@ -157,5 +160,45 @@ describe('Phase 5: AI & Predictive Analytics', () => {
 
     expect(result).toEqual(cachedData);
     expect(mockFetch).not.toHaveBeenCalled(); // Gemini API should NOT be called
+  });
+
+  // Test 6: Dynamic regional pincode risk factor
+  it('Test 6: Elevates risk score for orders in remote/high-risk pincode clusters', async () => {
+    const merchantId = new Types.ObjectId().toString();
+    const risk = await rtoRiskService.assessOrder(merchantId, {
+      customerPhone: '+919876543210',
+      orderValue: 500,
+      pincode: '781001', // Remote Northeast (0.32 heuristic risk score)
+      address: 'Flat 4B, Sector 3, Guwahati, 781001',
+    });
+
+    expect(risk.factors).toContain('moderate_rto_pincode_risk');
+    expect(risk.score).toBeGreaterThanOrEqual(10);
+  });
+
+  // Test 7: Historical failure hotspot triggers critical_rto_pincode_hotspot
+  it('Test 7: Elevates risk and tags hotspot when postal code has >= 50% historical RTO rate', async () => {
+    const mId = new Types.ObjectId();
+    const testPin = '800001';
+
+    // Seed 4 orders with 3 failures (75% failure rate)
+    for (let i = 0; i < 4; i++) {
+      ordersStore.push({
+        merchantId: mId,
+        shippingPincode: testPin,
+        status: i < 3 ? 'rto' : 'delivered',
+        createdAt: new Date(),
+      });
+    }
+
+    const risk = await rtoRiskService.assessOrder(mId.toString(), {
+      customerPhone: '+919876543210',
+      orderValue: 500,
+      pincode: testPin,
+      address: 'House 14, Main Road, Patna, 800001',
+    });
+
+    expect(risk.factors).toContain('critical_rto_pincode_hotspot');
+    expect(risk.score).toBeGreaterThanOrEqual(35);
   });
 });

@@ -8,9 +8,9 @@ export const planLimits: Record<string, { orderLimit: number; features: string[]
   free_trial: { orderLimit: 100, features: ['basic_kpi', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery'] },
   starter: { orderLimit: 1000, features: ['basic_kpi', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery'] },
   growth: { orderLimit: 5000, features: ['basic_kpi', 'advanced_charts', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue'] },
-  scale: { orderLimit: 12000, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla'] },
-  fleet: { orderLimit: 25000, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'dedicated_manager'] },
-  enterprise: { orderLimit: 99999999, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'dedicated_manager'] },
+  scale: { orderLimit: 12000, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'fraud_watchtower', 'storefront_sync'] },
+  fleet: { orderLimit: 25000, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'dedicated_manager', 'fraud_watchtower', 'storefront_sync'] },
+  enterprise: { orderLimit: 99999999, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'dedicated_manager', 'fraud_watchtower', 'storefront_sync'] },
 };
 
 /**

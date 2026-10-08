@@ -99,6 +99,30 @@
   color: var(--emerald, #22c55e);
 }
 
+.sb-sim-result {
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.sb-sim-result__awb {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--indigo-soft, #818cf8);
+  margin-right: 8px;
+}
+
+.sb-sim-result__reason {
+  font-size: 0.8rem;
+  color: var(--amber, #f59e0b);
+  background: rgba(245, 158, 11, 0.1);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
 .btn-toggle:disabled {
   opacity: 0.4;
   cursor: not-allowed;
