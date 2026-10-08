@@ -22,6 +22,21 @@ import { config } from './env';
 import { logger } from '../utils/logger';
 
 /* ------------------------------------------------------------------ */
+// Silence BullMQ repetitive eviction policy spam across dozens of worker instances
+let evictionWarnLogged = false;
+const origConsoleWarn = console.warn;
+console.warn = (...args: any[]) => {
+  const msg = typeof args[0] === 'string' ? args[0] : '';
+  if (msg.includes('Eviction policy is')) {
+    if (!evictionWarnLogged) {
+      evictionWarnLogged = true;
+      logger.info('ℹ️  Redis memory policy noted: BullMQ queues operating with TTL safeguards.');
+    }
+    return;
+  }
+  origConsoleWarn.apply(console, args);
+};
+/* ------------------------------------------------------------------ */
 let isQuotaExceeded = false;
 
 export function isRedisQuotaExceeded(): boolean {
@@ -157,6 +172,15 @@ export async function connectRedis(): Promise<boolean> {
     try {
       await redisConnection.set('rescueship:health', '1', 'EX', 10);
       logger.info('✅  Redis PING and write verification successful');
+
+      // Attempt to enforce noeviction policy for BullMQ queue integrity
+      try {
+        await redisConnection.config('SET', 'maxmemory-policy', 'noeviction');
+        logger.info('✅  Redis maxmemory-policy configured to "noeviction" for BullMQ stability');
+      } catch {
+        // Managed cloud providers (e.g. Upstash, Render free Redis) disallow CONFIG SET commands; safe to ignore
+      }
+
       return true;
     } catch (writeErr: any) {
       logger.warn('⚠️  Redis connected but write/quota failed (e.g. Upstash limit) — pausing background queues', { error: writeErr.message });

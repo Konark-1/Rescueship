@@ -183,8 +183,8 @@ const DEPRECATED_GEMINI_MODELS = [
 
 if (process.env.GEMINI_MODEL && DEPRECATED_GEMINI_MODELS.includes(process.env.GEMINI_MODEL)) {
   // eslint-disable-next-line no-console
-  console.warn(
-    `[WARN] Deprecated GEMINI_MODEL detected (${process.env.GEMINI_MODEL}). Upgrading runtime model to gemini-3.8-flash for high-fidelity address decoding.`
+  console.info(
+    `[AI Engine] Notice: Runtime GEMINI_MODEL (${process.env.GEMINI_MODEL}) auto-upgraded to gemini-3.8-flash for high-fidelity address decoding.`
   );
 }
 // Force runtime model to gemini-3.8-flash as mandated for enterprise tier

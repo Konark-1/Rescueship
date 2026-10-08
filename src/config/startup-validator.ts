@@ -101,16 +101,9 @@ export function validateEnvironment(): void {
     errors.push('  ❌ ENCRYPTION_KEY must be at least 32 characters long and not a placeholder');
   }
 
-  for (const env of OPTIONAL_VARS) {
-    const value = process.env[env.key];
-    if (!value || value.trim() === '') {
-      warnings.push(`  ⚠️  ${env.key} — ${env.description} (feature disabled)`);
-    }
-  }
-
-  if (warnings.length > 0) {
-    logger.warn('Optional environment variables not set:');
-    warnings.forEach((w) => console.log(w));
+  const unconfiguredOptional = OPTIONAL_VARS.filter(env => !process.env[env.key] || process.env[env.key]?.trim() === '');
+  if (unconfiguredOptional.length > 0) {
+    logger.info(`ℹ️  Optional integrations: ${unconfiguredOptional.length} inactive (${unconfiguredOptional.map(e => e.key).slice(0, 4).join(', ')}...)`);
   }
 
   if (errors.length > 0) {
