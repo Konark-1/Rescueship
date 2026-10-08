@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { LayoutDashboard, ShoppingBag, ArrowLeft } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, ShoppingBag, ArrowLeft, MessageSquare, Settings, Compass } from 'lucide-react';
 import './sandbox.css';
 
 import api from '../services/api';
@@ -38,6 +38,7 @@ interface Alert {
 
 /* ─── Component ─── */
 export default function SandboxPage() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<SandboxState | null>(null);
   const [quality, setQuality] = useState<any>(null);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -141,9 +142,19 @@ export default function SandboxPage() {
     } catch { /* ignore */ }
   };
 
+  const isGraduated = Boolean(
+    status?.graduated ||
+    (status && status.testRescuesSucceeded >= status.graduationThreshold)
+  );
+
+  const displaySucceeded = Math.min(
+    status?.testRescuesSucceeded ?? 0,
+    status?.graduationThreshold ?? 3
+  );
+
   const gradPct =
     status && status.graduationThreshold > 0
-      ? Math.min(100, (status.testRescuesSucceeded / status.graduationThreshold) * 100)
+      ? Math.min(100, (displaySucceeded / status.graduationThreshold) * 100)
       : 0;
 
   const unreadAlerts = alerts.filter((a) => !a.read);
@@ -241,9 +252,9 @@ export default function SandboxPage() {
                 />
               </div>
               <span className="sb-geo__label">
-                {status?.graduated
+                {isGraduated
                   ? '3 / 3 (100% · Graduated)'
-                  : `${status?.testRescuesSucceeded ?? 0} / ${status?.graduationThreshold ?? 3}`}
+                  : `${displaySucceeded} / ${status?.graduationThreshold ?? 3}`}
               </span>
             </div>
             <div className="sb-sim-row">
@@ -255,7 +266,7 @@ export default function SandboxPage() {
                 {simulating ? 'Simulating…' : '⚡ Simulate NDR'}
               </button>
               {!status?.enabled && (
-                <span className="sb-sim-hint">Enable sandbox first</span>
+                <span className="sb-sim-hint">Sandbox is OFF (Live Mode Active)</span>
               )}
             </div>
             {lastSim && (
@@ -282,10 +293,35 @@ export default function SandboxPage() {
                 </div>
               </div>
             )}
-            {status && !status.graduated && status.testRescuesSucceeded >= status.graduationThreshold && (
-              <button className="sb-grad-btn" onClick={handleGraduate}>
-                🎓 Graduate to Live
-              </button>
+            {isGraduated && (
+              <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="sb-grad-btn"
+                  onClick={async () => {
+                    await handleGraduate();
+                    navigate('/dashboard');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px 18px',
+                    fontSize: '0.92rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+                  }}
+                >
+                  🚀 Launch Live Mode & Open Dashboard
+                </button>
+              </div>
             )}
           </section>
 
@@ -336,6 +372,28 @@ export default function SandboxPage() {
               </span>
             </div>
           ))}
+
+          {/* Quick Navigation Shortcuts */}
+          <div className="sb-card" style={{ marginTop: '16px' }}>
+            <h2 className="sb-side__h" style={{ marginBottom: '12px' }}>
+              <Compass size={15} style={{ verticalAlign: 'middle', marginRight: '6px' }} />
+              Quick Navigation
+            </h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <Link to="/dashboard" className="btn btn-sm btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', justifyContent: 'flex-start' }}>
+                <LayoutDashboard size={14} /> Main Dashboard
+              </Link>
+              <Link to="/orders" className="btn btn-sm btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', justifyContent: 'flex-start' }}>
+                <ShoppingBag size={14} /> Live Orders & NDRs
+              </Link>
+              <Link to="/templates" className="btn btn-sm btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', justifyContent: 'flex-start' }}>
+                <MessageSquare size={14} /> WhatsApp Templates
+              </Link>
+              <Link to="/settings" className="btn btn-sm btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', justifyContent: 'flex-start' }}>
+                <Settings size={14} /> Merchant Settings
+              </Link>
+            </div>
+          </div>
         </aside>
       </div>
     </div>

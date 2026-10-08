@@ -59,7 +59,14 @@ class SandboxService {
   async getSandboxState(merchantId: string): Promise<SandboxState> {
     const merchant = await Merchant.findById(merchantId).lean();
     if (!merchant) throw new Error(`Merchant ${merchantId} not found`);
-    return (merchant as any).sandbox || this.defaultState();
+    const state: SandboxState = (merchant as any).sandbox || this.defaultState();
+    if (state.testRescuesSucceeded > state.graduationThreshold) {
+      state.testRescuesSucceeded = state.graduationThreshold;
+    }
+    if (state.testRescuesSucceeded >= state.graduationThreshold) {
+      state.graduated = true;
+    }
+    return state;
   }
 
   /**
@@ -83,7 +90,12 @@ class SandboxService {
 
     const sandbox: SandboxState = (merchant as any).sandbox || this.defaultState();
     sandbox.testRescuesSent += 1;
-    if (success) sandbox.testRescuesSucceeded += 1;
+    if (success) {
+      sandbox.testRescuesSucceeded = Math.min(
+        sandbox.testRescuesSucceeded + 1,
+        sandbox.graduationThreshold
+      );
+    }
 
     // Auto-graduation check
     if (
