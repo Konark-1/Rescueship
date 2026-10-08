@@ -30,7 +30,7 @@ export interface CarrierDef {
   }>;
 }
 
-export const CARRIER_DEFS: CarrierDef[] = [
+const CARRIER_DEFS: CarrierDef[] = [
   {
     id: 'shiprocket',
     name: 'Shiprocket',
@@ -193,7 +193,7 @@ export function CourierStation({
         Array.from(new Set([...prev, ...(connectedKeys as ProviderType[])]))
       );
     }
-  }, [carriers, provider]);
+  }, [carriers, provider, connectedKeys]);
 
   // Active carrier tab currently visible in configurator
   const [activeCarrier, setActiveCarrier] = useState<ProviderType>(() => {
@@ -209,7 +209,7 @@ export function CourierStation({
     if (!selectedCarriers.includes(activeCarrier) && selectedCarriers.length > 0) {
       setActiveCarrier(selectedCarriers[0]);
     }
-  }, [selectedCarriers]);
+  }, [selectedCarriers, activeCarrier]);
 
   // Connection mode toggle for the active carrier: 'api' (Direct API) vs 'webhook' (Zero Keys)
   const [connMode, setConnMode] = useState<'api' | 'webhook'>('api');

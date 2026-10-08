@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Anchor, ShieldCheck, Truck, Phone, AlertTriangle } from 'lucide-react';
@@ -63,7 +63,7 @@ export default function OnboardingPage() {
   };
 
   const push = (line: string) => setLog((l) => [...l.slice(-5), line]);
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     if (!token) return null;
     try {
       const s = await connectApi.state(token);
@@ -72,9 +72,9 @@ export default function OnboardingPage() {
     } catch {
       return null;
     }
-  };
+  }, [token]);
 
-  const advanceToNext = (fromStation?: Key) => {
+  const advanceToNext = useCallback((fromStation?: Key) => {
     const currentKey = fromStation || active;
     const idx = STATIONS.findIndex((s) => s.key === currentKey);
     if (idx >= 0 && idx < STATIONS.length - 1) {
@@ -84,9 +84,9 @@ export default function OnboardingPage() {
         setErr(null);
       }, 700);
     }
-  };
+  }, [active]);
 
-  const isStationDone = (k: Key, conns?: any) => {
+  const isStationDone = useCallback((k: Key, conns?: any) => {
     const c = conns || state?.connections;
     if (k === 'shopify') return c?.shopify?.status === 'connected' || c?.woocommerce?.status === 'connected';
     if (k === 'whatsapp') {
@@ -94,7 +94,7 @@ export default function OnboardingPage() {
       return ws === 'connected' || ws === 'templates_pending';
     }
     return c?.[k]?.status === 'connected';
-  };
+  }, [state?.connections]);
 
   useEffect(() => {
     const stationParam = params.get('station') as Key | null;
@@ -116,7 +116,7 @@ export default function OnboardingPage() {
       }
     });
     return () => clearInterval(pollRef.current);
-  }, [token, params]);
+  }, [token, params, refresh, isStationDone]);
 
   useEffect(() => {
     if (params.get('connected') === 'shopify') {
@@ -127,7 +127,7 @@ export default function OnboardingPage() {
       push('✓ plan activated · 90-day money-back guarantee active');
     }
     if (params.get('error')) setErr('Store connection was cancelled or failed.');
-  }, [params]);
+  }, [params, refresh, advanceToNext]);
 
   // poll template approval while pending
   useEffect(() => {
@@ -165,7 +165,7 @@ export default function OnboardingPage() {
       }, 4000);
     }
     return () => clearInterval(pollRef.current);
-  }, [state?.connections?.whatsapp?.status]);
+  }, [state?.connections?.whatsapp?.status, token, refresh]);
 
   const storeDone = () => state?.connections?.shopify?.status === 'connected' || state?.connections?.woocommerce?.status === 'connected';
   const done = (k: Key) => isStationDone(k);

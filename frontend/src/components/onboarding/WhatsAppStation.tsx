@@ -41,8 +41,8 @@ export function WhatsAppStation({
   const [editingCreds, setEditingCreds] = useState(false);
 
   useEffect(() => {
-    if (connectionDetails?.phoneNumberId && !phoneId) setPhoneId(connectionDetails.phoneNumberId);
-    if (connectionDetails?.wabaId && !wabaId) setWabaId(connectionDetails.wabaId);
+    if (connectionDetails?.phoneNumberId) setPhoneId((prev) => prev || connectionDetails.phoneNumberId || '');
+    if (connectionDetails?.wabaId) setWabaId((prev) => prev || connectionDetails.wabaId || '');
   }, [connectionDetails]);
 
   const hasConnection =

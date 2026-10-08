@@ -337,10 +337,13 @@ export function RescueScene({ active, reduced }: RescueSceneProps) {
     );
   }
 
+  const seedRef = useRef(seed);
+  seedRef.current = seed;
+
   useEffect(() => {
     if (active && !started.current) {
       started.current = true;
-      seed('locked');
+      seedRef.current('locked');
     }
   }, [active]);
 
