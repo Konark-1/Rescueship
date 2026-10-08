@@ -9,7 +9,7 @@ interface SettingsState {
   ndrRescueEnabled: boolean;
   preDeliveryConfirmationEnabled: boolean;
   codConversionEnabled: boolean;
-  discountType: 'percentage' | 'flat';
+  discountType: 'none' | 'percentage' | 'flat';
   discountValue: number;
   discountCap: number;
   rtoArrestEnabled: boolean;
@@ -114,9 +114,9 @@ export const SettingsPage: React.FC = () => {
           ndrRescueEnabled: s.ndrRescue?.enabled ?? true,
           preDeliveryConfirmationEnabled: s.preDeliveryConfirmation?.enabled ?? true,
           codConversionEnabled: s.codConversion?.enabled ?? true,
-          discountType: (s.codConversion?.incentiveType as 'percentage' | 'flat') || 'percentage',
+          discountType: (s.codConversion?.incentiveType as 'none' | 'percentage' | 'flat') || 'percentage',
           discountValue: s.codConversion?.incentiveAmount ?? 5,
-          discountCap: s.codConversion?.discountCap ?? 0,
+          discountCap: s.codConversion?.discountCap ?? 150,
           rtoArrestEnabled: s.rtoArrest?.enabled ?? (s.ndrRescue?.rtoArrestEnabled ?? true),
           language: (s.ndrRescue?.messageLanguage || s.codConversion?.messageLanguage || 'en') as 'en' | 'hi',
           escalationRemindersEnabled: s.ndrRescue?.escalationEnabled ?? true,
@@ -148,10 +148,10 @@ export const SettingsPage: React.FC = () => {
             enabled: settings.preDeliveryConfirmationEnabled,
           },
           codConversion: {
-            enabled: settings.codConversionEnabled,
+            enabled: settings.codConversionEnabled && settings.discountType !== 'none',
             incentiveType: settings.discountType,
-            incentiveAmount: Number(settings.discountValue),
-            discountCap: Number(settings.discountCap) || 0,
+            incentiveAmount: settings.discountType === 'none' ? 0 : Number(settings.discountValue),
+            discountCap: settings.discountType === 'percentage' ? (Number(settings.discountCap) || 0) : 0,
             messageLanguage: settings.language,
           },
           rtoArrest: {
@@ -271,53 +271,86 @@ export const SettingsPage: React.FC = () => {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 'var(--space-4)', marginTop: 'var(--space-2)' }}>
             <div className="form-group">
               <label className="form-label" htmlFor="discount-type-select">
-                Discount Type
+                Discount Strategy (Single-Select)
               </label>
               <select
                 id="discount-type-select"
                 className="form-control"
                 value={settings.discountType}
-                onChange={(e) => setSettings((s) => ({ ...s, discountType: e.target.value as 'percentage' | 'flat' }))}
+                onChange={(e) => setSettings((s) => ({ ...s, discountType: e.target.value as 'none' | 'percentage' | 'flat' }))}
                 disabled={!settings.codConversionEnabled}
               >
-                <option value="percentage">Percentage (%)</option>
-                <option value="flat">Flat Amount (₹)</option>
+                <option value="none">None (0% Off - Full UPI Price)</option>
+                <option value="percentage">Percentage (%) Off with Cap</option>
+                <option value="flat">Flat Amount (₹) Off</option>
               </select>
             </div>
 
-            <div className="form-group">
-              <label className="form-label" htmlFor="discount-value-input">
-                Discount Value
-              </label>
-              <input
-                id="discount-value-input"
-                type="number"
-                min="0"
-                max={settings.discountType === 'percentage' ? 50 : 2000}
-                className="form-control"
-                placeholder={settings.discountType === 'percentage' ? 'e.g. 5' : 'e.g. 50'}
-                value={settings.discountValue}
-                onChange={(e) => setSettings((s) => ({ ...s, discountValue: Number(e.target.value) }))}
-                disabled={!settings.codConversionEnabled}
-              />
-            </div>
-
             {settings.discountType === 'percentage' && (
+              <>
+                <div className="form-group">
+                  <label className="form-label" htmlFor="discount-value-input">
+                    Discount Percentage (%)
+                  </label>
+                  <input
+                    id="discount-value-input"
+                    type="number"
+                    min="1"
+                    max="50"
+                    className="form-control"
+                    placeholder="e.g. 5"
+                    value={settings.discountValue}
+                    onChange={(e) => setSettings((s) => ({ ...s, discountValue: Number(e.target.value) }))}
+                    disabled={!settings.codConversionEnabled}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label" htmlFor="discount-cap-input">
+                    Max Discount Cap Limit (₹)
+                  </label>
+                  <input
+                    id="discount-cap-input"
+                    type="number"
+                    min="0"
+                    max="10000"
+                    className="form-control"
+                    placeholder="e.g. 150 (protects margin on large orders)"
+                    value={settings.discountCap}
+                    onChange={(e) => setSettings((s) => ({ ...s, discountCap: Number(e.target.value) }))}
+                    disabled={!settings.codConversionEnabled}
+                  />
+                  <small style={{ fontSize: '0.72rem', color: 'var(--text-3)', display: 'block', marginTop: 4 }}>
+                    Guarantees savings never exceed delivery cost savings on high-ticket orders.
+                  </small>
+                </div>
+              </>
+            )}
+
+            {settings.discountType === 'flat' && (
               <div className="form-group">
-                <label className="form-label" htmlFor="discount-cap-input">
-                  Max Cap Limit (₹)
+                <label className="form-label" htmlFor="discount-value-input">
+                  Flat Discount Amount (₹)
                 </label>
                 <input
-                  id="discount-cap-input"
+                  id="discount-value-input"
                   type="number"
-                  min="0"
-                  max="10000"
+                  min="1"
+                  max="2000"
                   className="form-control"
-                  placeholder="e.g. 100 (0 for no cap)"
-                  value={settings.discountCap}
-                  onChange={(e) => setSettings((s) => ({ ...s, discountCap: Number(e.target.value) }))}
+                  placeholder="e.g. 50"
+                  value={settings.discountValue}
+                  onChange={(e) => setSettings((s) => ({ ...s, discountValue: Number(e.target.value) }))}
                   disabled={!settings.codConversionEnabled}
                 />
+              </div>
+            )}
+
+            {settings.discountType === 'none' && (
+              <div className="form-group" style={{ gridColumn: 'span 2' }}>
+                <p style={{ margin: '8px 0 0', fontSize: '0.8rem', color: 'var(--text-3)' }}>
+                  ℹ️ Customers will receive a contactless UPI payment link for the exact COD total without any discount applied.
+                </p>
               </div>
             )}
           </div>

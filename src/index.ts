@@ -236,6 +236,7 @@ app.get('/health', async (_req, res) => {
 // Payment link redirector. WhatsApp URL buttons must carry a FIXED host for Meta
 // approval; the dynamic Razorpay/Cashfree short link is passed as the trailing
 // variable. Resolve that id back to the real URL and 302 the customer.
+// Includes self-healing link regeneration if customer opens an expired link.
 app.get('/r/pay/:id', async (req, res) => {
   const linkId = String(req.params.id || '');
   if (!linkId || linkId.length > 128 || !/^[A-Za-z0-9_-]+$/.test(linkId)) {
@@ -243,9 +244,44 @@ app.get('/r/pay/:id', async (req, res) => {
     return;
   }
   try {
-    const { Order } = await import('./models');
-    const order = await Order.findOne({ paymentLinkId: linkId }).select('paymentLinkUrl').lean();
-    if (!order?.paymentLinkUrl) {
+    const { Order, Merchant } = await import('./models');
+    const { Types } = await import('mongoose');
+    const order = await Order.findOne(
+      Types.ObjectId.isValid(linkId)
+        ? { $or: [{ paymentLinkId: linkId }, { _id: linkId }] }
+        : { paymentLinkId: linkId }
+    );
+
+    if (!order) {
+      res.status(404).send('Payment link not found or expired');
+      return;
+    }
+
+    // If order has already been paid and converted
+    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued') {
+      res.status(200).send('<html><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h2>✅ Payment Already Received</h2><p>This order has already been paid and confirmed prepaid. Your delivery is being prioritized!</p></body></html>');
+      return;
+    }
+
+    // Check if link is expired and order is COD
+    const isExpired = order.paymentLinkExpiresAt && new Date(order.paymentLinkExpiresAt).getTime() < Date.now();
+    if (isExpired && order.paymentMethod === 'cod') {
+      try {
+        const merchant = await Merchant.findById(order.merchantId);
+        if (merchant) {
+          const { orderService } = await import('./services/order.service');
+          const freshLink = await orderService.generateRetentionPaymentLink(order, merchant);
+          if (freshLink?.shortUrl) {
+            res.redirect(302, freshLink.shortUrl);
+            return;
+          }
+        }
+      } catch (refreshErr: any) {
+        logger.warn('Failed to self-heal expired payment link', { linkId, error: refreshErr?.message });
+      }
+    }
+
+    if (!order.paymentLinkUrl) {
       res.status(404).send('Payment link not found or expired');
       return;
     }

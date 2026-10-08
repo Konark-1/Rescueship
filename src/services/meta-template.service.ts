@@ -191,8 +191,8 @@ export class MetaTemplateService {
   async submitAll(merchantId: string, deleteFirst = false) {
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) throw new Error('Merchant not found');
-    const wabaId = (merchant as any).whatsappConfig?.wabaId;
-    if (!wabaId) throw new Error('No WABA on merchant');
+    const wabaId = (merchant as any).whatsappConfig?.wabaId || (merchant as any).whatsappConfig?.businessAccountId;
+    if (!wabaId) throw new Error('No WABA / business account ID on merchant');
     const token = this.token(merchant);
     const results: any[] = [];
 

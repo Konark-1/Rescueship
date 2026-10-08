@@ -36,7 +36,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     label: 'Automation',
     items: [
-      { name: 'Templates', path: '/templates', icon: <MessageSquare size={17} /> },
+      { name: 'Recovery Flows', path: '/templates', icon: <MessageSquare size={17} /> },
       { name: 'Settings', path: '/settings', icon: <Settings size={17} /> },
       { name: 'Reports', path: '/reports', icon: <BarChart2 size={17} /> },
     ],

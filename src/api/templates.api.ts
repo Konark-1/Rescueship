@@ -13,15 +13,79 @@ function validId(id: unknown): id is string {
   return typeof id === 'string' && Types.ObjectId.isValid(id);
 }
 
-// GET all templates
+import { TEMPLATE_DEFS, buildComponents, metaTemplateService } from '../services/meta-template.service';
+
+async function seedCanonicalTemplates(merchantId: string) {
+  const docs = TEMPLATE_DEFS.map((d) => ({
+    merchantId,
+    templateName: d.name,
+    language: d.language || 'en',
+    category: d.category || 'UTILITY',
+    status: 'approved',
+    buttons: d.buttons || [],
+    components: buildComponents(d),
+  }));
+  return WhatsAppTemplate.insertMany(docs);
+}
+
+// GET all templates - auto-seeds canonical playbooks if none exist
 router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   try {
-    const templates = await WhatsAppTemplate.find({ merchantId });
+    let templates = await WhatsAppTemplate.find({ merchantId });
+    if (templates.length === 0 && merchantId) {
+      await seedCanonicalTemplates(merchantId);
+      templates = await WhatsAppTemplate.find({ merchantId });
+    }
     res.status(200).json(templates);
   } catch (err: any) {
     logger.error('Failed to fetch templates', { error: err.message });
     res.status(500).json({ error: 'Failed to fetch templates' });
+  }
+});
+
+// POST 1-click sync/deploy canonical playbooks to Meta WABA
+router.post('/sync-meta', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  if (!merchantId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+    const hasLiveWhatsapp = Boolean(merchant.whatsappConfig?.businessAccountId && merchant.whatsappConfig?.accessToken);
+    if (hasLiveWhatsapp) {
+      const results = await metaTemplateService.submitAll(merchantId);
+      res.status(200).json({
+        success: true,
+        live: true,
+        message: 'All canonical recovery playbooks submitted to Meta WABA!',
+        results,
+      });
+      return;
+    }
+
+    // Demo/simulated mode: ensure canonical templates exist in database with 'approved' status
+    const existing = await WhatsAppTemplate.find({ merchantId });
+    if (existing.length === 0) {
+      await seedCanonicalTemplates(merchantId);
+    } else {
+      await WhatsAppTemplate.updateMany({ merchantId }, { $set: { status: 'approved' } });
+    }
+    const updated = await WhatsAppTemplate.find({ merchantId });
+    res.status(200).json({
+      success: true,
+      live: false,
+      message: 'Canonical recovery playbooks activated in Ready/Approved state.',
+      templates: updated,
+    });
+  } catch (err: any) {
+    logger.error('Failed to sync templates with Meta', { error: err.message });
+    res.status(500).json({ error: err.message || 'Failed to sync templates' });
   }
 });
 

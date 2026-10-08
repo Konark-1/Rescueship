@@ -415,7 +415,7 @@ router.put('/', authenticateToken, limitOnlyCredentialChanges, async (req: Authe
       if (updates.settings.codConversion) {
         const c = updates.settings.codConversion;
         if ('enabled' in c && typeof c.enabled !== 'boolean') { res.status(400).json({ error: 'codConversion.enabled must be boolean' }); return; }
-        if ('incentiveType' in c && !['flat', 'percentage'].includes(c.incentiveType)) { res.status(400).json({ error: 'Invalid incentiveType' }); return; }
+        if ('incentiveType' in c && !['none', 'flat', 'percentage'].includes(c.incentiveType)) { res.status(400).json({ error: 'Invalid incentiveType' }); return; }
         if ('incentiveAmount' in c && !isNum(c.incentiveAmount, 0, 100000)) { res.status(400).json({ error: 'Invalid incentiveAmount' }); return; }
         if ('discountCap' in c && !isNum(c.discountCap, 0, 100000)) { res.status(400).json({ error: 'Invalid discountCap' }); return; }
         if ('minOrderValue' in c && !isNum(c.minOrderValue, 0, 10000000)) { res.status(400).json({ error: 'Invalid minOrderValue' }); return; }

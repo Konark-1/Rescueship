@@ -180,6 +180,56 @@ router.get('/', authenticateToken, async (req: AuthenticatedRequest, res: Respon
 });
 
 /**
+ * GET /api/orders/chats/recent
+ * Retrieve recent customer WhatsApp conversations for dispute and chat auditing
+ */
+router.get('/chats/recent', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  try {
+    const recentLogs = await MessageLog.find({ merchantId })
+      .sort({ createdAt: -1 })
+      .limit(80)
+      .lean();
+
+    const orderIds = Array.from(new Set(recentLogs.map((l: any) => l.orderId?.toString()).filter(Boolean)));
+    const orders = await Order.find({ _id: { $in: orderIds }, merchantId }).lean();
+    const orderMap = new Map(orders.map((o: any) => [o._id.toString(), o]));
+
+    const threads: any[] = [];
+    const seenOrders = new Set<string>();
+
+    for (const log of recentLogs) {
+      const oid = log.orderId?.toString();
+      if (!oid || seenOrders.has(oid)) continue;
+      seenOrders.add(oid);
+      const order = orderMap.get(oid);
+      if (order) {
+        threads.push({
+          orderId: order._id,
+          externalOrderId: order.externalOrderId,
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          orderValue: order.orderValue,
+          status: order.status,
+          paymentMethod: order.paymentMethod,
+          carrier: order.carrier,
+          awb: order.awb,
+          claimedUtr: (order.codConversion as any)?.claimedUtr || null,
+          lastMessageAt: log.createdAt,
+          lastMessageBody: log.body,
+          lastDirection: log.direction,
+        });
+      }
+    }
+
+    res.status(200).json(threads);
+  } catch (err: any) {
+    logger.error('Failed to fetch recent chats', { error: err.message });
+    res.status(500).json({ error: 'Failed to fetch recent conversations' });
+  }
+});
+
+/**
  * GET /api/orders/:id
  * Get single order details with full audit logs
  */
@@ -326,6 +376,179 @@ router.post('/:orderId/risk-action', authenticateToken, async (req: Authenticate
   } catch (err: any) {
     logger.error('Failed to execute risk action', { merchantId, orderId, error: err.message });
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/orders/:orderId/resend-payment-link
+ * Generate a fresh 15-minute payment link and dispatch it to customer WhatsApp
+ */
+router.post('/:orderId/resend-payment-link', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const orderId = req.params.orderId;
+
+  if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
+    res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+
+  try {
+    const order = await Order.findOne({ _id: orderId, merchantId });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued') {
+      res.status(400).json({ error: 'Order is already marked as prepaid' });
+      return;
+    }
+
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+
+    const { orderService } = await import('../services/order.service');
+    const freshLink = await orderService.generateRetentionPaymentLink(order, merchant);
+    if (!freshLink?.shortUrl) {
+      res.status(500).json({ error: 'Failed to generate payment link with gateway' });
+      return;
+    }
+
+    // Dispatch link via WhatsApp
+    let waToken: string | undefined;
+    if (merchant.whatsappConfig?.accessToken) {
+      try {
+        const { encryptionService } = await import('../services/encryption.service');
+        waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+      } catch {}
+    }
+
+    const waConfig = {
+      phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
+      accessToken: waToken,
+      businessAccountId: merchant.whatsappConfig?.businessAccountId,
+    };
+
+    const { whatsAppService } = await import('../services/whatsapp.service');
+    await whatsAppService.sendText(
+      order.customerPhone,
+      `Here is your fresh payment link for Order #${order.externalOrderId}:\n${freshLink.shortUrl}\n\n⏰ Valid for 15 minutes. Pay via UPI to confirm priority delivery.`,
+      waConfig
+    ).catch(() => {});
+
+    await AuditLog.create({
+      merchantId: order.merchantId,
+      orderId: order._id,
+      action: 'payment_link_resent_by_merchant',
+      source: 'orders_api',
+      payload: { paymentLinkId: freshLink.linkId, shortUrl: freshLink.shortUrl },
+      status: 'success',
+    });
+
+    res.status(200).json({ success: true, paymentLinkUrl: freshLink.shortUrl });
+  } catch (err: any) {
+    logger.error('Failed to resend payment link', { merchantId, orderId, error: err.message });
+    res.status(500).json({ error: err.message || 'Failed to resend payment link' });
+  }
+});
+
+/**
+ * POST /api/orders/:orderId/reconcile-utr
+ * Verify / override payment for an order using customer-submitted UTR and amend courier COD balance
+ */
+router.post('/:orderId/reconcile-utr', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const orderId = req.params.orderId;
+  const { utr } = req.body || {};
+
+  if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
+    res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+
+  try {
+    const order = await Order.findOne({ _id: orderId, merchantId });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+
+    const finalUtr = utr || order.codConversion?.claimedUtr || 'MANUAL_VERIFIED';
+    const isNdrOrder = (order.status || '').startsWith('ndr_') || order.status === 'rto_initiated' || order.status === 'rto';
+    const nextStatus = isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
+
+    order.status = nextStatus as any;
+    if (!order.codConversion) {
+      order.codConversion = {
+        convertedAt: new Date(),
+        claimedUtr: finalUtr,
+      };
+    } else {
+      order.codConversion.convertedAt = new Date();
+      order.codConversion.claimedUtr = finalUtr;
+    }
+    await order.save();
+
+    // Amend courier COD amount to ₹0
+    try {
+      const { codAdjustmentService } = require('../services/courier/cod-adjustment.service');
+      const discount = order.codConversion?.incentiveOffered || 0;
+      await codAdjustmentService.adjustCodAmount({
+        orderId: order._id.toString(),
+        paymentId: order.paymentLinkId || `utr_${finalUtr}`,
+        paidAmountInInr: Math.max(1, order.orderValue - discount),
+      });
+    } catch (codErr: any) {
+      logger.warn('Failed to adjust COD amount with courier during manual reconciliation', { error: codErr?.message });
+    }
+
+    // Sync to Shopify / WooCommerce
+    const { orderService } = await import('../services/order.service');
+    await orderService.markOrderAsPaidOnPlatform(order, merchant);
+
+    // Dispatch WhatsApp confirmation
+    let waToken: string | undefined;
+    if (merchant.whatsappConfig?.accessToken) {
+      try {
+        const { encryptionService } = await import('../services/encryption.service');
+        waToken = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+      } catch {}
+    }
+
+    const waConfig = {
+      phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
+      accessToken: waToken,
+      businessAccountId: merchant.whatsappConfig?.businessAccountId,
+    };
+    const { whatsAppService } = await import('../services/whatsapp.service');
+    await whatsAppService.sendText(
+      order.customerPhone,
+      `✅ Payment confirmed! Your payment for Order #${order.externalOrderId} (UTR: ${finalUtr}) has been verified. Doorstep cash balance adjusted to ₹0. Thank you!`,
+      waConfig
+    ).catch(() => {});
+
+    await AuditLog.create({
+      merchantId: order.merchantId,
+      orderId: order._id,
+      action: 'payment_reconciled_via_utr',
+      source: 'orders_api',
+      payload: { utr: finalUtr, newStatus: nextStatus },
+      status: 'success',
+    });
+
+    res.status(200).json({ success: true, message: 'Order reconciled as prepaid and courier balance cleared', order });
+  } catch (err: any) {
+    logger.error('Failed to reconcile UTR', { merchantId, orderId, error: err.message });
+    res.status(500).json({ error: err.message || 'Failed to reconcile UTR' });
   }
 });
 

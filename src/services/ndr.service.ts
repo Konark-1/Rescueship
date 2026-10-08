@@ -904,13 +904,17 @@ export class NDRService {
           const discountCap = codSettings.discountCap;
 
           let discount = 0;
-          if (incentiveType === 'percentage') {
+          if (codSettings.enabled === false || incentiveType === 'none') {
+            discount = 0;
+          } else if (incentiveType === 'percentage') {
             discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
             if (discountCap && discountCap > 0) {
               discount = Math.min(discount, discountCap);
             }
-          } else {
+          } else if (incentiveType === 'flat') {
             discount = incentiveAmount;
+          } else {
+            discount = 0;
           }
 
           if (discount > 0 && (order.orderValue || 0) > discount) {
@@ -1009,13 +1013,17 @@ export class NDRService {
 
         let discount = order.ndr?.retentionDiscount;
         if (discount === undefined) {
-          if (incentiveType === 'percentage') {
+          if (codSettings.enabled === false || incentiveType === 'none') {
+            discount = 0;
+          } else if (incentiveType === 'percentage') {
             discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
             if (discountCap && discountCap > 0) {
               discount = Math.min(discount, discountCap);
             }
-          } else {
+          } else if (incentiveType === 'flat') {
             discount = incentiveAmount;
+          } else {
+            discount = 0;
           }
         }
         const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 0) - (discount || 0));
@@ -1190,9 +1198,174 @@ export class NDRService {
           [],
           this.getWaConfig(merchant)
         );
-      } else {
-        logger.info('Received text outside address update flow, skipping false confirmation', { phone, text });
+        return;
       }
+
+      const trimmedText = text.trim();
+      const cleanedText = trimmedText.replace(/[\s.!?]+$/, '').trim();
+
+      // 1. Guarded "PAY" / "Link Expired" Re-send Intent (Strict Pre-condition Gates)
+      // Case-insensitive matcher for: "pay", "PAY", "Pay", "pay link", "bhejo link", "link expired", etc.
+      const payRequestRegex = /^(?:pay|payment|link|pay\s*link|retry\s*pay|resend\s*link|send\s*link|link\s*expired|bhejo\s*link|link\s*bhejo)$/i;
+      const isPayIntent =
+        payRequestRegex.test(cleanedText) ||
+        /\b(?:link\s*expired|resend\s*payment\s*link|send\s*payment\s*link|bhejo\s*link|link\s*bhejo)\b/i.test(cleanedText);
+
+      if (isPayIntent) {
+        const hadPriorLink = Boolean(order.paymentLinkId || (order.codConversion as any)?.paymentLinkId || (order.codConversion as any)?.paymentLinkSentAt || order.paymentLinkUrl);
+
+        // Anti-Jailbreak Gate 1: Only allowed if prior link was already sent
+        if (!hadPriorLink) {
+          logger.info('Customer requested payment link but no prior link was ever generated for this order — sending standard deflection menu', { orderId: order._id });
+          const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
+          await whatsAppService.sendInteractiveButtons(
+            order.customerPhone,
+            `⚠️ Incorrect or unsupported request. A payment link is not active for Order #${order.externalOrderId}.\n\nPlease choose an option below to manage your delivery:`,
+            buttons,
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        // Anti-Jailbreak Gate 2: Order already prepaid
+        if (order.paymentMethod !== 'cod' || order.status === 'converted_to_prepaid') {
+          await whatsAppService.sendText(
+            order.customerPhone,
+            `Your Order #${order.externalOrderId} is already paid and confirmed! No further payment is needed.`,
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        // Anti-Jailbreak Gate 3: Terminal order
+        if (['delivered', 'cancelled', 'returned', 'lost'].includes(order.status)) {
+          await whatsAppService.sendText(
+            order.customerPhone,
+            `Order #${order.externalOrderId} is already marked as ${order.status}. Payment link cannot be generated.`,
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        // Anti-DDoS Gate 4: Cooldown throttle (45 seconds)
+        const throttleKey = `pay_req_cooldown:${merchant._id}:${order._id}`;
+        try {
+          const isThrottled = await redisConnection.get(throttleKey);
+          if (isThrottled && order.paymentLinkUrl) {
+            await whatsAppService.sendText(
+              order.customerPhone,
+              `A payment link was recently created for Order #${order.externalOrderId}:\n${order.paymentLinkUrl}\n\n⏰ Valid for 15 minutes. Complete payment via UPI to confirm priority delivery.\n\n💡 If your UPI session times out or payment fails, reply 'PAY' to get a fresh link immediately.`,
+              this.getWaConfig(merchant)
+            );
+            return;
+          }
+          await redisConnection.set(throttleKey, '1', 'EX', 45);
+        } catch {}
+
+        // Safely generate fresh payment link (server-calculated price only)
+        const { orderService } = require('./order.service');
+        const freshLink = await orderService.generateRetentionPaymentLink(order, merchant);
+        if (freshLink?.shortUrl) {
+          await whatsAppService.sendText(
+            order.customerPhone,
+            `Here is your fresh payment link for Order #${order.externalOrderId}:\n${freshLink.shortUrl}\n\n⏰ Valid for 15 minutes. Complete payment via UPI to confirm priority delivery.\n\n💡 If your UPI session times out or payment fails, reply 'PAY' to get a fresh link immediately.`,
+            this.getWaConfig(merchant)
+          );
+        }
+        return;
+      }
+
+      // 2. Customer Claims Paid Intent ("I paid" / "Payment done")
+      const claimPaidRegex = /\b(?:i\s*paid|paid|payment\s*done|i\s*have\s*paid|already\s*paid)\b/i;
+      if (claimPaidRegex.test(trimmedText)) {
+        logger.info('Customer claims payment completed — checking gateway capture status', { orderId: order._id });
+        if (order.paymentMethod !== 'cod' || order.status === 'converted_to_prepaid') {
+          await whatsAppService.sendText(
+            order.customerPhone,
+            `✅ Confirmed! Your payment for Order #${order.externalOrderId} has already been verified. Your order is marked Prepaid.`,
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        // Gateway has not confirmed capture: Prompt for 12-digit UTR
+        await whatsAppService.sendInteractiveButtons(
+          order.customerPhone,
+          `We checked with our payment gateway, but no payment has been confirmed for Order #${order.externalOrderId} yet.\n\nIf you already completed the transaction, please reply with your 12-digit UPI UTR number from your banking app. Otherwise, please tap below to complete payment or keep cash ready:`,
+          [
+            ...(order.paymentLinkId ? [{ id: `pay_now:${order._id}`, title: '⚡ Pay via UPI' }] : []),
+            { id: `keep_cod:${order._id}`, title: '📦 Keep COD' },
+          ],
+          this.getWaConfig(merchant)
+        );
+        return;
+      }
+
+      // 3. Customer Submits 12-Digit Banking UTR Number
+      const utrMatch = trimmedText.match(/\b(\d{12})\b/);
+      if (utrMatch && utrMatch[1]) {
+        const utr = utrMatch[1];
+        logger.info('Customer submitted 12-digit UTR for verification', { orderId: order._id, utr });
+        await AuditLog.create({
+          merchantId: order.merchantId,
+          orderId: order._id,
+          action: 'customer_utr_submitted',
+          source: 'whatsapp_webhook',
+          payload: { utr, orderId: order.externalOrderId, phone },
+          status: 'success',
+        }).catch(() => {});
+
+        if (!order.codConversion) order.codConversion = {} as any;
+        (order.codConversion as any).claimedUtr = utr;
+        (order.codConversion as any).claimedUtrAt = new Date();
+        await order.save().catch(() => {});
+
+        realtimeService.broadcast({
+          type: 'customer_utr_submitted',
+          merchantId: order.merchantId.toString(),
+          payload: {
+            orderId: order.externalOrderId,
+            utr,
+            phone,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        await whatsAppService.sendText(
+          order.customerPhone,
+          `Thank you! We have recorded your UPI UTR: ${utr} and sent it to our verification desk. The delivery team has been notified.`,
+          this.getWaConfig(merchant)
+        );
+        return;
+      }
+
+      // 4. English Reschedule Intent
+      // Must NOT match partial payment, money, or liability questions (e.g. "Can I pay ₹500 now and ₹500 tomorrow?")
+      const isLiabilityOrMoneyQuery = /\b(?:pay|payment|cash|money|rupees|rs|₹|split|half|box|open)\b/i.test(trimmedText);
+      const isQuestion = /\?|^(?:can|could|kya|will|shall)\b/i.test(trimmedText);
+
+      const rescheduleExactRegex = /^(?:please\s*)?(?:reschedule|deliver\s*(?:it\s*)?(?:tomorrow|day\s*after|on\s*weekend)|tomorrow|day\s*after|weekend|send\s*(?:it\s*)?tomorrow|kal|kal\s*bhejo)$/i;
+      const reschedulePhrase = /\b(?:reschedule\s*(?:delivery|order)?|deliver\s*tomorrow|send\s*tomorrow|delivery\s*tomorrow)\b/i;
+
+      if (!isLiabilityOrMoneyQuery && !isQuestion && (rescheduleExactRegex.test(trimmedText) || reschedulePhrase.test(trimmedText))) {
+        const slot = /weekend/i.test(trimmedText) ? 'weekend' : /day\s*after/i.test(trimmedText) ? 'day_after' : 'tomorrow';
+        await this.rescheduleDelivery(order, merchant, slot);
+        return;
+      }
+
+      // 5. Out-of-Scope Deflection Shield (Zero Hallucination / Deterministic Menu)
+      // Customer asks arbitrary questions like:
+      // "Can I pay ₹500 now and ₹500 tomorrow?" or "Can I open the box before paying cash?"
+      // Under zero circumstances do we let an LLM hallucinate or promise partial payment or open-box delivery.
+      // Instead, we immediately return the standard incorrect input message and guide them to deterministic options.
+      logger.info('Received out-of-scope text — sending standard deflection menu buttons', { phone, text: trimmedText });
+      const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
+      await whatsAppService.sendInteractiveButtons(
+        order.customerPhone,
+        `⚠️ Incorrect or unsupported input. We are an automated delivery assistant and cannot process custom requests like partial payments or open box delivery.\n\nPlease choose an option below for Order #${order.externalOrderId} to manage your delivery:`,
+        buttons,
+        this.getWaConfig(merchant)
+      );
     }
   }
 

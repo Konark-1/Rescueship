@@ -2,8 +2,8 @@
 
 > **Platform Overview**: Autonomous AI-Powered RTO (Return-To-Origin) Interception, NDR Automation, and COD-to-Prepaid Conversion Engine for Indian D2C Brands.  
 > **Classification**: Production Engineering Reference / Due Diligence Whitepaper  
-> **Version**: 4.0 (Enterprise Resilient & Hardened)  
-> **Test Coverage**: 47/47 Suites Passing (390/390 Unit, Security, & Integration Tests)
+> **Version**: 4.1 (Dispute-Hardened & Recovery Playbooks)  
+> **Test Coverage**: 48/48 Suites Passing (399/399 Unit, Security, & Integration Tests)
 
 ---
 
@@ -17,6 +17,7 @@
 6. [AI Intelligence & Predictive RTO Scoring Engine](#6-ai-intelligence--predictive-rto-scoring-engine)
 7. [Frontend Command Deck & Reactive State Sync](#7-frontend-command-deck--reactive-state-sync)
 8. [High-Availability, Disaster Recovery & Scale Benchmarks](#8-high-availability-disaster-recovery--scale-benchmarks)
+9. [COD Incentive Economics, Chat Memory & Anti-Jailbreak Protection](#9-cod-incentive-economics-chat-memory--anti-jailbreak-protection)
 
 ---
 
@@ -294,11 +295,40 @@ Heavy libraries are separated into dedicated vendor chunks in [`vite.config.ts`]
 | **Webhook Ingestion Latency** | $< 150\text{ ms}$ | $45\text{ ms}$ (Redis `SET NX` + BullMQ queue push) |
 | **Address Normalization Speed** | $< 800\text{ ms}$ | $12\text{ ms}$ (Cached) / $480\text{ ms}$ (Gemini API) |
 | **State Machine CAS Transition** | $< 50\text{ ms}$ | $18\text{ ms}$ (MongoDB indexed atomic query) |
-| **Test Suite Coverage** | $100\%$ | **390/390 passing tests across 47 suites** |
+| **Test Suite Coverage** | $100\%$ | **399/399 passing tests across 48 suites** |
 | **60,000 Order CSV Export Memory** | $< 100\text{ MB}$ | **60.59 MB heap delta** (Native Node.js Stream) |
 | **HTTP 429 Carrier Backoff** | $100\%$ | **Intelligent BullMQ DLQ** (1m to 1h backoff) |
-| **Frontend Production Build Time** | $< 5\text{ s}$ | **0.86 s** (`tsc -b && vite build`) |
+| **Frontend Production Build Time** | $< 5\text{ s}$ | **0.88 s** (`tsc -b && vite build`) |
+
+---
+
+## 9. COD Incentive Economics, Chat Memory & Anti-Jailbreak Protection
+
+### 9.1 Mutually Exclusive COD Incentive Strategy
+RescueShip enforces a single-select incentive model (`none`, `percentage` with mandatory cap, or `flat`):
+- **Unit Economics Margin Shield**: Typical courier RTO loss is ₹140. Giving an uncapped 5% on an ₹8,000 order yields a ₹400 discount (loss of ₹260). With a ₹150 cap, net unit economics remain strictly positive on high-ticket orders:
+$$\text{Net Saved} = \text{Freight Loss Avoided (₹140)} - \min(\text{Incentive}, ₹150) + \text{Retained Margin}$$
+- **Mutual Exclusivity Enforcement**: Stacking percentage and flat discounts leads to conflicting customer copy, checkout discrepancies, and carrier COD balance mismatches. Stacking is blocked at both the schema and API layer.
+
+### 9.2 Real Customer Chat Memory & Legal Compliance
+- **Digital Personal Data Protection (DPDP) Act 2023**: Order communications are processed under Section 4 & 7 "Legitimate Uses" for fulfillment and dispute resolution. Automated TTL archiving purges message logs after 180 days.
+- **Indian IT Act 2000 Section 65B**: Electronic chat records and gateway audit trails are maintained with cryptographically verifiable timestamps and immutable transaction IDs as legal proof in chargebacks and non-delivery disputes.
+- **Zero-Trust Screenshot Defense**: Automated prepaid status transitions **NEVER** accept customer screenshots alone due to Canva and AI spoofing vulnerabilities. Automated conversion requires signed banking webhooks (Razorpay/Cashfree) or verified 12-digit UPI UTR numbers reconciled against merchant gateway ledgers.
+
+### 9.3 Guarded "PAY" Session Recovery & Anti-Jailbreak Shield
+- **Customer Trigger ("PAY" / "Link expired")**: Customers can request a fresh payment link, but the trigger is strictly gated:
+  1. An initial payment link must already exist in order history.
+  2. Order must be currently in active, unpaid COD status.
+  3. Order must not be in a terminal state (`delivered`, `cancelled`, `rto`).
+  4. 45-second rate-limit cooldown prevents link spamming.
+  5. Price is calculated strictly server-side from database fields (customer messages can never influence order total).
+- **Self-Healing URL Handler (`/r/pay/:id`)**: If a customer taps a short URL whose gateway session has expired, the server validates order state, generates a fresh link dynamically, updates order records, and 302 redirects seamlessly.
+
+### 9.4 AI Scope Restriction
+- **Address Simplification Only**: Gemini Flash and KIE models are restricted to address geocoding, landmark extraction, and sub-locality normalization.
+- **Zero Open-Ended LLMs in Customer Chat**: WhatsApp conversations strictly use Meta-approved deterministic templates with interactive quick reply buttons below, preventing delivery hallucinations, unauthorized discount promises, and Meta WABA account suspensions.
 
 ---
 
 *Authored by the Lead Architecture Team · RescueShip Production Engineering*
+

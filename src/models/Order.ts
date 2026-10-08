@@ -30,6 +30,7 @@ export interface IOrder extends Document {
   carrier?: 'shiprocket' | 'clickpost' | 'delhivery' | 'bluedart' | 'xpressbees' | 'shadowfax' | 'ecomexpress' | 'dtdc' | 'custom' | null;
   paymentLinkId?: string | null;
   paymentLinkUrl?: string | null;
+  paymentLinkExpiresAt?: Date | null;
   cashfreeOrderId?: string | null;
   payment_session_id?: string | null;
   paymentSessionId?: string | null;
@@ -48,6 +49,8 @@ export interface IOrder extends Document {
     messageSentAt?: Date | null;
     incentiveOffered?: number;
     convertedAt?: Date | null;
+    claimedUtr?: string | null;
+    claimedUtrAt?: Date | null;
   };
   ndr?: {
     reason?: string | null;
@@ -148,6 +151,7 @@ const OrderSchema = new Schema<IOrder>(
     carrier: { type: String, enum: ['shiprocket', 'clickpost', 'delhivery', 'bluedart', 'xpressbees', 'shadowfax', 'ecomexpress', 'dtdc', 'custom', null], default: null },
     paymentLinkId: { type: String, default: null },
     paymentLinkUrl: { type: String, default: null },
+    paymentLinkExpiresAt: { type: Date, default: null },
     cashfreeOrderId: { type: String, default: null, index: true },
     payment_session_id: { type: String, default: null },
     paymentSessionId: { type: String, default: null },
@@ -162,6 +166,8 @@ const OrderSchema = new Schema<IOrder>(
       messageSentAt: { type: Date, default: null },
       incentiveOffered: { type: Number, default: 0 },
       convertedAt: { type: Date, default: null },
+      claimedUtr: { type: String, default: null },
+      claimedUtrAt: { type: Date, default: null },
     },
     ndr: {
       reason: { type: String, default: null },

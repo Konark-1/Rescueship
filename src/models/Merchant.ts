@@ -51,7 +51,7 @@ export interface IMerchant extends Document {
     rescuePolicy?: any;
     codConversion: {
       enabled: boolean;
-      incentiveType: 'flat' | 'percentage';
+      incentiveType: 'none' | 'flat' | 'percentage';
       incentiveAmount: number;
       discountCap?: number;
       minOrderValue: number;
@@ -236,7 +236,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       rescuePolicy: { type: Schema.Types.Mixed, default: () => require('../config/rescue-policy').defaultRescuePolicy() },
       codConversion: {
         enabled: { type: Boolean, default: false },
-        incentiveType: { type: String, enum: ['flat', 'percentage'], default: 'flat' },
+        incentiveType: { type: String, enum: ['none', 'flat', 'percentage'], default: 'flat' },
         incentiveAmount: { type: Number, default: 0 },
         discountCap: { type: Number, default: 0 },
         minOrderValue: { type: Number, default: 0 },

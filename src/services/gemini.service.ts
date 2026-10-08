@@ -67,6 +67,8 @@ Hinglish/Colloquial Dictionary:
 - "manzil" / "floor" → Floor
 
 Rules:
+- CRITICAL ALPHANUMERIC PRESERVATION: Never drop, alter, or "standardize" alphanumeric numbers (e.g. "1A 104", "B-4/201", "Tower 3B Flat 501", "Plot 45-B", "Pocket C-9/14"). Retain all alphanumeric tokens verbatim in "flatOrHouseNo" and "cleanAddress".
+- Never guess between flat number, wing, or floor: If customer writes "1A 104", preserve "1A 104" together.
 - pincode: exactly 6 digits if present, otherwise omit.
 - cleanAddress: max 120 characters, formatted for a shipping label.
 - confidence: 0.0-1.0 based on completeness.

@@ -212,13 +212,21 @@ export class OrderService {
       }
 
       let discount = 0;
-      const incentiveType = merchant.settings.codConversion.incentiveType;
-      const incentiveAmount = merchant.settings.codConversion.incentiveAmount;
+      const codConv = merchant.settings?.codConversion;
+      const incentiveType = codConv?.incentiveType || 'none';
+      const incentiveAmount = codConv?.incentiveAmount || 0;
+      const discountCap = codConv?.discountCap;
 
-      if (incentiveType === 'flat') {
-        discount = incentiveAmount;
-      } else if (incentiveType === 'percentage') {
-        discount = Math.round((orderData.orderValue * incentiveAmount) / 100);
+      if (codConv?.enabled !== false && incentiveType !== 'none') {
+        if (incentiveType === 'flat') {
+          discount = incentiveAmount;
+        } else if (incentiveType === 'percentage') {
+          let pctDiscount = Math.round((orderData.orderValue * incentiveAmount) / 100);
+          if (discountCap && discountCap > 0) {
+            pctDiscount = Math.min(pctDiscount, discountCap);
+          }
+          discount = pctDiscount;
+        }
       }
 
       const finalAmount = orderData.orderValue - discount;
@@ -969,21 +977,31 @@ export class OrderService {
     finalAmount?: number,
     discount?: number
   ): Promise<{ linkId: string; shortUrl: string } | null> {
-    const incentiveType = merchant?.settings?.codConversion?.incentiveType || 'percentage';
-    const incentiveAmount = merchant?.settings?.codConversion?.incentiveAmount ?? 5;
-    const discountCap = merchant?.settings?.codConversion?.discountCap;
+    const codConv = merchant?.settings?.codConversion;
+    const incentiveType = codConv?.incentiveType || 'percentage';
+    const incentiveAmount = codConv?.incentiveAmount ?? 5;
+    const discountCap = codConv?.discountCap;
 
     let computedDiscount: number;
     if (discount !== undefined) {
       computedDiscount = discount;
+    } else if (codConv?.enabled === false || incentiveType === 'none') {
+      computedDiscount = 0;
     } else if (incentiveType === 'flat') {
       computedDiscount = incentiveAmount;
-    } else {
+    } else if (incentiveType === 'percentage') {
       let pctDiscount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
       if (discountCap && discountCap > 0) {
         pctDiscount = Math.min(pctDiscount, discountCap);
       }
       computedDiscount = pctDiscount;
+    } else {
+      computedDiscount = 0;
+    }
+
+    const minVal = codConv?.minOrderValue || 0;
+    if ((order.orderValue || 0) < minVal) {
+      computedDiscount = 0;
     }
 
     const computedFinalAmount: number =

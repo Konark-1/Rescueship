@@ -27,10 +27,15 @@ const SCENARIOS = [
 
 export interface RescueSceneProps {
   active: boolean;
-  reduced: boolean;
+  reduced?: boolean;
+  codIncentive?: {
+    type: 'none' | 'flat' | 'percentage';
+    amount: number;
+    cap: number;
+  };
 }
 
-export function RescueScene({ active, reduced }: RescueSceneProps) {
+export function RescueScene({ active, reduced = false, codIncentive }: RescueSceneProps) {
   const idRef = useRef(0);
   const nid = () => ++idRef.current;
   const [activeScenario, setActiveScenario] = useState<Scenario>('locked');
@@ -38,6 +43,21 @@ export function RescueScene({ active, reduced }: RescueSceneProps) {
   const [choices, setChoices] = useState<Choice[]>([]);
   const [typing, setTyping] = useState(false);
   const [phase, setPhase] = useState('8:00 PM · NDR intercepted');
+
+  const getCodPricing = (baseAmount: number = 1850) => {
+    if (!codIncentive || codIncentive.type === 'none') {
+      return { discount: 0, finalAmount: baseAmount };
+    }
+    let discount = 0;
+    if (codIncentive.type === 'flat') {
+      discount = codIncentive.amount || 50;
+    } else if (codIncentive.type === 'percentage') {
+      const raw = Math.round((baseAmount * (codIncentive.amount || 5)) / 100);
+      discount = codIncentive.cap > 0 ? Math.min(raw, codIncentive.cap) : raw;
+    }
+    const finalAmount = Math.max(1, baseAmount - discount);
+    return { discount, finalAmount };
+  };
   const [banner, setBanner] = useState<{ text: string; tone: string } | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const timer = useRef<number | null>(null);
@@ -89,12 +109,19 @@ export function RescueScene({ active, reduced }: RescueSceneProps) {
         { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Rahul', 890, 45) },
       ]);
     } else if (sc === 'cod') {
+      const { discount, finalAmount } = getCodPricing(1850);
       setPhase('3:45 PM · COD cash friction');
-      setLog([{ id: nid(), kind: 'bot', text: 'Hi Ananya 👋 Delivery partner is at your doorstep for Order #77319 (₹1,850 COD). Pay online now to complete contactless delivery.' }]);
+      setLog([{
+        id: nid(),
+        kind: 'bot',
+        text: discount > 0
+          ? `Hi Ananya 👋 Delivery partner is at your doorstep for Order #77319 (₹1,850 COD). Pay online now to save ₹${discount} and complete contactless delivery.`
+          : `Hi Ananya 👋 Delivery partner is at your doorstep for Order #77319 (₹1,850 COD). Pay online now to complete contactless delivery without cash friction.`,
+      }]);
       setChoices([
-        { id: 'pay_upi', label: '💳 Pay ₹1,757 via UPI', run: doCodPayUpi },
+        { id: 'pay_upi', label: `💳 Pay ₹${finalAmount} via UPI`, run: () => doCodPayUpi(finalAmount, discount) },
         { id: 'resched_cod', label: '🔄 Reschedule with Cash', run: doReschedule },
-        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, 93) },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, discount) },
       ]);
     } else if (sc === 'rto') {
       setPhase('6:20 PM · RTO arrest window (2 min)');
@@ -193,23 +220,35 @@ export function RescueScene({ active, reduced }: RescueSceneProps) {
   }
 
   /* Scenario 3: COD Cash Friction → Instant UPI */
-  function doCodPayUpi() {
+  function doCodPayUpi(finalAmount: number, discount: number) {
     setPhase('3:46 PM · dynamic payment link');
-    say('Pay ₹1,757 via 1-click UPI 💳',
-      '⚡ Razorpay dynamic UPI link generated · ₹93 discount applied · COD→Prepaid',
-      'Payment link generated! Pay securely via GPay, PhonePe, or Paytm — your order will be marked Prepaid in the driver’s handheld immediately. 📱',
+    say(`Pay ₹${finalAmount} via 1-click UPI 💳`,
+      `⚡ Razorpay dynamic UPI link generated · ${discount > 0 ? `₹${discount} discount applied` : 'Zero-discount mode'} · COD→Prepaid`,
+      `Payment link generated! Pay securely via GPay, PhonePe, or Paytm — your order will be marked Prepaid in the driver’s handheld immediately. If your link expires or fails, reply "PAY" for a fresh link. 📱`,
       () => setChoices([
-        { id: 'upi_done', label: '✅ Complete UPI Payment', run: doCodConfirmPayment },
-        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, 93) },
+        { id: 'upi_done', label: `✅ Complete ₹${finalAmount} UPI Payment`, run: () => doCodConfirmPayment(finalAmount, discount) },
+        { id: 'upi_expired', label: '⏱️ Test Session Timeout (Reply PAY)', run: () => doCodPayTimeout(finalAmount, discount) },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, discount) },
       ]));
   }
 
-  function doCodConfirmPayment() {
-    setPhase('3:47 PM · carrier COD adjustment');
-    say('Paid ₹1,757 on UPI ✅',
-      '✓ ₹1,757 captured · Shopify tagged: RescueShip_Prepaid · carrier COD adjusted to ₹0',
+  function doCodPayTimeout(finalAmount: number, discount: number) {
+    setPhase('3:48 PM · guarded session recovery');
+    say('PAY',
+      '🔒 Anti-jailbreak guard passed · active COD state · prior link verified · fresh link generated',
+      `Here is your fresh payment link: pay.rescueship.io/l/77319. Pay ₹${finalAmount} to complete your order. Valid for 15 minutes. ⚡`,
+      () => setChoices([
+        { id: 'upi_done_fresh', label: `✅ Complete ₹${finalAmount} UPI Payment`, run: () => doCodConfirmPayment(finalAmount, discount) },
+        { id: 'cancel', label: '❌ Cancel Order', danger: true, run: () => doCancel('Ananya', 1850, discount) },
+      ]));
+  }
+
+  function doCodConfirmPayment(finalAmount: number, discount: number) {
+    setPhase('3:49 PM · carrier COD adjustment');
+    say(`Paid ₹${finalAmount} on UPI ✅`,
+      `✓ ₹${finalAmount} captured · Shopify tagged: RescueShip_Prepaid · carrier COD adjusted to ₹0`,
       'Payment confirmed! Order converted to prepaid. Handover verified without cash friction. Thank you! 💜',
-      () => finish('✅ RESCUED · converted to prepaid', 'ok', 'COD → Prepaid · ₹93 saved · zero cash friction', 'ok'));
+      () => finish('✅ RESCUED · converted to prepaid', 'ok', `COD → Prepaid · ${discount > 0 ? `₹${discount} saved` : 'Zero cash friction'} · carrier COD ₹0`, 'ok'));
   }
 
   /* Scenario 4: High-Urgency RTO Arrest (Gated on Prepaid Payment) */
@@ -346,6 +385,12 @@ export function RescueScene({ active, reduced }: RescueSceneProps) {
       seedRef.current('locked');
     }
   }, [active]);
+
+  useEffect(() => {
+    if (active && activeScenario === 'cod') {
+      seedRef.current('cod');
+    }
+  }, [active, activeScenario, codIncentive?.type, codIncentive?.amount, codIncentive?.cap]);
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);

@@ -58,9 +58,24 @@ All developers, contributors, and AI assistants modifying the RescueShip codebas
 
 ---
 
-## 🧪 7. Verification Requirements Before Check-in
-1. **Run Full Jest Suite**: Execute `npm test` in root. All 47 test suites (390+ assertions) must pass.
+## 🤖 8. WhatsApp Conversational Automation & Anti-Jailbreak Protection
+1. **Strict AI Scope Restriction (Zero Open-Ended LLMs in Customer Chat)**: AI (Gemini Flash / KIE) is **strictly restricted to Address Simplification, landmark parsing, and reverse geocoding**. Never deploy open-ended LLMs to chat directly with customers in logistics (prevents delivery hallucinations, unauthorized discount promises, and Meta WABA bans). Customer communication must remain deterministic, English-only Meta-approved playbooks with interactive quick reply buttons below.
+2. **Guarded "PAY" Re-send Trigger (Anti-Jailbreak)**: A customer text message containing "PAY" or "Link expired" MUST only trigger payment link generation IF:
+   - An initial payment link was already dispatched previously.
+   - The order is currently in an active, unpaid COD state.
+   - The order is in a non-terminal status (not delivered, cancelled, or returned).
+   - Rate limit cooldown (45 seconds) is strictly enforced.
+   - Price calculation is performed strictly server-side from the database (customer text can never dictate price).
+3. **Zero-Trust Screenshot Fraud Defense**: Automated prepaid conversions must NEVER rely on payment screenshots alone (AI/Canva/spoof APK forged receipts are trivial to create). Automated conversions require signed banking gateway webhooks (Razorpay/Cashfree) or verified 12-digit UPI Reference / UTR numbers.
+4. **Mutually Exclusive COD Incentive Strategy**: Only ONE incentive strategy (`none`, `percentage` with mandatory cap, or `flat`) can be active at a time. Never allow stacked discounts to prevent conflicting WhatsApp copy, checkout discrepancies, and courier COD mismatch.
+5. **Self-Healing URL Handler (`/r/pay/:id`)**: When customers tap their payment link, the backend must verify whether the session has expired; if expired and order is COD, it dynamically regenerates a fresh gateway session and 302 redirects seamlessly without 404 dead-ends.
+
+---
+
+## 🧪 9. Verification Requirements Before Check-in
+1. **Run Full Jest Suite**: Execute `npm test` in root. All 48 test suites (399 assertions) must pass (100%).
 2. **Run TypeScript Check**: Execute `npx tsc --noEmit` in root. Zero errors allowed.
 3. **Run Frontend Build**: Execute `npm run build` in `frontend/`. Zero errors allowed.
 4. **Run Playwright E2E Tests**: Execute `npm run test:e2e` in `frontend/`. All test suites must pass.
+
 
