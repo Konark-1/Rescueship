@@ -11,7 +11,7 @@ async function runComparison() {
   console.log('🔬 REALISTIC LOGISTICS SCENARIO: 2:00 PM vs 8:30 PM COMPARISON');
   console.log('================================================================\n');
 
-  await mongoose.connect(process.env.MONGODB_URI || 'mongodb+srv://konarkofficial_db_user:CZlv3NerxMlLgl00@cluster0.jkbuwf6.mongodb.net/rescueship?retryWrites=true&w=majority');
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/rescueship');
   const merchant = await Merchant.findOne({ email: 'konarkofficial@gmail.com' });
   if (!merchant) throw new Error('Merchant not found');
 

@@ -39,7 +39,7 @@ export async function execute50LiveTests(): Promise<{
 }> {
   // Connect to DB if not already connected
   if (mongoose.connection.readyState !== 1) {
-    const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://konarkofficial_db_user:CZlv3NerxMlLgl00@cluster0.jkbuwf6.mongodb.net/rescueship?retryWrites=true&w=majority';
+    const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/rescueship';
     await mongoose.connect(mongoUri);
     logger.info('Connected to MongoDB Atlas');
   }

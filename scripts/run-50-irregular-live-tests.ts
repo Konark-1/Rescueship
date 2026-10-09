@@ -13,7 +13,7 @@ import { ndrService } from '../src/services/ndr.service';
 import { logger } from '../src/utils/logger';
 
 const RENDER_API_URL = process.env.API_BASE_URL || 'https://rescueship.onrender.com';
-const CARRIER_WEBHOOK_SECRET = 'r-xK-AxScnKFRBJu6RnUv9aVi76jFfuXJEiV1_HZ2DI'; // Decrypted carrierConfig.webhookSecret
+const CARRIER_WEBHOOK_SECRET = process.env.CARRIER_WEBHOOK_SECRET || '';
 
 interface Scenario {
   id: string;
@@ -43,7 +43,7 @@ export async function run50IrregularLiveTests() {
   console.log('================================================================================\n');
 
   // 1. Connect to MongoDB
-  const mongoUri = process.env.MONGODB_URI || 'mongodb+srv://konarkofficial_db_user:CZlv3NerxMlLgl00@cluster0.jkbuwf6.mongodb.net/rescueship?retryWrites=true&w=majority';
+  const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/rescueship';
   await mongoose.connect(mongoUri);
   console.log(' Connected to MongoDB Atlas');
 

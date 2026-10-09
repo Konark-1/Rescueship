@@ -27,8 +27,8 @@
 | `/dashboard` | `DashboardPage.tsx` | Real-time mission control: live SSE order stream, recovery metrics, and courier performance. |
 | `/orders` | `OrdersPage.tsx` | Order ledger: multi-carrier search, status filters, and interactive NDR resolution modal. |
 | `/sandbox` | `SandboxPage.tsx` | Interactive test environment: simulate carrier NDRs, test WhatsApp customer flows, and pass graduation gate. |
-| `/settings` | `SettingsPage.tsx` | Credentials vault, active carrier integrations, webhook URLs, and notification preferences. |
-| `/templates` | `TemplatesPage.tsx` | Meta-approved WhatsApp utility template catalog with mobile viewport previews. |
+| `/settings` | `SettingsPage.tsx` | Credentials vault, multi-carrier hub, webhook endpoints, and single-select COD conversion incentive rules (none, flat, percentage with rupee margin cap). |
+| `/templates` | `TemplatesPage.tsx` | Recovery Flows & Customer Experience Hub: Tab 1 (Turnkey Playbooks & Flow Simulator with dynamic pricing), Tab 2 (Real Customer Chat Audit & Dispute Resolution with 1-click UTR reconciliation). |
 | `/billing` | `BillingPage.tsx` | SaaS tier selection (Starter, Growth, Scale), usage meters, and Razorpay checkout. |
 | `/audit-logs` | `AuditLogsPage.tsx` | SOC-2 compliant immutable audit trail viewer with formatted JSON event inspector. |
 | `/docs` | `DocsPage.tsx` | Interactive developer documentation: cURL, Node.js, and Python webhook code samples. |

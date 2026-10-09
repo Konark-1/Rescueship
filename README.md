@@ -2,7 +2,7 @@
 
 [![Production Frontend](https://img.shields.io/badge/Render-rescueship--frontend.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship-frontend.onrender.com)
 [![Production Backend](https://img.shields.io/badge/Render-rescueship.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship.onrender.com)
-[![Test Suite](https://img.shields.io/badge/Tests-399%20passed%20(48%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
+[![Test Suite](https://img.shields.io/badge/Tests-415%20passed%20(49%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
 [![Meta WhatsApp API](https://img.shields.io/badge/Meta_Cloud_API-v22.0-25D366?style=flat&logo=whatsapp)](https://developers.facebook.com/docs/whatsapp/cloud-api)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)](https://react.dev/)
@@ -261,11 +261,42 @@ npm run dev
 
 ---
 
+## 🛡️ Recovery Flows, Dispute Resolution & Anti-Exploitation Architecture
+
+RescueShip features a battle-hardened recovery and dispute resolution system designed specifically for the realities of Indian D2C fulfillment:
+
+### 1. Two-Tab Recovery Console (`/templates`)
+- **Tab 1: Flow Simulator & 5 Turnkey Playbooks**: Interactive decision tree simulator with dynamic pricing calculator (`Door Locked`, `Address & GPS Pin`, `COD → UPI Conversion`, `RTO Arrest`, and `Pre-Delivery High-Risk Verification`), equipped with 1-Click Meta Cloud API synchronization (`POST /api/templates/sync-meta`) and test rescue dispatches (`POST /api/templates/test-send`).
+- **Tab 2: Real Customer Chat Audit & Dispute Center**: Live searchable WhatsApp thread inspector (`GET /api/orders/chats/recent`) with customer message histories, claimed UPI UTR transaction badges, payment reconciliation dossiers, and 1-click gateway verification.
+
+### 2. Single-Select COD Incentive Strategy with Rupee Cap
+- **Strict Mutual Exclusivity**: Merchants choose exactly one strategy (`none`, `percentage` with mandatory cap, or `flat`) to prevent pricing confusion, stacked discounts, or courier COD mismatch.
+- **Margin Protection Cap**: Percentage discounts enforce a maximum rupee ceiling (e.g., ₹150 cap) ensuring that high-value orders (e.g., ₹10,000) do not surrender margins that exceed standard courier return freight savings (~₹140).
+- **Anti-Exploitation Floor**: If `discount >= orderValue`, conversion is cleanly aborted to prevent negative paise / free order vulnerabilities.
+
+### 3. Guarded "PAY" Triggering & Session Self-Healing
+- **Case-Insensitive Matcher**: Supports `"pay"`, `"PAY"`, `"Pay"`, `"PAY."`, `"pay!"`, `"pay link"`, `"bhejo link"`, and `"link expired"`.
+- **Anti-Jailbreak Gate**: If a customer replies "PAY" on an order that never received an initial payment link, the request is blocked and deflected with an interactive menu.
+- **Self-Healing URLs (`/r/pay/:id`)**: If an expired payment link is opened, RescueShip validates the order and seamlessly 302-redirects to a freshly generated gateway session.
+- **Retry Guidance Copy**: Links automatically include instructions: *"If your UPI session times out or payment fails, reply 'PAY' to get a fresh link immediately."*
+
+### 4. Zero-Hallucination Out-of-Scope Deflection Shield
+- **Eliminated Free-Text LLM Risks**: If customers ask arbitrary liability questions (*"Can I pay ₹500 now and ₹500 tomorrow?"* or *"Can I open the box before paying cash?"*), the assistant never generates open-ended hallucinated promises.
+- **Explicit Warning Message**: The system immediately replies:
+  > *⚠️ Incorrect or unsupported input. We are an automated delivery assistant and cannot process custom requests like partial payments or open box delivery.*
+  followed by deterministic interactive options.
+
+### 5. Strict Alphanumeric Address Preservation (`1A 104`, `B-4/201`)
+- **Zero Mutation Invariant**: Gemini Flash address extraction is explicitly forbidden from altering, dropping, or reformatting alphanumeric flat/wing/house identifiers (`1A 104`, `Tower 3B Flat 501`, `Plot 45-B`).
+- **Confidence Gating**: Any AI parse with confidence `< 0.60` falls back to deterministic regex heuristics, guaranteeing that courier labels preserve exact doorstep numbers.
+
+---
+
 ## 🧪 Verification & Automated Testing
 
 RescueShip maintains an exhaustive, mathematically proven testing posture across all layers:
 
-- **Backend**: **47 test suites**, **390 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), Cashfree v2023 UPI Intent & HMAC signature parity, anti-farming cancellation cooldowns, Nominatim IP throttling with Gemini NLP fallbacks, DPDP Act 180-day automated PII redaction, BullMQ Dead Letter Queue (`carrier-dlq`) for HTTP 429s, Redis `SET NX` concurrency locks with Lua atomic release, cross-tenant lock scoping, delayed-retry scan deduplication, Meta 24h tier limits, and graceful shutdown pipelines.
+- **Backend**: **49 test suites**, **415 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), Cashfree v2023 UPI Intent & HMAC signature parity, multi-tenant merchant separation & credential isolation, anti-farming cancellation cooldowns, Nominatim IP throttling with Gemini NLP fallbacks, DPDP Act 180-day automated PII redaction, BullMQ Dead Letter Queue (`carrier-dlq`) for HTTP 429s, Redis `SET NX` concurrency locks with Lua atomic release, cross-tenant lock scoping, delayed-retry scan deduplication, Meta 24h tier limits, and graceful shutdown pipelines.
 - **Frontend**: **5 test suites**, **90 Playwright E2E tests (100% passing)** covering all dashboard views, onboarding, sandbox, WCAG 2.1 AA accessibility compliance, and WhatsApp customer rescue simulators.
 
 ```bash
@@ -300,11 +331,33 @@ npx ts-node src/scripts/backfill-pincodes.ts
 
 ## 🔒 Security & Tenant Governance
 
-All developers modifying this codebase must adhere to the rules in [DEVELOPER_RULES.md](./DEVELOPER_RULES.md):
+All developers and agents modifying this codebase must adhere to the rules in [DEVELOPER_RULES.md](./DEVELOPER_RULES.md):
 - **Strict Tenant Scoping**: Every query must filter by authenticated `merchantId`.
 - **HMAC Webhook Verification**: All incoming webhooks must be verified with their shared secret.
-- **Encryption at Rest**: Never store plaintext third-party API credentials.
+- **Encryption at Rest**: Never store plaintext third-party API credentials (all keys encrypted via AES-256-GCM).
 - **Global Pause Adherence**: All background workers and dispatchers must check `merchant.settings.globalPause`.
+
+### ⚡ Subsystem Architecture & Multi-Tenancy Fast Index
+
+| Subsystem | Primary Code Location | Multi-Tenant Isolation & Security Invariant |
+| :--- | :--- | :--- |
+| **Settings & Discounts** | [`src/api/settings.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/settings.api.ts) | Extracts `merchantId` solely from verified JWT (`req.merchant.merchantId`). Mutates only `Merchant.findById(merchantId)`. |
+| **Credentials Vault** | [`src/models/Merchant.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/models/Merchant.ts)<br>[`src/services/encryption.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/encryption.service.ts) | Encrypted at rest via AES-256-GCM. Redacted as `********` via `toSettingsDto()` on GET. |
+| **Phone Collision Guard** | [`src/api/settings.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/settings.api.ts#L314) | Checks `Merchant.findOne({ _id: { $ne: merchant._id }, 'whatsappConfig.phoneNumberId' })` -> throws **409 Conflict**. |
+| **COD Conversion Logic** | [`src/services/order.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/order.service.ts#L214) | Evaluates discounts strictly using `merchant.settings.codConversion` of the owning store. Zero cross-tenant leakage. |
+| **Outbound WhatsApp** | [`src/services/whatsapp.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/whatsapp.service.ts#L86)<br>[`src/services/whatsapp/whatsapp-dispatcher.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/whatsapp/whatsapp-dispatcher.service.ts) | Decrypts and dispatches using the owning merchant's token only. Explicitly refuses platform fallback for customers. |
+| **Inbound WhatsApp** | [`src/webhooks/whatsapp.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/whatsapp.webhook.ts#L130) | Resolves merchant from `metadata.phone_number_id` sent by Meta; scopes all message logs to that tenant. |
+| **Store Webhooks** | [`src/webhooks/shopify.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/shopify.webhook.ts)<br>[`src/webhooks/woocommerce.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/woocommerce.webhook.ts) | Shopify derives tenant from signed shop domain. WooCommerce verifies per-merchant HMAC with `merchant_id`. |
+| **Payment Webhooks** | [`src/webhooks/razorpay.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/razorpay.webhook.ts)<br>[`src/webhooks/cashfree.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/cashfree.webhook.ts) | Resolves owning merchant via `paymentLinkId` on `Order`, then validates against that merchant's gateway secret. |
+| **Carrier Webhooks** | [`src/webhooks/carrier-auth.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/carrier-auth.ts) | Authenticates inbound NDR using per-tenant `carrierConfig.webhookSecret`. |
+| **Orders & Dispute Chats** | [`src/api/orders.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/orders.api.ts) | `Order.find({ merchantId })` & `MessageLog.find({ merchantId })`. Cross-tenant queries return 404. |
+| **Templates Sandbox** | [`src/api/templates.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/templates.api.ts) | Every CRUD operation scoped by `{ merchantId }`. Merchants cannot read, modify, or delete foreign playbooks. |
+
+### ⚠️ Testing Command Rule
+When running individual Jest test files, always include `--forceExit` to guarantee immediate process termination and prevent hanging background tasks:
+```bash
+npx jest src/__tests__/merchant-separation.test.ts --forceExit
+```
 
 ---
 

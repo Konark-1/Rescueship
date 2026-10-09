@@ -3,7 +3,7 @@
 > **Platform Overview**: Autonomous AI-Powered RTO (Return-To-Origin) Interception, NDR Automation, and COD-to-Prepaid Conversion Engine for Indian D2C Brands.  
 > **Classification**: Production Engineering Reference / Due Diligence Whitepaper  
 > **Version**: 4.1 (Dispute-Hardened & Recovery Playbooks)  
-> **Test Coverage**: 48/48 Suites Passing (399/399 Unit, Security, & Integration Tests)
+> **Test Coverage**: 49/49 Suites Passing (415/415 Unit, Security, & Integration Tests)
 
 ---
 
@@ -295,7 +295,7 @@ Heavy libraries are separated into dedicated vendor chunks in [`vite.config.ts`]
 | **Webhook Ingestion Latency** | $< 150\text{ ms}$ | $45\text{ ms}$ (Redis `SET NX` + BullMQ queue push) |
 | **Address Normalization Speed** | $< 800\text{ ms}$ | $12\text{ ms}$ (Cached) / $480\text{ ms}$ (Gemini API) |
 | **State Machine CAS Transition** | $< 50\text{ ms}$ | $18\text{ ms}$ (MongoDB indexed atomic query) |
-| **Test Suite Coverage** | $100\%$ | **399/399 passing tests across 48 suites** |
+| **Test Suite Coverage** | $100\%$ | **415/415 passing tests across 49 suites** |
 | **60,000 Order CSV Export Memory** | $< 100\text{ MB}$ | **60.59 MB heap delta** (Native Node.js Stream) |
 | **HTTP 429 Carrier Backoff** | $100\%$ | **Intelligent BullMQ DLQ** (1m to 1h backoff) |
 | **Frontend Production Build Time** | $< 5\text{ s}$ | **0.88 s** (`tsc -b && vite build`) |
