@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { checkDeadLetterQueue, checkWebhookFailureRate } from '../scripts/liveops-watchtower';
+import { checkDeadLetterQueue, checkWebhookFailureRate } from '../services/liveops-watchtower.service';
 import { emailService } from '../services/email.service';
 import { logger } from '../utils/logger';
 
@@ -12,12 +12,12 @@ const router = Router();
 router.get('/status', async (_req: Request, res: Response) => {
   try {
     const [dlqResult, webhookResult] = await Promise.all([
-      checkDeadLetterQueue().catch((err) => ({
+      checkDeadLetterQueue().catch((err: any) => ({
         status: 'error',
         error: err?.message,
         timestamp: new Date().toISOString(),
       })),
-      checkWebhookFailureRate(60).catch((err) => ({
+      checkWebhookFailureRate(60).catch((err: any) => ({
         status: 'error',
         error: err?.message,
         timestamp: new Date().toISOString(),

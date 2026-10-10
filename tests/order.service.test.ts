@@ -1,0 +1,338 @@
+import { orderService } from '../src/services/order.service';
+import { Order, Merchant, AuditLog, BillingEvent } from '../src/models';
+import { whatsAppService } from '../src/services/whatsapp.service';
+import { paymentService } from '../src/services/payment.service';
+import { encryptionService } from '../src/services/encryption.service';
+
+// Credentials are stored encrypted; the service must decrypt them (and refuse plaintext/ciphertext fallbacks).
+const encPaymentConfig = () => ({
+  provider: 'razorpay',
+  keyId: encryptionService.encrypt('rzp_test_key123'),
+  keySecret: encryptionService.encrypt('sec123'),
+});
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const mockOrderInstance: any = {
+  _id: '507f1f77bcf86cd799439011',
+  merchantId: '507f1f77bcf86cd799439011',
+  externalOrderId: 'ORD1001',
+  customerPhone: '919876543210',
+  orderValue: 1000,
+  status: 'cod_conversion_sent',
+  save: jest.fn().mockResolvedValue(true),
+};
+
+jest.mock('../src/models', () => {
+  return {
+    Order: {
+      create: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
+      findOne: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
+      findOneAndUpdate: jest.fn().mockImplementation((_query: any, update: any) => {
+        if (update?.$set?.status) {
+          mockOrderInstance.status = update.$set.status;
+        }
+        return Promise.resolve(mockOrderInstance);
+      }),
+      findByIdAndUpdate: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
+      findById: jest.fn().mockImplementation(() => Promise.resolve(mockOrderInstance)),
+      deleteOne: jest.fn(),
+    },
+    Merchant: {
+      findById: jest.fn(),
+      updateOne: jest.fn().mockResolvedValue({ modifiedCount: 1 }),
+      findByIdAndUpdate: jest.fn(),
+      findOneAndUpdate: jest.fn().mockImplementation(() => Promise.resolve({ _id: '507f1f77bcf86cd799439011', billing: { rescueCredits: 99 } })),
+    },
+    AuditLog: {
+      create: jest.fn(),
+    },
+    BillingEvent: {
+      create: jest.fn(),
+    },
+  };
+});
+jest.mock('../src/services/whatsapp.service');
+jest.mock('../src/services/payment.service');
+jest.mock('bullmq');
+
+describe('OrderService - Unit Tests', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('processCODOrder', () => {
+    const validMerchantId = '507f1f77bcf86cd799439011';
+
+    it('should skip process if merchant COD conversion is disabled', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: false } },
+        billing: { rescueCredits: 100 },
+      });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1001',
+        platform: 'shopify',
+        customerPhone: '9876543210',
+        orderValue: 1000,
+        paymentMethod: 'cod',
+      });
+
+      expect(Order.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip process if merchant rescue credits are 0', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: true } },
+        billing: { rescueCredits: 0 },
+      });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1001',
+        platform: 'shopify',
+        customerPhone: '9876543210',
+        orderValue: 1000,
+        paymentMethod: 'cod',
+      });
+
+      expect(Order.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip process if order is prepaid', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: true } },
+        billing: { rescueCredits: 50 },
+      });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1001',
+        platform: 'shopify',
+        customerPhone: '9876543210',
+        orderValue: 1000,
+        paymentMethod: 'prepaid',
+      });
+
+      expect(Order.create).not.toHaveBeenCalled();
+    });
+
+    it('should create order and payment link then send WhatsApp message', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: {
+          codConversion: {
+            enabled: true,
+            incentiveType: 'flat',
+            incentiveAmount: 100,
+            messageLanguage: 'en',
+          },
+        },
+        billing: { rescueCredits: 100 },
+        paymentConfig: encPaymentConfig(),
+        whatsappConfig: { phoneNumberId: 'ph123' },
+      });
+
+      (paymentService.createPaymentLink as jest.Mock).mockResolvedValue({
+        linkId: 'plink_123',
+        shortUrl: 'https://rzp.io/l/test1234',
+      });
+      (paymentService.generateQRCode as jest.Mock).mockResolvedValue('data:image/png;base64,mockqr');
+      (Merchant.updateOne as jest.Mock).mockResolvedValue({ modifiedCount: 1 });
+      (whatsAppService.sendTemplate as jest.Mock).mockResolvedValue({ messaging_product: 'whatsapp' });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1001',
+        platform: 'shopify',
+        customerPhone: '9876543210',
+        orderValue: 1000,
+        paymentMethod: 'cod',
+      });
+
+      expect(Order.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          externalOrderId: 'ORD1001',
+          paymentMethod: 'cod',
+          orderValue: 1000,
+        })
+      );
+      expect(paymentService.createPaymentLink).toHaveBeenCalledWith(
+        'razorpay',
+        expect.objectContaining({ amount: 900 }),
+        expect.any(Object)
+      );
+      expect(mockOrderInstance.save).toHaveBeenCalled();
+      expect(whatsAppService.sendTemplate).toHaveBeenCalledWith(
+        '919876543210',
+        'cod_convert_en',
+        'en',
+        expect.any(Array),
+        expect.any(Object)
+      );
+    });
+
+    it('should calculate percentage discount correctly', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: {
+          codConversion: {
+            enabled: true,
+            incentiveType: 'percentage',
+            incentiveAmount: 10,
+            messageLanguage: 'en',
+          },
+        },
+        billing: { rescueCredits: 100 },
+        paymentConfig: encPaymentConfig(),
+      });
+
+      (paymentService.createPaymentLink as jest.Mock).mockResolvedValue({
+        linkId: 'plink_123',
+        shortUrl: 'https://rzp.io/l/test1234',
+      });
+      (Merchant.updateOne as jest.Mock).mockResolvedValue({ modifiedCount: 1 });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1002',
+        platform: 'shopify',
+        customerPhone: '9876543210',
+        orderValue: 2000,
+        paymentMethod: 'cod',
+      });
+
+      expect(paymentService.createPaymentLink).toHaveBeenCalledWith(
+        'razorpay',
+        expect.objectContaining({ amount: 1800 }),
+        expect.any(Object)
+      );
+    });
+
+    it('SECURITY: skips conversion (no platform-key fallback) when merchant has no payment gateway', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 0 } },
+        billing: { rescueCredits: 100 },
+      });
+
+      await orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1003', platform: 'shopify', customerPhone: '9876543210', orderValue: 500, paymentMethod: 'cod',
+      });
+
+      expect(paymentService.createPaymentLink).not.toHaveBeenCalled();
+      expect(whatsAppService.sendTemplate).not.toHaveBeenCalled();
+      expect(Order.deleteOne).toHaveBeenCalled();
+    });
+
+    it('SECURITY: fails closed (never uses raw stored value) when payment credentials cannot be decrypted', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: validMerchantId,
+        settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 0 } },
+        billing: { rescueCredits: 100 },
+        paymentConfig: { provider: 'razorpay', keyId: 'not-ciphertext', keySecret: 'not-ciphertext' },
+      });
+
+      await expect(orderService.processCODOrder(validMerchantId, {
+        externalOrderId: 'ORD1004', platform: 'shopify', customerPhone: '9876543210', orderValue: 500, paymentMethod: 'cod',
+      })).rejects.toThrow(/reconnection/);
+
+      expect(paymentService.createPaymentLink).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handlePaymentSuccess', () => {
+    it('should update order status to converted_to_prepaid and notify seller', async () => {
+      const mockSave = jest.fn().mockResolvedValue(true);
+      const mockOrder: any = {
+        _id: 'order123',
+        merchantId: '507f1f77bcf86cd799439011',
+        externalOrderId: 'ORD1001',
+        status: 'cod_conversion_sent',
+        paymentLinkId: 'plink_123',
+        orderValue: 1000,
+        codConversion: { incentiveOffered: 100 },
+        save: mockSave,
+      };
+
+      (Order.findOne as jest.Mock).mockResolvedValue(mockOrder);
+      (Order.findOneAndUpdate as jest.Mock).mockImplementation((_q: any, update: any) => {
+        if (update?.$set?.status) mockOrder.status = update.$set.status;
+        return Promise.resolve(mockOrder);
+      });
+      jest.spyOn(orderService, 'markOrderAsPaidOnPlatform').mockResolvedValue();
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: '507f1f77bcf86cd799439011',
+        phone: '919876543210',
+        whatsappConfig: {},
+      });
+      (Merchant.findByIdAndUpdate as jest.Mock).mockResolvedValue({
+        _id: '507f1f77bcf86cd799439011',
+      });
+      (paymentService.notifySellerPaymentReceived as jest.Mock).mockResolvedValue(undefined);
+      (AuditLog.create as jest.Mock).mockResolvedValue({});
+
+      await orderService.handlePaymentConfirmation('plink_123', 90000);
+
+      expect(mockOrder.status).toBe('converted_to_prepaid');
+      expect(orderService.markOrderAsPaidOnPlatform).toHaveBeenCalled();
+    });
+  });
+
+  describe('markOrderAsPaidOnPlatform', () => {
+    it('should skip automated sync for unknown platform', async () => {
+      (Merchant.findById as jest.Mock).mockResolvedValue({ _id: 'merchant123' });
+      const mockOrder = { merchantId: 'merchant123', platform: 'unknown', externalOrderId: 'ORD99' };
+
+      await expect(orderService.markOrderAsPaidOnPlatform(mockOrder)).resolves.not.toThrow();
+    });
+  });
+
+  describe('sendCODReminder', () => {
+    it('dispatches interactive WhatsApp reminder with pay and keep buttons', async () => {
+      const mockOrder: any = {
+        _id: '507f1f77bcf86cd799439011',
+        merchantId: '507f1f77bcf86cd799439011',
+        externalOrderId: 'ORD_REMIND',
+        customerPhone: '919876543210',
+        customerName: 'Rahul Sharma',
+        paymentMethod: 'cod',
+        orderValue: 1200,
+        status: 'shipped',
+        paymentLinkId: 'plink_remind',
+      };
+
+      (Order.findById as jest.Mock).mockResolvedValue(mockOrder);
+      (Merchant.findById as jest.Mock).mockResolvedValue({
+        _id: '507f1f77bcf86cd799439011',
+        whatsappConfig: {},
+      });
+      (whatsAppService.sendInteractiveButtons as jest.Mock).mockResolvedValue({ messages: [{ id: 'msg_remind' }] });
+
+      await orderService.sendCODReminder('507f1f77bcf86cd799439011');
+
+      expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
+        '919876543210',
+        expect.stringContaining('ORD_REMIND'),
+        expect.arrayContaining([
+          expect.objectContaining({ title: '💳 Pay via UPI' }),
+          expect.objectContaining({ title: '💵 Keep COD' }),
+        ]),
+        expect.any(Object)
+      );
+      expect(AuditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({ action: 'cod_reminder_sent' })
+      );
+    });
+
+    it('skips non-COD or terminal orders', async () => {
+      const mockOrder: any = {
+        _id: '507f1f77bcf86cd799439011',
+        paymentMethod: 'prepaid',
+        status: 'shipped',
+      };
+      (Order.findById as jest.Mock).mockResolvedValue(mockOrder);
+
+      await orderService.sendCODReminder('507f1f77bcf86cd799439011');
+      expect(whatsAppService.sendInteractiveButtons).not.toHaveBeenCalled();
+    });
+  });
+});

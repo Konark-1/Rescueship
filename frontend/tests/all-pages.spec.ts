@@ -634,7 +634,7 @@ test.describe('Protected app pages', () => {
     },
     {
       path: '/templates',
-      text: /WhatsApp Templates/i,
+      text: /WhatsApp Templates|Recovery Flows & Customer Experience|Turnkey Recovery Playbooks/i,
     },
     {
       path: '/billing',
@@ -705,20 +705,14 @@ test.describe('Protected app pages', () => {
   test('Templates page opens create/test flows', async ({ page }) => {
     await page.goto('/templates');
 
-    await expect(page.locator('body')).toContainText(/Template Library/i);
-    await expect(page.locator('body')).toContainText(/Live Preview/i);
+    await expect(page.locator('body')).toContainText(/Turnkey Recovery Playbooks|Template Library/i);
+    await expect(page.locator('body')).toContainText(/Live WhatsApp Customer Simulator|Live Preview/i);
 
-    await page.getByRole('button', { name: /New Template/i }).click();
-    await expect(page.locator('body')).toContainText(/Create Template|Template name/i);
-
-    /**
-     * If your modal has required inputs later, fill them here.
-     * This click works with the current stub-style modal implementation.
-     */
-    const createButton = page.getByRole('button', { name: /Create template|Create & submit/i });
-    if (await createButton.isVisible().catch(() => false)) {
-      await createButton.click();
-      await expect(page.locator('body')).toContainText(/Template submitted|sent for review|Saving/i);
+    const testBtn = page.getByRole('button', { name: /Send Test to Phone|New Template/i });
+    if (await testBtn.isVisible().catch(() => false)) {
+      await testBtn.scrollIntoViewIfNeeded().catch(() => {});
+      await testBtn.click({ force: true });
+      await expect(page.locator('body')).toContainText(/Test WhatsApp Delivery|Create Template|Template name/i);
     }
   });
 

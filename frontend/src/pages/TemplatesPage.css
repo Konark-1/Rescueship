@@ -213,13 +213,13 @@
 
 .wa-bubble-box.outbound {
   background: #005c4b;
-  color: #e9edef;
+  color: var(--text-1);
   border-top-right-radius: 2px;
 }
 
 .wa-bubble-box.inbound {
   background: #202c33;
-  color: #e9edef;
+  color: var(--text-1);
   border-top-left-radius: 2px;
 }
 
@@ -235,7 +235,7 @@
 }
 
 .wa-ticks {
-  color: #53bdeb;
+  color: var(--cyan);
 }
 
 /* Dispute Dossier Pane */
@@ -275,3 +275,17 @@
   display: flex;
   justify-content: center;
 }
+
+.playbooks-split-grid {
+  display: grid;
+  grid-template-columns: 1fr 520px;
+  gap: var(--space-6);
+  align-items: start;
+}
+
+@media (max-width: 1024px) {
+  .playbooks-split-grid {
+    grid-template-columns: 1fr;
+  }
+}
+

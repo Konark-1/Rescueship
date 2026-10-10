@@ -71,7 +71,7 @@ jobs:
           DELHIVERY_WEBHOOK_SECRET: ci_test_delhivery_webhook_secret_key
 
       - name: Run Adversarial Security Verification Probes
-        run: npx ts-node scripts/verify-adversarial-fixes.ts
+        run: npx ts-node tests/scripts/verify-adversarial-fixes.ts
         env:
           NODE_ENV: test
           MONGODB_URI: mongodb://localhost:27017/rescueship_ci

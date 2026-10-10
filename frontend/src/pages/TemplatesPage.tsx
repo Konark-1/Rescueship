@@ -757,6 +757,7 @@ export default function TemplatesPage() {
                     <input
                       type="radio"
                       name="incentive_strategy"
+                      aria-label="No Discount (0% Off)"
                       checked={codConfig.incentiveType === 'none'}
                       onChange={() => setCodConfig((prev) => ({ ...prev, enabled: false, incentiveType: 'none' }))}
                       style={{ accentColor: 'var(--indigo)', cursor: 'pointer' }}
@@ -796,6 +797,7 @@ export default function TemplatesPage() {
                     <input
                       type="radio"
                       name="incentive_strategy"
+                      aria-label="Percentage Off with Cap"
                       checked={codConfig.incentiveType === 'percentage'}
                       onChange={() => setCodConfig((prev) => ({ ...prev, enabled: true, incentiveType: 'percentage' }))}
                       style={{ accentColor: 'var(--emerald)', cursor: 'pointer' }}
@@ -834,6 +836,7 @@ export default function TemplatesPage() {
                     <input
                       type="radio"
                       name="incentive_strategy"
+                      aria-label="Flat Rupee Discount"
                       checked={codConfig.incentiveType === 'flat'}
                       onChange={() => setCodConfig((prev) => ({ ...prev, enabled: true, incentiveType: 'flat' }))}
                       style={{ accentColor: 'var(--amber)', cursor: 'pointer' }}
@@ -864,8 +867,10 @@ export default function TemplatesPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Discount %:</label>
+                  <label htmlFor="discount-pct-select" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Discount %:</label>
                   <select
+                    id="discount-pct-select"
+                    aria-label="Discount percentage"
                     className="form-control"
                     style={{ width: 90, height: 32, fontSize: '0.82rem', padding: '0 8px' }}
                     value={codConfig.incentiveAmount}
@@ -879,10 +884,12 @@ export default function TemplatesPage() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Maximum Cap (₹):</label>
+                  <label htmlFor="discount-cap-input" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Maximum Cap (₹):</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-3)', fontSize: '0.82rem' }}>₹</span>
                     <input
+                      id="discount-cap-input"
+                      aria-label="Maximum discount cap in rupees"
                       type="number"
                       min={20}
                       max={500}
@@ -896,10 +903,12 @@ export default function TemplatesPage() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Min Order Value:</label>
+                  <label htmlFor="pct-min-order-input" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Min Order Value:</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-3)', fontSize: '0.82rem' }}>₹</span>
                     <input
+                      id="pct-min-order-input"
+                      aria-label="Minimum order value in rupees"
                       type="number"
                       min={0}
                       step={50}
@@ -934,10 +943,12 @@ export default function TemplatesPage() {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Flat Rupee Discount:</label>
+                  <label htmlFor="flat-discount-amount-input" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Flat Rupee Discount:</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-3)', fontSize: '0.82rem' }}>₹</span>
                     <input
+                      id="flat-discount-amount-input"
+                      aria-label="Flat rupee discount amount"
                       type="number"
                       min={10}
                       max={250}
@@ -951,10 +962,12 @@ export default function TemplatesPage() {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Min Order Value:</label>
+                  <label htmlFor="flat-min-order-input" style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-1)' }}>Min Order Value:</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     <span style={{ color: 'var(--text-3)', fontSize: '0.82rem' }}>₹</span>
                     <input
+                      id="flat-min-order-input"
+                      aria-label="Minimum order value for flat discount in rupees"
                       type="number"
                       min={0}
                       step={50}
@@ -977,7 +990,7 @@ export default function TemplatesPage() {
           </section>
 
           {/* SECTION 2: 2-COLUMN SPLIT (PLAYBOOKS ON LEFT, LIVE INTERACTIVE SIMULATOR ON RIGHT) */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 520px', gap: 'var(--space-6)', alignItems: 'start' }}>
+          <div className="playbooks-split-grid">
             {/* Left Column: 5 Turnkey Meta Playbooks */}
             <div className="panel" style={{ borderRadius: 'var(--radius-lg)' }}>
               <div className="panel__head" style={{ padding: 'var(--space-3-5) var(--space-4)' }}>
