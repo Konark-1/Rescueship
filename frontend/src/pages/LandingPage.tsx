@@ -770,7 +770,7 @@ export default function LandingPage() {
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms of Service</Link>
           <Link to="/dpa">DPDP Addendum</Link>
-          <Link to="/docs">API Docs</Link>
+          <Link to="/connected-apis">Integrations</Link>
           <Link to="/login">Log in</Link>
           <Link to="/register" className="lp-foot__cta">Get started →</Link>
         </span>

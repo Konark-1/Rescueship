@@ -18,7 +18,7 @@ const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
 const BillingPage = lazy(() => import('./pages/BillingPage'));
 const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
-const DocsPage = lazy(() => import('./pages/DocsPage'));
+const ConnectedApisPage = lazy(() => import('./pages/ConnectedApisPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
 const SandboxPage = lazy(() => import('./pages/SandboxPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
@@ -153,13 +153,14 @@ export const App: React.FC = () => {
                   </DashboardLayoutWrapper>
                 </ProtectedRoute>
               } />
-              <Route path="/docs" element={
+              <Route path="/connected-apis" element={
                 <ProtectedRoute>
                   <DashboardLayoutWrapper>
-                    <DocsPage />
+                    <ConnectedApisPage />
                   </DashboardLayoutWrapper>
                 </ProtectedRoute>
               } />
+              <Route path="/docs" element={<Navigate to="/connected-apis" replace />} />
               <Route path="/sandbox" element={
                 <ProtectedRoute>
                   <DashboardLayoutWrapper>

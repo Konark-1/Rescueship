@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useRealtime } from '../hooks/useRealtime';
 import {
   LayoutDashboard, ShoppingBag, Settings, MessageSquare,
-  CreditCard, FileText, LogOut, Menu, X, Code, BarChart2, Truck
+  CreditCard, FileText, LogOut, Menu, X, BarChart2, Truck, Plug
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import '../styles/app.css';
@@ -47,7 +47,7 @@ const NAV_SECTIONS: NavSection[] = [
       { name: 'Integrations', path: '/onboarding', icon: <Truck size={17} /> },
       { name: 'Billing', path: '/billing', icon: <CreditCard size={17} /> },
       { name: 'Audit Logs', path: '/audit-logs', icon: <FileText size={17} /> },
-      { name: 'API Docs', path: '/docs', icon: <Code size={17} /> },
+      { name: 'Connected APIs', path: '/connected-apis', icon: <Plug size={17} /> },
     ],
   },
 ];
