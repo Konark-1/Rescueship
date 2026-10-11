@@ -10,6 +10,7 @@ import { setupWeeklyRoiReportWorker, scheduleWeeklyRoiReport } from './weeklyRoi
 import { setupSubscriptionLifecycleWorker, scheduleSubscriptionLifecycle } from './subscription-lifecycle.job';
 import { setupDigestWorker, scheduleDigestJob } from './digest.job';
 import { piiAnonymizationWorker, schedulePiiAnonymization } from './pii-anonymization.job';
+import { staleDepositsWorker, scheduleCancelStaleDeposits } from './cancel-stale-deposits.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -24,6 +25,7 @@ export * from './weeklyRoiReport.job';
 export * from './subscription-lifecycle.job';
 export * from './digest.job';
 export * from './pii-anonymization.job';
+export * from './cancel-stale-deposits.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
@@ -57,6 +59,7 @@ export function startAllWorkers(): void {
     subscriptionLifecycleWorker,
     digestWorker,
     piiAnonymizationWorker,
+    staleDepositsWorker,
   ].filter(Boolean);
 
   for (const worker of workers) {
@@ -94,6 +97,10 @@ export function startAllWorkers(): void {
 
   schedulePiiAnonymization().catch((err) => {
     logger.error('Failed to schedule daily DPDP PII anonymization cron job', { error: err.message });
+  });
+
+  scheduleCancelStaleDeposits().catch((err) => {
+    logger.error('Failed to schedule repeatable stale deposits cleanup job', { error: err.message });
   });
 
   logger.info('✅  All BullMQ workers running');

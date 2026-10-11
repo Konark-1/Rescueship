@@ -211,6 +211,18 @@ export class OrderService {
         }
       }
 
+      // 🛡️ Pincode Guard Check: Intercept and mandate advance deposit / prepaid conversion
+      const { pincodeGuardService } = await import('./pincode-guard.service');
+      const isGuardHeld = await pincodeGuardService.checkAndHoldIfRequired(merchant, order, normalizedPhone);
+      if (isGuardHeld) {
+        logger.info('Order placed on hold by Pincode Guard; skipping generic COD conversion', {
+          merchantId,
+          orderId: order._id,
+          pincode: order.shippingPincode,
+        });
+        return;
+      }
+
       let discount = 0;
       const codConv = merchant.settings?.codConversion;
       const incentiveType = codConv?.incentiveType || 'none';
@@ -492,14 +504,16 @@ export class OrderService {
   public async handlePaymentSuccess(paymentLinkId: string, amountPaidPaise: number): Promise<void> {
     logger.info('Handling payment success for COD conversion', { paymentLinkId, amountPaidPaise });
 
-    const order = await Order.findOne({ paymentLinkId });
+    const order = await Order.findOne({
+      $or: [{ paymentLinkId }, { depositPaymentLinkId: paymentLinkId }],
+    });
     if (!order) {
       logger.warn('No order found matching paymentLinkId', { paymentLinkId });
       return;
     }
 
-    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued') {
-      logger.info('Order already converted to prepaid or rescued, duplicate webhook event', { paymentLinkId });
+    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued' || order.status === 'confirmed') {
+      logger.info('Order already converted to prepaid, confirmed, or rescued, duplicate webhook event', { paymentLinkId });
       return;
     }
 
@@ -515,17 +529,27 @@ export class OrderService {
     const expectedPaise = Math.round(expectedAmountInr * 100);
 
     const isNdrOrder = (order.status || '').startsWith('ndr_') || order.status === 'rto_initiated' || order.status === 'rto';
+    const isDepositOrder =
+      order.status === 'awaiting_deposit' ||
+      order.status === 'awaiting_prepaid_conversion' ||
+      (order as any).pincodeHoldReason === 'require_deposit' ||
+      (order as any).pincodeHoldReason === 'force_prepaid';
+
+    const depositAmount = (order as any).depositAmount || (order.pincodeHoldReason === 'force_prepaid' ? order.orderValue : 50);
+    const expectedDepositPaise = Math.round(depositAmount * 100);
     const partialAmount = (merchant as any).settings?.partialPay?.amount || 49;
     const expectedPartialPaise = Math.round(partialAmount * 100);
 
-    const isUnderpaid = isNdrOrder
+    const isUnderpaid = isDepositOrder
+      ? !amountPaidPaise || amountPaidPaise < expectedDepositPaise
+      : isNdrOrder
       ? !amountPaidPaise || (amountPaidPaise < expectedPartialPaise && amountPaidPaise < expectedPaise)
       : !amountPaidPaise || amountPaidPaise < expectedPaise;
 
     if (isUnderpaid) {
       logger.error('Payment amount mismatch: payment was missing or underpaid', {
         paymentLinkId,
-        expectedPaise,
+        expectedPaise: isDepositOrder ? expectedDepositPaise : expectedPaise,
         amountPaidPaise,
       });
       await AuditLog.create({
@@ -533,14 +557,14 @@ export class OrderService {
         orderId: order._id,
         action: 'payment_amount_mismatch',
         source: 'payment_webhook',
-        payload: { expectedPaise, amountPaidPaise },
+        payload: { expectedPaise: isDepositOrder ? expectedDepositPaise : expectedPaise, amountPaidPaise },
         status: 'failed',
         error: 'Payment amount mismatch: underpaid or missing',
       });
       return;
     }
 
-    const nextStatus = isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
+    const nextStatus = isDepositOrder ? 'confirmed' : isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
     const rtoFeeSaved = (merchant as any)?.settings?.estimatedRtoLossPerOrder || 140;
 
     const updatedOrder = await Order.findOneAndUpdate(
@@ -548,6 +572,8 @@ export class OrderService {
         _id: order._id,
         status: {
           $in: [
+            'awaiting_deposit',
+            'awaiting_prepaid_conversion',
             'cod_conversion_sent',
             'ndr_detected',
             'ndr_rescue_sent',
@@ -562,8 +588,13 @@ export class OrderService {
       {
         $set: {
           status: nextStatus,
-          paymentMethod: 'prepaid',
+          paid: true,
+          paymentMethod: order.pincodeHoldReason === 'force_prepaid' || !isDepositOrder ? 'prepaid' : order.paymentMethod,
           'codConversion.convertedAt': new Date(),
+          ...(isDepositOrder && {
+            depositPaidAt: new Date(),
+            depositTransactionId: paymentLinkId,
+          }),
           ...(isNdrOrder && {
             rtoFeeSaved,
             'ndr.resolvedAt': new Date(),

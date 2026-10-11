@@ -315,8 +315,9 @@ export class PincodeRiskService {
       const loc = this.resolveLocation(pin);
       const dbCity = (doc.cities || []).find((c: any) => typeof c === 'string' && c.trim().length > 0);
       const dbState = (doc.states || []).find((s: any) => typeof s === 'string' && s.trim().length > 0);
-      const city = dbCity || loc.city;
-      const state = dbState || loc.state;
+      // Deterministic pincode directory is authoritative over corrupted order strings (e.g. test orders hardcoded with 'Delhi')
+      const city = loc.city && loc.city !== 'India' && !loc.city.startsWith('Pincode ') ? loc.city : (dbCity || loc.city);
+      const state = loc.state && loc.state !== 'India' ? loc.state : (dbState || loc.state);
 
       const total = doc.totalOrders || 1;
       const failed = doc.failedOrders || 0;
@@ -382,14 +383,19 @@ export class PincodeRiskService {
       };
     });
 
+    // Only include pincodes that actually exhibit delivery failures or elevated risk (exclude 0% RTO healthy pincodes)
+    const atRiskSummaries = summaries.filter(
+      (s) => s.failedOrders > 0 || s.rtoRate > 0 || s.riskScore >= 0.30
+    );
+
     // Sort by risk priority: highest rtoRate first, then highest fakeAttempts, then total volume
-    summaries.sort((a, b) => {
+    atRiskSummaries.sort((a, b) => {
       if (b.rtoRate !== a.rtoRate) return b.rtoRate - a.rtoRate;
       if (b.fakeAttempts !== a.fakeAttempts) return b.fakeAttempts - a.fakeAttempts;
       return b.totalOrders - a.totalOrders;
     });
 
-    const topList = summaries.slice(0, Math.max(1, limit));
+    const topList = atRiskSummaries.slice(0, Math.max(1, limit));
 
     // 3. Cache in Redis (300s TTL)
     try {

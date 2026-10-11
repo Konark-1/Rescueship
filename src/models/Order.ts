@@ -11,6 +11,9 @@ export interface IOrder extends Document {
   financial_status?: 'COD' | 'PREPAID';
   status:
     | 'new'
+    | 'awaiting_deposit'
+    | 'awaiting_prepaid_conversion'
+    | 'confirmed'
     | 'cod_conversion_sent'
     | 'converted_to_prepaid'
     | 'shipped'
@@ -103,6 +106,12 @@ export interface IOrder extends Document {
     response?: 'confirmed' | 'rescheduled' | 'address_updated' | 'cancelled' | string | null;
     respondedAt?: Date | null;
   };
+  depositAmount?: number;
+  depositPaymentLinkId?: string | null;
+  depositRequestedAt?: Date | null;
+  depositPaidAt?: Date | null;
+  depositTransactionId?: string | null;
+  pincodeHoldReason?: 'force_prepaid' | 'require_deposit' | string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -129,6 +138,9 @@ const OrderSchema = new Schema<IOrder>(
       type: String,
       enum: [
         'new',
+        'awaiting_deposit',
+        'awaiting_prepaid_conversion',
+        'confirmed',
         'cod_conversion_sent',
         'converted_to_prepaid',
         'shipped',
@@ -145,6 +157,12 @@ const OrderSchema = new Schema<IOrder>(
       ],
       default: 'new',
     },
+    depositAmount: { type: Number, default: null },
+    depositPaymentLinkId: { type: String, default: null, index: true },
+    depositRequestedAt: { type: Date, default: null },
+    depositPaidAt: { type: Date, default: null },
+    depositTransactionId: { type: String, default: null },
+    pincodeHoldReason: { type: String, enum: ['force_prepaid', 'require_deposit', null], default: null },
     awb: { type: String, default: null, index: true },
     outForDeliveryAt: { type: Date, default: null },
     lastEventTimestamp: { type: Date, default: null },

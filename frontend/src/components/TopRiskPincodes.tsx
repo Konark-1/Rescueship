@@ -143,11 +143,11 @@ export const TopRiskPincodes: React.FC = () => {
         },
       }));
 
-      const actionName = field === 'forcePrepaid' ? 'Force Prepaid' : 'Mandate ₹50 Advance';
+      const actionName = field === 'forcePrepaid' ? 'Force 100% Prepaid' : 'Auto-Hold & ₹50 WhatsApp Advance';
       showToast(
         newValue
-          ? `Enabled ${actionName} for ${pincode} (${syncStatus === 'synced' ? 'synced' : 'pending sync'})`
-          : `Disabled ${actionName} for ${pincode}`,
+          ? `🛡️ Enabled ${actionName} for ${pincode}. New COD orders will be held until verified!`
+          : `Disabled ${actionName} for ${pincode} (Orders will dispatch directly)`,
         'success'
       );
     } catch (err: any) {
@@ -158,7 +158,7 @@ export const TopRiskPincodes: React.FC = () => {
       }));
       const errorMsg =
         err?.response?.data?.error ||
-        `Failed to sync rule for ${pincode} to storefront. Reverting.`;
+        `Failed to sync guard rule for ${pincode}. Reverting.`;
       showToast(errorMsg, 'error');
     } finally {
       setSyncingPincode(null);
@@ -170,20 +170,20 @@ export const TopRiskPincodes: React.FC = () => {
       <div className="panel__head">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <MapPin size={16} color="var(--rose, #f43f5e)" aria-hidden="true" />
-          <span className="panel__title">Top 5 High-Risk Pincodes</span>
+          <span className="panel__title">Top High-Risk Delivery Pincodes</span>
           <span className="top-risk-badge top-risk-badge--critical">30-Day Hotspots</span>
           <span
             style={{
               fontSize: '0.72rem',
-              color: 'var(--indigo-soft, #a5b4fc)',
-              background: 'rgba(99, 102, 241, 0.12)',
+              color: 'var(--emerald, #10b981)',
+              background: 'rgba(16, 185, 129, 0.12)',
               padding: '2px 8px',
               borderRadius: '12px',
-              border: '1px solid rgba(99, 102, 241, 0.25)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
               fontWeight: 500,
             }}
           >
-            ⚡ Storefront Sync Active
+            🛡️ Autonomous WhatsApp Guard Active
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -235,7 +235,7 @@ export const TopRiskPincodes: React.FC = () => {
                   <th>Avg Attempts</th>
                   <th>Risk Tier</th>
                   <th>Actionable Recommendation</th>
-                  <th style={{ minWidth: '220px' }}>Storefront Actions</th>
+                  <th style={{ minWidth: '240px' }}>Autonomous WhatsApp Guard</th>
                 </tr>
               </thead>
               <tbody>
@@ -335,30 +335,6 @@ export const TopRiskPincodes: React.FC = () => {
                               gap: '8px',
                               fontSize: '0.78rem',
                               cursor: syncingPincode === item.pincode ? 'wait' : 'pointer',
-                              color: rules[item.pincode]?.forcePrepaid
-                                ? '#ffffff'
-                                : 'var(--text-3, #9ca3af)',
-                              fontWeight: rules[item.pincode]?.forcePrepaid ? 600 : 400,
-                            }}
-                          >
-                            <Switch
-                              checked={!!rules[item.pincode]?.forcePrepaid}
-                              onCheckedChange={(checked) =>
-                                handleToggleRule(item.pincode, 'forcePrepaid', checked)
-                              }
-                              disabled={syncingPincode === item.pincode}
-                              aria-label={`Force Prepaid Only for ${item.pincode}`}
-                            />
-                            <span>🚫 Force Prepaid Only</span>
-                          </label>
-
-                          <label
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '8px',
-                              fontSize: '0.78rem',
-                              cursor: syncingPincode === item.pincode ? 'wait' : 'pointer',
                               color: rules[item.pincode]?.mandateAdvance
                                 ? '#ffffff'
                                 : 'var(--text-3, #9ca3af)',
@@ -371,29 +347,64 @@ export const TopRiskPincodes: React.FC = () => {
                                 handleToggleRule(item.pincode, 'mandateAdvance', checked)
                               }
                               disabled={syncingPincode === item.pincode}
-                              aria-label={`Mandate ₹50 Advance for ${item.pincode}`}
+                              aria-label={`Auto-Hold & Mandate ₹50 Advance for ${item.pincode}`}
                             />
-                            <span>💰 Mandate ₹50 Advance</span>
+                            <span>💰 Auto-Hold & Mandate ₹50 Advance</span>
                           </label>
 
-                          {rules[item.pincode]?.syncStatus && (
-                            <div style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span
-                                style={{
-                                  width: '6px',
-                                  height: '6px',
-                                  borderRadius: '50%',
-                                  backgroundColor:
-                                    rules[item.pincode].syncStatus === 'synced'
-                                      ? 'var(--emerald, #10b981)'
-                                      : 'var(--amber, #f59e0b)',
-                                }}
-                              />
-                              <span style={{ color: 'var(--text-3, #9ca3af)' }}>
-                                {rules[item.pincode].syncStatus === 'synced' ? 'Storefront Synced' : 'Sync Pending'}
-                              </span>
-                            </div>
-                          )}
+                          <label
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px',
+                              fontSize: '0.78rem',
+                              cursor: syncingPincode === item.pincode ? 'wait' : 'pointer',
+                              color: rules[item.pincode]?.forcePrepaid
+                                ? '#ffffff'
+                                : 'var(--text-3, #9ca3af)',
+                              fontWeight: rules[item.pincode]?.forcePrepaid ? 600 : 400,
+                            }}
+                          >
+                            <Switch
+                              checked={!!rules[item.pincode]?.forcePrepaid}
+                              onCheckedChange={(checked) =>
+                                handleToggleRule(item.pincode, 'forcePrepaid', checked)
+                              }
+                              disabled={syncingPincode === item.pincode}
+                              aria-label={`Require 100% Prepaid via WhatsApp for ${item.pincode}`}
+                            />
+                            <span>🚫 Require 100% Prepaid</span>
+                          </label>
+
+                          <div style={{ fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <span
+                              style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                backgroundColor:
+                                  rules[item.pincode]?.mandateAdvance || rules[item.pincode]?.forcePrepaid
+                                    ? 'var(--emerald, #10b981)'
+                                    : 'var(--text-3, #9ca3af)',
+                              }}
+                            />
+                            <span
+                              style={{
+                                color:
+                                  rules[item.pincode]?.mandateAdvance || rules[item.pincode]?.forcePrepaid
+                                    ? 'var(--emerald, #10b981)'
+                                    : 'var(--text-3, #9ca3af)',
+                                fontWeight:
+                                  rules[item.pincode]?.mandateAdvance || rules[item.pincode]?.forcePrepaid
+                                    ? 500
+                                    : 400,
+                              }}
+                            >
+                              {rules[item.pincode]?.mandateAdvance || rules[item.pincode]?.forcePrepaid
+                                ? 'Active Guard: Auto-holds COD orders'
+                                : 'Direct Dispatch: Normal fulfillment'}
+                            </span>
+                          </div>
                         </div>
                       </td>
                     </tr>
