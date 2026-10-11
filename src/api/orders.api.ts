@@ -552,4 +552,108 @@ router.post('/:orderId/reconcile-utr', authenticateToken, async (req: Authentica
   }
 });
 
+/**
+ * POST /api/orders/:orderId/carrier-action
+ * Manually trigger carrier delivery reattempt, address update, or RTO abort from Dashboard Action Drawer
+ */
+router.post('/:orderId/carrier-action', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const orderId = req.params.orderId;
+  const { action, newDate, address, city, pincode, reason } = req.body || {};
+
+  if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
+    res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+
+  try {
+    const order = await Order.findOne({ _id: orderId, merchantId });
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+
+    if (!order.carrier || !order.awb) {
+      res.status(400).json({ error: 'Order does not have an assigned carrier or AWB' });
+      return;
+    }
+
+    const { logisticsService } = await import('../services/logistics.service');
+    const merchant = await Merchant.findById(merchantId);
+    const m = merchant as any;
+    const specificConfig = m?.carrierSettings?.[order.carrier] || m?.carriers?.[order.carrier] || {};
+
+    let result;
+    if (action === 'reattempt') {
+      result = await logisticsService.rescheduleDelivery(order.carrier as any, {
+        awb: order.awb,
+        newDate,
+        reason: reason || 'Merchant manual reattempt approval via Dashboard',
+      }, specificConfig);
+
+      order.status = 'ndr_rescue_sent';
+      if (!order.ndr) {
+        order.ndr = { rescueMessagesSent: 1 } as any;
+      }
+      order.ndr!.resolution = 'rescheduled';
+      await order.save();
+
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'carrier_reattempt_approved_by_merchant',
+        source: 'dashboard_action_drawer',
+        payload: { carrier: order.carrier, awb: order.awb, result },
+        status: result.success ? 'success' : 'failed',
+      });
+    } else if (action === 'update_address') {
+      result = await logisticsService.updateDeliveryAddress(order.carrier as any, {
+        awb: order.awb,
+        address: address || order.customer?.address || '',
+        city: city || order.shippingCity || '',
+        pincode: pincode || order.shippingPincode || '',
+        phone: order.customerPhone,
+      }, specificConfig);
+
+      if (!order.ndr) order.ndr = { rescueMessagesSent: 1 } as any;
+      order.ndr!.resolution = 'address_updated';
+      await order.save();
+
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'carrier_address_updated_by_merchant',
+        source: 'dashboard_action_drawer',
+        payload: { carrier: order.carrier, awb: order.awb, result },
+        status: result.success ? 'success' : 'failed',
+      });
+    } else if (action === 'request_rto') {
+      result = await logisticsService.cancelDelivery(order.carrier as any, {
+        awb: order.awb,
+        reason: reason || 'Merchant manual RTO return forced via Dashboard',
+      }, specificConfig);
+
+      order.status = 'rto_initiated';
+      await order.save();
+
+      await AuditLog.create({
+        merchantId: order.merchantId,
+        orderId: order._id,
+        action: 'carrier_rto_forced_by_merchant',
+        source: 'dashboard_action_drawer',
+        payload: { carrier: order.carrier, awb: order.awb, result },
+        status: result.success ? 'success' : 'failed',
+      });
+    } else {
+      res.status(400).json({ error: `Unknown carrier action: ${action}` });
+      return;
+    }
+
+    res.status(200).json({ success: result.success, message: result.message, result, order });
+  } catch (err: any) {
+    logger.error('Failed to execute carrier action', { merchantId, orderId, error: err.message });
+    res.status(500).json({ error: err.message || 'Failed to execute carrier action' });
+  }
+});
+
 export default router;

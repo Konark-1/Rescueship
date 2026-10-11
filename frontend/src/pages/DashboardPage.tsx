@@ -1,35 +1,59 @@
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import RescueMetrics from '../components/RescueMetrics';
+import { SystemHealthRibbon } from '../components/dashboard/SystemHealthRibbon';
 import { FinancialGrid } from '../components/dashboard/FinancialGrid';
+import { ActionQueue, type UrgentOrderItem } from '../components/dashboard/ActionQueue';
+import { OrderDrawer } from '../components/dashboard/OrderDrawer';
+import { DateRangePicker, type DateRange } from '../components/dashboard/DateRangePicker';
+import { CarrierPerformanceCard } from '../components/dashboard/CarrierPerformanceCard';
+import { RtoWatchtower } from '../components/dashboard/RtoWatchtower';
+import { TopRiskPincodes } from '../components/TopRiskPincodes';
+import { FraudWatchtower } from '../components/reports/FraudWatchtower';
+import { useFinancialROI } from '../hooks/useFinancialROI';
+import { useDashboardSSE } from '../hooks/useDashboardSSE';
+import { useMerchantPlatform } from '../hooks/useMerchantPlatform';
 import type { DailyTrendItem, NdrReasonItem } from '../components/dashboard/TrendCharts';
-import { ActionQueue } from '../components/dashboard/ActionQueue';
+import type { UnifiedDashboardOrder } from '../types/dashboard.d';
+import '../styles/dashboard.css';
 
 const TrendCharts = lazy(() => import('../components/dashboard/TrendCharts'));
-import type { UrgentOrderItem } from '../components/dashboard/ActionQueue';
-import { useFinancialROI } from '../hooks/useFinancialROI';
-import { useQuery } from '@tanstack/react-query';
-
-export interface OrderItem extends UrgentOrderItem {}
+const RescueFunnel = lazy(() => import('../components/reports/RescueFunnel'));
 
 export const DashboardPage: React.FC = () => {
-  const navigate = useNavigate();
+  const { platformName, isShopify, isWooCommerce } = useMerchantPlatform();
+
+  // Selected Order for Slide-over Drawer
+  const [selectedOrder, setSelectedOrder] = useState<UnifiedDashboardOrder | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+
+  // Global Date Range
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+    endDate: new Date().toISOString(),
+  });
+
+  // State
   const [loading, setLoading] = useState<boolean>(true);
   const [totalSaved, setTotalSaved] = useState<number>(0);
   const [ordersNeedingAttention, setOrdersNeedingAttention] = useState<UrgentOrderItem[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
   const [ndrReasons, setNdrReasons] = useState<NdrReasonItem[]>([]);
-  const [roiChartData, setRoiChartData] = useState<any[]>([
+  const [roiChartData, setRoiChartData] = useState<Array<{ period: string; saved: number }>>([
     { period: 'Week 1', saved: 350000 },
     { period: 'Week 2', saved: 350000 },
     { period: 'Week 3', saved: 350000 },
     { period: 'Week 4', saved: 350000 },
   ]);
+
+  // E2E Test Compatibility: NDR Simulator
   const [simulating, setSimulating] = useState<boolean>(false);
   const [simResult, setSimResult] = useState<any>(null);
   const [fakeRemarkVerified, setFakeRemarkVerified] = useState<boolean>(false);
+
+  // Meta Tier Telemetry
   const [metaTier, setMetaTier] = useState<{
     metaTierLimit: number;
     current24hCount: number;
@@ -40,10 +64,13 @@ export const DashboardPage: React.FC = () => {
     isLimitReached: false,
   });
 
-  // Phase 2 Task 2.2: Custom hook fetching live Financial ROI
+  // Live SSE stream with TanStack Query invalidation
+  useDashboardSSE();
+
+  // Financial ROI Hook
   const { roi, loading: roiLoading } = useFinancialROI();
 
-  // TanStack Query for Analytics ROI High-Volume Telemetry
+  // High-Volume Telemetry aggregation for Recharts (E2E Test 3.3 requirement)
   const { data: rawRoiData } = useQuery({
     queryKey: ['analytics-roi-records'],
     queryFn: async () => {
@@ -57,7 +84,7 @@ export const DashboardPage: React.FC = () => {
     if (!rawRoiData) return;
     const records = rawRoiData?.records || (Array.isArray(rawRoiData) ? rawRoiData : []);
     if (records.length > 0) {
-      const total = records.reduce((acc: number, curr: any) => acc + (Number(curr.amount || curr.saved || 0)), 0);
+      const total = records.reduce((acc: number, curr: any) => acc + Number(curr.amount || curr.saved || 0), 0);
       setRoiChartData([
         { period: 'Week 1', saved: Math.round(total * 0.25) },
         { period: 'Week 2', saved: Math.round(total * 0.25) },
@@ -68,10 +95,6 @@ export const DashboardPage: React.FC = () => {
       setRoiChartData(rawRoiData.chartData);
     }
   }, [rawRoiData]);
-
-  const fetchRoiChartData = useCallback(async () => {
-    // Retained for programmatic triggers
-  }, []);
 
   const handleSimulateNdr = async () => {
     setSimulating(true);
@@ -96,16 +119,36 @@ export const DashboardPage: React.FC = () => {
         if (summaryRes.data && typeof summaryRes.data === 'object') {
           const s = summaryRes.data;
           setTotalSaved(s.totalSaved ?? 0);
-          setOrdersNeedingAttention(Array.isArray(s.ordersNeedingAttention) ? s.ordersNeedingAttention : []);
+          if (Array.isArray(s.ordersNeedingAttention)) {
+            setOrdersNeedingAttention(
+              s.ordersNeedingAttention.map((o: any) => ({
+                id: o.id || o._id || o.orderId,
+                orderId: o.orderId || o.externalOrderId || o.id || o._id,
+                externalOrderId: o.externalOrderId || o.orderId,
+                customerName: o.customerName || 'Customer',
+                phone: o.customerPhone || o.phone,
+                status: o.status,
+                orderValue: o.orderValue,
+                carrier: o.carrier,
+                platform: o.platform,
+                ndrReason: o.ndr?.reason,
+                fakeRemarkScore: o.ndr?.fakeRemarkScore,
+                isFakeAttempt: o.ndr?.isFakeAttempt,
+                rtoRisk: o.rtoRisk,
+              }))
+            );
+          }
           if (s.metaTier) {
             setMetaTier(s.metaTier);
           }
           if (Array.isArray(s.dailyConversions)) {
-            setDailyTrend(s.dailyConversions.map((d: any) => ({
-              date: d.date,
-              rescued: d.conversions || d.rescued || 0,
-              rto: Math.max(1, Math.round((d.conversions || 2) * 0.2)),
-            })));
+            setDailyTrend(
+              s.dailyConversions.map((d: any) => ({
+                date: d.date,
+                rescued: d.conversions || d.rescued || 0,
+                rto: Math.max(1, Math.round((d.conversions || 2) * 0.2)),
+              }))
+            );
           }
           if (Array.isArray(s.ndrReasons)) {
             setNdrReasons(s.ndrReasons);
@@ -127,11 +170,13 @@ export const DashboardPage: React.FC = () => {
           const a = analyticsRes.value.data;
           setTotalSaved(a.totalSaved ?? a.revenueSaved ?? a.rtoFeesSaved ?? 0);
           if (Array.isArray(a.dailyConversions)) {
-            setDailyTrend(a.dailyConversions.map((d: any) => ({
-              date: d.date,
-              rescued: d.conversions || d.rescued || 0,
-              rto: Math.max(1, Math.round((d.conversions || 2) * 0.2)),
-            })));
+            setDailyTrend(
+              a.dailyConversions.map((d: any) => ({
+                date: d.date,
+                rescued: d.conversions || d.rescued || 0,
+                rto: Math.max(1, Math.round((d.conversions || 2) * 0.2)),
+              }))
+            );
           }
           if (Array.isArray(a.ndrReasons)) {
             setNdrReasons(a.ndrReasons);
@@ -154,11 +199,13 @@ export const DashboardPage: React.FC = () => {
             .map((o: any) => ({
               id: o.id || o._id || o.orderId,
               orderId: o.orderId || o.externalOrderId || o.id || o._id,
+              externalOrderId: o.externalOrderId || o.orderId,
               customerName: o.customerName || 'Customer',
               phone: o.phone || o.customerPhone,
               status: o.status,
               orderValue: o.orderValue,
               carrier: o.carrier,
+              platform: o.platform,
               ndrReason: o.ndr?.reason,
               fakeRemarkScore: o.ndr?.fakeRemarkScore,
               isFakeAttempt: o.ndr?.isFakeAttempt,
@@ -177,103 +224,102 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     fetchDashboardData();
-    fetchRoiChartData();
-  }, [fetchDashboardData, fetchRoiChartData]);
+  }, [fetchDashboardData]);
 
+  // Open Slide-over Drawer for Order Triage
   const handleSelectOrder = (order: UrgentOrderItem) => {
-    navigate(`/orders?search=${encodeURIComponent(order.orderId || order.id)}`);
+    const unified: UnifiedDashboardOrder = {
+      id: order.id,
+      orderId: order.orderId,
+      externalOrderId: order.externalOrderId || order.orderId,
+      platform: (order.platform as any) || (isShopify ? 'shopify' : isWooCommerce ? 'woocommerce' : 'custom'),
+      customerName: order.customerName || 'Customer',
+      phone: order.phone || '',
+      orderValue: order.orderValue || 0,
+      paymentMethod: 'cod',
+      status: (order.status as any) || 'ndr_detected',
+      carrier: order.carrier,
+      createdAt: new Date().toISOString(),
+      ndr: {
+        reason: order.ndrReason,
+        fakeRemarkScore: order.fakeRemarkScore,
+        isFakeAttempt: order.isFakeAttempt,
+      },
+      rtoRisk: order.rtoRisk as any,
+    };
+    setSelectedOrder(unified);
+    setIsDrawerOpen(true);
   };
 
   return (
-    <div className="page dashboard-page" style={{ padding: '24px', maxWidth: '1440px', margin: '0 auto' }}>
-      {/* Meta Tier Hard Pre-Flight Guard Banner */}
-      {metaTier.isLimitReached && (
-        <section
-          data-testid="meta-tier-limit-banner"
-          style={{
-            background: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: 'var(--radius-lg, 12px)',
-            padding: '14px 18px',
-            marginBottom: '20px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            color: '#fca5a5',
-          }}
-        >
-          <AlertTriangle size={20} style={{ color: '#ef4444', flexShrink: 0 }} />
-          <div style={{ fontSize: '0.88rem', lineHeight: '1.45' }}>
-            <strong style={{ color: '#fef2f2' }}>
-              Daily Meta Tier Limit Reached ({metaTier.current24hCount}/{metaTier.metaTierLimit}):
-            </strong>{' '}
-            Outbound WhatsApp rescues are paused until 00:00 IST to protect your WABA reputation and deliverability.
-          </div>
-        </section>
-      )}
+    <div className="dashboard-page">
+      {/* ZONE 0: SYSTEM HEALTH RIBBON (Sticky Top) */}
+      <SystemHealthRibbon metaTier={metaTier} />
 
-      {/* Task 2.1: Mount orphaned RescueMetrics as Hero Recovery Gauge */}
-      <section aria-label="Hero Recovery Gauge" style={{ marginBottom: '24px' }}>
+      {/* Hero Recovery Gauge */}
+      <section aria-label="Hero Recovery Gauge">
         <RescueMetrics />
       </section>
 
-      {/* Hero Header Controls */}
-      <section className="dashboard-hero" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-          <div>
-            <h1 className="dashboard-hero__title" style={{ fontSize: '1.6rem', fontWeight: 700, margin: 0, color: 'var(--text-1, #f4f4f5)' }}>
-              ₹{totalSaved.toLocaleString('en-IN')} Saved This Month
-            </h1>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--text-3, #9ca3af)' }}>
-              Real-time delivery exception intelligence & automated RTO fraud interception
-            </p>
+      {/* DASHBOARD HEADER & CONTROLS */}
+      <header className="dashboard-page__header">
+        <div className="dashboard-page__title-group">
+          <h1 className="dashboard-page__title">
+            ₹{totalSaved.toLocaleString('en-IN')} Saved This Month
+          </h1>
+          <p className="dashboard-page__subtitle">
+            Autonomous RTO Interception, NDR Intelligence &amp; COD Conversion Deck ({platformName} Integrated)
+          </p>
+          <div className="dashboard-page__badges">
+            <span className="badge badge-primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+              Orders Rescued: {roi?.rescuedOrders || 0}
+            </span>
+            <span className="badge badge-success" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+              COD Prepaid: {roi?.codToPrepaidCount || 0}
+            </span>
+            <span className="badge badge-warning" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+              RTO Arrests: {ordersNeedingAttention.length}
+            </span>
+            <span className="badge badge-outline" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
+              Orders Needing Attention: {ordersNeedingAttention.length}
+            </span>
           </div>
+        </div>
+
+        <div className="dashboard-page__actions">
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
           <button
             type="button"
             data-testid="btn-simulate-ndr"
             className="btn btn-secondary btn-sm"
             onClick={handleSimulateNdr}
             disabled={simulating || metaTier.isLimitReached}
-            title={metaTier.isLimitReached ? "Daily Meta Tier Limit Reached. Rescues paused until 00:00 IST to protect your WABA reputation." : undefined}
+            title={
+              metaTier.isLimitReached
+                ? 'Daily Meta Tier Limit Reached. Rescues paused until 00:00 IST to protect your WABA reputation.'
+                : undefined
+            }
           >
-            {simulating ? 'Simulating…' : metaTier.isLimitReached ? '⚡ Rescues Paused (Tier Limit)' : '⚡ Simulate NDR'}
+            {simulating ? 'Simulating…' : metaTier.isLimitReached ? '⚡ Rescues Paused' : '⚡ Simulate NDR'}
           </button>
         </div>
-        <div className="dashboard-stats" style={{ display: 'flex', gap: '12px', marginTop: '14px', flexWrap: 'wrap' }}>
-          <span className="badge badge-primary" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
-            Orders Rescued: {roi.rescuedOrders || 0}
-          </span>
-          <span className="badge badge-success" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
-            COD→Prepaid Conversions: {roi.codToPrepaidCount || 0}
-          </span>
-          <span className="badge badge-warning" style={{ padding: '6px 12px', fontSize: '0.82rem' }}>
-            RTO Arrests: {ordersNeedingAttention.length}
-          </span>
-        </div>
-      </section>
+      </header>
 
-      {/* WhatsApp NDR Simulator Bubble / Negative Flow Guard */}
+      {/* WHATSAPP NDR SIMULATOR BUBBLE (Preserved for Playwright E2E Spec) */}
       {simResult && (
         <section
-          className="dashboard-simulator-card"
+          className="simulator-dock"
           data-testid="whatsapp-chat-bubble"
-          style={{
-            background: 'var(--bg-card, #12131f)',
-            border: '1px solid var(--border, #27273a)',
-            borderRadius: 'var(--radius-lg, 12px)',
-            padding: '16px',
-            marginBottom: '24px',
-          }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '0.92rem', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-1)' }}>
               💬 WhatsApp Rescue Simulator (AWB: {simResult.awb || 'AWB-FAKE-9988'})
             </h3>
             <button
               type="button"
               className="btn btn-ghost btn-xs"
               onClick={() => setSimResult(null)}
-              style={{ fontSize: '0.8rem', padding: '2px 8px' }}
+              style={{ fontSize: '0.78rem', padding: '2px 8px' }}
             >
               ✕ Close
             </button>
@@ -283,16 +329,16 @@ export const DashboardPage: React.FC = () => {
             <div
               data-testid="fake-remark-warning"
               style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid #ef4444',
-                color: '#fca5a5',
+                background: 'var(--rose-12)',
+                border: '1px solid var(--rose)',
+                color: 'var(--rose-light)',
                 padding: '10px 14px',
-                borderRadius: '8px',
-                marginBottom: '14px',
+                borderRadius: 'var(--radius-md)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
                 fontWeight: 600,
+                fontSize: '0.82rem',
               }}
             >
               <AlertTriangle size={16} />
@@ -302,14 +348,14 @@ export const DashboardPage: React.FC = () => {
 
           <div
             style={{
-              background: '#075e54',
-              color: '#fff',
+              background: 'var(--emerald-20)',
+              color: 'var(--emerald-light)',
+              border: '1px solid var(--emerald-30)',
               padding: '12px 16px',
-              borderRadius: '8px',
-              maxWidth: '460px',
-              marginBottom: '14px',
-              fontSize: '0.9rem',
-              lineHeight: 1.4,
+              borderRadius: 'var(--radius-md)',
+              maxWidth: '520px',
+              fontSize: '0.85rem',
+              lineHeight: 1.45,
             }}
           >
             <p style={{ margin: 0 }}>
@@ -340,7 +386,6 @@ export const DashboardPage: React.FC = () => {
                 data-testid="btn-verify-fake-remark"
                 className="btn btn-sm btn-danger"
                 onClick={() => setFakeRemarkVerified(true)}
-                style={{ background: '#dc2626', color: '#fff' }}
               >
                 {fakeRemarkVerified ? '✓ Dispute Verified' : 'Verify Fake Remark'}
               </button>
@@ -349,40 +394,52 @@ export const DashboardPage: React.FC = () => {
         </section>
       )}
 
-      {/* Task 2.2: 4-Card Financial ROI Grid */}
+      {/* ZONE 1: FINANCIAL ROI HERO GRID */}
       <FinancialGrid roi={roi} loading={roiLoading} />
 
-      {/* Task 2.3: Data Visualizations (Freight ROI + 14-Day Recovery Trend + NDR Reason Doughnut) */}
-      <Suspense
-        fallback={
-          <div
-            style={{
-              padding: '60px 20px',
-              textAlign: 'center',
-              color: 'var(--text-3, #9ca3af)',
-              background: 'var(--bg-card, rgba(255, 255, 255, 0.03))',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius-lg, 16px)',
-              margin: '24px 0',
-            }}
-          >
-            Loading visual analytics &amp; charts…
-          </div>
-        }
-      >
-        <TrendCharts
-          trendData={dailyTrend}
-          reasonsData={ndrReasons}
-          roiChartData={roiChartData}
-          loading={loading}
-        />
-      </Suspense>
-
-      {/* Task 2.4: Urgent Action Queue Table */}
+      {/* ZONE 2: LIVE NDR SMART ACTION QUEUE */}
       <ActionQueue
         orders={ordersNeedingAttention}
         loading={loading}
+        onSelectOrder={handleSelectOrder}
         onReview={handleSelectOrder}
+      />
+
+      {/* ZONE 3: RESCUE FUNNEL + TREND CHARTS (2-Column Grid) */}
+      <section className="dashboard-grid--2col" aria-label="Rescue Analytics and Funnel">
+        <Suspense fallback={<div className="fin-card">Loading AI Funnel…</div>}>
+          <RescueFunnel />
+        </Suspense>
+        <Suspense fallback={<div className="fin-card">Loading Trend Analytics…</div>}>
+          <TrendCharts
+            trendData={dailyTrend}
+            reasonsData={ndrReasons}
+            roiChartData={roiChartData}
+            loading={loading}
+          />
+        </Suspense>
+      </section>
+
+      {/* ZONE 4: CARRIER MATRIX & COURIER FRAUD WATCHTOWER (2-Column Grid) */}
+      <section className="dashboard-grid--2col" aria-label="Courier Intelligence and Fraud Dispute">
+        <CarrierPerformanceCard />
+        <FraudWatchtower />
+      </section>
+
+      {/* ZONE 5: PRE-DISPATCH PREDICTIVE RTO WATCHTOWER */}
+      <RtoWatchtower />
+
+      {/* ZONE 6: TOP RISK PINCODES & STOREFRONT SYNC */}
+      <section aria-label="High Risk Pincodes Intelligence">
+        <TopRiskPincodes />
+      </section>
+
+      {/* SLIDE-OVER ACTION DRAWER */}
+      <OrderDrawer
+        order={selectedOrder}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onOrderUpdated={fetchDashboardData}
       />
     </div>
   );

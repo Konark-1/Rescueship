@@ -1,0 +1,462 @@
+/* ==========================================================================
+   ⚓ RESCUESHIP DASHBOARD COMMAND DECK (BEM + ZERO HARDCODED COLOR TOKENS)
+   ========================================================================== */
+
+/* ===== PAGE SHELL & CONTROLS ===== */
+.dashboard-page {
+  width: 100%;
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: var(--space-6, 24px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 24px);
+}
+
+.dashboard-page__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4, 16px);
+}
+
+.dashboard-page__title-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1, 4px);
+}
+
+.dashboard-page__title {
+  margin: 0;
+  font-size: 1.65rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-1);
+  font-family: var(--font-display);
+}
+
+.dashboard-page__subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-3);
+}
+
+.dashboard-page__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  flex-wrap: wrap;
+}
+
+.dashboard-page__badges {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  flex-wrap: wrap;
+  margin-top: var(--space-2, 8px);
+}
+
+.dashboard-grid--2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6, 24px);
+}
+
+/* ===== ZONE 0: SYSTEM HEALTH RIBBON ===== */
+.health-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4, 16px);
+  padding: var(--space-2, 8px) var(--space-4, 16px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  backdrop-filter: blur(12px);
+  font-size: 0.82rem;
+  color: var(--text-2);
+}
+
+.health-ribbon--critical {
+  background: var(--rose-12);
+  border-color: var(--rose);
+  color: var(--rose-light);
+}
+
+.health-ribbon__left,
+.health-ribbon__center,
+.health-ribbon__right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+}
+
+.health-ribbon__center {
+  flex: 1;
+  max-width: 520px;
+}
+
+.health-ribbon__quality-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+}
+
+.health-ribbon__quality-dot--green {
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald);
+}
+
+.health-ribbon__quality-dot--yellow {
+  background: var(--amber);
+  box-shadow: 0 0 8px var(--amber);
+}
+
+.health-ribbon__quality-dot--red {
+  background: var(--rose);
+  box-shadow: 0 0 8px var(--rose);
+}
+
+.health-ribbon__tier-bar {
+  flex: 1;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.health-ribbon__tier-fill {
+  height: 100%;
+  border-radius: var(--radius-full);
+  background: var(--emerald);
+  transition: width 0.4s ease, background 0.3s ease;
+}
+
+.health-ribbon__tier-fill--warning {
+  background: var(--amber);
+}
+
+.health-ribbon__tier-fill--critical {
+  background: var(--rose);
+}
+
+/* ===== ZONE 1: FINANCIAL ROI GRID ===== */
+.fin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-4, 16px);
+}
+
+.fin-card {
+  position: relative;
+  overflow: hidden;
+  padding: var(--space-5, 20px);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 130px;
+}
+
+.fin-card:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+  transform: translateY(-2px);
+}
+
+.fin-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.fin-card__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-3);
+}
+
+.fin-card__icon-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--indigo-10);
+  color: var(--indigo-soft);
+}
+
+.fin-card__value {
+  font-size: 1.85rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  color: var(--text-1);
+  letter-spacing: -0.02em;
+  margin: var(--space-2, 8px) 0;
+}
+
+.fin-card__subtext {
+  font-size: 0.78rem;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+
+.fin-card__subtext--positive {
+  color: var(--emerald);
+}
+
+/* ===== ZONE 2: SMART ACTION QUEUE ===== */
+.action-queue-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  overflow: hidden;
+}
+
+.action-queue-card__header {
+  padding: var(--space-4, 16px) var(--space-5, 20px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.action-queue-card__title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+.action-queue__table-wrap {
+  overflow-x: auto;
+  max-height: 480px;
+}
+
+.action-queue__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.action-queue__table th {
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  color: var(--text-3);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  white-space: nowrap;
+}
+
+.action-queue__table td {
+  padding: var(--space-3, 12px) var(--space-4, 16px);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  vertical-align: middle;
+}
+
+.action-queue__row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.action-queue__row:hover {
+  background: var(--bg-card-hover);
+}
+
+.action-queue__row--critical {
+  border-left: 3px solid var(--rose);
+}
+
+.action-queue__countdown {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs, 4px);
+}
+
+.action-queue__countdown--urgent {
+  color: var(--rose);
+  background: var(--rose-10);
+}
+
+.action-queue__countdown--warning {
+  color: var(--amber);
+  background: var(--amber-10);
+}
+
+.action-queue__countdown--safe {
+  color: var(--emerald);
+  background: var(--emerald-10);
+}
+
+/* ===== SLIDE-OVER DRAWER ===== */
+.order-drawer__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+}
+
+.order-drawer__panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 520px;
+  max-width: 100vw;
+  height: 100vh;
+  background: var(--bg-deep);
+  border-left: 1px solid var(--border-hover);
+  z-index: 101;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.8);
+}
+
+.order-drawer__header {
+  padding: var(--space-5, 20px);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: sticky;
+  top: 0;
+  background: var(--bg-deep);
+  z-index: 2;
+}
+
+.order-drawer__body {
+  padding: var(--space-5, 20px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5, 20px);
+}
+
+.order-drawer__section {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+.order-drawer__section-title {
+  margin: 0;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+}
+
+/* ===== WHATSAPP CHAT PREVIEW ===== */
+.wa-transcript {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+  max-height: 260px;
+  overflow-y: auto;
+  padding: var(--space-3, 12px);
+  background: var(--bg-void);
+  border-radius: var(--radius-md, 8px);
+  border: 1px solid var(--border);
+}
+
+.wa-transcript__bubble--bot {
+  background: var(--emerald-20);
+  color: var(--emerald-light);
+  border: 1px solid var(--emerald-30);
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  max-width: 85%;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.wa-transcript__bubble--customer {
+  background: var(--bg-surface);
+  color: var(--text-1);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm, 6px) var(--radius-sm, 6px) 0 var(--radius-sm, 6px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  max-width: 85%;
+  margin-left: auto;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+/* ===== SIMULATOR BUBBLE (FOR DEV & PLAYWRIGHT E2E) ===== */
+.simulator-dock {
+  background: var(--bg-card);
+  border: 1px dashed var(--indigo);
+  border-radius: var(--radius-lg, 12px);
+  padding: var(--space-4, 16px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 12px);
+}
+
+/* ===== RESPONSIVE BREAKPOINTS ===== */
+@media (max-width: 1024px) {
+  .dashboard-grid--2col {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: var(--space-4, 16px);
+    gap: var(--space-4, 16px);
+  }
+
+  .fin-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .order-drawer__panel {
+    width: 100vw;
+  }
+
+  .health-ribbon {
+    flex-direction: column;
+    align-items: stretch;
+    height: auto;
+  }
+
+  .health-ribbon__center {
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .fin-grid {
+    grid-template-columns: 1fr;
+  }
+}

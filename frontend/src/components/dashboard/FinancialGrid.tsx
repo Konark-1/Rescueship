@@ -15,23 +15,15 @@ const formatInr = (amount: number): string => {
     style: 'currency',
     currency: 'INR',
     maximumFractionDigits: 0,
-  }).format(amount);
+  }).format(amount || 0);
 };
 
 export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = false }) => {
   if (loading) {
     return (
-      <div
-        className="financial-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '16px',
-          marginBottom: '24px',
-        }}
-      >
+      <div className="fin-grid" aria-label="Loading Financial ROI Summary">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} style={{ padding: '20px' }}>
+          <Card key={i} className="fin-card">
             <Skeleton style={{ height: '16px', width: '60%', marginBottom: '12px' }} />
             <Skeleton style={{ height: '32px', width: '80%', marginBottom: '8px' }} />
             <Skeleton style={{ height: '12px', width: '40%' }} />
@@ -41,213 +33,96 @@ export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = fal
     );
   }
 
-  const netSavingsFormatted = formatInr(roi.netSavings);
-  const rescueRateFormatted = `${(roi.rescueRate || 0).toFixed(1)}%`;
-  const codPrepaidFormatted = formatInr(roi.codToPrepaidGmv);
-  const roiMultipleFormatted = `${(roi.roiMultiple || 1.0).toFixed(1)}x`;
-  const isHighRoi = (roi.roiMultiple || 0) > 1.0;
+  const netSavingsFormatted = formatInr(roi?.netSavings || 0);
+  const rescueRateFormatted = `${(roi?.rescueRate || 0).toFixed(1)}%`;
+  const codPrepaidFormatted = formatInr(roi?.codToPrepaidGmv || 0);
+  const roiMultipleFormatted = `${(roi?.roiMultiple || 1.0).toFixed(1)}x`;
+  const isHighRoi = (roi?.roiMultiple || 0) > 1.0;
 
   return (
-    <section aria-label="Executive Financial ROI Summary" style={{ marginBottom: '24px' }}>
-      <div
-        className="financial-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-          gap: '16px',
-        }}
-      >
+    <section aria-label="Executive Financial ROI Summary">
+      <div className="fin-grid">
         {/* Card 1: Net Money Saved */}
-        <Card
-          style={{
-            position: 'relative',
-            overflow: 'hidden',
-            border: '1px solid rgba(16, 185, 129, 0.25)',
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
-          }}
-        >
-          <CardHeader style={{ padding: '18px 20px 8px 20px', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <CardTitle style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-3, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Net Money Saved
-            </CardTitle>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                color: 'var(--emerald, #10b981)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        <Card className="fin-card">
+          <CardHeader className="fin-card__header" style={{ padding: 0 }}>
+            <CardTitle className="fin-card__label">Net Money Saved</CardTitle>
+            <div className="fin-card__icon-wrap" style={{ background: 'var(--emerald-15)', color: 'var(--emerald)' }}>
               <IndianRupee size={18} />
             </div>
           </CardHeader>
-          <CardContent style={{ padding: '0 20px 18px 20px' }}>
-            <div
-              style={{
-                fontSize: '1.85rem',
-                fontWeight: 700,
-                color: '#fff',
-                fontFamily: 'var(--font-display, inherit)',
-                letterSpacing: '-0.02em',
-                marginBottom: '4px',
-              }}
-            >
+          <CardContent style={{ padding: 0 }}>
+            <div className="fin-card__value" style={{ color: 'var(--text-1)' }}>
               {netSavingsFormatted}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-3, #9ca3af)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <TrendingUp size={14} color="var(--emerald, #10b981)" />
-              <span>After WhatsApp HSM costs deducted</span>
+            <div className="fin-card__subtext">
+              <span>₹{(roi?.freightSavings || 0).toLocaleString('en-IN')} freight</span>
+              <span>•</span>
+              <span className="fin-card__subtext--positive">
+                ₹{(roi?.gmvMarginSavings || 0).toLocaleString('en-IN')} retained margin
+              </span>
             </div>
           </CardContent>
         </Card>
 
         {/* Card 2: Rescue Rate */}
-        <Card
-          style={{
-            position: 'relative',
-            overflow: 'hidden',
-            border: '1px solid rgba(99, 102, 241, 0.25)',
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
-          }}
-        >
-          <CardHeader style={{ padding: '18px 20px 8px 20px', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <CardTitle style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-3, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Rescue Rate
-            </CardTitle>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(99, 102, 241, 0.15)',
-                color: 'var(--indigo-soft, #818cf8)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        <Card className="fin-card">
+          <CardHeader className="fin-card__header" style={{ padding: 0 }}>
+            <CardTitle className="fin-card__label">Rescue Rate</CardTitle>
+            <div className="fin-card__icon-wrap" style={{ background: 'var(--indigo-15)', color: 'var(--indigo-soft)' }}>
               <ShieldCheck size={18} />
             </div>
           </CardHeader>
-          <CardContent style={{ padding: '0 20px 18px 20px' }}>
-            <div
-              style={{
-                fontSize: '1.85rem',
-                fontWeight: 700,
-                color: '#fff',
-                fontFamily: 'var(--font-display, inherit)',
-                letterSpacing: '-0.02em',
-                marginBottom: '4px',
-              }}
-            >
+          <CardContent style={{ padding: 0 }}>
+            <div className="fin-card__value">
               {rescueRateFormatted}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-3, #9ca3af)' }}>
-              <span>{roi.rescuedOrders} deliveries saved from RTO return</span>
+            <div className="fin-card__subtext">
+              <span>{roi?.rescuedOrders || 0} orders rescued</span>
+              <Badge variant="outline" style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>
+                ₹140/order
+              </Badge>
             </div>
           </CardContent>
         </Card>
 
         {/* Card 3: COD → Prepaid Conversions */}
-        <Card
-          style={{
-            position: 'relative',
-            overflow: 'hidden',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
-          }}
-        >
-          <CardHeader style={{ padding: '18px 20px 8px 20px', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <CardTitle style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-3, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              COD → Prepaid Conversions
-            </CardTitle>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(56, 189, 248, 0.15)',
-                color: 'var(--cyan, #38bdf8)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
+        <Card className="fin-card">
+          <CardHeader className="fin-card__header" style={{ padding: 0 }}>
+            <CardTitle className="fin-card__label">COD → Prepaid GMV</CardTitle>
+            <div className="fin-card__icon-wrap" style={{ background: 'var(--amber-15)', color: 'var(--amber)' }}>
               <CreditCard size={18} />
             </div>
           </CardHeader>
-          <CardContent style={{ padding: '0 20px 18px 20px' }}>
-            <div
-              style={{
-                fontSize: '1.85rem',
-                fontWeight: 700,
-                color: '#fff',
-                fontFamily: 'var(--font-display, inherit)',
-                letterSpacing: '-0.02em',
-                marginBottom: '4px',
-              }}
-            >
+          <CardContent style={{ padding: 0 }}>
+            <div className="fin-card__value">
               {codPrepaidFormatted}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-3, #9ca3af)' }}>
-              <span>{roi.codToPrepaidCount} orders paid via instant UPI</span>
+            <div className="fin-card__subtext">
+              <span>{roi?.codToPrepaidCount || 0} converted orders</span>
+              <span className="fin-card__subtext--positive" style={{ marginLeft: 'auto' }}>
+                Zero RTO Risk
+              </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* Card 4: ROI Multiple */}
-        <Card
-          style={{
-            position: 'relative',
-            overflow: 'hidden',
-            border: '1px solid rgba(245, 158, 11, 0.25)',
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)',
-          }}
-        >
-          <CardHeader style={{ padding: '18px 20px 8px 20px', display: 'flex', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <CardTitle style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-3, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              ROI Multiple
-            </CardTitle>
-            <div
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
-                background: 'rgba(245, 158, 11, 0.15)',
-                color: 'var(--amber, #f59e0b)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Sparkles size={18} />
+        {/* Card 4: Net ROI Multiple */}
+        <Card className="fin-card">
+          <CardHeader className="fin-card__header" style={{ padding: 0 }}>
+            <CardTitle className="fin-card__label">Net ROI Multiple</CardTitle>
+            <div className="fin-card__icon-wrap" style={{ background: isHighRoi ? 'var(--emerald-15)' : 'var(--indigo-10)', color: isHighRoi ? 'var(--emerald)' : 'var(--text-3)' }}>
+              {isHighRoi ? <TrendingUp size={18} /> : <Sparkles size={18} />}
             </div>
           </CardHeader>
-          <CardContent style={{ padding: '0 20px 18px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginBottom: '4px' }}>
-              <span
-                style={{
-                  fontSize: '1.85rem',
-                  fontWeight: 700,
-                  color: '#fff',
-                  fontFamily: 'var(--font-display, inherit)',
-                  letterSpacing: '-0.02em',
-                }}
-              >
-                {roiMultipleFormatted}
-              </span>
-              {isHighRoi && (
-                <Badge variant="success" style={{ fontSize: '0.72rem', padding: '2px 6px' }}>
-                  High Efficiency
-                </Badge>
-              )}
+          <CardContent style={{ padding: 0 }}>
+            <div className="fin-card__value" style={{ color: isHighRoi ? 'var(--emerald)' : 'var(--text-1)' }}>
+              {roiMultipleFormatted}
             </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-3, #9ca3af)' }}>
-              <span>Gross savings vs outreach spend</span>
+            <div className="fin-card__subtext">
+              <span>Deducts ₹{(roi?.whatsappHsmCosts || 0).toLocaleString('en-IN')} HSM cost</span>
+              <span style={{ marginLeft: 'auto', color: 'var(--emerald)' }}>
+                {isHighRoi ? 'High Yield' : 'Baseline'}
+              </span>
             </div>
           </CardContent>
         </Card>
@@ -255,5 +130,3 @@ export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = fal
     </section>
   );
 };
-
-export default FinancialGrid;
