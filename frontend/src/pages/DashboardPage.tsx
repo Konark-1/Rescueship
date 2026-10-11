@@ -17,6 +17,7 @@ import { useDashboardSSE } from '../hooks/useDashboardSSE';
 import { useMerchantPlatform } from '../hooks/useMerchantPlatform';
 import type { DailyTrendItem, NdrReasonItem } from '../components/dashboard/TrendCharts';
 import type { UnifiedDashboardOrder } from '../types/dashboard.d';
+import { bucketRoiRecordsByWeek } from '../lib/utils';
 import '../styles/dashboard.css';
 
 const TrendCharts = lazy(() => import('../components/dashboard/TrendCharts'));
@@ -78,20 +79,13 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     if (!rawRoiData) return;
-    const records = rawRoiData?.records || (Array.isArray(rawRoiData) ? rawRoiData : []);
-    if (records.length > 0) {
-      const total = records.reduce((acc: number, curr: any) => acc + Number(curr.amount || curr.saved || 0), 0);
-      setRoiChartData([
-        { period: 'Week 1', saved: Math.round(total * 0.25) },
-        { period: 'Week 2', saved: Math.round(total * 0.25) },
-        { period: 'Week 3', saved: Math.round(total * 0.25) },
-        { period: 'Week 4', saved: Math.round(total * 0.25) },
-      ]);
-    } else if (rawRoiData?.chartData && Array.isArray(rawRoiData.chartData) && rawRoiData.chartData.length > 0) {
+    if (rawRoiData?.chartData && Array.isArray(rawRoiData.chartData) && rawRoiData.chartData.length > 0) {
       setRoiChartData(rawRoiData.chartData);
-    } else {
-      setRoiChartData([]);
+      return;
     }
+
+    const records = rawRoiData?.records || (Array.isArray(rawRoiData) ? rawRoiData : []);
+    setRoiChartData(bucketRoiRecordsByWeek(records));
   }, [rawRoiData]);
 
   const handleSimulateNdr = async () => {
@@ -135,7 +129,7 @@ export const DashboardPage: React.FC = () => {
                 ndrReason: o.ndr?.reason,
                 fakeRemarkScore: o.ndr?.fakeRemarkScore,
                 isFakeAttempt: o.ndr?.isFakeAttempt,
-                detectedAt: o.ndr?.detectedAt || o.createdAt,
+                detectedAt: o.ndr?.detectedAt ?? o.ndrDetectedAt ?? null,
                 paymentMethod: o.paymentMethod || (o.financial_status === 'PREPAID' ? 'prepaid' : 'cod'),
                 shippingAddress: o.shippingAddress || o.customer?.address || null,
                 aiAddress: o.aiAddress || (o.ndr?.addressUpdate?.textAddress ? { original: o.ndr.addressUpdate.textAddress, parsed: o.ndr.addressUpdate.geocodedAddress || o.ndr.addressUpdate.textAddress } : undefined),
@@ -217,7 +211,7 @@ export const DashboardPage: React.FC = () => {
               ndrReason: o.ndr?.reason,
               fakeRemarkScore: o.ndr?.fakeRemarkScore,
               isFakeAttempt: o.ndr?.isFakeAttempt,
-              detectedAt: o.ndr?.detectedAt || o.createdAt,
+              detectedAt: o.ndr?.detectedAt ?? o.ndrDetectedAt ?? null,
               paymentMethod: o.paymentMethod || (o.financial_status === 'PREPAID' ? 'prepaid' : 'cod'),
               shippingAddress: o.shippingAddress || o.customer?.address || null,
               aiAddress: o.aiAddress || (o.ndr?.addressUpdate?.textAddress ? { original: o.ndr.addressUpdate.textAddress, parsed: o.ndr.addressUpdate.geocodedAddress || o.ndr.addressUpdate.textAddress } : undefined),

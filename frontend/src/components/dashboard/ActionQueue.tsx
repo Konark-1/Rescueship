@@ -18,6 +18,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import type { StorePlatform } from '../../types/dashboard.d';
+import { computeSlaCountdown } from '../../lib/utils';
 
 export interface UrgentOrderItem {
   id: string;
@@ -68,10 +69,12 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
   const [now, setNow] = useState<number>(Date.now());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Periodic tick every 30s to keep SLA countdown fresh
+  // Periodic tick every 30s to keep SLA countdown fresh (paused when document is hidden)
   useEffect(() => {
     const timer = setInterval(() => {
-      setNow(Date.now());
+      if (!document.hidden) {
+        setNow(Date.now());
+      }
     }, 30000);
     return () => clearInterval(timer);
   }, []);
@@ -128,10 +131,24 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
 
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault();
-        setSelectedIndex((prev) => Math.min(prev + 1, filteredOrders.length - 1));
+        setSelectedIndex((prev) => {
+          const next = Math.min(prev + 1, filteredOrders.length - 1);
+          const target = filteredOrders[next];
+          if (target) {
+            document.getElementById(`order-row-${target.id || target.orderId}`)?.focus();
+          }
+          return next;
+        });
       } else if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault();
-        setSelectedIndex((prev) => Math.max(prev - 1, 0));
+        setSelectedIndex((prev) => {
+          const next = Math.max(prev - 1, 0);
+          const target = filteredOrders[next];
+          if (target) {
+            document.getElementById(`order-row-${target.id || target.orderId}`)?.focus();
+          }
+          return next;
+        });
       } else if (e.key === 'Enter' && filteredOrders[selectedIndex]) {
         e.preventDefault();
         handleRowClick(filteredOrders[selectedIndex]);
@@ -143,38 +160,7 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
   }, [filteredOrders, selectedIndex, handleRowClick, keysEnabled]);
 
   const getCountdownLabel = (order: UrgentOrderItem) => {
-    const isCarrierDelhivery = (order.carrier || '').toLowerCase().includes('delhivery');
-    const totalSlaHours = isCarrierDelhivery ? 48 : 24;
-
-    if (!order.detectedAt) {
-      return { text: 'Awaiting scan', className: 'action-queue__countdown--safe' };
-    }
-
-    const detectedTime = new Date(order.detectedAt).getTime();
-    if (isNaN(detectedTime)) {
-      return { text: 'Awaiting scan', className: 'action-queue__countdown--safe' };
-    }
-
-    const deadline = detectedTime + totalSlaHours * 60 * 60 * 1000;
-    const diffMs = deadline - now;
-
-    if (diffMs <= 0) {
-      return { text: 'RTO Initiated', className: 'action-queue__countdown--urgent' };
-    }
-
-    const hoursLeft = Math.floor(diffMs / (60 * 60 * 1000));
-    const minutesLeft = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
-
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const text = `${pad(hoursLeft)}h ${pad(minutesLeft)}m`;
-
-    if (hoursLeft <= 3) {
-      return { text, className: 'action-queue__countdown--urgent' };
-    }
-    if (hoursLeft <= 8) {
-      return { text, className: 'action-queue__countdown--warning' };
-    }
-    return { text, className: 'action-queue__countdown--safe' };
+    return computeSlaCountdown(order.carrier, order.detectedAt, now, order.status);
   };
 
   const renderReasonBadge = (reason: string | undefined) => {
@@ -430,8 +416,15 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
                   return (
                     <tr
                       key={order.id || order.orderId}
+                      id={`order-row-${order.id || order.orderId}`}
+                      tabIndex={0}
                       className={`action-queue__row ${isFake ? 'action-queue__row--critical' : ''}`}
                       onClick={() => handleRowClick(order)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleRowClick(order);
+                        }
+                      }}
                       style={{
                         background: isSelected ? 'var(--bg-card-hover)' : undefined,
                         outline: isSelected ? '1px solid var(--indigo-30)' : undefined,

@@ -91,6 +91,19 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
     };
   }, [isOpen, onClose]);
 
+  // Return focus to originating queue row on close (WCAG 2.4.3)
+  const prevIsOpenRef = useRef<boolean>(isOpen);
+  useEffect(() => {
+    if (prevIsOpenRef.current && !isOpen && order?.id) {
+      const rowId = `order-row-${order.id || order.orderId}`;
+      const rowEl = document.getElementById(rowId);
+      if (rowEl) {
+        rowEl.focus();
+      }
+    }
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, order?.id, order?.orderId]);
+
   useEffect(() => {
     if (!isOpen || !order?.id) {
       setMessages([]);
@@ -199,9 +212,11 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
       <div className="order-drawer__overlay" onClick={onClose} aria-hidden="true" />
       <aside
         ref={drawerPanelRef}
+        role="dialog"
+        aria-modal="true"
         tabIndex={-1}
         className="order-drawer__panel"
-        aria-label={`Order Details for #${order.externalOrderId}`}
+        aria-label={`Order Triage - #${order.externalOrderId}`}
       >
         {/* Header */}
         <div className="order-drawer__header">

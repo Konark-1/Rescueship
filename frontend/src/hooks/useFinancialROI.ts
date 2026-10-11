@@ -54,7 +54,7 @@ export function useFinancialROI(startDate?: string, endDate?: string): UseFinanc
     const netSavings = Number(source.netSavings ?? source.grossSavings ?? 0);
     const rescueRate = Number(source.rescueRate ?? 0);
     const codToPrepaidGmv = Number(source.codToPrepaidGmv ?? source.retainedGmv ?? 0);
-    const roiMultiple = Number(source.roiMultiple ?? (netSavings > 0 ? Number((netSavings / 5000).toFixed(1)) : 1.0));
+    const roiMultiple = Number(source.roiMultiple ?? 1.0);
 
     return {
       rescuedOrders: Number(source.rescuedOrders ?? 0),
