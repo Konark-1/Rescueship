@@ -35,6 +35,7 @@ export const DashboardPage: React.FC = () => {
     startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
     endDate: new Date().toISOString(),
   });
+  const [hasCustomRange, setHasCustomRange] = useState<boolean>(false);
 
   // State
   const [loading, setLoading] = useState<boolean>(true);
@@ -65,13 +66,18 @@ export const DashboardPage: React.FC = () => {
   useDashboardSSE();
 
   // Financial ROI Hook
-  const { roi, loading: roiLoading } = useFinancialROI();
+  const { roi, loading: roiLoading } = useFinancialROI(
+    hasCustomRange ? dateRange.startDate : undefined,
+    hasCustomRange ? dateRange.endDate : undefined
+  );
 
   // High-Volume Telemetry aggregation for Recharts (E2E Test 3.3 requirement)
   const { data: rawRoiData } = useQuery({
-    queryKey: ['analytics-roi-records'],
+    queryKey: ['analytics-roi-records', hasCustomRange ? dateRange.startDate : null, hasCustomRange ? dateRange.endDate : null],
     queryFn: async () => {
-      const res = await api.get('/api/analytics/roi');
+      const res = await api.get('/api/analytics/roi', {
+        params: hasCustomRange ? { startDate: dateRange.startDate, endDate: dateRange.endDate } : undefined,
+      });
       return res.data;
     },
     staleTime: 60000,
@@ -107,7 +113,9 @@ export const DashboardPage: React.FC = () => {
 
       // 1. Primary: /api/dashboard/summary
       try {
-        const summaryRes = await api.get('/api/dashboard/summary');
+        const summaryRes = await api.get('/api/dashboard/summary', {
+          params: hasCustomRange ? { startDate: dateRange.startDate, endDate: dateRange.endDate } : undefined,
+        });
         if (summaryRes.data && typeof summaryRes.data === 'object') {
           const s = summaryRes.data;
           setTotalSaved(s.totalSaved ?? 0);
@@ -226,7 +234,7 @@ export const DashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -296,7 +304,13 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="dashboard-page__actions">
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
+          <DateRangePicker
+            value={dateRange}
+            onChange={(newRange) => {
+              setDateRange(newRange);
+              setHasCustomRange(true);
+            }}
+          />
           <button
             type="button"
             data-testid="btn-simulate-ndr"
@@ -418,7 +432,7 @@ export const DashboardPage: React.FC = () => {
       {/* ZONE 3: RESCUE FUNNEL + TREND CHARTS (2-Column Grid) */}
       <section className="dashboard-grid--2col" aria-label="Rescue Analytics and Funnel">
         <Suspense fallback={<div className="fin-card">Loading AI Funnel…</div>}>
-          <RescueFunnel />
+          <RescueFunnel dateRange={hasCustomRange ? dateRange : undefined} />
         </Suspense>
         <Suspense fallback={<div className="fin-card">Loading Trend Analytics…</div>}>
           <TrendCharts
@@ -432,12 +446,12 @@ export const DashboardPage: React.FC = () => {
 
       {/* ZONE 4: CARRIER MATRIX & COURIER FRAUD WATCHTOWER (2-Column Grid) */}
       <section className="dashboard-grid--2col" aria-label="Courier Intelligence and Fraud Dispute">
-        <CarrierPerformanceCard />
-        <FraudWatchtower />
+        <CarrierPerformanceCard dateRange={hasCustomRange ? dateRange : undefined} />
+        <FraudWatchtower dateRange={hasCustomRange ? dateRange : undefined} />
       </section>
 
       {/* ZONE 5: PRE-DISPATCH PREDICTIVE RTO WATCHTOWER */}
-      <RtoWatchtower />
+      <RtoWatchtower onActionComplete={fetchDashboardData} />
 
       {/* ZONE 6: TOP RISK PINCODES & STOREFRONT SYNC */}
       <section aria-label="High Risk Pincodes Intelligence">

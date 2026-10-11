@@ -34,11 +34,13 @@ export interface UseRescueFunnelReturn {
   refetch: () => Promise<void>;
 }
 
-export function useRescueFunnel(): UseRescueFunnelReturn {
+export function useRescueFunnel(dateRange?: { startDate?: string; endDate?: string }): UseRescueFunnelReturn {
   const { data, isLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['analytics-rescue-funnel'],
+    queryKey: ['analytics-rescue-funnel', dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
-      const res = await api.get('/api/analytics/funnel');
+      const res = await api.get('/api/analytics/funnel', {
+        params: dateRange?.startDate && dateRange?.endDate ? { startDate: dateRange.startDate, endDate: dateRange.endDate } : undefined,
+      });
       return res.data;
     },
     staleTime: 60000,

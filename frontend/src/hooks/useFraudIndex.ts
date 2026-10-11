@@ -26,13 +26,15 @@ export interface UseFraudIndexReturn {
   exportDisputeCsv: (carrier?: string) => Promise<void>;
 }
 
-export function useFraudIndex(): UseFraudIndexReturn {
+export function useFraudIndex(dateRange?: { startDate?: string; endDate?: string }): UseFraudIndexReturn {
   const [exporting, setExporting] = useState<boolean>(false);
 
   const { data, isLoading, error: queryError, refetch } = useQuery({
-    queryKey: ['analytics-fraud-index'],
+    queryKey: ['analytics-fraud-index', dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
-      const res = await api.get('/api/analytics/fraud-index');
+      const res = await api.get('/api/analytics/fraud-index', {
+        params: dateRange?.startDate && dateRange?.endDate ? { startDate: dateRange.startDate, endDate: dateRange.endDate } : undefined,
+      });
       return res.data;
     },
     staleTime: 60000,

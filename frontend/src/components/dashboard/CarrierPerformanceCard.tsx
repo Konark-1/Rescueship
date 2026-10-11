@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Truck, Lock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
@@ -18,11 +19,18 @@ interface CarrierStat {
   fakeAttempts?: number;
 }
 
-export const CarrierPerformanceCard: React.FC = () => {
+interface CarrierPerformanceCardProps {
+  dateRange?: { startDate: string; endDate: string };
+}
+
+export const CarrierPerformanceCard: React.FC<CarrierPerformanceCardProps> = ({ dateRange }) => {
+  const navigate = useNavigate();
   const { data, isLoading, error } = useQuery<CarrierStat[]>({
-    queryKey: ['analytics-carriers'],
+    queryKey: ['analytics-carriers', dateRange?.startDate, dateRange?.endDate],
     queryFn: async () => {
-      const res = await api.get('/api/analytics/carriers');
+      const res = await api.get('/api/analytics/carriers', {
+        params: dateRange ? { startDate: dateRange.startDate, endDate: dateRange.endDate } : undefined,
+      });
       const carriers = res.data?.carriers || res.data || [];
       return Array.isArray(carriers) ? carriers : [];
     },
@@ -30,12 +38,7 @@ export const CarrierPerformanceCard: React.FC = () => {
   });
 
   const isGated = Boolean(error && (error as any)?.response?.status === 403);
-  const carriers = data && data.length > 0 ? data : [
-    { carrier: 'Delhivery Surface', totalOrders: 420, totalNDR: 52, rescued: 28, rto: 24, rescueRate: 53.8, fakeAttempts: 4 },
-    { carrier: 'Blue Dart Express', totalOrders: 280, totalNDR: 19, rescued: 13, rto: 6, rescueRate: 68.4, fakeAttempts: 1 },
-    { carrier: 'Shadowfax Quick', totalOrders: 210, totalNDR: 44, rescued: 18, rto: 26, rescueRate: 40.9, fakeAttempts: 12 },
-    { carrier: 'Shiprocket Multi', totalOrders: 190, totalNDR: 26, rescued: 14, rto: 12, rescueRate: 53.8, fakeAttempts: 3 },
-  ];
+  const carriers = data || [];
 
   return (
     <Card className="action-queue-card" style={{ height: '100%' }}>
@@ -45,7 +48,7 @@ export const CarrierPerformanceCard: React.FC = () => {
           Carrier Reliability Matrix
         </CardTitle>
         <Badge variant="outline" style={{ fontSize: '0.72rem' }}>
-          30-Day Aggregation
+          Period Aggregation
         </Badge>
       </CardHeader>
 
@@ -65,7 +68,19 @@ export const CarrierPerformanceCard: React.FC = () => {
             <div style={{ fontSize: '0.8rem', maxWidth: '300px', margin: '0 auto 12px auto' }}>
               Multi-carrier NDR rate benchmarking and courier SLA tracking requires a Growth plan.
             </div>
-            <Button variant="default" size="sm">Upgrade to Growth</Button>
+            <Button variant="default" size="sm" onClick={() => navigate('/billing')}>
+              Upgrade to Growth
+            </Button>
+          </div>
+        ) : carriers.length === 0 ? (
+          <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-3)' }}>
+            <Truck size={24} style={{ margin: '0 auto 8px auto', color: 'var(--text-3)' }} />
+            <div style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: '4px' }}>
+              No Carrier Analytics Recorded Yet
+            </div>
+            <div style={{ fontSize: '0.8rem', maxWidth: '320px', margin: '0 auto' }}>
+              Once shipments are dispatched through your connected logistics partners (Shiprocket, Delhivery, etc.), comparative reliability metrics will appear here.
+            </div>
           </div>
         ) : (
           <div className="action-queue__table-wrap">

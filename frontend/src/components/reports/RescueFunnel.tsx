@@ -19,8 +19,12 @@ import type { FunnelStage } from '../../types/analytics.d';
 
 const STAGE_COLORS = ['#6366f1', '#38bdf8', '#f59e0b', '#10b981'];
 
-export const RescueFunnel: React.FC = () => {
-  const { funnelData, loading, error, refetch } = useRescueFunnel();
+interface RescueFunnelProps {
+  dateRange?: { startDate: string; endDate: string };
+}
+
+export const RescueFunnel: React.FC<RescueFunnelProps> = ({ dateRange }) => {
+  const { funnelData, loading, error, refetch } = useRescueFunnel(dateRange);
 
   if (loading) {
     return (

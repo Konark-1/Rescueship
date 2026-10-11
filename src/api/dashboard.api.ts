@@ -25,43 +25,53 @@ router.get('/summary', authenticateToken, async (req: AuthenticatedRequest, res:
   }
 
   try {
+    const startDateStr = req.query.startDate as string;
+    const endDateStr = req.query.endDate as string;
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const startDate = startDateStr && !isNaN(Date.parse(startDateStr))
+      ? new Date(startDateStr)
+      : new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+    const endDate = endDateStr && !isNaN(Date.parse(endDateStr))
+      ? new Date(endDateStr)
+      : now;
     const mId = Types.ObjectId.isValid(merchantId) ? new Types.ObjectId(merchantId) : merchantId;
 
-    logger.info('Fetching dashboard summary', { merchantId });
+    logger.info('Fetching dashboard summary', { merchantId, startDate, endDate });
+
+    const dateFilter = { $gte: startDate, $lte: endDate };
 
     const [rescuedCount, conversionCount, rtoArrestCount, sumRtoResult, ordersNeedingAttention] = await Promise.all([
-      // Count of orders with status 'ndr_rescued' this month
+      // Count of orders with status 'ndr_rescued' in date range
       Order.countDocuments({
         merchantId: mId,
         status: 'ndr_rescued',
-        createdAt: { $gte: startOfMonth },
+        createdAt: dateFilter,
       }),
 
-      // Count of orders with status 'converted_to_prepaid' this month
+      // Count of orders with status 'converted_to_prepaid' in date range
       Order.countDocuments({
         merchantId: mId,
         status: 'converted_to_prepaid',
-        createdAt: { $gte: startOfMonth },
+        createdAt: dateFilter,
       }),
 
       // Count of orders with rtoArrestStatus: 'RESCUED' (or status === 'ndr_rescued' and rtoArrestAttemptedAt != null)
       Order.countDocuments({
         merchantId: mId,
+        createdAt: dateFilter,
         $or: [
           { rtoArrestStatus: 'RESCUED' },
           { status: 'ndr_rescued', rtoArrestAttemptedAt: { $ne: null } },
         ],
       }),
 
-      // Sum of rtoFeeSaved on rescued orders this month
+      // Sum of rtoFeeSaved on rescued orders in date range
       Order.aggregate([
         {
           $match: {
             merchantId: mId,
             status: 'ndr_rescued',
-            createdAt: { $gte: startOfMonth },
+            createdAt: dateFilter,
           },
         },
         {

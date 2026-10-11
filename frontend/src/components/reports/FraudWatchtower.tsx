@@ -16,8 +16,12 @@ const formatInr = (amount: number): string => {
   }).format(amount);
 };
 
-export const FraudWatchtower: React.FC = () => {
-  const { fraudData, loading, error, exporting, refetch, exportDisputeCsv } = useFraudIndex();
+interface FraudWatchtowerProps {
+  dateRange?: { startDate: string; endDate: string };
+}
+
+export const FraudWatchtower: React.FC<FraudWatchtowerProps> = ({ dateRange }) => {
+  const { fraudData, loading, error, exporting, refetch, exportDisputeCsv } = useFraudIndex(dateRange);
 
   const handleExportCsv = async () => {
     await exportDisputeCsv();

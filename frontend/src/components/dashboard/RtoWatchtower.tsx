@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { ShieldCheck, ShieldAlert, AlertTriangle, Send, CheckCircle2, Lock } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -27,72 +28,42 @@ interface RtoWatchtowerProps {
 }
 
 export const RtoWatchtower: React.FC<RtoWatchtowerProps> = ({
-  orders = [],
-  loading = false,
+  orders,
+  loading: externalLoading = false,
   onActionComplete,
 }) => {
   const [actingId, setActingId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  if (loading) {
-    return (
-      <Card className="action-queue-card" style={{ padding: '24px' }}>
-        <div style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>Loading RTO watchtower predictions…</div>
-      </Card>
-    );
-  }
+  // If orders prop is not explicitly passed, query real pre-dispatch high-risk orders from backend
+  const { data: queriedOrders, isLoading: queryLoading, refetch } = useQuery<WatchtowerOrderItem[]>({
+    queryKey: ['watchtower-risk-orders'],
+    queryFn: async () => {
+      const res = await api.get('/api/orders', {
+        params: { riskLevel: 'HIGH', limit: 10 },
+      });
+      const raw = res.data?.orders || [];
+      return raw.map((o: any) => ({
+        id: o._id || o.id || o.orderId,
+        orderId: o.externalOrderId || o.orderId,
+        customerName: o.customerName || 'Customer',
+        phone: o.customerPhone || o.phone,
+        orderValue: o.orderValue || 0,
+        paymentMethod: o.paymentMethod || 'cod',
+        rtoRisk: o.rtoRisk,
+      }));
+    },
+    enabled: orders === undefined,
+    staleTime: 30000,
+  });
 
-  const displayOrders = orders.length > 0 ? orders : [
-    {
-      id: 'demo-1',
-      orderId: '1092',
-      customerName: 'Aman Sharma',
-      phone: '+91 98765 43210',
-      orderValue: 3499,
-      paymentMethod: 'cod' as const,
-      rtoRisk: {
-        score: 86,
-        level: 'HIGH' as const,
-        factors: ['critical_rto_pincode_hotspot', 'high_cod_value', 'incomplete_address_truncated'],
-        recommendedAction: 'require_deposit',
-      },
-    },
-    {
-      id: 'demo-2',
-      orderId: '1093',
-      customerName: 'Kavita Rao',
-      phone: '+91 99999 99999',
-      orderValue: 2199,
-      paymentMethod: 'cod' as const,
-      rtoRisk: {
-        score: 72,
-        level: 'HIGH' as const,
-        factors: ['repetitive_phone_sequence', 'incomplete_address_no_flat_pincode'],
-        recommendedAction: 'whatsapp_verify',
-      },
-    },
-    {
-      id: 'demo-3',
-      orderId: '1094',
-      customerName: 'Rohit Verma',
-      phone: '+91 91234 56789',
-      orderValue: 1299,
-      paymentMethod: 'cod' as const,
-      rtoRisk: {
-        score: 45,
-        level: 'MEDIUM' as const,
-        factors: ['moderate_rto_pincode_risk'],
-        recommendedAction: 'whatsapp_verify',
-      },
-    },
-  ];
+  const isLoading = externalLoading || (orders === undefined && queryLoading);
+  const displayOrders = orders !== undefined ? orders : (queriedOrders || []);
 
   const handleAction = async (orderId: string, action: 'whatsapp_verify' | 'require_deposit' | 'manual_review_approve') => {
     setActingId(orderId);
     try {
-      if (!orderId.startsWith('demo-')) {
-        await api.post(`/api/orders/${orderId}/risk-action`, { action });
-      }
+      await api.post(`/api/orders/${orderId}/risk-action`, { action });
       setToastMessage(
         action === 'manual_review_approve'
           ? 'Order risk overridden — approved for shipping'
@@ -101,6 +72,7 @@ export const RtoWatchtower: React.FC<RtoWatchtowerProps> = ({
           : 'WhatsApp address verification dispatched'
       );
       setTimeout(() => setToastMessage(null), 3500);
+      refetch();
       onActionComplete?.();
     } catch (err: any) {
       console.warn('Risk action failed', err);
@@ -145,8 +117,23 @@ export const RtoWatchtower: React.FC<RtoWatchtowerProps> = ({
           </div>
         )}
 
-        <div className="action-queue__table-wrap">
-          <table className="action-queue__table">
+        {isLoading ? (
+          <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.85rem' }}>
+            Evaluating pre-dispatch orders with Gemini 3.8 Flash ML…
+          </div>
+        ) : displayOrders.length === 0 ? (
+          <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-3)' }}>
+            <ShieldCheck size={28} style={{ margin: '0 auto 8px auto', color: 'var(--emerald)' }} />
+            <div style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: '4px' }}>
+              Zero High-Risk Orders In Pre-Dispatch
+            </div>
+            <div style={{ fontSize: '0.8rem', maxWidth: '360px', margin: '0 auto' }}>
+              All incoming cash-on-delivery orders have passed phone syntax, pincode risk, and address completeness validations.
+            </div>
+          </div>
+        ) : (
+          <div className="action-queue__table-wrap">
+            <table className="action-queue__table">
             <thead>
               <tr>
                 <th>Order</th>
@@ -247,6 +234,7 @@ export const RtoWatchtower: React.FC<RtoWatchtowerProps> = ({
             </tbody>
           </table>
         </div>
+        )}
       </CardContent>
     </Card>
   );

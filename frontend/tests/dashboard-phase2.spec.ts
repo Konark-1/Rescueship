@@ -20,7 +20,7 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
 
   test('3.1: displays "Awaiting scan" for order without detectedAt, real SLA for order with detectedAt', async ({ page }) => {
     const now = Date.now();
-    await page.route('**/api/dashboard/summary', async (route) => {
+    await page.route(/\/api\/dashboard\/summary/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -56,7 +56,7 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
       });
     });
 
-    await page.route('**/api/analytics/roi', async (route) => {
+    await page.route(/\/api\/analytics\/roi/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -82,7 +82,7 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
   });
 
   test('3.2: keyboard navigation (/, j, k, Enter, Escape) and focus trap return', async ({ page }) => {
-    await page.route('**/api/dashboard/summary', async (route) => {
+    await page.route(/\/api\/dashboard\/summary/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -113,7 +113,7 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
       });
     });
 
-    await page.route('**/api/analytics/roi', async (route) => {
+    await page.route(/\/api\/analytics\/roi/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -157,7 +157,7 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
   });
 
   test('3.3: honest empty states render when analytics have zero data (no SVG bars)', async ({ page }) => {
-    await page.route('**/api/dashboard/summary', async (route) => {
+    await page.route(/\/api\/dashboard\/summary/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -173,7 +173,7 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
       });
     });
 
-    await page.route('**/api/analytics/roi', async (route) => {
+    await page.route(/\/api\/analytics\/roi/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
