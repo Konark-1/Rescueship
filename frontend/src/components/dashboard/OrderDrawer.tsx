@@ -50,11 +50,34 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
   const [copiedAwb, setCopiedAwb] = useState<boolean>(false);
   const drawerPanelRef = useRef<HTMLElement | null>(null);
 
-  // Keyboard navigation: Close drawer on Escape key
+  // Keyboard navigation: Close drawer on Escape key, trap Tab focus inside drawer
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         onClose();
+        return;
+      }
+
+      if (e.key === 'Tab' && drawerPanelRef.current) {
+        const focusableElements = drawerPanelRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusableElements.length === 0) return;
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
+        }
       }
     };
 
@@ -448,34 +471,66 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
               Gemini AI Address Structuring
             </h3>
             <div style={{ fontSize: '0.82rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ background: 'var(--bg-void)', padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
-                <span style={{ color: 'var(--text-3)', display: 'block', fontSize: '0.72rem', marginBottom: '2px' }}>
-                  CUSTOMER RAW CHECKOUT ADDRESS:
-                </span>
-                <span style={{ color: 'var(--text-2)' }}>
-                  {order.aiAddress?.original || 'Near Main Market, Opp Ram Mandir, Sec 14 Noida'}
-                </span>
-              </div>
-              <div
-                style={{
-                  background: 'var(--indigo-08)',
-                  border: '1px solid var(--indigo-15)',
-                  padding: '10px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-                  <span style={{ color: 'var(--indigo-soft)', fontSize: '0.72rem', fontWeight: 600 }}>
-                    STRUCTURED COURIER STANDARD
+              {order.aiAddress?.parsed ? (
+                <>
+                  {order.aiAddress.original && (
+                    <div style={{ background: 'var(--bg-void)', padding: '10px 12px', borderRadius: 'var(--radius-sm)' }}>
+                      <span style={{ color: 'var(--text-3)', display: 'block', fontSize: '0.72rem', marginBottom: '2px' }}>
+                        CUSTOMER RAW CHECKOUT ADDRESS:
+                      </span>
+                      <span style={{ color: 'var(--text-2)' }}>
+                        {order.aiAddress.original}
+                      </span>
+                    </div>
+                  )}
+                  <div
+                    style={{
+                      background: 'var(--indigo-08)',
+                      border: '1px solid var(--indigo-15)',
+                      padding: '10px 12px',
+                      borderRadius: 'var(--radius-sm)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                      <span style={{ color: 'var(--indigo-soft)', fontSize: '0.72rem', fontWeight: 600 }}>
+                        STRUCTURED COURIER STANDARD
+                      </span>
+                      {typeof order.aiAddress.confidence === 'number' && (
+                        <Badge variant="outline" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                          {Math.round(order.aiAddress.confidence * (order.aiAddress.confidence <= 1 ? 100 : 1))}% Confidence
+                        </Badge>
+                      )}
+                    </div>
+                    <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>
+                      {order.aiAddress.parsed}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div
+                  style={{
+                    background: 'var(--bg-void)',
+                    padding: '12px',
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px dashed var(--border)',
+                    color: 'var(--text-3)',
+                  }}
+                >
+                  <span style={{ color: 'var(--text-3)', display: 'block', fontSize: '0.72rem', marginBottom: '2px' }}>
+                    CUSTOMER RAW CHECKOUT ADDRESS:
                   </span>
-                  <Badge variant="outline" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                    94% Accuracy
-                  </Badge>
+                  <span style={{ color: 'var(--text-2)', display: 'block', marginBottom: '6px' }}>
+                    {typeof order.shippingAddress === 'string'
+                      ? order.shippingAddress
+                      : order.shippingAddress?.address1
+                      ? `${order.shippingAddress.address1}, ${order.shippingAddress.city || ''} ${order.shippingAddress.zip || ''}`
+                      : 'Storefront checkout address on record.'}
+                  </span>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-3)', fontStyle: 'italic' }}>
+                    AI landmark extraction triggers when customer shares address updates via WhatsApp.
+                  </span>
                 </div>
-                <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>
-                  {order.aiAddress?.parsed || 'H-14, Ground Floor, Opposite Ram Mandir, Sector 14, Noida 201301. Note: Call customer before arrival.'}
-                </span>
-              </div>
+              )}
             </div>
           </div>
 

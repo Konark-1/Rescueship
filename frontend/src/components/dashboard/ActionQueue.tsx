@@ -37,6 +37,14 @@ export interface UrgentOrderItem {
     level?: 'LOW' | 'MEDIUM' | 'HIGH';
     score?: number;
   };
+  paymentMethod?: 'cod' | 'prepaid';
+  shippingAddress?: any;
+  aiAddress?: {
+    original?: string;
+    parsed?: string;
+    confidence?: number;
+    coordinates?: { lat: number; lng: number };
+  };
 }
 
 interface ActionQueueProps {
@@ -44,6 +52,7 @@ interface ActionQueueProps {
   loading?: boolean;
   onReview?: (order: UrgentOrderItem) => void;
   onSelectOrder?: (order: UrgentOrderItem) => void;
+  keysEnabled?: boolean;
 }
 
 export const ActionQueue: React.FC<ActionQueueProps> = ({
@@ -51,11 +60,21 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
   loading = false,
   onReview,
   onSelectOrder,
+  keysEnabled = true,
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [filterMode, setFilterMode] = useState<'all' | 'fake' | 'high_risk'>('all');
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [now, setNow] = useState<number>(Date.now());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Periodic tick every 30s to keep SLA countdown fresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(Date.now());
+    }, 30000);
+    return () => clearInterval(timer);
+  }, []);
 
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
@@ -90,7 +109,10 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
   );
 
   // Keyboard navigation: '/' to focus search, Down/Up arrows or j/k to navigate, Enter to open
+  // Gated by keysEnabled so hotkeys never trigger behind overlays/drawers
   useEffect(() => {
+    if (!keysEnabled) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't intercept if user is typing in an input
       const target = e.target as HTMLElement;
@@ -118,17 +140,30 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [filteredOrders, selectedIndex, handleRowClick]);
+  }, [filteredOrders, selectedIndex, handleRowClick, keysEnabled]);
 
   const getCountdownLabel = (order: UrgentOrderItem) => {
     const isCarrierDelhivery = (order.carrier || '').toLowerCase().includes('delhivery');
     const totalSlaHours = isCarrierDelhivery ? 48 : 24;
 
-    const hash = (order.id || order.orderId || '')
-      .split('')
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const hoursLeft = Math.max(1, (hash % totalSlaHours));
-    const minutesLeft = (hash * 7) % 60;
+    if (!order.detectedAt) {
+      return { text: 'Awaiting scan', className: 'action-queue__countdown--safe' };
+    }
+
+    const detectedTime = new Date(order.detectedAt).getTime();
+    if (isNaN(detectedTime)) {
+      return { text: 'Awaiting scan', className: 'action-queue__countdown--safe' };
+    }
+
+    const deadline = detectedTime + totalSlaHours * 60 * 60 * 1000;
+    const diffMs = deadline - now;
+
+    if (diffMs <= 0) {
+      return { text: 'RTO Initiated', className: 'action-queue__countdown--urgent' };
+    }
+
+    const hoursLeft = Math.floor(diffMs / (60 * 60 * 1000));
+    const minutesLeft = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
 
     const pad = (n: number) => String(n).padStart(2, '0');
     const text = `${pad(hoursLeft)}h ${pad(minutesLeft)}m`;
@@ -233,7 +268,7 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
             <input
               ref={searchInputRef}
               type="text"
-              placeholder="Search order or customer... (/)"
+              placeholder="Search order or customer..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{
@@ -246,6 +281,20 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
                 color: 'var(--text-1)',
               }}
             />
+            {!searchTerm && (
+              <kbd
+                className="kbd-shortcut"
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                }}
+              >
+                /
+              </kbd>
+            )}
             {searchTerm && (
               <button
                 type="button"
@@ -266,6 +315,21 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
                 ✕
               </button>
             )}
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              gap: '4px',
+              fontSize: '0.72rem',
+              color: 'var(--text-3)',
+              alignItems: 'center',
+            }}
+          >
+            <kbd className="kbd-shortcut">j</kbd>
+            <kbd className="kbd-shortcut">k</kbd>
+            <span>nav</span>
+            <kbd className="kbd-shortcut">↵</kbd>
+            <span>open</span>
           </div>
         </div>
       </CardHeader>
@@ -400,7 +464,7 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
                         {isFake ? (
                           <Badge variant="danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem' }}>
                             <AlertTriangle size={10} />
-                            Fake Suspicion {Math.round((order.fakeRemarkScore || 0.85) * 100)}%
+                            Fake Suspicion {order.fakeRemarkScore != null ? `${Math.round(order.fakeRemarkScore * 100)}%` : 'Flagged'}
                           </Badge>
                         ) : order.rtoRisk?.level === 'HIGH' ? (
                           <Badge variant="warning" style={{ fontSize: '0.7rem' }}>

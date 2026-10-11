@@ -38,15 +38,11 @@ export const DashboardPage: React.FC = () => {
   // State
   const [loading, setLoading] = useState<boolean>(true);
   const [totalSaved, setTotalSaved] = useState<number>(0);
+  const [rtoArrestCount, setRtoArrestCount] = useState<number>(0);
   const [ordersNeedingAttention, setOrdersNeedingAttention] = useState<UrgentOrderItem[]>([]);
   const [dailyTrend, setDailyTrend] = useState<DailyTrendItem[]>([]);
   const [ndrReasons, setNdrReasons] = useState<NdrReasonItem[]>([]);
-  const [roiChartData, setRoiChartData] = useState<Array<{ period: string; saved: number }>>([
-    { period: 'Week 1', saved: 350000 },
-    { period: 'Week 2', saved: 350000 },
-    { period: 'Week 3', saved: 350000 },
-    { period: 'Week 4', saved: 350000 },
-  ]);
+  const [roiChartData, setRoiChartData] = useState<Array<{ period: string; saved: number }>>([]);
 
   // E2E Test Compatibility: NDR Simulator
   const [simulating, setSimulating] = useState<boolean>(false);
@@ -91,8 +87,10 @@ export const DashboardPage: React.FC = () => {
         { period: 'Week 3', saved: Math.round(total * 0.25) },
         { period: 'Week 4', saved: Math.round(total * 0.25) },
       ]);
-    } else if (rawRoiData?.chartData) {
+    } else if (rawRoiData?.chartData && Array.isArray(rawRoiData.chartData) && rawRoiData.chartData.length > 0) {
       setRoiChartData(rawRoiData.chartData);
+    } else {
+      setRoiChartData([]);
     }
   }, [rawRoiData]);
 
@@ -119,6 +117,9 @@ export const DashboardPage: React.FC = () => {
         if (summaryRes.data && typeof summaryRes.data === 'object') {
           const s = summaryRes.data;
           setTotalSaved(s.totalSaved ?? 0);
+          if (typeof s.rtoArrestCount === 'number') {
+            setRtoArrestCount(s.rtoArrestCount);
+          }
           if (Array.isArray(s.ordersNeedingAttention)) {
             setOrdersNeedingAttention(
               s.ordersNeedingAttention.map((o: any) => ({
@@ -134,6 +135,10 @@ export const DashboardPage: React.FC = () => {
                 ndrReason: o.ndr?.reason,
                 fakeRemarkScore: o.ndr?.fakeRemarkScore,
                 isFakeAttempt: o.ndr?.isFakeAttempt,
+                detectedAt: o.ndr?.detectedAt || o.createdAt,
+                paymentMethod: o.paymentMethod || (o.financial_status === 'PREPAID' ? 'prepaid' : 'cod'),
+                shippingAddress: o.shippingAddress || o.customer?.address || null,
+                aiAddress: o.aiAddress || (o.ndr?.addressUpdate?.textAddress ? { original: o.ndr.addressUpdate.textAddress, parsed: o.ndr.addressUpdate.geocodedAddress || o.ndr.addressUpdate.textAddress } : undefined),
                 rtoRisk: o.rtoRisk,
               }))
             );
@@ -169,6 +174,9 @@ export const DashboardPage: React.FC = () => {
         if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data) {
           const a = analyticsRes.value.data;
           setTotalSaved(a.totalSaved ?? a.revenueSaved ?? a.rtoFeesSaved ?? 0);
+          if (typeof a.rtoArrestCount === 'number') {
+            setRtoArrestCount(a.rtoArrestCount);
+          }
           if (Array.isArray(a.dailyConversions)) {
             setDailyTrend(
               a.dailyConversions.map((d: any) => ({
@@ -209,6 +217,10 @@ export const DashboardPage: React.FC = () => {
               ndrReason: o.ndr?.reason,
               fakeRemarkScore: o.ndr?.fakeRemarkScore,
               isFakeAttempt: o.ndr?.isFakeAttempt,
+              detectedAt: o.ndr?.detectedAt || o.createdAt,
+              paymentMethod: o.paymentMethod || (o.financial_status === 'PREPAID' ? 'prepaid' : 'cod'),
+              shippingAddress: o.shippingAddress || o.customer?.address || null,
+              aiAddress: o.aiAddress || (o.ndr?.addressUpdate?.textAddress ? { original: o.ndr.addressUpdate.textAddress, parsed: o.ndr.addressUpdate.geocodedAddress || o.ndr.addressUpdate.textAddress } : undefined),
               rtoRisk: o.rtoRisk,
             }));
 
@@ -236,14 +248,17 @@ export const DashboardPage: React.FC = () => {
       customerName: order.customerName || 'Customer',
       phone: order.phone || '',
       orderValue: order.orderValue || 0,
-      paymentMethod: 'cod',
+      paymentMethod: order.paymentMethod || 'cod',
       status: (order.status as any) || 'ndr_detected',
       carrier: order.carrier,
-      createdAt: new Date().toISOString(),
+      createdAt: order.detectedAt ? new Date(order.detectedAt).toISOString() : new Date().toISOString(),
+      shippingAddress: order.shippingAddress,
+      aiAddress: order.aiAddress,
       ndr: {
         reason: order.ndrReason,
         fakeRemarkScore: order.fakeRemarkScore,
         isFakeAttempt: order.isFakeAttempt,
+        detectedAt: order.detectedAt ? new Date(order.detectedAt).toISOString() : null,
       },
       rtoRisk: order.rtoRisk as any,
     };
@@ -278,7 +293,7 @@ export const DashboardPage: React.FC = () => {
               COD Prepaid: {roi?.codToPrepaidCount || 0}
             </span>
             <span className="badge badge-warning" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
-              RTO Arrests: {ordersNeedingAttention.length}
+              RTO Arrests: {rtoArrestCount}
             </span>
             <span className="badge badge-outline" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
               Orders Needing Attention: {ordersNeedingAttention.length}
@@ -403,6 +418,7 @@ export const DashboardPage: React.FC = () => {
         loading={loading}
         onSelectOrder={handleSelectOrder}
         onReview={handleSelectOrder}
+        keysEnabled={!isDrawerOpen}
       />
 
       {/* ZONE 3: RESCUE FUNNEL + TREND CHARTS (2-Column Grid) */}

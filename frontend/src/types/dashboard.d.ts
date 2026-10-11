@@ -51,6 +51,9 @@ export interface UnifiedDashboardOrder {
     recommendedAction?: string;
   };
 
+  // Address data
+  shippingAddress?: any;
+
   // AI data
   aiAddress?: {
     original?: string;
