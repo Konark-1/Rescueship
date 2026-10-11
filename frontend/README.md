@@ -24,7 +24,7 @@
 | `/login` | `LoginPage.tsx` | Merchant authentication via email/password and Google OAuth 2.0. |
 | `/register` | `RegisterPage.tsx` | Merchant onboarding registration with e-commerce platform selection. |
 | `/onboarding` | `OnboardingPage.tsx` | 4-Station interactive setup wizard: Store, WhatsApp, Carrier Hub, and Payment. |
-| `/dashboard` | `DashboardPage.tsx` | Real-time mission control: live SSE order stream, recovery metrics, and courier performance. |
+| `/dashboard` | `DashboardPage.tsx` | Real-time Command Deck: 7 analytical zones (System Health Ribbon, Financial ROI, Smart Action Queue with keyboard triage [`/`, `j`/`k`, `Enter`, `Esc`] & 24/48h SLA clocks, AI Funnel & Trends, Carrier Matrix, Pre-Dispatch RTO Watchtower, Top Risk Pincodes) + WCAG 2.4.3 Order Triage Drawer. |
 | `/orders` | `OrdersPage.tsx` | Order ledger: multi-carrier search, status filters, and interactive NDR resolution modal. |
 | `/sandbox` | `SandboxPage.tsx` | Interactive test environment: simulate carrier NDRs, test WhatsApp customer flows, and pass graduation gate. |
 | `/settings` | `SettingsPage.tsx` | Credentials vault, multi-carrier hub, webhook endpoints, and single-select COD conversion incentive rules (none, flat, percentage with rupee margin cap). |

@@ -47,7 +47,14 @@ export const SystemHealthRibbon: React.FC<SystemHealthRibbonProps> = ({
         <span>
           Tier Usage: {current.toLocaleString('en-IN')}/{limit.toLocaleString('en-IN')} msgs ({percentage}%)
         </span>
-        <div className="health-ribbon__tier-bar" role="progressbar" aria-valuenow={percentage} aria-valuemin={0} aria-valuemax={100}>
+        <div
+          className="health-ribbon__tier-bar"
+          role="progressbar"
+          aria-label="Meta tier quota usage"
+          aria-valuenow={percentage}
+          aria-valuemin={0}
+          aria-valuemax={100}
+        >
           <div
             className={`health-ribbon__tier-fill ${
               isCritical

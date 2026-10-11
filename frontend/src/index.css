@@ -116,26 +116,26 @@
   --danger-10: rgba(239, 68, 68, 0.10);
   --danger-15: rgba(239, 68, 68, 0.15);
 
-  /* ── Extended Brand & Tint Scales (Token Audit Hardening) ── */
-  --crimson: #e11d48;
-  --crimson-06: rgba(225, 29, 72, 0.06);
-  --crimson-15: rgba(225, 29, 72, 0.15);
-  --blue: #3b82f6;
-  --purple: #a855f7;
-  --teal: #14b8a6;
-  --sky: #0ea5e9;
+  /* ── Extended Brand & Tint Scales (Token Audit Hardening & Semantic Aliasing) ── */
+  --crimson: var(--rose);
+  --crimson-06: var(--rose-03);
+  --crimson-15: var(--rose-12);
+  --blue: var(--indigo);
+  --purple: var(--indigo-vivid);
+  --teal: var(--emerald);
+  --sky: var(--indigo-soft);
   --indigo-vivid: #6366f1;
   --indigo-light: #818cf8;
   --indigo-16: rgba(99, 102, 241, 0.16);
   --indigo-60: rgba(99, 102, 241, 0.60);
-  --emerald-04: rgba(52, 211, 153, 0.04);
-  --emerald-12: rgba(52, 211, 153, 0.12);
-  --emerald-22: rgba(52, 211, 153, 0.22);
-  --emerald-25: rgba(52, 211, 153, 0.25);
-  --emerald-40: rgba(52, 211, 153, 0.40);
-  --rose-03: rgba(251, 113, 133, 0.03);
-  --rose-30: rgba(251, 113, 133, 0.30);
-  --rose-40: rgba(251, 113, 133, 0.40);
+  --emerald-04: rgba(16, 185, 129, 0.04);
+  --emerald-12: rgba(16, 185, 129, 0.12);
+  --emerald-22: rgba(16, 185, 129, 0.22);
+  --emerald-25: rgba(16, 185, 129, 0.25);
+  --emerald-40: rgba(16, 185, 129, 0.40);
+  --rose-03: rgba(244, 63, 94, 0.03);
+  --rose-30: rgba(244, 63, 94, 0.30);
+  --rose-40: rgba(244, 63, 94, 0.40);
 
   /* ── Component Aliases ── */
   --card-bg: var(--bg-surface);

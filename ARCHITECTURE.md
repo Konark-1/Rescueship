@@ -257,24 +257,34 @@ $$S_{\text{total}} = S_{\text{addr}} + S_{\text{pin}} + S_{\text{contact}} + S_{
 
 ## 7. Frontend Command Deck & Reactive State Sync
 
-The frontend is a single-page application built on React 19, Vite, and modern CSS design tokens (`--bg-void`, `--rose`, `--amber`, `--emerald`).
+The frontend is a single-page application built on React 19, Vite, and theme-locked CSS design tokens (`--bg-void`, `--rose`, `--amber`, `--emerald`).
 
-### 7.1 Targeted State-Sync Architecture
+### 7.1 Targeted State-Sync Architecture & SSE Stream
 - **Problem**: Full analytics refetches upon every incoming SSE event caused layout thrashing and server overload.
-- **Solution**: Centralized [`OrderStore`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/frontend/src/store/OrderStore.ts) (Zustand) intercepts live SSE events (`ndr_detected`, `ndr_rescued`, `payment_received`) and updates only local row states and delta metrics without HTTP refetching.
+- **Solution**: [`useDashboardSSE`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/frontend/src/hooks/useDashboardSSE.ts) listens to live Server-Sent Events (`ndr_detected`, `ndr_rescued`, `payment_received`) and targets granular TanStack Query cache invalidations, while Zustand (`OrderStore`) manages immediate in-memory delta mutations.
 
-### 7.2 Interactive Risk Queue UI
-- **Risk Badges**: Real-time visual indicator (`SAFE`, `MEDIUM`, `HIGH`) with numerical score tags.
-- **Triage Slide-out Drawer**: Spring-animated drawer (`RiskBreakdownDrawer`) detailing individual risk factors, confidence gauges, and instant action triggers (`Verify via WhatsApp`, `Require Prepaid Deposit`, `Approve & Fulfill`).
-- **ROI Metric Cards**: Live display of **AI Losses Prevented** (saved product loss + ₹140 round-trip freight per flagged order).
+### 7.2 Accessible 7-Zone Command Deck & Keyboard Ergonomics
+- **Zone Hierarchy**:
+  1. **Zone 0**: Sticky System Health Ribbon (Meta 24h WABA limit tier gauge)
+  2. **Zone 1**: Financial ROI Hero Grid (Retained GMV, Net Savings, Conversion multiple)
+  3. **Zone 2**: Smart Action Queue (`/` focus search, `j`/`k` row navigation, `Enter` triage, `Esc` dismiss)
+  4. **Zone 3**: AI Rescue Funnel & Chronological Trend Charts (ISO week grouped)
+  5. **Zone 4**: Carrier Reliability Matrix (Courier benchmarking with Starter 403 upgrade gate)
+  6. **Zone 5**: Pre-Dispatch Predictive RTO Watchtower (Gemini ML scored COD orders with 1-click triage)
+  7. **Zone 6**: Top Risk Pincodes (Storefront sync with optimistic toggle controls)
+- **WCAG 2.4.3 Focus Management**: `OrderDrawer` implements accessible modal role semantics (`role="dialog"`, `aria-modal="true"`) and restores focus to the originating queue table row (`#order-row-${id}`) upon closure.
 
-### 7.3 Vite Code Splitting & Bundle Metrics
+### 7.3 Zero Fake Data & Carrier SLA Timers
+- **Real Courier Clocks**: `computeSlaCountdown` calculates honest countdowns based on carrier SLAs (Delhivery 48h vs. 24h standard). When expired, distinguishes `"RTO Initiated"` from `"SLA elapsed"` according to live status.
+- **Honest Analytics**: Elimination of synthetic data synthesis; all components feature human-crafted zero-states when no events are recorded.
+
+### 7.4 Vite Code Splitting & Performance Containment
 Heavy libraries are separated into dedicated vendor chunks in [`vite.config.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/frontend/vite.config.ts):
-- `vendor-recharts`: 401.7 kB (Chart visualization)
-- `vendor-motion`: 142.3 kB (Animation engine)
-- `vendor-router`: 43.5 kB (Routing)
-- `vendor-lucide`: 19.4 kB (Iconography)
-- `DashboardPage`: 17.2 kB | `OrdersPage`: 18.9 kB (Lightweight page payloads)
+- `vendor-recharts`: 390.7 kB (Chart visualization, lazy-loaded via `Suspense`)
+- `vendor-motion`: 134.6 kB (Animation physics)
+- `vendor-router`: 43.5 kB (Client routing)
+- `vendor-lucide`: 27.2 kB (Iconography)
+- `DashboardPage`: 56.4 kB (Orchestrator with `content-visibility: auto` on offscreen zones)
 
 ---
 
@@ -295,7 +305,7 @@ Heavy libraries are separated into dedicated vendor chunks in [`vite.config.ts`]
 | **Webhook Ingestion Latency** | $< 150\text{ ms}$ | $45\text{ ms}$ (Redis `SET NX` + BullMQ queue push) |
 | **Address Normalization Speed** | $< 800\text{ ms}$ | $12\text{ ms}$ (Cached) / $480\text{ ms}$ (Gemini API) |
 | **State Machine CAS Transition** | $< 50\text{ ms}$ | $18\text{ ms}$ (MongoDB indexed atomic query) |
-| **Test Suite Coverage** | $100\%$ | **415/415 passing tests across 49 suites** |
+| **Test Suite Coverage** | $100\%$ | **426/426 passing tests across 50 suites** |
 | **60,000 Order CSV Export Memory** | $< 100\text{ MB}$ | **60.59 MB heap delta** (Native Node.js Stream) |
 | **HTTP 429 Carrier Backoff** | $100\%$ | **Intelligent BullMQ DLQ** (1m to 1h backoff) |
 | **Frontend Production Build Time** | $< 5\text{ s}$ | **0.88 s** (`tsc -b && vite build`) |

@@ -36,6 +36,7 @@ export const DashboardPage: React.FC = () => {
     endDate: new Date().toISOString(),
   });
   const [hasCustomRange, setHasCustomRange] = useState<boolean>(false);
+  const [activePresetLabel, setActivePresetLabel] = useState<string>('This Month');
 
   // State
   const [loading, setLoading] = useState<boolean>(true);
@@ -234,7 +235,7 @@ export const DashboardPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, hasCustomRange]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -282,7 +283,7 @@ export const DashboardPage: React.FC = () => {
       <header className="dashboard-page__header">
         <div className="dashboard-page__title-group">
           <h1 className="dashboard-page__title">
-            ₹{totalSaved.toLocaleString('en-IN')} Saved This Month
+            ₹{totalSaved.toLocaleString('en-IN')} Saved {activePresetLabel}
           </h1>
           <p className="dashboard-page__subtitle">
             Autonomous RTO Interception, NDR Intelligence &amp; COD Conversion Deck ({platformName} Integrated)
@@ -306,9 +307,11 @@ export const DashboardPage: React.FC = () => {
         <div className="dashboard-page__actions">
           <DateRangePicker
             value={dateRange}
-            onChange={(newRange) => {
+            activePreset={activePresetLabel}
+            onChange={(newRange, label) => {
               setDateRange(newRange);
               setHasCustomRange(true);
+              if (label) setActivePresetLabel(label);
             }}
           />
           <button

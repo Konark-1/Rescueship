@@ -70,13 +70,25 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Periodic tick every 30s to keep SLA countdown fresh (paused when document is hidden)
+  // Also instantly refreshes when tab returns to visibility
   useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        setNow(Date.now());
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     const timer = setInterval(() => {
       if (!document.hidden) {
         setNow(Date.now());
       }
     }, 30000);
-    return () => clearInterval(timer);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   const filteredOrders = useMemo(() => {

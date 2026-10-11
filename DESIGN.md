@@ -30,11 +30,22 @@
 | Token | Hex / Value | Semantic Role |
 | :--- | :--- | :--- |
 | `--indigo` | `#4f46e5` | Primary brand accent & high-priority CTAs |
+| `--indigo-vivid` | `#6366f1` | Vivid indigo brand glow and focus halos |
 | `--indigo-soft` | `#818cf8` | Secondary interactive highlights & prefixes |
 | `--emerald` | `#10b981` | Successful order rescues, recovered revenue, online status |
 | `--amber` | `#f59e0b` | Warnings, pending attempts, delayed delivery states |
 | `--rose` | `#f43f5e` | Intercepted NDR alerts, failed delivery remarks |
 | `--danger` | `#ef4444` | Critical errors and cancellation states |
+
+### Extended Tint & Semantic Aliases
+| Semantic Token | Source / Mapping | Role |
+| :--- | :--- | :--- |
+| `--crimson`, `--crimson-06`, `--crimson-15` | `var(--rose)` / `var(--rose-03)` / `var(--rose-12)` | High-urgency alert highlights |
+| `--blue`, `--sky` | `var(--indigo)` / `var(--indigo-soft)` | Courier logistics badges |
+| `--teal`, `--emerald-04..40` | `var(--emerald)` alpha ramp | Conversion badges, confidence fills |
+| `--purple` | `var(--indigo-vivid)` | Advanced ML scoring tags |
+| `--card-bg`, `--input-bg` | `var(--bg-surface)` / `var(--bg-void)` | Form and container component aliases |
+| `--border-subtle`, `--border-high` | `var(--border-color)` / `rgba(255,255,255,0.20)` | Structural boundary hierarchy |
 
 ---
 

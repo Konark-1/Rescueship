@@ -475,3 +475,11 @@
   border: 1px solid var(--border);
   color: var(--text-3);
 }
+
+/* Performance containment for offscreen analytical zones (R15) */
+section[aria-label="Courier Intelligence and Fraud Dispute"],
+section[aria-label="High Risk Pincodes Intelligence"],
+.dashboard-page > [aria-label="Pre-Dispatch Predictive RTO Watchtower"] {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 420px;
+}
