@@ -41,6 +41,11 @@ export default function OnboardingPage() {
   const [planInfo, setPlanInfo] = useState<any>(null);
   const pollRef = useRef<any>(null);
 
+  const userManuallyNavigatedRef = useRef(false);
+  const autoRoutedOnMountRef = useRef(false);
+  const advanceTimerRef = useRef<any>(null);
+  const connectedHandledRef = useRef(false);
+
   useEffect(() => {
     if (!token) {
       nav('/login', { replace: true });
@@ -75,13 +80,17 @@ export default function OnboardingPage() {
   }, [token]);
 
   const advanceToNext = useCallback((fromStation?: Key) => {
+    userManuallyNavigatedRef.current = false;
     const currentKey = fromStation || active;
     const idx = STATIONS.findIndex((s) => s.key === currentKey);
     if (idx >= 0 && idx < STATIONS.length - 1) {
       const nextKey = STATIONS[idx + 1].key;
-      setTimeout(() => {
-        setActive(nextKey);
-        setErr(null);
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = setTimeout(() => {
+        if (!userManuallyNavigatedRef.current) {
+          setActive(nextKey);
+          setErr(null);
+        }
       }, 700);
     }
   }, [active]);
@@ -100,9 +109,10 @@ export default function OnboardingPage() {
     const stationParam = params.get('station') as Key | null;
     if (stationParam && STATIONS.some((s) => s.key === stationParam)) {
       setActive(stationParam);
+      userManuallyNavigatedRef.current = true;
     }
     refresh().then((s: any) => {
-      if (s?.connections && !params.get('station')) {
+      if (s?.connections && !params.get('station') && !userManuallyNavigatedRef.current && !autoRoutedOnMountRef.current) {
         const isStoreConnected = s.connections.shopify?.status === 'connected' || s.connections.woocommerce?.status === 'connected';
         if (isStoreConnected) {
           const nextIncomplete = STATIONS.find((st) => {
@@ -113,13 +123,18 @@ export default function OnboardingPage() {
             setActive(nextIncomplete.key);
           }
         }
+        autoRoutedOnMountRef.current = true;
       }
     });
-    return () => clearInterval(pollRef.current);
-  }, [token, params, refresh, isStationDone]);
+    return () => {
+      clearInterval(pollRef.current);
+      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+    };
+  }, [token, params]);
 
   useEffect(() => {
-    if (params.get('connected') === 'shopify') {
+    if (params.get('connected') === 'shopify' && !connectedHandledRef.current) {
+      connectedHandledRef.current = true;
       push('✓ store connected · webhooks registered');
       refresh().then(() => advanceToNext('shopify'));
     }
@@ -412,7 +427,22 @@ export default function OnboardingPage() {
               const isActive = s.key === active;
               const pending = st === 'templates_pending' || st === 'connecting';
               return (
-                <button key={s.key} className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`} onClick={() => { setActive(s.key); setErr(null); }} style={{ '--i': i } as React.CSSProperties} aria-current={isActive ? 'step' : undefined}>
+                <button
+                  key={s.key}
+                  type="button"
+                  className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`}
+                  onClick={() => {
+                    userManuallyNavigatedRef.current = true;
+                    if (advanceTimerRef.current) {
+                      clearTimeout(advanceTimerRef.current);
+                      advanceTimerRef.current = null;
+                    }
+                    setActive(s.key);
+                    setErr(null);
+                  }}
+                  style={{ '--i': i } as React.CSSProperties}
+                  aria-current={isActive ? 'step' : undefined}
+                >
                   <span className="ob-node__line" data-fill={i < currentIndex || isDone ? '1' : '0'} />
                   <span className="ob-node__dot">
                     {isDone ? <svg viewBox="0 0 24 24" className="ob-check"><path d="M5 13l4 4L19 7" /></svg>

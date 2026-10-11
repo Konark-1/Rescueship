@@ -24,8 +24,8 @@
   display: inline-flex; align-items: center; gap: var(--space-2-5);
 }
 .ob-spine__kicker::before { content: ''; width: 22px; height: 1px; background: var(--indigo-soft); opacity: 0.7; }
-.ob-spine__track { display: flex; flex-direction: column; }
-.ob-node { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: var(--space-3-5); align-items: center; padding: var(--space-3) 0; background: none; border: none; text-align: left; cursor: pointer; }
+.ob-node { position: relative; display: grid; grid-template-columns: 44px 1fr; gap: var(--space-3-5); align-items: center; padding: var(--space-3) 0; background: none; border: none; text-align: left; cursor: pointer; width: 100%; }
+.ob-node > * { pointer-events: none; }
 .ob-node__line { position: absolute; left: 21px; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(var(--white-12) 0 4px, transparent 4px 9px); }
 .ob-node:first-child .ob-node__line { top: 50%; }
 .ob-node:last-child .ob-node__line { bottom: 50%; }
