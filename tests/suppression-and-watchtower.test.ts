@@ -13,6 +13,18 @@ import { checkDeadLetterQueue, checkWabaQuality, checkWebhookFailureRate } from 
 import { generateToken } from '../src/middleware/auth';
 import { config } from '../src/config/env';
 
+// Redis is not available in this unit suite; idempotency fails closed (503) by design,
+// so stub the guard to exercise the handler logic.
+jest.mock('../src/utils/idempotency', () => ({
+  IdempotencyGuard: {
+    key: (...parts: string[]) => parts.join(':'),
+    claim: jest.fn().mockResolvedValue('claimed'),
+    markProcessed: jest.fn().mockResolvedValue(undefined),
+    release: jest.fn().mockResolvedValue(undefined),
+  },
+  IdempotencyUnavailableError: class IdempotencyUnavailableError extends Error {},
+}));
+
 describe('Suppression & LiveOps Watchtower Unit & Integration Tests', () => {
   const merchantId = new Types.ObjectId().toString();
   const testPhone = '919876543210';
@@ -162,7 +174,7 @@ describe('Suppression & LiveOps Watchtower Unit & Integration Tests', () => {
 
       // Verify opt-out was captured
       expect(findOneAndUpdateSpy).toHaveBeenCalledWith(
-        { phone: optOutPhone },
+        { phone: optOutPhone, merchantId: mockMerchant._id },
         expect.objectContaining({
           phone: optOutPhone,
           merchantId: mockMerchant._id,

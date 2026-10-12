@@ -32,8 +32,17 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const cfTs = req.get('x-webhook-timestamp');
   const rawBuf: Buffer | undefined = (req as any).rawBody;
 
+  const reject = (error: string, provider?: string) => {
+    logger.warn('Payment webhook rejected', { error, provider, ip: req.ip });
+    SecurityAlertService.sendCriticalAlert('INVALID_PAYMENT_HMAC_SIGNATURE', {
+      ip: req.ip, path: req.originalUrl, provider, reason: error,
+      hasRazorpaySig: Boolean(rzpSig), hasCashfreeSig: Boolean(cfSig),
+    }).catch((err) => logger.warn('Failed to dispatch security alert', { error: err?.message }));
+    res.status(401).json({ error });
+  };
+
   if ((!rzpSig && !cfSig) || !rawBuf) {
-    res.status(401).json({ error: 'Missing payment webhook signature' });
+    reject('Missing payment webhook signature');
     return;
   }
   const rawBody = rawBuf.toString('utf8');
@@ -45,7 +54,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     : str(body.data?.link_id || body.link_id);
   if (!linkId) {
     // Without a link id we minted, there is no merchant secret to verify against.
-    res.status(401).json({ error: 'Invalid HMAC signature (unknown payment link)' });
+    reject('Invalid HMAC signature (unknown payment link)', provider);
     return;
   }
 
@@ -68,10 +77,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     : paymentService.verifyCashfreeWebhook(rawBody, cfSig!, s, cfTs));
 
   if (!isValid) {
-    logger.warn('Payment webhook rejected: link unknown or signature does not match the owning merchant', { provider, ip: req.ip });
-    SecurityAlertService.sendCriticalAlert('INVALID_PAYMENT_HMAC_SIGNATURE', { ip: req.ip, path: req.originalUrl, provider })
-      .catch((err) => logger.warn('Failed to dispatch security alert', { error: err?.message }));
-    res.status(401).json({ error: 'Invalid HMAC signature' });
+    reject('Invalid HMAC signature', provider);
     return;
   }
 

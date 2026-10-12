@@ -14,6 +14,11 @@ import { redisConnection } from '../config/redis';
 
 const router = Router();
 
+const OPT_OUT_RE = /^(please\s+)?(stop|unsubscribe|opt[\s-]?out|stop\s+messag(e|ing)(\s+me)?|do\s*n'?o?t\s+message(\s+me)?|band\s+karo)[\s.!]*$/i;
+const OPT_IN_RE = /^(start|subscribe|unstop|resume)[\s.!]*$/i;
+export const isOptOutMessage = (text: string): boolean => OPT_OUT_RE.test(String(text || '').trim());
+export const isOptInMessage = (text: string): boolean => OPT_IN_RE.test(String(text || '').trim());
+
 function safeEqualStr(a: string, b: string): boolean {
   if (!a || !b) return false;
   const ab = Buffer.from(a);
@@ -174,19 +179,32 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const normalizedFrom = normalizeIndianPhone(parsed.from);
     logger.info('Parsed WhatsApp incoming message', { from: maskPhone(normalizedFrom), type: parsed.type, merchantId });
 
-    const customerReply = parsed.text || parsed.buttonPayload || '';
-    if (/stop|unsubscribe|don'?t\s*message/i.test(customerReply)) {
+    // Opt-out / opt-in: whole-message keywords only (an address like "near bus stop"
+    // must never unsubscribe anyone), scoped to THIS merchant.
+    const customerReply = (parsed.text || '').trim();
+    if (isOptOutMessage(customerReply)) {
       try {
         const { SuppressedPhone } = await import('../models/SuppressedPhone');
         await SuppressedPhone.findOneAndUpdate(
-          { phone: normalizedFrom },
+          { phone: normalizedFrom, merchantId: merchant._id },
           { phone: normalizedFrom, merchantId: merchant._id, suppressedAt: new Date(), reason: 'customer_opt_out' },
           { upsert: true, new: true }
         );
-        logger.info('Customer opted out via WhatsApp reply — added to suppression list', { from: maskPhone(normalizedFrom) });
+        logger.info('Customer opted out via WhatsApp reply — suppressed for this merchant', { from: maskPhone(normalizedFrom), merchantId });
       } catch (optErr: any) {
         logger.error('Failed to record customer opt-out', { error: optErr?.message });
       }
+      return;
+    }
+    if (isOptInMessage(customerReply)) {
+      try {
+        const { SuppressedPhone } = await import('../models/SuppressedPhone');
+        await SuppressedPhone.deleteMany({ phone: normalizedFrom, merchantId: merchant._id });
+        logger.info('Customer opted back in via WhatsApp reply', { from: maskPhone(normalizedFrom), merchantId });
+      } catch (optErr: any) {
+        logger.error('Failed to record customer opt-in', { error: optErr?.message });
+      }
+      return;
     }
 
     // ─── 4b. Inbound Rate Limiting (Anti-DoS & AI Cost Drain Protection: max 10/hour) ───

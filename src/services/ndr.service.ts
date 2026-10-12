@@ -141,7 +141,16 @@ export class NDRService {
       }
 
       if (merchant.billing.rescueCredits <= 0) {
-        logger.info('Insufficient rescue credits for NDR rescue', { merchantId });
+        logger.warn('Rescues paused: no rescue credits left', { merchantId });
+        await AuditLog.create({
+          merchantId: merchant._id,
+          action: 'rescues_paused_no_credits',
+          source: 'ndr_service',
+          payload: { awb: ndrData.awb },
+          status: 'failed',
+          error: 'No rescue credits left — top up or upgrade to resume rescues',
+        }).catch(() => {});
+        try { realtimeService.emitCapacityWarning(merchant._id.toString(), 0, 0); } catch { /* non-blocking */ }
         return;
       }
 
@@ -237,7 +246,10 @@ export class NDRService {
       };
 
       const updated: any = await (Order as any).findOneAndUpdate(
-        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'ndr_rescued', 'delivered', 'returned', 'cancelled', 'rto', 'lost'] } },
+        // A previously rescued order that fails AGAIN starts a new rescue cycle (attempt 2/3
+        // is exactly where blind reattempts fail). Orders still waiting on the customer
+        // (ndr_detected / ndr_rescue_sent) are not re-messaged.
+        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'delivered', 'returned', 'cancelled', 'rto', 'lost'] } },
         {
           $set: {
             status: 'ndr_detected',
@@ -285,10 +297,20 @@ export class NDRService {
         });
       } catch (caseErr: any) {
         if (caseErr?.code === 11000 || caseErr?.name === 'MongoServerError' || caseErr?.message?.includes('E11000')) {
+          // One case per order: a repeat failure re-opens it as a new cycle.
           try {
             await NdrCase.updateOne(
               { orderId: order._id, merchantId: merchant._id },
-              { $set: { lastWebhookAt: new Date() } }
+              {
+                $set: {
+                  status: 'OPEN',
+                  failureReason: ndrData.reason,
+                  whatsappMessageSentAt: new Date(),
+                  attemptCount: order.attemptCount || 1,
+                  lastWebhookAt: new Date(),
+                },
+                $unset: { customerResponseType: 1, customerResponseAt: 1, resolutionType: 1, carrierReattemptStatus: 1 },
+              }
             );
           } catch { /* proceed */ }
         } else {
@@ -302,6 +324,12 @@ export class NDRService {
         ndrData.reason,
         isFake
       );
+
+      if (merchant.settings?.globalPause === true) {
+        // Track the failure (case + dashboard) but take no customer or courier action.
+        logger.info('NDR recorded but not actioned: merchant has paused automations', { merchantId, awb: ndrData.awb });
+        return;
+      }
 
       await this.decideAndAct(order, merchant);
 
@@ -1405,6 +1433,10 @@ export class NDRService {
     try {
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
+      if (merchant.settings?.globalPause === true) {
+        logger.info('Escalation skipped: merchant has paused automations', { orderId });
+        return;
+      }
 
       // Escalation reminders are also business-initiated (often with no open customer
       // window) → re-send the approved template rather than a free-form message.

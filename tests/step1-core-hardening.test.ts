@@ -185,7 +185,7 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
       expect(rtoArrestService.abortRtoAndReattempt).not.toHaveBeenCalled();
     });
 
-    it('1.1.4 - Webhook updates Order to paid: true and triggers RTO transit reversal ONLY after paid: true', async () => {
+    it('1.1.4 - Verified webhook only queues confirm-payment; it never writes paid/prepaid or aborts RTO directly', async () => {
       const secret = 'cf_secret_prod_123';
       config.cashfree.clientSecret = secret;
 
@@ -232,29 +232,13 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         .send(rawBody);
 
       expect(res.status).toBe(200);
-      expect(res.body.paid).toBe(true);
+      expect(res.body.status).toBe('received');
 
-      // Proof of Order.findOneAndUpdate({ cashfreeOrderId }, { paid: true, paymentGateway: 'cashfree' })
-      expect(updateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          $or: expect.arrayContaining([{ cashfreeOrderId: 'ORD_CF_101' }]),
-        }),
-        expect.objectContaining({
-          $set: expect.objectContaining({
-            paid: true,
-            paymentGateway: 'cashfree',
-          }),
-        }),
-        { new: true }
-      );
-
-      // Proof that RTO reversal logic was triggered ONLY after paid: true confirmed
-      expect(rtoArrestService.abortRtoAndReattempt).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderId: mockOrder._id.toString(),
-          reason: expect.stringContaining('Payment confirmed via Cashfree webhook'),
-        })
-      );
+      // The order is changed only by orderService.handlePaymentSuccess (queued job),
+      // which validates the amount and runs the RTO abort. No direct write here.
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(rtoArrestService.abortRtoAndReattempt).not.toHaveBeenCalled();
+      void mockOrder;
     });
   });
 

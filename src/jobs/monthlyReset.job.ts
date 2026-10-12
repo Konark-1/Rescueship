@@ -13,6 +13,16 @@ export const setupMonthlyResetWorker = () => {
     async (job: Job) => {
       logger.info('Running monthly order limit reset worker', { jobId: job.id });
       const result = await Merchant.updateMany({}, { $set: { 'billing.currentMonthOrders': 0 } });
+      // Paid plans include a monthly rescue-message allowance: top credits back up
+      // (never reduce credits a merchant bought with a pack).
+      const { creditAllowanceFor } = require('../services/subscription.service');
+      for (const tier of ['starter', 'growth', 'scale', 'fleet'] as const) {
+        const allowance = creditAllowanceFor(tier);
+        await Merchant.updateMany(
+          { 'billing.plan': tier, 'billing.status': 'active', 'billing.rescueCredits': { $lt: allowance } },
+          { $set: { 'billing.rescueCredits': allowance } }
+        );
+      }
       await merchantDigestService.clearQuotaAlerts();
       logger.info('Monthly order limit reset completed', { modifiedCount: result.modifiedCount });
       return { resetCount: result.modifiedCount };

@@ -33,6 +33,12 @@ export type Cycle = 'quarterly' | 'semi' | 'annual';
 
 const BASE: Record<Tier, number> = { starter: 4999, growth: 11999, scale: 24999, fleet: 44999 };
 export const LIMIT: Record<Tier, number> = { starter: 1000, growth: 5000, scale: 12000, fleet: 25000 };
+/**
+ * Monthly rescue-message allowance included with a paid plan. Each WhatsApp send
+ * consumes one credit; a typical rescue uses 1–3 messages, so 2× the order limit
+ * covers normal use. Credit packs top up on top of this.
+ */
+export const creditAllowanceFor = (tier: string): number => (LIMIT as any)[tier] ? (LIMIT as any)[tier] * 2 : 100;
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
 const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.20 };
 const PERIOD: Record<Cycle, 'monthly' | 'quarterly' | 'yearly'> = { quarterly: 'monthly', semi: 'monthly', annual: 'monthly' };
@@ -303,6 +309,7 @@ export class SubscriptionService {
         'billing.plan': tier,
         'billing.planOrderLimit': LIMIT[tier],
         'billing.billingCycle': cycle,
+        'billing.rescueCredits': Math.max(Number(billing.rescueCredits || 0), creditAllowanceFor(tier)),
         'billing.cycleStartDate': now,
         'billing.nextInvoiceDate': renewal,
         'billing.renewMonthly': p.renewMonthly,

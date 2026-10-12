@@ -96,7 +96,12 @@ export function createCarrierNdrHandler(
 
     try {
 
-      const eventId = parsed.eventId || `${parsed.awb}_${parsed.status || 'ndr'}`;
+      // Fallback event id must differ between attempt 1 and attempt 2 on the same AWB:
+      // use the scan time, or the receipt hour when the carrier sends no time.
+      const timeKey = parsed.attemptTime && !Number.isNaN(new Date(parsed.attemptTime).getTime())
+        ? new Date(parsed.attemptTime).toISOString()
+        : new Date().toISOString().slice(0, 13);
+      const eventId = parsed.eventId || `${parsed.awb}_${parsed.status || 'ndr'}_${timeKey}`;
       idemKey = IdempotencyGuard.key(provider, merchantId.toString(), eventId);
 
       let claim;
