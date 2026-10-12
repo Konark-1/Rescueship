@@ -13,9 +13,10 @@ else
 end`;
 
 const activeLocks = new Map<string, string>();
+const inMemoryLocks = new Map<string, number>();
 
 /**
- * Acquire a distributed lock using Redis SET key value NX PX ttlMs.
+ * Acquire a distributed lock using Redis SET key value NX PX ttlMs with in-memory fallback.
  *
  * @param key The Redis lock key (e.g. lock:ndr:shiprocket:AWB12345)
  * @param ttlMs Time-to-live in milliseconds
@@ -29,16 +30,27 @@ export async function acquireLock(
 ): Promise<boolean> {
   const value = customValue || randomUUID();
   try {
-    const result = await (redisConnection as any).set(key, value, 'PX', ttlMs, 'NX');
-    if (result === 'OK') {
-      activeLocks.set(key, value);
-      return true;
+    if (redisConnection.status === 'ready') {
+      const result = await (redisConnection as any).set(key, value, 'PX', ttlMs, 'NX');
+      if (result === 'OK') {
+        activeLocks.set(key, value);
+        return true;
+      }
+      return false;
     }
-    return false;
   } catch (err: any) {
-    logger.warn(`[DISTRIBUTED LOCK] Failed to acquire lock for key ${key}`, { error: err?.message });
+    logger.warn(`[DISTRIBUTED LOCK] Redis error, falling back to memory lock for key ${key}`, { error: err?.message });
+  }
+
+  // Fallback to in-memory lock
+  const now = Date.now();
+  const existingExpiry = inMemoryLocks.get(key);
+  if (existingExpiry && existingExpiry > now) {
     return false;
   }
+  inMemoryLocks.set(key, now + ttlMs);
+  activeLocks.set(key, value);
+  return true;
 }
 
 /**
@@ -50,6 +62,7 @@ export async function acquireLock(
  * @returns Promise<void>
  */
 export async function releaseLock(key: string, value?: string): Promise<void> {
+  inMemoryLocks.delete(key);
   const token = value || activeLocks.get(key) || '';
   activeLocks.delete(key);
 
@@ -58,12 +71,14 @@ export async function releaseLock(key: string, value?: string): Promise<void> {
   }
 
   try {
-    await (redisConnection as any).eval(
-      LUA_RELEASE_LOCK,
-      1,
-      key,
-      token
-    );
+    if (redisConnection.status === 'ready') {
+      await (redisConnection as any).eval(
+        LUA_RELEASE_LOCK,
+        1,
+        key,
+        token
+      );
+    }
   } catch (err: any) {
     logger.warn(`[DISTRIBUTED LOCK] Failed to release lock for key ${key}`, { error: err?.message });
   }
