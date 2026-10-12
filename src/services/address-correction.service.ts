@@ -474,26 +474,10 @@ export class AddressCorrectionService {
       throw new Error('Tenant mismatch: order does not belong to merchant');
     }
 
-    let apiToken: string | undefined;
-    // Fail closed: an undecryptable credential must never be sent to a carrier as-is.
-    const cc: any = merchant.carrierConfig || {};
-    let email = config.shiprocket.email;
-    let password = config.shiprocket.password;
-    try {
-      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-      if (cc.email) email = encryptionService.decrypt(cc.email);
-      if (cc.password) password = encryptionService.decrypt(cc.password);
-    } catch (err) {
-      logger.error('Stored carrier credentials cannot be decrypted; merchant must reconnect carrier', { merchantId: merchant._id });
-      throw new Error('Carrier credentials require reconnection');
-    }
-
-    const carrierConfig = {
-      provider: order.carrier || merchant.carrierConfig?.provider,
-      apiToken,
-      email,
-      password,
-    };
+    // Same per-carrier credential resolution as every other carrier action; merchant's own
+    // credentials only (no platform fallback).
+    const { orderService } = require('./order.service');
+    const carrierConfig = orderService.getCarrierConfig(merchant, order.carrier || merchant.carrierConfig?.provider);
 
     if (order.carrier && order.awb) {
       await logisticsService.updateDeliveryAddress(

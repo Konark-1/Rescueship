@@ -750,8 +750,9 @@ export class OrderService {
       mode: specific.mode,
       apiToken: apiToken || apiKey,
       apiKey: apiKey || apiToken,
-      email: email || (targetCarrier === 'shiprocket' ? process.env.SHIPROCKET_EMAIL : undefined),
-      password: password || (targetCarrier === 'shiprocket' ? process.env.SHIPROCKET_PASSWORD : undefined),
+      // Merchant's own credentials only — never the platform's courier account.
+      email,
+      password,
       username,
       customerCode,
       licenseKey,

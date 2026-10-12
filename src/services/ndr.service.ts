@@ -741,9 +741,9 @@ export class NDRService {
         mode: specificCarrierConfig.mode,
         apiToken: apiToken || apiKey,
         apiKey: apiKey || apiToken,
-        email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+        email: carrierEmail,
         username: carrierUsername,
-        password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
+        password: carrierPassword,
         customerCode,
         licenseKey,
         loginId,
@@ -1552,9 +1552,10 @@ export class NDRService {
       mode: specificCarrierConfig.mode,
       apiToken: apiToken || apiKey,
       apiKey: apiKey || apiToken,
-      email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+      // Merchant's own credentials only — never the platform's courier account.
+      email: carrierEmail,
       username: carrierUsername,
-      password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
+      password: carrierPassword,
       customerCode,
       licenseKey,
       loginId,
@@ -1572,11 +1573,48 @@ export class NDRService {
       );
 
       if (!result.success) {
-        logger.warn('Carrier reschedule call returned non-success; proceeding with customer rescue confirmation', {
+        // The courier did NOT accept the instruction: don't mark the order rescued, don't
+        // credit savings, and don't tell the customer it's booked. Raise a merchant task.
+        logger.warn('Carrier reschedule failed; raising merchant task instead of marking rescued', {
           awb: order.awb,
           carrier: order.carrier,
           message: result.message,
         });
+        if (order.ndr) {
+          order.ndr.customerResponse = order.ndr.customerResponse || 'reschedule';
+          order.ndr.scheduledSlot = subChoice;
+        }
+        if (typeof (order as any).save === 'function') await (order as any).save();
+        try {
+          await NdrCase.findOneAndUpdate(
+            { orderId: order._id, merchantId: order.merchantId },
+            { $set: { customerResponseType: 'RESCHEDULE', customerResponseAt: new Date(), carrierReattemptStatus: 'FAILED' } }
+          );
+        } catch { /* non-fatal */ }
+        await AuditLog.create({
+          merchantId: order.merchantId,
+          orderId: order._id,
+          action: 'carrier_reschedule_failed',
+          source: 'ndr_service',
+          payload: { carrier: order.carrier, awb: order.awb, requestedDate: dateStr, message: result.message },
+          status: 'failed',
+          error: result.message,
+        }).catch(() => {});
+        realtimeService.broadcast({
+          type: 'merchant_action_required',
+          merchantId: order.merchantId.toString(),
+          payload: { orderId: order.externalOrderId, awb: order.awb, reason: 'courier_reschedule_failed', requestedDate: dateStr },
+          timestamp: new Date().toISOString(),
+        });
+        if (!options?.suppressMessage) {
+          await whatsAppService.sendInteractiveButtons(
+            order.customerPhone,
+            `Thanks — we've noted ${label} as your preferred delivery time for Order #${order.externalOrderId}. Our team is confirming it with the courier.`,
+            [],
+            this.getWaConfig(merchant)
+          );
+        }
+        return { success: false, dateStr, label, result };
       }
 
       order.status = 'ndr_rescued';
@@ -1613,7 +1651,7 @@ export class NDRService {
               customerResponseAt: new Date(),
               resolutionType: 'rescheduled',
               reattemptRequestedAt: new Date(),
-              carrierReattemptStatus: result.success ? 'SUCCESS' : 'CARRIER_API_PENDING',
+              carrierReattemptStatus: 'SUCCESS',
               rtoFeeSaved: rtoFee,
               estimatedLossPrevented: rtoFee,
             },

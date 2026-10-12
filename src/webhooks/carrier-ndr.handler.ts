@@ -21,7 +21,7 @@ import { authenticateCarrierWebhook, CarrierProvider } from './carrier-auth';
 import { orderStateMachineService } from '../services/state-machine/order-state-machine.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
-import { acquireLock, releaseLock } from '../utils/distributed-lock.util';
+import { acquireLockWithWait, releaseLock, LockUnavailableError } from '../utils/distributed-lock.util';
 
 const ndrRescueQueue = new Queue('ndr-rescue', { connection: redisConnection as any });
 
@@ -74,11 +74,21 @@ export function createCarrierNdrHandler(
     // ─── 🔒 2. Redis Concurrency Lock (SET NX) Scoped to Tenant to Prevent Retry Storms & Cross-Tenant Collisions ───
     const lockKey = `lock:ndr:${merchantId.toString()}:${provider}:${parsed.awb}`;
     const uniqueValue = randomUUID();
-    const acquired = await acquireLock(lockKey, 10000, uniqueValue);
+    let acquired = false;
+    try {
+      acquired = await acquireLockWithWait(lockKey, 10000, uniqueValue);
+    } catch (lockErr) {
+      if (lockErr instanceof LockUnavailableError) {
+        res.status(503).json({ error: 'Temporarily unavailable, retry later' });
+        return;
+      }
+      throw lockErr;
+    }
 
     if (!acquired) {
-      logger.warn(`[DUPLICATE WEBHOOK DROPPED] Lock exists for ${lockKey}`);
-      res.status(200).json({ status: 'ignored', reason: 'duplicate_lock_active', lockKey });
+      // Still busy after waiting: ask the carrier to retry rather than dropping the event.
+      logger.warn(`[WEBHOOK BUSY] Lock still held for ${lockKey}; asking provider to retry`);
+      res.status(503).json({ error: 'Busy processing a previous event for this shipment, retry later' });
       return;
     }
 

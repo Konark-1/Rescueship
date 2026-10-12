@@ -13,10 +13,9 @@ else
 end`;
 
 const activeLocks = new Map<string, string>();
-const inMemoryLocks = new Map<string, number>();
 
 /**
- * Acquire a distributed lock using Redis SET key value NX PX ttlMs with in-memory fallback.
+ * Acquire a distributed lock using Redis SET key value NX PX ttlMs.
  *
  * @param key The Redis lock key (e.g. lock:ndr:shiprocket:AWB12345)
  * @param ttlMs Time-to-live in milliseconds
@@ -29,28 +28,44 @@ export async function acquireLock(
   customValue?: string
 ): Promise<boolean> {
   const value = customValue || randomUUID();
+  if ((redisConnection as any).status && (redisConnection as any).status !== 'ready') {
+    logger.error(`[DISTRIBUTED LOCK] Redis not ready while acquiring ${key}`, { status: (redisConnection as any).status });
+    throw new LockUnavailableError();
+  }
   try {
-    if (redisConnection.status === 'ready') {
-      const result = await (redisConnection as any).set(key, value, 'PX', ttlMs, 'NX');
-      if (result === 'OK') {
-        activeLocks.set(key, value);
-        return true;
-      }
-      return false;
+    const result = await (redisConnection as any).set(key, value, 'PX', ttlMs, 'NX');
+    if (result === 'OK') {
+      activeLocks.set(key, value);
+      return true;
     }
-  } catch (err: any) {
-    logger.warn(`[DISTRIBUTED LOCK] Redis error, falling back to memory lock for key ${key}`, { error: err?.message });
-  }
-
-  // Fallback to in-memory lock
-  const now = Date.now();
-  const existingExpiry = inMemoryLocks.get(key);
-  if (existingExpiry && existingExpiry > now) {
     return false;
+  } catch (err: any) {
+    // Fail closed: a Redis outage must not look like "someone else holds the lock"
+    // (callers would then drop the event with a 200). Callers return 503 so the
+    // provider retries later.
+    logger.error(`[DISTRIBUTED LOCK] Redis unavailable while acquiring ${key}`, { error: err?.message });
+    throw new LockUnavailableError();
   }
-  inMemoryLocks.set(key, now + ttlMs);
-  activeLocks.set(key, value);
-  return true;
+}
+
+export class LockUnavailableError extends Error {
+  constructor(message = 'Distributed lock store unavailable') {
+    super(message);
+    this.name = 'LockUnavailableError';
+  }
+}
+
+/**
+ * Acquire with a short wait: a different event for the same key (e.g. an
+ * out-for-delivery scan followed by a failed-delivery scan) waits for the first
+ * one instead of being dropped as a "duplicate".
+ */
+export async function acquireLockWithWait(key: string, ttlMs: number, value: string, attempts = 6, delayMs = 400): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    if (await acquireLock(key, ttlMs, value)) return true;
+    await new Promise((r) => setTimeout(r, delayMs));
+  }
+  return false;
 }
 
 /**
@@ -62,7 +77,6 @@ export async function acquireLock(
  * @returns Promise<void>
  */
 export async function releaseLock(key: string, value?: string): Promise<void> {
-  inMemoryLocks.delete(key);
   const token = value || activeLocks.get(key) || '';
   activeLocks.delete(key);
 
@@ -71,14 +85,12 @@ export async function releaseLock(key: string, value?: string): Promise<void> {
   }
 
   try {
-    if (redisConnection.status === 'ready') {
-      await (redisConnection as any).eval(
-        LUA_RELEASE_LOCK,
-        1,
-        key,
-        token
-      );
-    }
+    await (redisConnection as any).eval(
+      LUA_RELEASE_LOCK,
+      1,
+      key,
+      token
+    );
   } catch (err: any) {
     logger.warn(`[DISTRIBUTED LOCK] Failed to release lock for key ${key}`, { error: err?.message });
   }

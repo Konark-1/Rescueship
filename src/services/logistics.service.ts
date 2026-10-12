@@ -96,8 +96,9 @@ export class LogisticsService {
    * Authenticate with Shiprocket and return token
    */
   public async getShiprocketToken(email?: string, password?: string): Promise<string> {
-    const srEmail = email || config.shiprocket.email;
-    const srPassword = password || config.shiprocket.password;
+    // Per-merchant API user only. A platform fallback would act on AWBs with the wrong account.
+    const srEmail = email;
+    const srPassword = password;
 
     if (!srEmail || !srPassword) {
       throw new Error('Shiprocket email and password are not configured');
@@ -342,7 +343,7 @@ export class LogisticsService {
         },
       });
 
-      const isSuccess = response.data?.status === 200 || response.data?.success === true || (response.data?.errors?.NDR?.[0] === 'Data not found' && process.env.NODE_ENV !== 'production');
+      const isSuccess = response.data?.status === 200 || response.data?.success === true;
 
       return {
         success: isSuccess,
@@ -351,8 +352,8 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Shiprocket reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
-      // In development / sandbox mode, do not hard-fail simulated orders
-      if (process.env.NODE_ENV !== 'production') {
+      // Simulation only when explicitly enabled — never inferred from NODE_ENV.
+      if (process.env.CARRIER_SIMULATE === 'true') {
         return { success: true, message: 'Simulated Shiprocket reschedule recorded', carrierResponse: { simulated: true } };
       }
       return { success: false, message: error.message, carrierResponse: error.response?.data };
@@ -381,7 +382,7 @@ export class LogisticsService {
         },
       });
 
-      const isSuccess = response.data.status === 200 || response.data.success || (response.data?.errors?.NDR?.[0] === 'Data not found' && process.env.NODE_ENV !== 'production');
+      const isSuccess = response.data.status === 200 || response.data.success;
 
       return {
         success: !!isSuccess,
@@ -390,7 +391,7 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Shiprocket address update failed', { awb: params.awb, error: error.response?.data || error.message });
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.CARRIER_SIMULATE === 'true') {
         return { success: true, message: 'Simulated Shiprocket address update recorded', carrierResponse: { simulated: true } };
       }
       return { success: false, message: error.message, carrierResponse: error.response?.data };
@@ -475,7 +476,8 @@ export class LogisticsService {
         throw new Error('Delhivery API Token is not configured');
       }
 
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
@@ -517,7 +519,8 @@ export class LogisticsService {
         throw new Error('Delhivery API Token is not configured');
       }
 
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
@@ -580,7 +583,7 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.warn('Shiprocket cancel / RTO request notice', { awb: params.awb, error: error.response?.data || error.message });
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.CARRIER_SIMULATE === 'true') {
         return { success: true, message: 'Simulated Shiprocket cancellation recorded', carrierResponse: { simulated: true } };
       }
       return { success: false, message: error.message, carrierResponse: error.response?.data };
@@ -627,7 +630,8 @@ export class LogisticsService {
         throw new Error('Delhivery API Token is not configured');
       }
 
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
@@ -711,7 +715,8 @@ export class LogisticsService {
     try {
       const apiToken = carrierConfig?.apiToken;
       if (!apiToken) throw new Error('Delhivery API Token is not configured');
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
       const payload = {

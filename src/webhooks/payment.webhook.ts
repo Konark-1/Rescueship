@@ -44,7 +44,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     ? str(body.payload?.payment_link?.entity?.id)
     : str(body.data?.link_id || body.link_id);
   if (!linkId) {
-    res.status(400).json({ error: 'Missing payment link id' });
+    // Without a link id we minted, there is no merchant secret to verify against.
+    res.status(401).json({ error: 'Invalid HMAC signature (unknown payment link)' });
     return;
   }
 

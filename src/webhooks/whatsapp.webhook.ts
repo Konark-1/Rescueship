@@ -49,8 +49,7 @@ router.get('/', (req: Request, res: Response): void => {
   const expectedToken =
     process.env.META_VERIFY_TOKEN ||
     process.env.WHATSAPP_VERIFY_TOKEN ||
-    config.whatsapp?.verifyToken ||
-    'rescueship_webhook_token_2026';
+    config.whatsapp?.verifyToken;
 
   logger.info('Received WhatsApp webhook verification request', { mode, tokenPresent: typeof token === 'string' && token.length > 0 });
 
@@ -64,7 +63,7 @@ router.get('/', (req: Request, res: Response): void => {
     logger.info('WhatsApp webhook verified successfully');
     res.status(200).send(typeof challenge === 'string' ? challenge : '');
   } else {
-    logger.warn('WhatsApp webhook verification failed', { mode, token, expectedToken });
+    logger.warn('WhatsApp webhook verification failed', { mode, tokenPresent: typeof token === 'string' && token.length > 0 });
     res.sendStatus(403);
   }
 });
@@ -89,8 +88,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Invalid WhatsApp signature' });
       return;
     }
-  } else if (config.server.nodeEnv === 'development' || process.env.NODE_ENV === 'development') {
-    logger.info('WhatsApp appSecret not configured — accepting webhook in development mode');
+  } else if (process.env.WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS === 'true' && process.env.NODE_ENV !== 'production') {
+    logger.warn('WhatsApp appSecret not configured — accepting UNSIGNED webhook (WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS=true, local dev only)');
   } else {
     logger.warn('WhatsApp appSecret not configured — rejecting webhook. Set WHATSAPP_APP_SECRET.');
     res.status(401).json({ error: 'WhatsApp webhook secret not configured' });
