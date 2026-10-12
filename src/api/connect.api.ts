@@ -114,14 +114,16 @@ router.post('/shopify/demo-connect', authenticateToken, async (req: Authenticate
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-// Direct API token path — merchant pastes their store's Admin API access token.
-// Works everywhere (dev or prod), no Partner app required from anyone.
+// Direct path — no Partner app required. Either a Dev Dashboard app's Client ID + secret
+// (client credentials grant, the only option for apps created after 1 Jan 2026) or a legacy
+// custom app's Admin API access token + API secret key.
 router.post('/shopify/token', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { shop, accessToken, apiSecret } = req.body;
-  if (typeof shop !== 'string' || typeof accessToken !== 'string' || typeof apiSecret !== 'string') {
-    return res.status(400).json({ error: 'shop, accessToken and apiSecret required' });
+  const { shop, accessToken, apiSecret, clientId } = req.body;
+  const optStr = (v: unknown) => v === undefined || v === null || v === '' || typeof v === 'string';
+  if (typeof shop !== 'string' || typeof apiSecret !== 'string' || !optStr(accessToken) || !optStr(clientId) || (!accessToken && !clientId)) {
+    return res.status(400).json({ error: 'shop, apiSecret and either clientId or accessToken required' });
   }
-  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken, apiSecret)); }
+  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken || undefined, apiSecret, clientId || undefined)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // Hit by Shopify (no JWT) — verifies hmac+state, then bounces the browser to the wizard.

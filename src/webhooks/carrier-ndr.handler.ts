@@ -141,6 +141,22 @@ export function createCarrierNdrHandler(
       if (!order && parsed.externalOrderId) {
         order = await Order.findOne({ merchantId, externalOrderId: parsed.externalOrderId });
       }
+      if (!order && parsed.externalOrderId) {
+        // Aggregators (Shiprocket etc.) usually send the store's order name/number ("#1001" / "1001"),
+        // not Shopify's numeric id. Match on those, tenant-scoped, and only if unambiguous.
+        const ref = String(parsed.externalOrderId).trim();
+        const bare = ref.replace(/^#/, '');
+        const candidates = await Order.find({
+          merchantId,
+          $or: [{ externalOrderName: ref }, { externalOrderName: `#${bare}` }, { externalOrderNumber: bare }],
+        }).limit(2);
+        if (candidates.length === 1) order = candidates[0];
+        else if (candidates.length > 1) logger.warn('Ambiguous order reference from carrier; not auto-matching', { merchantId, ref });
+      }
+      if (order && !order.awb && parsed.awb) {
+        // Remember the AWB so later events match directly.
+        try { await Order.updateOne({ _id: order._id, awb: null }, { $set: { awb: parsed.awb, carrier: provider } }); } catch { /* AWB already used */ }
+      }
 
       // ─── 2. Shipment Registry Linking & Quarantine ───
       let shipment = await Shipment.findOne({ merchantId, awbNumber: parsed.awb });

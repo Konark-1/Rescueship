@@ -25,6 +25,9 @@ export interface IncomingOrderData {
   city?: string;
   state?: string;
   shippingAddress?: any;
+  /** Shopify order name (#1001) / number — carriers often send these instead of the id. */
+  externalOrderName?: string | null;
+  externalOrderNumber?: string | null;
 }
 
 export class OrderService {
@@ -171,6 +174,8 @@ export class OrderService {
           shippingCity: city,
           shippingState: state,
           shippingAddress: orderData.shippingAddress || null,
+          externalOrderName: orderData.externalOrderName || null,
+          externalOrderNumber: orderData.externalOrderNumber || null,
           failureSource: 'NONE',
           attemptCount: 0,
           status: 'new',
@@ -871,7 +876,8 @@ export class OrderService {
     try {
       // Shopify credentials may live under `merchant.shopify` (OAuth / direct-token connect)
       // or the legacy `platformConfig` (manual settings). Prefer the connect flow's copy.
-      const shopifyCreds = merchant ? this.resolveShopifyCredentials(merchant) : null;
+      const { getShopifyAccess } = require('./shopify-admin');
+      const shopifyCreds = merchant && order?.platform === 'shopify' ? await getShopifyAccess(merchant) : null;
       const wcCreds = merchant ? this.resolveWooCommerceCredentials(merchant) : null;
       if (order && merchant && order.platform === 'woocommerce' && wcCreds) {
         await this.syncWooCommerceOrder(order, wcCreds, amountPaidInr, isFullPayment);
@@ -895,13 +901,7 @@ export class OrderService {
           return;
         }
 
-        let token: string;
-        try {
-          token = encryptionService.decrypt(shopifyCreds.encryptedToken);
-        } catch {
-          logger.error('Stored Shopify access token cannot be decrypted; merchant must reconnect Shopify', { merchantId: merchant._id });
-          return;
-        }
+        const token: string = shopifyCreds.token;
         const { markShopifyOrderPaid, addShopifyOrderTags } = require('./shopify-admin');
         const discount = order.codConversion?.incentiveOffered || 0;
         const paid = typeof amountPaidInr === 'number' ? amountPaidInr : Math.max(0, order.orderValue - discount);
@@ -920,19 +920,6 @@ export class OrderService {
     } catch (err: any) {
       logger.error('Failed to sync order status to platform', { orderId: order?.externalOrderId, error: err.message });
     }
-  }
-
-  /** Pick the Shopify domain + encrypted token from whichever place the merchant connected through. */
-  private resolveShopifyCredentials(merchant: any): { domain: string; encryptedToken: string } | null {
-    const s = merchant.shopify;
-    if (s?.shopDomain && s?.accessToken && !s.demo) {
-      return { domain: String(s.shopDomain).toLowerCase(), encryptedToken: s.accessToken };
-    }
-    const pc = merchant.platformConfig;
-    if (pc?.shopifyDomain && pc?.shopifyAccessToken) {
-      return { domain: String(pc.shopifyDomain).toLowerCase(), encryptedToken: pc.shopifyAccessToken };
-    }
-    return null;
   }
 
   /** Resolve + decrypt the WooCommerce REST API credentials stored by the connect flow / settings. */

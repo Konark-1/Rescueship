@@ -123,7 +123,7 @@ export interface IMerchant extends Document {
     woocommerce?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; url?: string; lastError?: string };
   };
   /** apiSecret: encrypted custom-app API secret (direct-token connect) used to verify webhook HMACs. */
-  shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; scope?: string; webhooksRegistered?: boolean };
+  shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; clientId?: string; tokenExpiresAt?: Date; scope?: string; webhooksRegistered?: boolean; webhookErrors?: string[]; demo?: boolean; uninstalledAt?: Date };
   ownerPhone?: string;
   storeName?: string;
   onboarding?: {
@@ -354,7 +354,19 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         payment: { status: 'disconnected' },
       }),
     },
-    shopify: { shopDomain: { type: String, lowercase: true, trim: true }, accessToken: String, apiSecret: String, scope: String, webhooksRegistered: Boolean },
+    shopify: {
+      shopDomain: { type: String, lowercase: true, trim: true },
+      accessToken: String,
+      apiSecret: String,
+      // Dev Dashboard app (client credentials grant): token expires ~24h and is refreshed.
+      clientId: String,
+      tokenExpiresAt: Date,
+      scope: String,
+      webhooksRegistered: Boolean,
+      webhookErrors: [String],
+      demo: Boolean,
+      uninstalledAt: Date,
+    },
     ownerPhone: String,
     storeName: String,
     onboarding: {

@@ -26,7 +26,9 @@ export const connectApi = {
   state: (t: string) => call(t, '/state'),
   shopifyUrl: (t: string, shop: string) => call(t, `/shopify/url?shop=${encodeURIComponent(shop)}`),
   shopifyDemoConnect: (t: string, shop: string) => call(t, '/shopify/demo-connect', { shop }),
-  shopifyToken: (t: string, shop: string, accessToken: string, apiSecret: string) => call(t, '/shopify/token', { shop, accessToken, apiSecret }),
+  // `key` is either a legacy custom app's Admin API token (shpat_…) or a Dev Dashboard app's Client ID.
+  shopifyToken: (t: string, shop: string, key: string, apiSecret: string) =>
+    call(t, '/shopify/token', key.startsWith('shpat_') ? { shop, accessToken: key, apiSecret } : { shop, clientId: key, apiSecret }),
   woocommerce: (t: string, url: string, consumerKey: string, consumerSecret: string) => call(t, '/woocommerce', { url, consumerKey, consumerSecret }),
   whatsappSignup: (t: string, code: string, businessId?: string) => call(t, '/whatsapp/signup', { code, businessId }),
   whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string) => call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken }),
