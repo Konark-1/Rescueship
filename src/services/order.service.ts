@@ -564,7 +564,11 @@ export class OrderService {
       return;
     }
 
-    const nextStatus = isDepositOrder ? 'confirmed' : isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
+    // Full payment = the whole amount the customer owed after discount. Anything less
+    // (deposit, partial pay) keeps the order COD with a reduced collectable balance.
+    const isFullPayment = amountPaidPaise >= expectedPaise;
+    const amountPaidInr = amountPaidPaise / 100;
+    const nextStatus = isDepositOrder ? 'confirmed' : isNdrOrder ? 'ndr_rescued' : isFullPayment ? 'converted_to_prepaid' : 'cod_conversion_sent';
     const rtoFeeSaved = (merchant as any)?.settings?.estimatedRtoLossPerOrder || 140;
 
     const updatedOrder = await Order.findOneAndUpdate(
@@ -588,9 +592,11 @@ export class OrderService {
       {
         $set: {
           status: nextStatus,
-          paid: true,
-          paymentMethod: order.pincodeHoldReason === 'force_prepaid' || !isDepositOrder ? 'prepaid' : order.paymentMethod,
-          'codConversion.convertedAt': new Date(),
+          paid: isFullPayment,
+          paymentMethod: isFullPayment ? 'prepaid' : order.paymentMethod,
+          'codConversion.amountPaid': amountPaidInr,
+          'codConversion.paymentLinkId': paymentLinkId,
+          ...(isFullPayment && { 'codConversion.convertedAt': new Date() }),
           ...(isDepositOrder && {
             depositPaidAt: new Date(),
             depositTransactionId: paymentLinkId,
@@ -641,7 +647,7 @@ export class OrderService {
       order.orderValue - discount
     );
 
-    await this.markOrderAsPaidOnPlatform(updatedOrder, merchant);
+    await this.markOrderAsPaidOnPlatform(updatedOrder, merchant, amountPaidInr, isFullPayment);
 
     // Amend courier COD amount (doorstep balance update)
     try {
@@ -853,21 +859,21 @@ export class OrderService {
     }
   }
 
-  public async markOrderAsPaidOnPlatform(order: any, merchant?: any): Promise<void> {
+  public async markOrderAsPaidOnPlatform(order: any, merchant?: any, amountPaidInr?: number, isFullPayment = true): Promise<void> {
     if (!merchant && order?.merchantId) {
       merchant = await Merchant.findById(order.merchantId);
     }
-    return this.syncOrderToPlatform(order, merchant);
+    return this.syncOrderToPlatform(order, merchant, amountPaidInr, isFullPayment);
   }
 
-  private async syncOrderToPlatform(order: any, merchant: any): Promise<void> {
+  private async syncOrderToPlatform(order: any, merchant: any, amountPaidInr?: number, isFullPayment = true): Promise<void> {
     try {
       // Shopify credentials may live under `merchant.shopify` (OAuth / direct-token connect)
       // or the legacy `platformConfig` (manual settings). Prefer the connect flow's copy.
       const shopifyCreds = merchant ? this.resolveShopifyCredentials(merchant) : null;
       const wcCreds = merchant ? this.resolveWooCommerceCredentials(merchant) : null;
       if (order && merchant && order.platform === 'woocommerce' && wcCreds) {
-        await this.syncWooCommerceOrder(order, wcCreds);
+        await this.syncWooCommerceOrder(order, wcCreds, amountPaidInr, isFullPayment);
         return;
       }
       if (order && merchant && order.platform === 'shopify' && shopifyCreds) {
@@ -888,7 +894,6 @@ export class OrderService {
           return;
         }
 
-        const safeOrderId = encodeURIComponent(String(externalOrderId));
         let token: string;
         try {
           token = encryptionService.decrypt(shopifyCreds.encryptedToken);
@@ -896,43 +901,20 @@ export class OrderService {
           logger.error('Stored Shopify access token cannot be decrypted; merchant must reconnect Shopify', { merchantId: merchant._id });
           return;
         }
+        const { markShopifyOrderPaid, addShopifyOrderTags } = require('./shopify-admin');
         const discount = order.codConversion?.incentiveOffered || 0;
-        const netAmount = (order.orderValue - discount).toString();
+        const paid = typeof amountPaidInr === 'number' ? amountPaidInr : Math.max(0, order.orderValue - discount);
 
-        // 1. Post exact captured transaction to Shopify financial ledger
-        await axios.post(
-          `https://${domain}/admin/api/2026-07/orders/${safeOrderId}/transactions.json`,
-          {
-            transaction: {
-              kind: 'sale',
-              status: 'success',
-              amount: netAmount,
-              gateway: 'RescueShip Prepaid',
-            },
-          },
-          { headers: { 'X-Shopify-Access-Token': token } }
-        );
+        if (isFullPayment) {
+          // Record the external payment for the outstanding balance (GraphQL orderMarkAsPaid).
+          await markShopifyOrderPaid(domain, token, externalOrderId);
+          await addShopifyOrderTags(domain, token, externalOrderId, ['RescueShip_Prepaid', `RescueShip_Paid_${Math.round(paid)}`]);
+        } else {
+          // Partial payment: never mark the order paid — only tag it with the real amount.
+          await addShopifyOrderTags(domain, token, externalOrderId, ['RescueShip_Partial_Payment', `RescueShip_Paid_${Math.round(paid)}`]);
+        }
 
-        // 2. Append refund protection note & tags to Shopify order
-        await axios.put(
-          `https://${domain}/admin/api/2026-07/orders/${safeOrderId}.json`,
-          {
-            order: {
-              id: order.externalOrderId,
-              note: `⚠️ RescueShip Prepaid Conversion: ₹${discount} discount applied. Net paid by customer: ₹${netAmount}. Maximum refund eligibility: ₹${netAmount}.`,
-              tags: `RescueShip_Prepaid, Incentive_Applied_₹${discount}, Max_Refund_₹${netAmount}`,
-            },
-          },
-          { headers: { 'X-Shopify-Access-Token': token } }
-        ).catch((err: any) => {
-          logger.warn('Failed to update Shopify tags/note', { error: err.message });
-        });
-
-        logger.info('Synced prepaid conversion transaction & refund protection tags to Shopify', {
-          orderId: order.externalOrderId,
-          netAmount,
-          discount,
-        });
+        logger.info('Synced RescueShip payment to Shopify', { orderId: externalOrderId, paid, isFullPayment });
       }
     } catch (err: any) {
       logger.error('Failed to sync order status to platform', { orderId: order?.externalOrderId, error: err.message });
@@ -968,34 +950,36 @@ export class OrderService {
   }
 
   /** After a successful prepaid conversion, mark the WooCommerce order paid + attach a note. */
-  private async syncWooCommerceOrder(order: any, creds: { url: string; key: string; secret: string }): Promise<void> {
+  private async syncWooCommerceOrder(order: any, creds: { url: string; key: string; secret: string }, amountPaidInr?: number, isFullPayment = true): Promise<void> {
     const externalOrderId = String(order.externalOrderId || '');
     if (!/^[0-9]+$/.test(externalOrderId)) {
       logger.warn('Aborting WooCommerce sync: invalid externalOrderId', { externalOrderId });
       return;
     }
     const discount = order.codConversion?.incentiveOffered || 0;
-    const netAmount = (order.orderValue - discount).toString();
+    const paid = typeof amountPaidInr === 'number' ? amountPaidInr : Math.max(0, order.orderValue - discount);
     const auth = { username: creds.key, password: creds.secret };
 
-    // Mark the order paid (WooCommerce 'processing' is the standard paid-but-unshipped state)
-    // and store a transaction reference tying it to the RescueShip conversion.
-    await axios.put(
-      `${creds.url}/wp-json/wc/v3/orders/${externalOrderId}`,
-      { status: 'processing', transaction_id: `rs_${externalOrderId}` },
-      { auth, timeout: 10000 }
-    );
+    if (isFullPayment) {
+      // WooCommerce 'processing' = paid but not yet shipped.
+      await axios.put(
+        `${creds.url}/wp-json/wc/v3/orders/${externalOrderId}`,
+        { status: 'processing', transaction_id: `rs_${externalOrderId}` },
+        { auth, timeout: 10000 }
+      );
+    }
 
-    // Append a note documenting the conversion (refund-protection context for the merchant).
     await axios.post(
       `${creds.url}/wp-json/wc/v3/orders/${externalOrderId}/notes`,
-      { note: `RescueShip Prepaid Conversion: ₹${discount} discount applied. Net paid by customer: ₹${netAmount}. Maximum refund eligibility: ₹${netAmount}.` },
+      { note: isFullPayment
+        ? `RescueShip: customer paid ₹${paid} online (discount ₹${discount}). Order is prepaid.`
+        : `RescueShip: customer paid ₹${paid} online as a partial payment. Remaining balance stays cash on delivery.` },
       { auth, timeout: 10000 }
     ).catch((err: any) => {
       logger.warn('Failed to add WooCommerce order note', { orderId: externalOrderId, error: err.message });
     });
 
-    logger.info('Synced prepaid conversion to WooCommerce', { orderId: externalOrderId, netAmount, discount });
+    logger.info('Synced RescueShip payment to WooCommerce', { orderId: externalOrderId, paid, isFullPayment });
   }
 
   /**
@@ -1008,6 +992,12 @@ export class OrderService {
     finalAmount?: number,
     discount?: number
   ): Promise<{ linkId: string; shortUrl: string } | null> {
+    const { canOfferOnlinePayment } = require('./payment-guard');
+    const guard = canOfferOnlinePayment(order, merchant);
+    if (!guard.ok) {
+      logger.info('Retention payment link not generated (payment guard)', { orderId: order?._id, reason: guard.reason });
+      return null;
+    }
     const codConv = merchant?.settings?.codConversion;
     const incentiveType = codConv?.incentiveType || 'percentage';
     const incentiveAmount = codConv?.incentiveAmount ?? 5;
@@ -1111,23 +1101,10 @@ export class OrderService {
 
       return paymentLink;
     } catch (linkErr: any) {
-      logger.warn('Primary payment gateway link generation failed, activating resilient checkout URL', {
-        orderId: order._id,
-        error: linkErr.message,
-      });
-      const orderRef = order.externalOrderId || order._id?.toString() || 'order';
-      const baseUrl = process.env.API_PUBLIC_URL || process.env.FRONTEND_URL || 'https://rescueship.onrender.com';
-      const liveCheckoutUrl = `${baseUrl}/pay/${orderRef}`;
-      const simLink = {
-        linkId: `plink_ret_${Date.now()}`,
-        shortUrl: liveCheckoutUrl,
-      };
-      order.paymentLinkId = simLink.linkId;
-      if (!order.codConversion) order.codConversion = {} as any;
-      order.codConversion.paymentLinkId = simLink.linkId;
-      order.codConversion.incentiveOffered = computedDiscount;
-      if (typeof order.save === 'function') await order.save();
-      return simLink;
+      // Never invent a fallback URL: the customer would pay somewhere the merchant's
+      // gateway (and our signed webhook) never sees. Caller falls back to reschedule/keep-COD.
+      logger.error('Failed to create retention payment link', { orderId: order._id, error: linkErr.message });
+      return null;
     }
   }
 }

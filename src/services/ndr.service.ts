@@ -504,7 +504,6 @@ export class NDRService {
       | 'address_skip'
       | 'cancel'
       | 'pay_retention'
-      | 'retention_paid'
       | 'confirm_cancel'
       | 'predelivery_confirm'
       | 'verify_fake'
@@ -546,13 +545,10 @@ export class NDRService {
       if (act === 'retention' || act === 'pay_retention') {
         return { action: 'pay_retention', orderId: parts[parts.length - 1]?.trim() || undefined };
       }
-      if (act === 'retention_paid' || act === 'paid_retention') {
-        return { action: 'retention_paid', orderId: parts[parts.length - 1]?.trim() || undefined };
-      }
       if (act === 'confirm_cancel') {
         return { action: 'confirm_cancel', orderId: parts[parts.length - 1]?.trim() || undefined };
       }
-      if (['reschedule', 'address', 'cancel', 'pay_retention', 'retention_paid', 'confirm_cancel', 'predelivery_confirm'].includes(act)) {
+      if (['reschedule', 'address', 'cancel', 'pay_retention', 'confirm_cancel', 'predelivery_confirm'].includes(act)) {
         if (parts.length === 2) {
           return { action: act as any, orderId: parts[1].trim() || undefined };
         } else if (parts.length >= 3) {
@@ -586,7 +582,6 @@ export class NDRService {
       else if (/landmark|text/i.test(t) && !/gps|pin/i.test(t)) subAction = 'text';
       return { action: 'address', subAction };
     }
-    if (/retention_paid|i'?ve paid|already paid|paid \d+|payment done|paid online/i.test(t)) return { action: 'retention_paid' };
     if (/pay_retention|convert|prepaid|pay.*online|pay.*upi/i.test(t)) return { action: 'pay_retention' };
     if (/confirm_cancel|cancel anyway|confirm.*cancel/i.test(t)) return { action: 'confirm_cancel' };
     if (/cancel|return|don'?t want|refuse/.test(t)) return { action: 'cancel' };
@@ -906,7 +901,8 @@ export class NDRService {
         }
 
         // ─── ANTI-EXPLOIT RETENTION: Offer dynamic self-funding COD→Prepaid conversion ───
-        if (!isSerialAbuser && order.paymentMethod === 'cod' && !order.ndr?.retentionOffered) {
+        const { canOfferOnlinePayment } = require('./payment-guard');
+        if (!isSerialAbuser && !order.ndr?.retentionOffered && canOfferOnlinePayment(order, merchant).ok) {
           const codSettings = merchant.settings?.codConversion || {};
           const incentiveType = codSettings.incentiveType || 'flat';
           const incentiveAmount = codSettings.incentiveAmount !== undefined ? codSettings.incentiveAmount : 100;
@@ -1015,68 +1011,57 @@ export class NDRService {
         );
         return;
       } else if (action === 'pay_retention') {
-        const codSettings = merchant.settings?.codConversion || {};
-        const incentiveType = codSettings.incentiveType || 'flat';
-        const incentiveAmount = codSettings.incentiveAmount !== undefined ? codSettings.incentiveAmount : 100;
-        const discountCap = codSettings.discountCap;
-
-        let discount = order.ndr?.retentionDiscount;
-        if (discount === undefined) {
-          if (codSettings.enabled === false || incentiveType === 'none') {
-            discount = 0;
-          } else if (incentiveType === 'percentage') {
-            discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
-            if (discountCap && discountCap > 0) {
-              discount = Math.min(discount, discountCap);
-            }
-          } else if (incentiveType === 'flat') {
-            discount = incentiveAmount;
-          } else {
-            discount = 0;
-          }
-        }
-        const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 0) - (discount || 0));
-
+        // Online payment is offered only when it is safe (payment-guard): known order value,
+        // COD order, and — after dispatch — a carrier that can amend the COD amount.
+        // The order becomes prepaid ONLY from a signature-verified gateway webhook,
+        // never from a button tap or typed text.
+        const { canOfferOnlinePayment } = require('./payment-guard');
+        const check = canOfferOnlinePayment(order, merchant);
         const { orderService } = require('./order.service');
-        const paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
-        const orderRef = order.externalOrderId || order._id?.toString() || 'order';
-        const baseUrl = process.env.API_PUBLIC_URL || process.env.FRONTEND_URL || 'https://rescueship.onrender.com';
-        const linkUrl = paymentLink?.shortUrl || `${baseUrl}/pay/${orderRef}`;
+        let paymentLink: { linkId: string; shortUrl: string } | null = null;
+        let discount = 0;
+        let finalAmount = 0;
 
-        const payMsg = `🎉 ₹${discount || 100} Discount Applied!\n\nPay ₹${finalAmount} securely via UPI or Card to lock in your order with priority dispatch:\n👉 ${linkUrl}\n\nOnce paid, tap below to confirm!`;
+        if (check.ok) {
+          const codSettings = merchant.settings?.codConversion || {};
+          const incentiveType = codSettings.incentiveType || 'none';
+          const incentiveAmount = Number(codSettings.incentiveAmount || 0);
+          const discountCap = codSettings.discountCap;
+          discount = order.ndr?.retentionDiscount ?? 0;
+          if (order.ndr?.retentionDiscount === undefined) {
+            if (codSettings.enabled === false || incentiveType === 'none') discount = 0;
+            else if (incentiveType === 'percentage') {
+              discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+              if (discountCap && discountCap > 0) discount = Math.min(discount, discountCap);
+            } else if (incentiveType === 'flat') discount = incentiveAmount;
+          }
+          finalAmount = (order.orderValue || 0) - (discount || 0);
+          if (finalAmount > 0) {
+            paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
+          }
+        } else {
+          logger.info('Online payment not offered for order', { orderId: order._id, reason: check.reason });
+        }
+
+        if (!paymentLink?.shortUrl) {
+          const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
+          await whatsAppService.sendInteractiveButtons(
+            order.customerPhone,
+            `Online payment isn't available for Order #${order.externalOrderId} right now. ${bodyText}`,
+            buttons,
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        const discountLine = discount > 0 ? `You save ₹${discount}. ` : '';
+        const payMsg = `${discountLine}Pay ₹${finalAmount} securely via UPI or card:\n👉 ${paymentLink.shortUrl}\n\nWe'll confirm automatically as soon as the payment reaches us — no need to reply.`;
 
         await whatsAppService.sendInteractiveButtons(
           order.customerPhone,
           payMsg,
           [
-            { id: `retention_paid:${order._id}`, title: `✅ I've Paid ₹${finalAmount}` },
             { id: `confirm_cancel:${order._id}`, title: '⚠️ Cancel Order' },
-          ],
-          this.getWaConfig(merchant)
-        );
-        return;
-      } else if (action === 'retention_paid') {
-        const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 0) - (order.ndr?.retentionDiscount || 100));
-        order.paymentMethod = 'prepaid';
-        order.status = 'ndr_rescued';
-        if (!order.ndr) order.ndr = {} as any;
-        order.ndr.customerResponse = 'prepaid_converted';
-        order.ndr.resolvedAt = new Date();
-        order.ndr.resolution = 'rescued_cod_to_prepaid';
-        if (typeof (order as any).save === 'function') await order.save();
-        else await Order.findByIdAndUpdate(order._id, { $set: order });
-
-        // Reschedule redelivery with carrier as priority prepaid
-        await this.rescheduleDelivery(order, merchant, 'tomorrow', { suppressMessage: true });
-
-        const successMsg = `🎉 Payment confirmed for Order #${order.externalOrderId}! Your order has been upgraded to Priority Prepaid and scheduled for reattempt tomorrow.\n\nWould you like to verify or update your delivery address?`;
-
-        await whatsAppService.sendInteractiveButtons(
-          order.customerPhone,
-          successMsg,
-          [
-            { id: `address:gps:${order._id}`, title: '📍 Send GPS Pin' },
-            { id: `address:skip:${order._id}`, title: '⏩ Keep Address' },
           ],
           this.getWaConfig(merchant)
         );

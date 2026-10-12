@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import crypto from 'crypto';
-import { Types } from 'mongoose';
 import { redisConnection } from '../config/redis';
 import { paymentService } from '../services/payment.service';
 import { config } from '../config/env';
@@ -96,12 +95,9 @@ router.post(['/', '/payment'], async (req: Request, res: Response): Promise<void
 
   if (cashfreeOrderId) {
     const orderQuery: any = {
-      $or: [
-        { cashfreeOrderId },
-        { paymentLinkId: cashfreeOrderId },
-        { externalOrderId: cashfreeOrderId },
-        ...(Types.ObjectId.isValid(cashfreeOrderId) ? [{ _id: cashfreeOrderId }] : []),
-      ],
+      // Only ids WE minted at the gateway — never the shop's order number, which is
+      // not unique across merchants.
+      $or: [{ cashfreeOrderId }, { paymentLinkId: cashfreeOrderId }, { depositPaymentLinkId: cashfreeOrderId }],
     };
 
     const order = await Order.findOne(orderQuery).select('merchantId').populate('merchantId', 'paymentConfig');
@@ -197,63 +193,9 @@ router.post(['/', '/payment'], async (req: Request, res: Response): Promise<void
   }
 
   try {
-    // ─── 1. DATABASE UPDATE: Set paid: true & paymentGateway: 'cashfree' ───
-    const updatedOrder = await Order.findOneAndUpdate(
-      {
-        $or: [
-          { cashfreeOrderId },
-          { paymentLinkId: cashfreeOrderId },
-          { externalOrderId: cashfreeOrderId },
-          ...(Types.ObjectId.isValid(cashfreeOrderId) ? [{ _id: cashfreeOrderId }] : []),
-        ],
-      },
-      {
-        $set: {
-          paid: true,
-          paymentGateway: 'cashfree',
-          paymentMethod: 'prepaid',
-          'codConversion.convertedAt': new Date(),
-        },
-      },
-      { new: true }
-    );
-
-    if (!updatedOrder) {
-      logger.warn('No order found to update for Cashfree webhook', { cashfreeOrderId });
-      await IdempotencyGuard.markProcessed(idemKey);
-      res.status(200).json({ status: 'ignored', reason: 'order_not_found' });
-      return;
-    }
-
-    // ─── 2. CRUCIAL: Trigger RTO Transit Reversal Logic ONLY After paid: true is confirmed ───
-    if (updatedOrder.paid === true) {
-      const isRtoOrNdr =
-        updatedOrder.status === 'rto' ||
-        updatedOrder.status === 'rto_initiated' ||
-        updatedOrder.rtoArrestStatus === 'TRIGGERED' ||
-        (updatedOrder.status || '').startsWith('ndr_');
-
-      if (isRtoOrNdr) {
-        logger.info('Order verified as paid: true via Cashfree. Executing RTO transit reversal logic.', {
-          orderId: updatedOrder._id,
-          status: updatedOrder.status,
-        });
-
-        try {
-          const { rtoArrestService } = require('../services/rto-arrest.service');
-          await rtoArrestService.abortRtoAndReattempt({
-            orderId: updatedOrder._id.toString(),
-            reason: 'Payment confirmed via Cashfree webhook. RTO transit aborted.',
-          });
-        } catch (rtoErr: any) {
-          logger.warn('Failed to abort RTO via rtoArrestService on Cashfree payment confirmation', {
-            orderId: updatedOrder._id,
-            error: rtoErr.message,
-          });
-        }
-      }
-    }
-
+    // The order is changed ONLY inside orderService.handlePaymentSuccess (via the queue):
+    // it resolves the order by the link id we created, validates the amount (partial
+    // payments stay COD), and runs any RTO abort. No direct paid/prepaid write here.
     // ─── 3. Queue downstream order and courier balance lifecycle updates ───
     const rawAmount = Number(
       body.data?.payment?.payment_amount ??
@@ -285,7 +227,7 @@ router.post(['/', '/payment'], async (req: Request, res: Response): Promise<void
 
     await IdempotencyGuard.markProcessed(idemKey);
     logger.info('Cashfree payment confirmed and RTO safeguards processed', { cashfreeOrderId, eventId });
-    res.status(200).json({ status: 'received', paid: true });
+    res.status(200).json({ status: 'received' });
   } catch (err: any) {
     logger.error('Failed to handle Cashfree webhook', { error: err.message, cashfreeOrderId });
     await IdempotencyGuard.release(idemKey);

@@ -54,7 +54,18 @@ export interface IOrder extends Document {
     convertedAt?: Date | null;
     claimedUtr?: string | null;
     claimedUtrAt?: Date | null;
+    paymentLinkId?: string | null;
+    paymentId?: string | null;
+    amountPaid?: number;
+    refundStatus?: 'none' | 'pending_approval' | 'approved' | 'processing' | 'refunded' | 'failed' | 'rejected';
+    refundAmount?: number;
+    refundId?: string | null;
+    refundRequestedAt?: Date | null;
+    refundReason?: string | null;
   };
+  /** Shopify order name (e.g. "#1001") and number (1001) — couriers report these, not the numeric id. */
+  externalOrderName?: string | null;
+  externalOrderNumber?: string | null;
   ndr?: {
     reason?: string | null;
     detectedAt?: Date | null;
@@ -186,7 +197,21 @@ const OrderSchema = new Schema<IOrder>(
       convertedAt: { type: Date, default: null },
       claimedUtr: { type: String, default: null },
       claimedUtrAt: { type: Date, default: null },
+      paymentLinkId: { type: String, default: null },
+      paymentId: { type: String, default: null },
+      amountPaid: { type: Number, default: 0 },
+      refundStatus: {
+        type: String,
+        enum: ['none', 'pending_approval', 'approved', 'processing', 'refunded', 'failed', 'rejected'],
+        default: 'none',
+      },
+      refundAmount: { type: Number, default: 0 },
+      refundId: { type: String, default: null },
+      refundRequestedAt: { type: Date, default: null },
+      refundReason: { type: String, default: null },
     },
+    externalOrderName: { type: String, default: null },
+    externalOrderNumber: { type: String, default: null },
     ndr: {
       reason: { type: String, default: null },
       detectedAt: { type: Date, default: null },
