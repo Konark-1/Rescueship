@@ -415,6 +415,18 @@
   border-radius: var(--radius-xl);
   padding: clamp(1.75rem, 3.5vw, 2.75rem);
   box-shadow: var(--shadow-sm);
+  animation: obCardFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes obCardFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .ob-card__header {

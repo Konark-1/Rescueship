@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
@@ -30,9 +30,16 @@ const META_SIGNUP_READY = Boolean(META_APP_ID && META_CONFIG_ID);
 export default function OnboardingPage() {
   const { token, user, logout } = useAuth();
   const nav = useNavigate();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const [state, setState] = useState<any>(null);
-  const [active, setActive] = useState<Key>('shopify');
+  const [active, setActive] = useState<Key>(() => {
+    try {
+      const p = new URLSearchParams(window.location.search).get('station') as Key | null;
+      return p && STATIONS.some((s) => s.key === p) ? p : 'shopify';
+    } catch {
+      return 'shopify';
+    }
+  });
   const [busy, setBusy] = useState<string | null>(null);
   const [log, setLog] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
@@ -79,6 +86,21 @@ export default function OnboardingPage() {
     }
   }, [token]);
 
+  const goToStation = useCallback((key: Key) => {
+    userManuallyNavigatedRef.current = true;
+    if (advanceTimerRef.current) {
+      clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+    setActive(key);
+    setErr(null);
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.set('station', key);
+      return next;
+    }, { replace: true });
+  }, [setParams]);
+
   const advanceToNext = useCallback((fromStation?: Key) => {
     userManuallyNavigatedRef.current = false;
     setActive((currentActive) => {
@@ -89,14 +111,13 @@ export default function OnboardingPage() {
         if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
         advanceTimerRef.current = setTimeout(() => {
           if (!userManuallyNavigatedRef.current) {
-            setActive(nextKey);
-            setErr(null);
+            goToStation(nextKey);
           }
-        }, 700);
+        }, 500);
       }
       return currentActive;
     });
-  }, []);
+  }, [goToStation]);
 
   const isStationDone = useCallback((k: Key, conns?: any) => {
     const c = conns || state?.connections;
@@ -108,14 +129,21 @@ export default function OnboardingPage() {
     return c?.[k]?.status === 'connected';
   }, [state?.connections]);
 
+  // Synchronize active station whenever URL query parameter 'station' changes
   useEffect(() => {
     const stationParam = params.get('station') as Key | null;
     if (stationParam && STATIONS.some((s) => s.key === stationParam)) {
       setActive(stationParam);
       userManuallyNavigatedRef.current = true;
     }
+  }, [params]);
+
+  // Initial load and connection state fetch (mount only)
+  useEffect(() => {
+    if (!token) return;
     refresh().then((s: any) => {
-      if (s?.connections && !params.get('station') && !userManuallyNavigatedRef.current && !autoRoutedOnMountRef.current) {
+      const currentParam = new URLSearchParams(window.location.search).get('station') as Key | null;
+      if (s?.connections && !currentParam && !userManuallyNavigatedRef.current && !autoRoutedOnMountRef.current) {
         const isStoreConnected = s.connections.shopify?.status === 'connected' || s.connections.woocommerce?.status === 'connected';
         if (isStoreConnected) {
           const nextIncomplete = STATIONS.find((st) => {
@@ -123,7 +151,7 @@ export default function OnboardingPage() {
             return !isStationDone(st.key, s.connections);
           });
           if (nextIncomplete) {
-            setActive(nextIncomplete.key);
+            goToStation(nextIncomplete.key);
           }
         }
         autoRoutedOnMountRef.current = true;
@@ -133,7 +161,7 @@ export default function OnboardingPage() {
       clearInterval(pollRef.current);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     };
-  }, [token, params]);
+  }, [token, refresh, isStationDone, goToStation]);
 
   useEffect(() => {
     if (params.get('connected') === 'shopify' && !connectedHandledRef.current) {
@@ -372,7 +400,7 @@ export default function OnboardingPage() {
   };
   const handleSkip = () => {
     if (currentIndex >= STATIONS.length - 1) void skipOnboarding();
-    else setActive(STATIONS[currentIndex + 1].key);
+    else goToStation(STATIONS[currentIndex + 1].key);
   };
 
   return (
@@ -452,15 +480,7 @@ export default function OnboardingPage() {
                   key={s.key}
                   type="button"
                   className={`ob-node ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`}
-                  onClick={() => {
-                    userManuallyNavigatedRef.current = true;
-                    if (advanceTimerRef.current) {
-                      clearTimeout(advanceTimerRef.current);
-                      advanceTimerRef.current = null;
-                    }
-                    setActive(s.key);
-                    setErr(null);
-                  }}
+                  onClick={() => goToStation(s.key)}
                   aria-current={isActive ? 'step' : undefined}
                 >
                   <span className="ob-node__dot">
@@ -530,9 +550,8 @@ export default function OnboardingPage() {
 
         {/* ── active station card ── */}
         <main className="ob-stage">
-          <AnimatePresence mode="wait">
-            <motion.section key={active} className="ob-card" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-              <div className="ob-card__header">
+          <section key={active} className="ob-card">
+            <div className="ob-card__header">
                 <div className="ob-card__topline">
                   <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
                   <SetupGuide
@@ -568,7 +587,7 @@ export default function OnboardingPage() {
                   shop={state?.connections?.shopify?.shopDomain}
                   wcUrl={state?.connections?.woocommerce?.url}
                   wcManual={wcManual}
-                  onNext={() => advanceToNext('shopify')}
+                  onNext={() => goToStation('whatsapp')}
                 />
               )}
               {active === 'whatsapp' && (
@@ -582,7 +601,7 @@ export default function OnboardingPage() {
                   templates={state?.templates}
                   ownerPhone={state?.ownerPhone}
                   metaReady={META_SIGNUP_READY}
-                  onNext={() => advanceToNext('whatsapp')}
+                  onNext={() => goToStation('carrier')}
                   connectionDetails={state?.connections?.whatsapp}
                 />
               )}
@@ -595,7 +614,7 @@ export default function OnboardingPage() {
                   carriers={state?.connections?.carriers}
                   token={token}
                   merchantId={state?.merchantId}
-                  onNext={() => advanceToNext('carrier')}
+                  onNext={() => goToStation('payment')}
                 />
               )}
               {active === 'payment' && (
@@ -608,8 +627,7 @@ export default function OnboardingPage() {
               )}
 
               {err && <p className="ob-err" role="alert" aria-live="polite"><AlertTriangle size={14} aria-hidden="true" /> {err}</p>}
-            </motion.section>
-          </AnimatePresence>
+            </section>
 
           <footer className="ob-foot">
             <button className="ob-foot__skip" onClick={handleSkip} disabled={busy === 'skip'}>
