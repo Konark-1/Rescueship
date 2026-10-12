@@ -1,4 +1,5 @@
 import React from 'react';
+import { CheckCircle2 } from 'lucide-react';
 
 export function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -9,13 +10,16 @@ export function Field({ label, children }: { label: string; children: React.Reac
   );
 }
 
-export function Done({ provider }: { provider: string }) {
+export function Done({ provider, subtitle }: { provider: string; subtitle?: string }) {
   return (
     <div className="ob-done">
-      <svg viewBox="0 0 24 24" className="ob-done__check">
-        <path d="M5 13l4 4L19 7" />
-      </svg>
-      <p>{provider}</p>
+      <div className="ob-done__left">
+        <CheckCircle2 size={22} className="ob-done__check" aria-hidden="true" />
+        <div>
+          <p>{provider}</p>
+          {subtitle ? <small>{subtitle}</small> : <small>Connected and verified</small>}
+        </div>
+      </div>
     </div>
   );
 }

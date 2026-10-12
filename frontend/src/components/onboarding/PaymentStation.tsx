@@ -36,7 +36,7 @@ export function PaymentStation({ onConnect, busy, done, gateway }: PaymentStatio
   };
 
   return done ? (
-    <Done provider={`Connected · ${gateway}`} />
+    <Done provider={`Connected · ${gateway}`} subtitle="Payment recovery gateway active" />
   ) : (
     <form className="ob-form" onSubmit={handleSubmit(onSubmit)}>
       <div className="ob-seg">
@@ -54,7 +54,7 @@ export function PaymentStation({ onConnect, busy, done, gateway }: PaymentStatio
           </button>
         ))}
       </div>
-      <Field label={g === 'cashfree' ? 'CASHFREE_APP_ID (App / Client ID)' : 'RAZORPAY_KEY_ID (Key / Client ID)'}>
+      <Field label={g === 'cashfree' ? 'Cashfree App ID (Key / Client ID)' : 'Razorpay Key ID (Key / Client ID)'}>
         <input
           className="ob-input"
           autoComplete="off"
@@ -71,7 +71,7 @@ export function PaymentStation({ onConnect, busy, done, gateway }: PaymentStatio
       </Field>
       <Field
         label={
-          g === 'cashfree' ? 'CASHFREE_SECRET_KEY (Secret Key)' : 'RAZORPAY_KEY_SECRET (Key Secret)'
+          g === 'cashfree' ? 'Cashfree Secret Key (Secret)' : 'Razorpay Key Secret (Secret)'
         }
       >
         <input
@@ -91,8 +91,8 @@ export function PaymentStation({ onConnect, busy, done, gateway }: PaymentStatio
       </Field>
       <p className="ob-note">
         {g === 'cashfree'
-          ? 'Cashfree API credentials for autonomous COD→UPI link generation. Validated with a live read call, then encrypted at rest (AES-256-GCM).'
-          : 'Razorpay API credentials for autonomous COD→UPI link generation. Validated with a live read call, then encrypted at rest (AES-256-GCM).'}
+          ? 'Secure Cashfree credentials to generate instant 1-click UPI payment links on WhatsApp when customers hesitate on Cash on Delivery orders. Validated via live read and encrypted with bank-grade security.'
+          : 'Secure Razorpay credentials to generate instant 1-click UPI payment links on WhatsApp when customers hesitate on Cash on Delivery orders. Validated via live read and encrypted with bank-grade security.'}
       </p>
       <button className="ob-btn" disabled={busy}>
         {busy ? 'Validating…' : 'Validate & connect'}

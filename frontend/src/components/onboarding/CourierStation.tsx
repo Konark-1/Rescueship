@@ -340,7 +340,7 @@ export function CourierStation({
                     {isSelected && <Check size={12} strokeWidth={3} />}
                   </div>
                 </div>
-                {isConn && <span className="ob-carrier-card__status-dot">Active</span>}
+                {isConn && <span className="ob-carrier-card__status">Connected</span>}
                 <div className="ob-carrier-card__name">{c.name}</div>
                 <div className="ob-carrier-card__badge">{c.badge}</div>
               </div>
@@ -598,8 +598,7 @@ export function CourierStation({
                     ))}
 
                     <p className="ob-note">
-                      Validated directly against {currentDef.name}’s live API before storing. Encrypted
-                      at rest (AES-256-GCM).
+                      Validated directly against {currentDef.name}'s live API before storing. Stored securely with bank-grade encryption.
                     </p>
 
                     <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -630,7 +629,7 @@ export function CourierStation({
                       style={{ background: 'var(--emerald-06)', borderColor: 'var(--emerald-20)' }}
                     >
                       <strong style={{ color: 'var(--emerald)' }}>
-                        ✨ Instant 1-Click Connect — Zero API Keys Needed
+                        Instant 1-Click Connect: Zero API Keys Needed
                       </strong>
                       Don’t have developer API access or not sure what keys your courier platform uses?
                       Simply paste this Webhook URL into your {currentDef.name} tracking or webhook

@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { RefreshCw, Zap, KeyRound } from 'lucide-react';
-import { Field, Done } from './Field';
+import { RefreshCw, Zap, KeyRound, ShoppingBag, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Field } from './Field';
 
 interface StoreStationProps {
   onTokenConnect: (shop: string, key: string, secret: string) => void;
@@ -14,6 +14,7 @@ interface StoreStationProps {
   shop?: string;
   wcUrl?: string;
   wcManual?: { webhookUrl: string; webhookSecret: string } | null;
+  onNext?: () => void;
 }
 
 export function ManualWebhook({ info }: { info: { webhookUrl: string; webhookSecret: string } }) {
@@ -30,7 +31,7 @@ export function ManualWebhook({ info }: { info: { webhookUrl: string; webhookSec
 
   return (
     <div className="ob-note ob-note--warn">
-      <strong>Add the webhook manually</strong> — in WordPress go to{' '}
+      <strong>Add the webhook manually</strong>: in WordPress go to{' '}
       <strong>WooCommerce → Settings → Advanced → Webhooks → Add webhook</strong>, set Topic to{' '}
       <strong>Order created</strong>, Status <strong>Active</strong>, paste this Delivery URL and Secret,
       then Save.
@@ -338,7 +339,7 @@ export function ShopifyForm({
             </p>
           </div>
           <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>
-            No RescueShip keys involved — just the key + secret you generate in your own admin.
+            No RescueShip keys involved: just the key and secret you generate in your own admin.
           </p>
           <button
             className="ob-btn"
@@ -361,6 +362,7 @@ export function StoreStation({
   shop,
   wcUrl,
   wcManual,
+  onNext,
 }: StoreStationProps) {
   const [platform, setPlatform] = useState<'shopify' | 'woocommerce'>(
     shop ? 'shopify' : wcUrl ? 'woocommerce' : 'shopify'
@@ -368,18 +370,62 @@ export function StoreStation({
   const [showChange, setShowChange] = useState(false);
 
   if (storeDone && !showChange) {
+    const storeDomain = shop || wcUrl || 'Connected Store';
     return (
-      <div className="ob-form">
-        <Done provider={`Connected · ${shop || wcUrl || 'store'}`} />
+      <div className="ob-connected-hub">
+        <div className="ob-connected-hero">
+          <div className="ob-connected-hero__info">
+            <div className="ob-connected-hero__icon">
+              <ShoppingBag size={22} aria-hidden="true" />
+            </div>
+            <div>
+              <p className="ob-connected-hero__title">
+                {shop ? 'Shopify Store Connected' : 'WooCommerce Store Connected'}
+              </p>
+              <p className="ob-connected-hero__domain">{storeDomain}</p>
+            </div>
+          </div>
+          <span className="ob-pill ok">
+            <CheckCircle2 size={13} style={{ display: 'inline-block', verticalAlign: '-1px', marginRight: '4px' }} aria-hidden="true" />
+            Active &amp; Monitoring
+          </span>
+        </div>
+
+        <div className="ob-connected-grid">
+          <div className="ob-connected-metric">
+            <span className="ob-connected-metric__label">Real-time Webhooks</span>
+            <span className="ob-connected-metric__value">Active &amp; Listening</span>
+          </div>
+          <div className="ob-connected-metric">
+            <span className="ob-connected-metric__label">Order Interception</span>
+            <span className="ob-connected-metric__value">NDR Protection Ready</span>
+          </div>
+          <div className="ob-connected-metric">
+            <span className="ob-connected-metric__label">Data Security</span>
+            <span className="ob-connected-metric__value">Encrypted Isolated Token</span>
+          </div>
+        </div>
+
         {wcManual && <ManualWebhook info={wcManual} />}
-        <button
-          type="button"
-          className="ob-btn ob-btn--ghost"
-          style={{ marginTop: 'var(--space-2)' }}
-          onClick={() => setShowChange(true)}
-        >
-          <RefreshCw size={14} aria-hidden="true" /> Reconnect or change store
-        </button>
+
+        <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', marginTop: 'var(--space-2)' }}>
+          {onNext && (
+            <button
+              type="button"
+              className="ob-btn"
+              onClick={onNext}
+            >
+              Continue to WhatsApp setup <ArrowRight size={15} aria-hidden="true" />
+            </button>
+          )}
+          <button
+            type="button"
+            className="ob-btn ob-btn--ghost"
+            onClick={() => setShowChange(true)}
+          >
+            <RefreshCw size={14} aria-hidden="true" /> Reconnect or change store
+          </button>
+        </div>
       </div>
     );
   }

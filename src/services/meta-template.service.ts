@@ -48,6 +48,7 @@ export const DEFAULT_TEMPLATE_MAP: Record<string, string> = {
   predelivery_confirmation: 'predelivery_confirm_v2_en',
   predelivery_confirm_en: 'predelivery_confirm_v2_en',
   cod_reminder_en: 'cod_reminder_v2_en',
+  ndr_deposit_request_en: 'ndr_deposit_request_en',
 };
 
 /** Registered compliant templates on Meta WABA. */
@@ -138,6 +139,21 @@ export const TEMPLATE_DEFS: TplDef[] = [
       {
         type: 'URL',
         text: 'Pay via UPI',
+        url: `${PAY_REDIRECT_BASE}{{1}}`,
+        example: [`${PAY_REDIRECT_BASE}plink_example123`],
+      },
+    ],
+  },
+  {
+    name: 'ndr_deposit_request_en',
+    category: 'UTILITY',
+    language: 'en',
+    body: 'Hi {{1}}, to confirm Order #{{2}} for express delivery, please pay a ₹{{3}} advance deposit via UPI. Remaining ₹{{4}} payable on delivery.',
+    bodyExample: ['John', 'ORD-1001', '50', '450'],
+    buttons: [
+      {
+        type: 'URL',
+        text: 'Pay Deposit',
         url: `${PAY_REDIRECT_BASE}{{1}}`,
         example: [`${PAY_REDIRECT_BASE}plink_example123`],
       },

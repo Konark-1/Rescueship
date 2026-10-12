@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Anchor, ShieldCheck, Truck, Phone, AlertTriangle } from 'lucide-react';
+import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
 import { billingApi } from '../services/billing.api';
@@ -81,19 +81,22 @@ export default function OnboardingPage() {
 
   const advanceToNext = useCallback((fromStation?: Key) => {
     userManuallyNavigatedRef.current = false;
-    const currentKey = fromStation || active;
-    const idx = STATIONS.findIndex((s) => s.key === currentKey);
-    if (idx >= 0 && idx < STATIONS.length - 1) {
-      const nextKey = STATIONS[idx + 1].key;
-      if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
-      advanceTimerRef.current = setTimeout(() => {
-        if (!userManuallyNavigatedRef.current) {
-          setActive(nextKey);
-          setErr(null);
-        }
-      }, 700);
-    }
-  }, [active]);
+    setActive((currentActive) => {
+      const currentKey = fromStation || currentActive;
+      const idx = STATIONS.findIndex((s) => s.key === currentKey);
+      if (idx >= 0 && idx < STATIONS.length - 1) {
+        const nextKey = STATIONS[idx + 1].key;
+        if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
+        advanceTimerRef.current = setTimeout(() => {
+          if (!userManuallyNavigatedRef.current) {
+            setActive(nextKey);
+            setErr(null);
+          }
+        }, 700);
+      }
+      return currentActive;
+    });
+  }, []);
 
   const isStationDone = useCallback((k: Key, conns?: any) => {
     const c = conns || state?.connections;
@@ -374,39 +377,57 @@ export default function OnboardingPage() {
 
   return (
     <div className="ob">
-      <div className="ob-grid-bg" aria-hidden="true" />
-      <div className="ob-scan" aria-hidden="true" />
+      <div className="ob-ambient-glow" aria-hidden="true" />
 
       <header className="ob-top">
-        <a href="/" className="ob-brand"><span><Anchor size={18} aria-hidden="true" /></span> RescueShip</a>
-        <div className="ob-topbar"><motion.div className="ob-topbar__fill" style={{ width: `${(STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100}%` }} /></div>
-        <span className="ob-topbar__pct" role="progressbar" aria-label="Onboarding setup progress" aria-valuenow={Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)} aria-valuemin={0} aria-valuemax={100}>{Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}% ready</span>
+        <a href="/" className="ob-brand">
+          <span><Anchor size={18} aria-hidden="true" /></span>
+          RescueShip
+        </a>
+
+        <div className="ob-top-center">
+          <div className="ob-topbar">
+            <motion.div
+              className="ob-topbar__fill"
+              style={{ width: `${(STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100}%` }}
+            />
+          </div>
+          <span
+            className="ob-topbar__pct"
+            role="progressbar"
+            aria-label="Onboarding setup progress"
+            aria-valuenow={Math.round((STATIONS.filter((s) => done(s.key)).length / STATIONS.length) * 100)}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          >
+            Step {currentIndex + 1} of {STATIONS.length}: {STATIONS[currentIndex].label}
+          </span>
+        </div>
+
         {user && (
           <div className="ob-topbar__actions">
+            <div className="ob-guarantee-badge">
+              <ShieldCheck size={14} aria-hidden="true" />
+              <span>90-Day Guarantee</span>
+            </div>
             {user.onboardingStatus !== 'pending' && (
               <button
                 type="button"
                 onClick={() => nav('/dashboard')}
                 className="ob-btn ob-btn--ghost"
-                style={{ marginRight: 8, padding: '4px 12px', fontSize: '0.85rem' }}
+                style={{ padding: '6px 14px', fontSize: '0.84rem' }}
               >
-                ← Back to Dashboard
+                ← Dashboard
               </button>
             )}
-            <span className="ob-topbar__email">
-              {user.email}
-            </span>
-            <div className="ob-plan-badge ob-plan-badge--header">
-              <span className="ob-plan-badge__status"><ShieldCheck size={14} aria-hidden="true" /> 90-Day Guarantee Protected</span>
-              <strong>Plan: {planInfo?.plan ? planInfo.plan.toUpperCase() : 'LOCKED IN'}</strong>
-            </div>
             <button
               type="button"
               onClick={() => {
                 logout();
                 nav('/login', { replace: true });
               }}
-              className="ob-btn ob-btn--ghost ob-topbar__logout"
+              className="ob-btn ob-btn--ghost"
+              style={{ padding: '6px 14px', fontSize: '0.84rem' }}
             >
               Log out
             </button>
@@ -414,12 +435,12 @@ export default function OnboardingPage() {
         )}
       </header>
 
-      
-
       <div className="ob-shell">
         {/* ── the route / spine ── */}
         <aside className="ob-spine">
-          <p className="ob-spine__kicker">Setup route<span className="ob-spine__kicker-sub"> — Step 2 of 2: Integration Wiring</span></p>
+          <div className="ob-spine__header">
+            <p className="ob-spine__kicker">Setup route: <span className="ob-spine__kicker-sub">Store Integration</span></p>
+          </div>
           <div className="ob-spine__track">
             {STATIONS.map((s, i) => {
               const st = statusOf(s.key);
@@ -440,33 +461,56 @@ export default function OnboardingPage() {
                     setActive(s.key);
                     setErr(null);
                   }}
-                  style={{ '--i': i } as React.CSSProperties}
                   aria-current={isActive ? 'step' : undefined}
                 >
-                  <span className="ob-node__line" data-fill={i < currentIndex || isDone ? '1' : '0'} />
                   <span className="ob-node__dot">
-                    {isDone ? <svg viewBox="0 0 24 24" className="ob-check"><path d="M5 13l4 4L19 7" /></svg>
-                      : (s.key === 'whatsapp' && st === 'templates_pending') ? <svg viewBox="0 0 24 24" className="ob-check" style={{ stroke: 'var(--cyan)' }}><path d="M5 13l4 4L19 7" /></svg>
-                      : pending ? <span className="ob-spin" /> : <span className="ob-node__n">{i + 1}</span>}
-                    {isActive && <Truck size={14} className="ob-marker" aria-hidden="true" />}
+                    {isDone ? (
+                      <CheckCircle2 size={16} className="ob-check" aria-hidden="true" />
+                    ) : (
+                      <span>{i + 1}</span>
+                    )}
                   </span>
                   <span className="ob-node__text">
                     <strong>{s.label}</strong>
-                    <em>{isDone ? 'connected' : pending ? (s.key === 'whatsapp' ? 'verified · in review' : 'in progress') : 'awaiting'}</em>
+                    <em>{isDone ? 'Connected' : pending ? (s.key === 'whatsapp' ? 'In review' : 'Connecting') : 'Awaiting setup'}</em>
                   </span>
                 </button>
               );
             })}
           </div>
-          <div className="ob-feed" aria-live="polite">
-            {log.map((l, i) => <span key={i} className="ob-feed__line">{l}</span>)}
-            {log.length === 0 && <span className="ob-feed__line ob-feed__idle">› idle · pick a station to begin</span>}
+
+          {log.length > 0 && (
+            <div className="ob-status-toast" role="status" aria-live="polite">
+              <span>{log[log.length - 1]}</span>
+            </div>
+          )}
+
+          {/* Data Safety & Guarantee Card */}
+          <div className="ob-trust-card">
+            <p className="ob-trust-card__title">
+              <ShieldCheck size={16} className="ob-trust-card__icon" aria-hidden="true" />
+              Data Safety Guarantee
+            </p>
+            <ul className="ob-trust-card__list">
+              <li className="ob-trust-card__item">
+                <span className="ob-trust-card__icon">✓</span>
+                <span>256-bit bank-grade encryption at rest</span>
+              </li>
+              <li className="ob-trust-card__item">
+                <span className="ob-trust-card__icon">✓</span>
+                <span>Read-only order tracking with zero store disruption</span>
+              </li>
+              <li className="ob-trust-card__item">
+                <span className="ob-trust-card__icon">✓</span>
+                <span>Instant 1-click disconnect anytime</span>
+              </li>
+            </ul>
           </div>
 
           {/* Guided setup card */}
           <div className="ob-assist">
-            <p className="ob-assist__title">Need a hand?</p>
-            <p className="ob-assist__sub">Every step above is self-serve — or we'll do it with you on a free 20-minute call.</p>
+            <p className="ob-assist__title">Prefer hands-off setup?</p>
+            <p className="ob-assist__sub">Every step is self-serve, or our team will set it up for you on a complimentary 20-minute call.</p>
             <div className="ob-assist__actions">
               {state?.setupCallUrl && (
                 <a className="ob-assist__btn ob-assist__btn--primary" href={state.setupCallUrl} target="_blank" rel="noopener noreferrer">
@@ -478,7 +522,7 @@ export default function OnboardingPage() {
                 onClick={requestAssist}
                 disabled={assist !== 'idle'}
               >
-                {assist === 'done' ? '✓ Request sent — check your email' : assist === 'busy' ? 'Sending…' : 'Send me a setup guide'}
+                {assist === 'done' ? '✓ Request sent' : assist === 'busy' ? 'Sending…' : 'Send me a setup guide'}
               </button>
             </div>
           </div>
@@ -488,14 +532,18 @@ export default function OnboardingPage() {
         <main className="ob-stage">
           <AnimatePresence mode="wait">
             <motion.section key={active} className="ob-card" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px' }}>
-                <p className="ob-card__kicker" style={{ margin: 0 }}>{STATIONS[currentIndex].hint}</p>
-                <SetupGuide
-                  station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : active === 'payment' ? 'payments' : 'whatsapp'}
-                  storeUrl={state?.connections?.shopify?.shopDomain}
-                />
+              <div className="ob-card__header">
+                <div className="ob-card__topline">
+                  <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
+                  <SetupGuide
+                    station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : active === 'payment' ? 'payments' : 'whatsapp'}
+                    storeUrl={state?.connections?.shopify?.shopDomain}
+                  />
+                </div>
+                <h1 className="ob-card__title">
+                  {active === 'shopify' ? 'Connect Your Store' : active === 'whatsapp' ? 'Connect WhatsApp Number' : active === 'carrier' ? 'Link Courier Partners' : 'Enable Payment Recovery'}
+                </h1>
               </div>
-              <h1 className="ob-card__title">{STATIONS[currentIndex].verb === 'connect' ? 'Connect' : STATIONS[currentIndex].verb === 'verify' ? 'Verify' : STATIONS[currentIndex].verb === 'link' ? 'Link' : 'Enable'} <em>{STATIONS[currentIndex].label.toLowerCase()}</em></h1>
 
               {active === 'shopify' && (
                 <StoreStation
@@ -520,6 +568,7 @@ export default function OnboardingPage() {
                   shop={state?.connections?.shopify?.shopDomain}
                   wcUrl={state?.connections?.woocommerce?.url}
                   wcManual={wcManual}
+                  onNext={() => advanceToNext('shopify')}
                 />
               )}
               {active === 'whatsapp' && (
