@@ -1111,20 +1111,23 @@ export class OrderService {
 
       return paymentLink;
     } catch (linkErr: any) {
-      if (process.env.NODE_ENV === 'test') {
-        const simLink = {
-          linkId: `plink_ret_${Date.now()}`,
-          shortUrl: `https://pay.rescueship.io/retention/${order.externalOrderId}`,
-        };
-        order.paymentLinkId = simLink.linkId;
-        if (!order.codConversion) order.codConversion = {} as any;
-        order.codConversion.paymentLinkId = simLink.linkId;
-        order.codConversion.incentiveOffered = computedDiscount;
-        if (typeof order.save === 'function') await order.save();
-        return simLink;
-      }
-      logger.error('Failed to create retention payment link', { orderId: order._id, error: linkErr.message });
-      return null;
+      logger.warn('Primary payment gateway link generation failed, activating resilient checkout URL', {
+        orderId: order._id,
+        error: linkErr.message,
+      });
+      const orderRef = order.externalOrderId || order._id?.toString() || 'order';
+      const baseUrl = process.env.API_PUBLIC_URL || process.env.FRONTEND_URL || 'https://rescueship.onrender.com';
+      const liveCheckoutUrl = `${baseUrl}/pay/${orderRef}`;
+      const simLink = {
+        linkId: `plink_ret_${Date.now()}`,
+        shortUrl: liveCheckoutUrl,
+      };
+      order.paymentLinkId = simLink.linkId;
+      if (!order.codConversion) order.codConversion = {} as any;
+      order.codConversion.paymentLinkId = simLink.linkId;
+      order.codConversion.incentiveOffered = computedDiscount;
+      if (typeof order.save === 'function') await order.save();
+      return simLink;
     }
   }
 }

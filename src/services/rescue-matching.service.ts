@@ -30,7 +30,8 @@ class RescueMatchingService {
 
   async resolveInbound(merchantId: string, rawPhone: string): Promise<MatchResult> {
     const phone = normalizeIndianPhone(rawPhone);
-    const rows = await Order.find({ merchantId: merchantId as any, customerPhone: phone, status: { $in: ACTIVE_STATUSES } as any })
+    const phoneCandidates = [phone, `+${phone}`, phone.slice(-10)];
+    const rows = await Order.find({ merchantId: merchantId as any, customerPhone: { $in: phoneCandidates }, status: { $in: ACTIVE_STATUSES } as any })
       .sort({ 'ndr.lastOutboundAt': -1, 'preDeliveryConfirmation.sentAt': -1 }).limit(10).lean();
     if (rows.length === 0) return { matched: false, ambiguous: false };
 
@@ -65,7 +66,7 @@ class RescueMatchingService {
     const order = await Order.findOne({
       _id: pick.orderId,
       merchantId,
-      customerPhone: normalizeIndianPhone(rawPhone),
+      customerPhone: { $in: [normalizeIndianPhone(rawPhone), `+${normalizeIndianPhone(rawPhone)}`, normalizeIndianPhone(rawPhone).slice(-10)] },
       status: { $in: ACTIVE_STATUSES } as any,
     });
     return order ? { matched: true, ambiguous: false, order } : { matched: false, ambiguous: false };

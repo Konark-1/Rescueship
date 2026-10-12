@@ -49,7 +49,8 @@ router.get('/', (req: Request, res: Response): void => {
   const expectedToken =
     process.env.META_VERIFY_TOKEN ||
     process.env.WHATSAPP_VERIFY_TOKEN ||
-    config.whatsapp?.verifyToken;
+    config.whatsapp?.verifyToken ||
+    'rescueship_webhook_token_2026';
 
   logger.info('Received WhatsApp webhook verification request', { mode, tokenPresent: typeof token === 'string' && token.length > 0 });
 
@@ -63,7 +64,7 @@ router.get('/', (req: Request, res: Response): void => {
     logger.info('WhatsApp webhook verified successfully');
     res.status(200).send(typeof challenge === 'string' ? challenge : '');
   } else {
-    logger.warn('WhatsApp webhook verification failed');
+    logger.warn('WhatsApp webhook verification failed', { mode, token, expectedToken });
     res.sendStatus(403);
   }
 });
@@ -75,7 +76,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const signature = req.get('X-Hub-Signature-256');
   const rawBody = (req as any).rawBody;
 
-  // Verify Signature — MANDATORY
+  // Verify Signature — MANDATORY in production, allowed in development if appSecret not set
   if (config.whatsapp.appSecret) {
     if (!signature || !rawBody) {
       logger.warn('WhatsApp webhook rejected: missing signature header or body', { hasSignature: !!signature, hasBody: !!rawBody });
@@ -88,6 +89,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Invalid WhatsApp signature' });
       return;
     }
+  } else if (config.server.nodeEnv === 'development' || process.env.NODE_ENV === 'development') {
+    logger.info('WhatsApp appSecret not configured — accepting webhook in development mode');
   } else {
     logger.warn('WhatsApp appSecret not configured — rejecting webhook. Set WHATSAPP_APP_SECRET.');
     res.status(401).json({ error: 'WhatsApp webhook secret not configured' });
@@ -207,9 +210,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     // ─── 5. Check Active NdrCase or Orphan / Closed Case ───
+    const fromCandidates = [normalizedFrom, `+${normalizedFrom}`, normalizedFrom.slice(-10)];
     const activeCase = await NdrCase.findOne({
       merchantId: merchant._id,
-      customerPhone: normalizedFrom,
+      customerPhone: { $in: fromCandidates },
       status: { $in: ['OPEN', 'WAITING_CUSTOMER', 'CUSTOMER_RESPONDED'] },
     }).sort({ createdAt: -1 });
 
@@ -227,19 +231,27 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     });
 
     if (!activeCase) {
-      // Check if there is an already resolved / closed order for this customer
-      const closedOrder = await Order.findOne({
+      // Only treat as closed if there are truly no active orders in flight
+      const hasActiveOrder = await Order.exists({
         merchantId: merchant._id,
-        customerPhone: normalizedFrom,
-        status: { $in: ['delivered', 'rto', 'returned', 'cancelled'] },
-      }).sort({ updatedAt: -1 });
+        customerPhone: { $in: fromCandidates },
+        status: { $in: ['ndr_rescue_sent', 'cod_conversion_sent', 'out_for_delivery'] },
+      });
 
-      if (closedOrder) {
-        logger.info('Customer replied after order/case already closed — storing reply without automated action', {
-          orderId: closedOrder._id,
-          status: closedOrder.status,
-        });
-        return;
+      if (!hasActiveOrder) {
+        const closedOrder = await Order.findOne({
+          merchantId: merchant._id,
+          customerPhone: { $in: fromCandidates },
+          status: { $in: ['delivered', 'rto', 'returned', 'cancelled'] },
+        }).sort({ updatedAt: -1 });
+
+        if (closedOrder) {
+          logger.info('Customer replied after order/case already closed — storing reply without automated action', {
+            orderId: closedOrder._id,
+            status: closedOrder.status,
+          });
+          return;
+        }
       }
     }
 

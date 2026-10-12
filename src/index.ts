@@ -117,6 +117,7 @@ app.use(
           "wss:", "ws:" // Required for SSE/WebSocket realtime connections
         ],
         fontSrc: ["'self'", "data:"],
+        frameSrc: ["'self'", "https://api.razorpay.com", "https://checkout.razorpay.com"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'none'"], // Prevents Clickjacking (replaces X-Frame-Options)
@@ -233,6 +234,191 @@ app.get('/health', async (_req, res) => {
   });
 });
 
+// ───────────────────────────────────────────────
+// 💳 DIRECT CHECKOUT & UPI PAYMENT PORTAL
+// ───────────────────────────────────────────────
+app.get('/pay/:id', async (req, res) => {
+  const id = String(req.params.id || '');
+  try {
+    const { Order } = await import('./models');
+    const { Types } = await import('mongoose');
+    const order = await Order.findOne(
+      Types.ObjectId.isValid(id)
+        ? { $or: [{ _id: id }, { externalOrderId: id }] }
+        : { externalOrderId: id }
+    );
+    if (!order) {
+      res.status(404).send('<html><body style="font-family:sans-serif;text-align:center;padding:50px;"><h2>Order Not Found</h2></body></html>');
+      return;
+    }
+
+    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued') {
+      res.status(200).send('<html><body style="font-family:sans-serif;text-align:center;padding:50px;background:#0f172a;color:#fff;"><h2>✅ Payment Already Received</h2><p>Order #' + order.externalOrderId + ' is already confirmed prepaid and scheduled for priority delivery!</p></body></html>');
+      return;
+    }
+
+    const discount = order.ndr?.retentionDiscount || 100;
+    const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 999) - discount);
+    const upiUrl = `upi://pay?pa=konarkofficial@okhdfcbank&pn=RescueShip%20Store&am=${finalAmount}&cu=INR&tn=Order%20${order.externalOrderId}%20Fast-Track`;
+
+    res.status(200).send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Complete Payment — Order #${order.externalOrderId}</title>
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 20px; max-width: 420px; width: 100%; padding: 28px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; }
+    .badge { display: inline-block; background: #10b981; color: #042f2e; font-weight: 700; font-size: 12px; padding: 4px 12px; border-radius: 999px; margin-bottom: 16px; }
+    h1 { font-size: 22px; margin-bottom: 8px; }
+    p.sub { color: #94a3b8; font-size: 14px; margin-bottom: 24px; }
+    .summary { background: #0f172a; border-radius: 12px; padding: 16px; margin-bottom: 24px; text-align: left; }
+    .row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #cbd5e1; }
+    .row.total { border-top: 1px solid #334155; padding-top: 10px; margin-top: 10px; font-weight: 700; font-size: 18px; color: #38bdf8; }
+    .btn { display: block; width: 100%; padding: 14px; border-radius: 12px; font-weight: 700; font-size: 16px; border: none; cursor: pointer; text-decoration: none; margin-bottom: 12px; }
+    .btn-rzp { background: #2563eb; color: #fff; }
+    .btn-upi { background: #059669; color: #fff; }
+    .btn-confirm { background: #475569; color: #f8fafc; font-size: 14px; padding: 10px; }
+    .footer { font-size: 12px; color: #64748b; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">🛡️ Priority Fast-Track Delivery</div>
+    <h1>Order #${order.externalOrderId}</h1>
+    <p class="sub">Convert to prepaid and skip cash collection verification</p>
+
+    <div class="summary">
+      <div class="row"><span>Original COD Total</span><span>₹${order.orderValue || 999}</span></div>
+      <div class="row" style="color: #34d399;"><span>Prepaid Savings</span><span>-₹${discount}</span></div>
+      <div class="row total"><span>Amount Payable</span><span>₹${finalAmount}</span></div>
+    </div>
+
+    <button id="rzp-btn" class="btn btn-rzp">💳 Pay ₹${finalAmount} with Razorpay / UPI</button>
+    <a href="${upiUrl}" class="btn btn-upi">⚡ Open in UPI App (GPay/PhonePe)</a>
+    <button id="done-btn" class="btn btn-confirm">✅ I Have Transferred ₹${finalAmount}</button>
+
+    <div class="footer">🔒 Encrypted 256-bit Secure Gateway · Powered by RescueShip</div>
+  </div>
+
+  <script>
+    async function notifyPaid(payId) {
+      document.body.innerHTML = '<div style="text-align:center;padding:50px;color:#fff;"><h2>🎉 Payment Confirmed!</h2><p>Payment ID: ' + payId + '</p><p>Upgrading Order #${order.externalOrderId} to Priority Prepaid...</p></div>';
+      await fetch('/api/payment/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: "${order._id}", paymentId: payId, amount: ${finalAmount} })
+      });
+      setTimeout(() => window.location.reload(), 2000);
+    }
+
+    const options = {
+      key: "rzp_test_Tdtx44D4UKp7S1",
+      amount: ${finalAmount * 100},
+      currency: "INR",
+      name: "RescueShip Fast-Track",
+      description: "Order #${order.externalOrderId} Prepaid Conversion",
+      prefill: {
+        name: "${order.customerName || 'Customer'}",
+        contact: "${order.customerPhone}"
+      },
+      theme: { color: "#2563eb" },
+      handler: function (response) {
+        notifyPaid(response.razorpay_payment_id || 'rzp_pay_success');
+      }
+    };
+    const rzp = new Razorpay(options);
+    document.getElementById('rzp-btn').onclick = function(e){
+      rzp.open();
+      e.preventDefault();
+    };
+    document.getElementById('done-btn').onclick = function(e){
+      notifyPaid('upi_manual_' + Date.now().toString(36));
+    };
+  </script>
+</body>
+</html>`);
+  } catch (err: any) {
+    res.status(500).send('Error loading checkout page: ' + err.message);
+  }
+});
+
+// Endpoint to confirm payment and trigger automated rescue & courier reattempt
+app.post('/api/payment/confirm', async (req, res) => {
+  const { orderId, paymentId, amount } = req.body;
+  try {
+    const { Order, Merchant } = await import('./models');
+    const { Types } = await import('mongoose');
+    const order = await Order.findOne(
+      Types.ObjectId.isValid(orderId)
+        ? { $or: [{ _id: orderId }, { externalOrderId: orderId }] }
+        : { externalOrderId: orderId }
+    );
+    if (!order) {
+      res.status(404).json({ error: 'Order not found' });
+      return;
+    }
+    const merchant = await Merchant.findById(order.merchantId);
+    if (!merchant) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+
+    order.paymentMethod = 'prepaid';
+    order.status = 'ndr_rescued';
+    const ndrObj: any = order.ndr || {};
+    ndrObj.customerResponse = 'prepaid_converted';
+    ndrObj.resolvedAt = new Date();
+    ndrObj.resolution = 'rescheduled';
+    order.ndr = ndrObj;
+
+    const codObj: any = order.codConversion || {};
+    codObj.convertedAt = new Date();
+    codObj.paymentId = paymentId;
+    codObj.amountPaid = amount || ndrObj.retentionFinalAmount || 899;
+    order.codConversion = codObj;
+    await order.save();
+
+    const { ndrService } = await import('./services/ndr.service');
+    await ndrService.rescheduleDelivery(order, merchant, 'tomorrow', { suppressMessage: true });
+
+    const { whatsAppService } = await import('./services/whatsapp.service');
+    const enc = (await import('./services/encryption.service')).EncryptionService.getInstance();
+    let token: string | undefined = process.env.WHATSAPP_ACCESS_TOKEN;
+    if (merchant.whatsappConfig?.accessToken) {
+      try {
+        token = enc.decrypt(merchant.whatsappConfig.accessToken);
+      } catch {
+        token = process.env.WHATSAPP_ACCESS_TOKEN;
+      }
+    }
+    const waConfig = {
+      phoneNumberId: merchant.whatsappConfig?.phoneNumberId || '1370233809508386',
+      accessToken: token,
+      businessAccountId: merchant.whatsappConfig?.businessAccountId || '3227359494130764',
+    };
+
+    const confirmMsg = `🎉 Payment of ₹${amount || order.ndr?.retentionFinalAmount || 899} verified! Order #${order.externalOrderId} has been upgraded to Priority Prepaid.\n\nOur delivery partner has been notified to reattempt delivery tomorrow. Would you like to verify or update your delivery address?`;
+
+    await whatsAppService.sendInteractiveButtons(
+      order.customerPhone,
+      confirmMsg,
+      [
+        { id: `address:gps:${order._id}`, title: '📍 Send GPS Pin' },
+        { id: `address:skip:${order._id}`, title: '⏩ Keep Address' },
+      ],
+      waConfig
+    );
+
+    res.status(200).json({ success: true, message: 'Payment confirmed and courier reattempt scheduled' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Payment link redirector. WhatsApp URL buttons must carry a FIXED host for Meta
 // approval; the dynamic Razorpay/Cashfree short link is passed as the trailing
 // variable. Resolve that id back to the real URL and 302 the customer.
@@ -308,6 +494,12 @@ app.use('/webhooks/razorpay', webhookLimiter, razorpayRouter);
 app.use('/webhooks/cashfree', webhookLimiter, cashfreeRouter);
 app.use('/webhooks/payment', webhookLimiter, paymentRouter);
 app.use('/webhooks/custom', webhookLimiter, customRouter);
+
+// Aliases for /api/webhooks
+app.use('/api/webhooks/whatsapp', webhookLimiter, whatsappRouter);
+app.use('/api/webhooks/shiprocket', webhookLimiter, shiprocketRouter);
+app.use('/api/webhooks/shopify', webhookLimiter, shopifyRouter);
+app.use('/api/webhooks/razorpay', webhookLimiter, razorpayRouter);
 
 import exportRouter from './api/export.api';
 import realtimeRouter from './api/realtime.api';

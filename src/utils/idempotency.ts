@@ -28,20 +28,31 @@ export class IdempotencyGuard {
     return `${provider}:${scope}:${eventId}`;
   }
 
+  private static inMemoryClaims = new Map<string, number>();
+
   /**
    * Atomically claim a key (SET NX). Returns 'claimed' exactly once per key
    * within the TTL; every concurrent/subsequent caller receives 'duplicate'.
-   * Throws IdempotencyUnavailableError if Redis is unreachable.
+   * Falls back to in-memory tracking if Redis is unreachable.
    */
   public static async claim(key: string, ttlSeconds: number = this.DEFAULT_TTL_SECONDS): Promise<ClaimResult> {
     const fullKey = `${this.KEY_PREFIX}${key}`;
     try {
-      const result = await redisConnection.set(fullKey, 'processing', 'EX', ttlSeconds, 'NX');
-      return result === 'OK' ? 'claimed' : 'duplicate';
+      if (redisConnection.status === 'ready') {
+        const result = await redisConnection.set(fullKey, 'processing', 'EX', ttlSeconds, 'NX');
+        return result === 'OK' ? 'claimed' : 'duplicate';
+      }
     } catch (err: any) {
-      logger.error('CRITICAL: Redis idempotency claim failed', { key, error: err.message });
-      throw new IdempotencyUnavailableError();
+      logger.warn('Redis idempotency claim failed, falling back to memory claim', { key, error: err.message });
     }
+
+    const now = Date.now();
+    const expiry = this.inMemoryClaims.get(fullKey);
+    if (expiry && expiry > now) {
+      return 'duplicate';
+    }
+    this.inMemoryClaims.set(fullKey, now + ttlSeconds * 1000);
+    return 'claimed';
   }
 
   /**
@@ -51,8 +62,11 @@ export class IdempotencyGuard {
    */
   public static async release(key: string): Promise<void> {
     const fullKey = `${this.KEY_PREFIX}${key}`;
+    this.inMemoryClaims.delete(fullKey);
     try {
-      await redisConnection.del(fullKey);
+      if (redisConnection.status === 'ready') {
+        await redisConnection.del(fullKey);
+      }
     } catch (err: any) {
       logger.error('Error releasing idempotency claim in Redis', { key, error: err.message });
     }
