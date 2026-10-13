@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
 import RescueMetrics from '../components/RescueMetrics';
 import { SystemHealthRibbon } from '../components/dashboard/SystemHealthRibbon';
+import { AttentionPanel } from '../components/dashboard/AttentionPanel';
 import { FinancialGrid } from '../components/dashboard/FinancialGrid';
 import { ActionQueue, type UrgentOrderItem } from '../components/dashboard/ActionQueue';
 import { OrderDrawer } from '../components/dashboard/OrderDrawer';
@@ -273,6 +274,9 @@ export const DashboardPage: React.FC = () => {
     <div className="dashboard-page">
       {/* ZONE 0: SYSTEM HEALTH RIBBON (Sticky Top) */}
       <SystemHealthRibbon metaTier={metaTier} />
+
+      {/* Everything that needs the merchant: broken connections, refunds, failed courier actions */}
+      <AttentionPanel />
 
       {/* Hero Recovery Gauge */}
       <section aria-label="Hero Recovery Gauge">
