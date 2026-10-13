@@ -17,12 +17,14 @@ describe('Payment gateway readiness gate', () => {
   it('blocks pay links until a signed webhook has been seen', () => {
     const order = { orderValue: 999, paymentMethod: 'cod' };
     expect(paymentWebhookReady({ paymentConfig: {} })).toBe(false);
-    expect(canOfferOnlinePayment(order, { paymentConfig: {} })).toEqual({ ok: false, reason: 'payment_webhook_unverified' });
-    expect(canOfferOnlinePayment(order, { paymentConfig: { webhookVerifiedAt: new Date() } })).toEqual({ ok: true });
+    expect(canOfferOnlinePayment(order, { billing: { plan: 'growth' }, paymentConfig: {} })).toEqual({ ok: false, reason: 'payment_webhook_unverified' });
+    // Starter does not include COD → prepaid conversion at all.
+    expect(canOfferOnlinePayment(order, { billing: { plan: 'starter' }, paymentConfig: { webhookVerifiedAt: new Date() } })).toEqual({ ok: false, reason: 'plan_excludes_conversion' });
+    expect(canOfferOnlinePayment(order, { billing: { plan: 'growth' }, paymentConfig: { webhookVerifiedAt: new Date() } })).toEqual({ ok: true });
   });
 
   it('never offers post-dispatch conversion on a carrier without a verified COD amendment', () => {
-    const merchant = { paymentConfig: { webhookVerifiedAt: new Date() }, settings: { codConversion: { allowPostDispatch: true } } };
+    const merchant = { billing: { plan: 'growth' }, paymentConfig: { webhookVerifiedAt: new Date() }, settings: { codConversion: { allowPostDispatch: true } } };
     expect(canOfferOnlinePayment({ orderValue: 999, paymentMethod: 'cod', awb: 'A1', carrier: 'shiprocket' }, merchant).reason).toBe('carrier_cannot_amend_cod');
   });
 });

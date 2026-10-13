@@ -1,3 +1,5 @@
+> **Pricing updated Oct 13, 2026:** Starter ₹1,999 (500 orders) · Growth ₹4,999 (2,000) · Scale ₹11,999 (6,000) · Fleet ₹24,999 (15,000) per month, quarterly minimum, 6-month −10%, annual −20%, 90-day money-back guarantee, no free trial. Older figures below are superseded.
+
 # 🚀 RescueShip — Sales Kit, GTM Playbook & Outreach Dossier
 
 **Go-To-Market Execution Guide for Indian D2C E-Commerce Brands**  

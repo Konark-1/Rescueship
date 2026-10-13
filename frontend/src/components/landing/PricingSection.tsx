@@ -101,7 +101,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         {/* 4. Enterprise row */}
         <div className="pricing__enterprise">
           <span className="pricing__enterprise-text">
-            Shipping more than 25,000 orders/mo? We'll set up a custom plan —{' '}
+            Shipping more than 15,000 orders/mo? We'll set up a custom plan —{' '}
             <a href="mailto:konarkofficial@gmail.com" className="pricing__enterprise-link">
               talk to us.
             </a>

@@ -1,8 +1,8 @@
 /**
  * 🚢 RescueShip — Authoritative Unified Pricing Configuration
  * Single source of truth for both Landing Page presentation and in-app Billing Checkout.
- * Hardcoded backend-enforced truth (The ₹4,999 Mandate):
- * Starter (₹4,999), Growth (₹11,999), Scale (₹24,999), Fleet (₹44,999).
+ * Backend-enforced (src/services/subscription.service.ts, src/config/plans.ts), monthly before GST:
+ * Starter ₹1,999 (500 orders) · Growth ₹4,999 (2,000) · Scale ₹11,999 (6,000) · Fleet ₹24,999 (15,000).
  */
 
 export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
@@ -34,36 +34,61 @@ export const TIERS: TierConfig[] = [
   {
     key: 'starter',
     name: 'Starter',
-    orders: 1000,
-    base: 4999,
-    blurb: 'For early D2C brands feeling the first RTO sting.',
-    features: ['1,000 Orders/mo', 'Auto WhatsApp NDR Ping', 'Shiprocket & Delhivery'],
+    orders: 500,
+    base: 1999,
+    blurb: 'For new D2C brands feeling the first RTO sting.',
+    features: [
+      'Up to 500 orders/mo',
+      'WhatsApp NDR rescue: reschedule, address fix, location pin',
+      'Shiprocket & Delhivery',
+      'Rescue dashboard',
+      'Email support',
+    ],
   },
   {
     key: 'growth',
     name: 'Growth',
-    orders: 5000,
-    base: 11999,
-    blurb: 'Where recovery becomes a line item you watch grow.',
-    features: ['5,000 Orders/mo', 'Interactive UPI QR Recovery', 'ClickPost & Custom Carriers'],
+    orders: 2000,
+    base: 4999,
+    blurb: 'Turn failed COD deliveries into prepaid orders.',
+    features: [
+      'Up to 2,000 orders/mo',
+      'Everything in Starter',
+      'COD → prepaid links & partial COD deposit (your Razorpay/Cashfree)',
+      'AI address & landmark correction',
+      'All carriers incl. ClickPost & custom',
+      'Advanced analytics, live feed & weekly ROI report',
+    ],
   },
   {
     key: 'scale',
     name: 'Scale',
-    orders: 12000,
-    base: 24999,
-    blurb: 'For scaling brands that refuse to lose orders.',
-    flagship: 'Carrier Fraud Watchtower & Storefront Sync',
-    features: ['12,000 Orders/mo', 'Carrier Fraud Watchtower', 'Storefront Geo-Risk Sync (Shopify/Woo)', 'Gemini AI Telemetry'],
+    orders: 6000,
+    base: 11999,
+    blurb: 'Stop RTO before the parcel even ships.',
+    flagship: 'Pre-delivery confirmation & pincode guard',
+    features: [
+      'Up to 6,000 orders/mo',
+      'Everything in Growth',
+      'Pre-delivery confirmation & COD reminders',
+      'Pincode risk rules + storefront sync',
+      'Courier fraud watchtower',
+      'CSV exports',
+    ],
   },
   {
     key: 'fleet',
     name: 'Fleet',
-    orders: 25000,
-    base: 44999,
-    blurb: 'For high-volume ops with multi-carrier delivery.',
+    orders: 15000,
+    base: 24999,
+    blurb: 'For high-volume brands that want hands-on help.',
     flagship: 'Priority support & guided onboarding',
-    features: ['25,000 Orders/mo', 'Carrier Fraud Watchtower & Storefront Sync', 'Priority support', 'Guided onboarding call'],
+    features: [
+      'Up to 15,000 orders/mo',
+      'Everything in Scale',
+      'Priority WhatsApp & phone support',
+      'Guided onboarding call',
+    ],
   },
 ];
 
@@ -80,7 +105,7 @@ export const PLANS: Plan[] = TIERS.map((t) => ({
 
 export const CYCLES: { key: Cycle; label: string; months: number; discount: number; tag: string }[] = [
   { key: 'quarterly', label: 'Quarterly',   months: 3,  discount: 0,    tag: '90-Day Guarantee' },
-  { key: 'semi',      label: 'Semi-Annual', months: 6,  discount: 0.15, tag: '−15%' },
+  { key: 'semi',      label: 'Semi-Annual', months: 6,  discount: 0.10, tag: '−10%' },
   { key: 'annual',    label: 'Annual',      months: 12, discount: 0.20, tag: '−20%' },
 ];
 
@@ -100,9 +125,9 @@ export const DEFAULT_METRICS: StoreMetrics = {
 
 /** Self-serve rescue-credit top-up packs — mirror of backend CREDIT_PACKS (display only). */
 export const CREDIT_PACKS: { key: string; credits: number; priceInr: number; label: string }[] = [
-  { key: 'pack_100',  credits: 100,  priceInr: 499,  label: '100 Rescues' },
-  { key: 'pack_500',  credits: 500,  priceInr: 1999, label: '500 Rescues' },
-  { key: 'pack_2000', credits: 2000, priceInr: 6999, label: '2,000 Rescues' },
+  { key: 'pack_500',  credits: 500,  priceInr: 499,  label: '500 messages' },
+  { key: 'pack_2000', credits: 2000, priceInr: 1499, label: '2,000 messages' },
+  { key: 'pack_5000', credits: 5000, priceInr: 2999, label: '5,000 messages' },
 ];
 
 export const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
@@ -150,9 +175,9 @@ export function lossFor(volume: number, metrics: Partial<StoreMetrics> = {}) {
 }
 
 export function recommendedTier(volume: number): Tier {
-  if (volume <= 1000) return 'starter';
-  if (volume <= 5000) return 'growth';
-  if (volume <= 12000) return 'scale';
+  if (volume <= 500) return 'starter';
+  if (volume <= 2000) return 'growth';
+  if (volume <= 6000) return 'scale';
   return 'fleet';
 }
 

@@ -1,4 +1,5 @@
 import { Queue, Worker, Job } from 'bullmq';
+import { planAllows } from '../config/plans';
 import { redisConnection } from '../config/redis';
 import { Merchant, AuditLog } from '../models';
 import { roiCalculatorService } from '../services/analytics/roi-calculator.service';
@@ -44,6 +45,7 @@ export function setupWeeklyRoiReportWorker(): Worker {
       let skippedCount = 0;
 
       for (const merchant of activeMerchants) {
+        if (!planAllows(merchant, 'weekly_report')) continue; // Growth+ feature
         const phone = merchant.ownerPhone || (merchant as any).phone;
         if (!phone) {
           logger.warn('Skipping weekly ROI report: merchant has no owner phone configured', {

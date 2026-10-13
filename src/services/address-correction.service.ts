@@ -21,6 +21,7 @@ import { config } from '../config/env';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
 import { geminiService } from './gemini.service';
+import { planAllows } from '../config/plans';
 
 export type AddressMode = 'location_pin' | 'text_address' | 'both';
 
@@ -338,7 +339,8 @@ export class AddressCorrectionService {
 
     try {
       let extracted: ExtractedAddressDetails;
-      const aiParsed = await geminiService.parseAddress(text);
+      const useAi = planAllows(merchant, 'ai_address');
+      const aiParsed = useAi ? await geminiService.parseAddress(text) : null;
 
       let fullAddress = '';
       let pincode = '';
@@ -357,7 +359,7 @@ export class AddressCorrectionService {
         (order.ndr.addressUpdate as any).aiParsed = aiParsed;
         logger.info('Gemini successfully parsed address', { orderId: order._id, confidence: aiParsed.confidence });
       } else {
-        extracted = await this.extractAddressDetails(text);
+        extracted = await this.extractAddressDetails(text, useAi);
         pincode = extracted.pincode || this.extractPincode(text) || '';
         fullAddress = extracted.cleanAddress;
         if (!order.ndr) order.ndr = {};
@@ -513,7 +515,7 @@ export class AddressCorrectionService {
    * Disambiguates and parses colloquial Hindi/Hinglish/English Indian residential instructions,
    * separating landmarks and rider instructions from the street address.
    */
-  public async extractAddressDetails(rawText: string): Promise<ExtractedAddressDetails> {
+  public async extractAddressDetails(rawText: string, useAi = true): Promise<ExtractedAddressDetails> {
     const pincode = this.extractPincode(rawText);
     let cleanAddress = rawText.trim();
     let landmark: string | undefined;
@@ -541,7 +543,7 @@ export class AddressCorrectionService {
     }
 
     // 1. If Gemini AI is configured, attempt intelligent extraction
-    if (geminiService.isConfigured()) {
+    if (useAi && geminiService.isConfigured()) {
       try {
         const prompt = `You are an Indian logistics address parser. Analyze this colloquial delivery instruction message:
 "${rawText}"

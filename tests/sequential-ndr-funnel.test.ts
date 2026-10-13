@@ -234,6 +234,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         carrierConfig: { provider: 'shiprocket' },
         settings: {
@@ -304,6 +305,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         carrierConfig: { provider: 'delhivery' },
         settings: {
@@ -355,6 +357,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         carrierConfig: { provider: 'shiprocket' },
       };
@@ -404,6 +407,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
       };
 
@@ -441,6 +445,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
       };
 
@@ -478,6 +483,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         settings: {
           codConversion: {
@@ -527,6 +533,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         settings: {
           codConversion: {
@@ -576,6 +583,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         settings: {
           codConversion: {
@@ -616,6 +624,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       };
 
       const mockMerchant: any = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: 'merchant_123',
         settings: {
           codConversion: { incentiveType: 'flat', incentiveAmount: 100 },

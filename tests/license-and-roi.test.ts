@@ -423,6 +423,7 @@ describe('90-Day License Key & Anti-Refund ROI Engine', () => {
       const activeMerchants = [
         {
           _id: merchantId,
+          billing: { plan: 'growth', status: 'active', activatedAt: new Date() },
           storeName: 'Active Store',
           ownerPhone: '+919876500000',
           licenseStatus: 'ACTIVE',

@@ -11,6 +11,7 @@ import { orderStateMachineService } from './state-machine/order-state-machine.se
 import { logisticsService } from './logistics.service';
 import { rtoRiskService } from './rto-risk.service';
 import { checkSubscriptionAccess } from '../utils/subscription-guard';
+import { planAllows } from '../config/plans';
 import { COPY } from '../i18n/customer-copy';
 import { logger } from '../utils/logger';
 
@@ -78,6 +79,10 @@ export class OrderService {
 
       if (!merchant.settings?.codConversion?.enabled) {
         logger.info('COD conversion is disabled for merchant', { merchantId });
+        return;
+      }
+      if (!planAllows(merchant, 'cod_conversion')) {
+        logger.info('COD conversion not included in merchant plan', { merchantId, plan: merchant.billing?.plan });
         return;
       }
 
@@ -218,7 +223,9 @@ export class OrderService {
 
       // 🛡️ Pincode Guard Check: Intercept and mandate advance deposit / prepaid conversion
       const { pincodeGuardService } = await import('./pincode-guard.service');
-      const isGuardHeld = await pincodeGuardService.checkAndHoldIfRequired(merchant, order, normalizedPhone);
+      const isGuardHeld = planAllows(merchant, 'pincode_guard')
+        ? await pincodeGuardService.checkAndHoldIfRequired(merchant, order, normalizedPhone)
+        : false;
       if (isGuardHeld) {
         logger.info('Order placed on hold by Pincode Guard; skipping generic COD conversion', {
           merchantId,

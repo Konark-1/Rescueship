@@ -31,8 +31,8 @@ import { logger } from '../utils/logger';
 export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
 export type Cycle = 'quarterly' | 'semi' | 'annual';
 
-const BASE: Record<Tier, number> = { starter: 4999, growth: 11999, scale: 24999, fleet: 44999 };
-export const LIMIT: Record<Tier, number> = { starter: 1000, growth: 5000, scale: 12000, fleet: 25000 };
+const BASE: Record<Tier, number> = { starter: 1999, growth: 4999, scale: 11999, fleet: 24999 };
+export const LIMIT: Record<Tier, number> = { starter: 500, growth: 2000, scale: 6000, fleet: 15000 };
 /**
  * Monthly rescue-message allowance included with a paid plan. Each WhatsApp send
  * consumes one credit; a typical rescue uses 1–3 messages, so 2× the order limit
@@ -40,7 +40,7 @@ export const LIMIT: Record<Tier, number> = { starter: 1000, growth: 5000, scale:
  */
 export const creditAllowanceFor = (tier: string): number => (LIMIT as any)[tier] ? (LIMIT as any)[tier] * 2 : 100;
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
-const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.20 };
+const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.10, annual: 0.20 };
 // Renewals repeat the cycle the merchant chose, charged upfront (3 / 6 / 12 months).
 const RZ_PERIOD: Record<Cycle, { period: 'monthly' | 'yearly'; interval: number; totalCount: number }> = {
   quarterly: { period: 'monthly', interval: 3, totalCount: 20 }, // up to 5 years
@@ -52,9 +52,9 @@ const DAY_MS = 24 * 3600 * 1000;
 
 /** Self-serve rescue-credit top-up packs (server-authoritative pricing). */
 export const CREDIT_PACKS: Record<string, { credits: number; priceInr: number; label: string }> = {
-  pack_100: { credits: 100, priceInr: 499, label: '100 Rescues' },
-  pack_500: { credits: 500, priceInr: 1999, label: '500 Rescues' },
-  pack_2000: { credits: 2000, priceInr: 6999, label: '2,000 Rescues' },
+  pack_500: { credits: 500, priceInr: 499, label: '500 messages' },
+  pack_2000: { credits: 2000, priceInr: 1499, label: '2,000 messages' },
+  pack_5000: { credits: 5000, priceInr: 2999, label: '5,000 messages' },
 };
 
 /**

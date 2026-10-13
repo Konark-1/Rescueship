@@ -148,11 +148,11 @@ Backed by our 90-day money-back performance guarantee. If our verified rescues d
 
 | Plan Tier | Monthly Price (INR) | Monthly Order Cap | Included Capabilities & Scale Features | Break-Even Rescues* |
 | :--- | :--- | :--- | :--- | :--- |
-| **Starter** | **₹4,999** / mo | Up to 1,000 orders | Real-time NDR webhook interception, WhatsApp interactive templates, 1 courier integration, Live Order Board, standard email support. | ~20 orders |
-| **Growth** | **₹11,999** / mo | Up to 5,000 orders | All Starter features + Pre-Dispatch COD conversion, 3-Mode Gemini AI address parser, multi-carrier mesh (up to 3 couriers), RescueLedger analytics, priority support. | ~48 orders |
-| **Scale** | **₹24,999** / mo | Up to 12,000 orders | All Growth features + Fake Courier Remark detection, high-risk pincode heatmap, custom WhatsApp sender identity (WABA), weekly WhatsApp Sunday ROI reports, dedicated Slack channel. | ~100 orders |
-| **Fleet** | **₹44,999** / mo | Up to 25,000 orders | All Scale features + Unlimited courier integrations, custom webhook routing, dedicated account manager, 99.9% uptime SLA, custom reporting exports. | ~180 orders |
-| **Enterprise** | Custom Quote | 25,000+ orders | Tailored SLA, multi-store architecture, custom on-premise carrier adapters, dedicated WhatsApp namespace, bespoke ML risk models. | Custom |
+| **Starter** | **₹1,999** / mo | Up to 500 orders | WhatsApp NDR rescue (reschedule, address fix, location pin), Shiprocket & Delhivery, rescue dashboard, email support |
+| **Growth** | **₹4,999** / mo | Up to 2,000 orders | All Starter features + COD → prepaid links & partial COD deposit, AI address correction, all carriers, advanced analytics & weekly ROI report |
+| **Scale** | **₹11,999** / mo | Up to 6,000 orders | All Growth features + pre-delivery confirmation & COD reminders, pincode risk rules + storefront sync, courier fraud watchtower, CSV exports |
+| **Fleet** | **₹24,999** / mo | Up to 15,000 orders | All Scale features + priority WhatsApp & phone support, guided onboarding call |
+| **Enterprise** | Custom Quote | 15,000+ orders | Custom plan, custom on-premise carrier adapters, dedicated WhatsApp namespace, bespoke ML risk models. | Custom |
 
 *\*Calculated at average RTO sunk cost savings of ₹250 per rescued parcel.*
 

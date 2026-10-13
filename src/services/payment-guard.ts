@@ -13,6 +13,8 @@
 // Carriers whose COD amount we can change AFTER dispatch through a verified API. Empty by
 // default: Shiprocket only allows COD→prepaid before pickup (no API) and ClickPost's NDR API
 // has no COD amendment. Enable a carrier here only after testing it on a live account.
+import { planAllows } from '../config/plans';
+
 export const COD_AMENDABLE_CARRIERS: readonly string[] = (process.env.COD_AMENDABLE_CARRIERS || '')
   .split(',')
   .map((c) => c.trim().toLowerCase())
@@ -20,7 +22,7 @@ export const COD_AMENDABLE_CARRIERS: readonly string[] = (process.env.COD_AMENDA
 
 export interface ConversionCheck {
   ok: boolean;
-  reason?: 'unknown_order_value' | 'not_cod' | 'post_dispatch_disabled' | 'carrier_cannot_amend_cod' | 'payment_webhook_unverified';
+  reason?: 'unknown_order_value' | 'not_cod' | 'post_dispatch_disabled' | 'carrier_cannot_amend_cod' | 'payment_webhook_unverified' | 'plan_excludes_conversion';
 }
 
 /**
@@ -35,6 +37,8 @@ export function paymentWebhookReady(merchant: any): boolean {
 }
 
 export function canOfferOnlinePayment(order: any, merchant: any): ConversionCheck {
+  // COD → prepaid links are a Growth+ feature; Starter keeps the reschedule/address path.
+  if (!planAllows(merchant, 'cod_conversion')) return { ok: false, reason: 'plan_excludes_conversion' };
   const value = Number(order?.orderValue || 0);
   if (!Number.isFinite(value) || value <= 0) return { ok: false, reason: 'unknown_order_value' };
   if (order?.paymentMethod !== 'cod') return { ok: false, reason: 'not_cod' };
