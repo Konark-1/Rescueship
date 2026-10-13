@@ -45,7 +45,7 @@ export class EmailService {
     const clientId = process.env.GMAIL_CLIENT_ID;
     const clientSecret = process.env.GMAIL_CLIENT_SECRET;
     const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-    const gUser = process.env.GMAIL_USER || process.env.SMTP_USER || 'konarkofficial@gmail.com';
+    const gUser = process.env.GMAIL_USER || process.env.SMTP_USER || '';
 
     if (clientId && clientSecret && refreshToken) {
       this.oauth2Client = new OAuth2Client(clientId, clientSecret);
@@ -135,7 +135,7 @@ export class EmailService {
    * Send email using Gmail REST API (HTTPS port 443) or SMTP transport or fallback to logging.
    */
   public async sendEmail(options: EmailOptions): Promise<boolean> {
-    const from = process.env.SMTP_FROM || `"RescueShip" <${this.gmailUser || 'konarkofficial@gmail.com'}>`;
+    const from = process.env.SMTP_FROM || `"RescueShip" <${this.gmailUser || 'no-reply@rescueship.io'}>`;
 
     // 1. Gmail REST API over HTTPS (Port 443 - zero block on Render free tier)
     if (this.isGmailApiConfigured && this.oauth2Client) {
