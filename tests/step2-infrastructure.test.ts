@@ -334,7 +334,12 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
       expect(store.has(lockKey)).toBe(false);
     });
 
-    it('2.2.3: Retry Storm Protection: 5 concurrent identical webhooks -> 1 processed, 4 dropped with HTTP 200', async () => {
+    it('2.2.3: Retry Storm Protection: 5 concurrent identical webhooks -> serialized by the lock, 1 processed, 4 deduped with HTTP 200', async () => {
+      // Requests wait for the lock instead of being dropped; once the first finishes, the
+      // idempotency claim marks the rest as duplicates (same event id).
+      const { IdempotencyGuard } = require('../src/utils/idempotency');
+      (IdempotencyGuard.claim as jest.Mock).mockReset();
+      (IdempotencyGuard.claim as jest.Mock).mockResolvedValueOnce('acquired').mockResolvedValue('duplicate');
       const app = express();
       app.use(express.json());
 
@@ -352,8 +357,6 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
       );
 
       app.post('/api/webhooks/shiprocket/ndr', handler);
-
-      const warnSpy = jest.spyOn(logger, 'warn');
 
       // Prepare 5 identical concurrent webhook requests for the same AWB
       const webhookPayload = {
@@ -385,16 +388,13 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
 
       // Exactly 1 request acquires lock (returns queued or success)
       const accepted = results.filter((r) => r.body.status === 'queued' || r.body.status === 'success');
-      // Exactly 4 requests hit the active lock and are cleanly dropped
-      const dropped = results.filter((r) => r.body.status === 'ignored' && r.body.reason === 'duplicate_lock_active');
+      // The other 4 were serialized behind the lock and then recognised as duplicates.
+      const dropped = results.filter((r) => r.body.status === 'ignored' && r.body.reason === 'duplicate');
 
       expect(accepted.length).toBe(1);
       expect(dropped.length).toBe(4);
-
-      // Confirm warning was logged for all 4 dropped webhooks
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[DUPLICATE WEBHOOK DROPPED] Lock exists for lock:ndr:650000000000000000000001:shiprocket:AWB-RETRY-STORM-001')
-      );
+      (IdempotencyGuard.claim as jest.Mock).mockReset();
+      (IdempotencyGuard.claim as jest.Mock).mockResolvedValue('acquired');
 
       // Confirm lock was released in finally block after the 1st completed
       expect(store.has('lock:ndr:650000000000000000000001:shiprocket:AWB-RETRY-STORM-001')).toBe(false);

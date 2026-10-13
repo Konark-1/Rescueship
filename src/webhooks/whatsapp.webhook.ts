@@ -80,14 +80,29 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const signature = req.get('X-Hub-Signature-256');
   const rawBody = (req as any).rawBody;
 
-  // Verify Signature — MANDATORY in production, allowed in development if appSecret not set
-  if (config.whatsapp.appSecret) {
+  // Verify signature. Candidates: the platform Meta app secret, plus the secret of the
+  // merchant's own Meta app when they connected manually with their app. The payload's
+  // phone_number_id only selects which secret to try; nothing is trusted before a match.
+  const secrets: string[] = [];
+  if (config.whatsapp.appSecret) secrets.push(config.whatsapp.appSecret);
+  const claimedPhoneId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+  if (typeof claimedPhoneId === 'string' && /^\d{5,32}$/.test(claimedPhoneId)) {
+    try {
+      const owner: any = await Merchant.findOne({ 'whatsappConfig.phoneNumberId': claimedPhoneId }).select('whatsappConfig.appSecret');
+      const enc = owner?.whatsappConfig?.appSecret;
+      if (enc) secrets.push(encryptionService.decrypt(enc));
+    } catch (err: any) {
+      logger.warn('Could not load merchant app secret for WhatsApp webhook', { error: err?.message });
+    }
+  }
+
+  if (secrets.length) {
     if (!signature || !rawBody) {
       logger.warn('WhatsApp webhook rejected: missing signature header or body', { hasSignature: !!signature, hasBody: !!rawBody });
       res.status(401).json({ error: 'Missing X-Hub-Signature-256 header' });
       return;
     }
-    const isValid = whatsAppService.verifyWebhookSignature(rawBody, signature, config.whatsapp.appSecret);
+    const isValid = secrets.some((sec) => whatsAppService.verifyWebhookSignature(rawBody, signature, sec));
     if (!isValid) {
       logger.warn('WhatsApp webhook signature verification failed');
       res.status(401).json({ error: 'Invalid WhatsApp signature' });

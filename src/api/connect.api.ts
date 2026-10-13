@@ -6,7 +6,7 @@ import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
-import { metaEmbeddedSignupService } from '../services/meta-embedded-signup.service';
+import { metaEmbeddedSignupService, REQUIRED_WA_SCOPES } from '../services/meta-embedded-signup.service';
 import { metaTemplateService } from '../services/meta-template.service';
 import { shopifyOAuthService } from '../services/shopify-oauth.service';
 import { woocommerceConnectService } from '../services/woocommerce-connect.service';
@@ -243,9 +243,12 @@ router.post('/woocommerce', authenticateToken, credentialValidationLimiter, stan
 // No Meta Embedded Signup / app config needed. The merchant pastes credentials they
 // already have from their own Meta Business account (WhatsApp Manager → API setup).
 router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { phoneNumberId, wabaId, accessToken } = req.body;
+  const { phoneNumberId, wabaId, accessToken, appSecret, pin } = req.body;
   if (typeof phoneNumberId !== 'string' || typeof wabaId !== 'string' || typeof accessToken !== 'string' || !phoneNumberId || !wabaId || !accessToken) {
     return res.status(400).json({ error: 'phoneNumberId, wabaId and accessToken required' });
+  }
+  if ((appSecret !== undefined && appSecret !== '' && typeof appSecret !== 'string') || (pin !== undefined && pin !== '' && !/^\d{6}$/.test(String(pin)))) {
+    return res.status(400).json({ error: 'appSecret must be a string and pin a 6-digit number' });
   }
   const phone = phoneNumberId.trim();
   const waba = wabaId.trim();
@@ -253,19 +256,29 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
   if (!/^\d{6,32}$/.test(phone)) return res.status(400).json({ error: 'Invalid phoneNumberId (numeric ID).' });
   if (!/^\d{6,32}$/.test(waba)) return res.status(400).json({ error: 'Invalid WABA ID (numeric ID).' });
 
-  // Ownership check: the token must read BOTH the phone number and its WABA, so a
-  // merchant can never claim a number they don't own (blocks inbound-routing hijack).
+  // 1. Token must be long-lived and carry the WhatsApp scopes (temporary API-setup tokens die in ~24h).
+  let platformType: string | undefined;
   try {
-    await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(phone)}`, {
-      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,display_phone_number' }, timeout: 8000,
+    const info = await metaEmbeddedSignupService.inspectToken(token);
+    if (!info.valid) return res.status(400).json({ error: 'Meta says this access token is not valid.' });
+    if (info.expiresAt && info.expiresAt.getTime() - Date.now() < 7 * 24 * 3600 * 1000) {
+      return res.status(400).json({ error: 'This is a temporary access token (expires within days). Create a System User in Meta Business Settings, give it the WhatsApp account, and generate a token that never expires.' });
+    }
+    const lacking = REQUIRED_WA_SCOPES.filter((sc) => !info.scopes.includes(sc));
+    if (lacking.length) return res.status(400).json({ error: `The token is missing permissions: ${lacking.join(', ')}.` });
+
+    // 2. Ownership: the phone number must be listed under that WABA for this token
+    //    (blocks claiming someone else's number to hijack inbound routing).
+    const { data } = await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(waba)}/phone_numbers`, {
+      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,display_phone_number,platform_type' }, timeout: 8000,
     });
-    await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(waba)}`, {
-      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,name' }, timeout: 8000,
-    });
+    const match = (data?.data || []).find((p: any) => String(p.id) === phone);
+    if (!match) return res.status(400).json({ error: 'That phone number ID is not part of this WhatsApp Business Account.' });
+    platformType = match.platform_type;
   } catch (e: any) {
     const metaErr = e.response?.data?.error;
     const msg = metaErr?.message || e.message;
-    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, error: metaErr || e.message });
+    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, code: metaErr?.code });
     return res.status(400).json({
       error: `Could not verify WhatsApp credentials: ${msg}. Check your Phone number ID, WABA ID, and make sure your access token has whatsapp_business_messaging permissions.`,
     });
@@ -276,17 +289,34 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
 
   const merchant = await Merchant.findById(req.merchant!.merchantId);
   if (!merchant) return res.status(404).json({ error: 'not found' });
+  // 3. Subscribe the app to the WABA's webhooks and register the number if it is not on Cloud API yet.
+  const activation = await metaEmbeddedSignupService.activateNumber(waba, phone, token, {
+    pin: pin ? String(pin) : undefined,
+    register: platformType !== undefined && platformType !== 'CLOUD_API',
+  });
+
   (merchant as any).whatsappConfig = {
     ...((merchant as any).whatsappConfig || {}),
     phoneNumberId: phone,
     wabaId: waba,
+    businessAccountId: waba,
     accessToken: encryptionService.encrypt(token),
+    connectMethod: 'manual',
+    webhooksSubscribed: activation.subscribed,
+    // A merchant using their OWN Meta app: its webhooks are signed with that app's secret.
+    ...(appSecret ? { appSecret: encryptionService.encrypt(String(appSecret).trim()) } : {}),
+    ...(activation.pin && activation.registered ? { registrationPin: encryptionService.encrypt(activation.pin) } : {}),
   };
+  const blocking = !activation.subscribed || activation.registered === false;
   (merchant as any).connections = {
     ...((merchant as any).connections || {}),
-    whatsapp: { status: 'templates_pending', connectedAt: new Date(), lastError: null },
+    whatsapp: { status: blocking ? 'error' : 'templates_pending', connectedAt: new Date(), lastError: activation.errors.length ? activation.errors.join(' ') : null },
   };
+  merchant.markModified('whatsappConfig');
   await merchant.save();
+  if (blocking) {
+    return res.status(400).json({ error: activation.errors.join(' ') || 'Could not activate the WhatsApp number.' });
+  }
 
   // fire-and-forget template submission + approval polling
   void metaTemplateService.submitAll(req.merchant!.merchantId).catch((e: any) => logger.warn('Manual WhatsApp template submit failed', { error: e.message }));
@@ -296,18 +326,23 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
 
 // ── WhatsApp (Embedded Signup) ──
 router.post('/whatsapp/signup', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { code, businessId } = req.body;
-  if (!code) return res.status(400).json({ error: 'code required' });
+  const { code, businessId, wabaId, phoneNumberId, pin } = req.body;
+  if (!code || typeof code !== 'string') return res.status(400).json({ error: 'code required' });
+  const idOk = (v: unknown) => v === undefined || v === null || v === '' || (typeof v === 'string' && /^\d{5,32}$/.test(v));
+  if (!idOk(businessId) || !idOk(wabaId) || !idOk(phoneNumberId) || (pin && !/^\d{6}$/.test(String(pin)))) {
+    return res.status(400).json({ error: 'Invalid signup session data' });
+  }
   // Fail with an actionable message instead of Meta's opaque OAuth failure.
-  const metaReady = process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_CONFIG_ID;
+  const metaReady = process.env.META_APP_ID && (process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET) && process.env.META_CONFIG_ID;
   if (!metaReady) {
     return res.status(400).json({
       error: 'WhatsApp one-click connect is not configured on this RescueShip deployment yet (META_APP_ID / META_APP_SECRET / META_CONFIG_ID). Contact support or use "Set it up for me" — we will connect your number with you on a call.',
     });
   }
   try {
-    const summary = await metaEmbeddedSignupService.connect(req.merchant!.merchantId, code, businessId);
-    await metaTemplateService.submitAll(req.merchant!.merchantId); // fire-and-forget approval
+    const summary = await metaEmbeddedSignupService.connect(req.merchant!.merchantId, code, { businessId, wabaId, phoneNumberId, pin: pin ? String(pin) : undefined });
+    if (summary.status === 'error') return res.status(400).json({ error: (summary as any).lastError || 'Could not activate the WhatsApp number.', ...summary });
+    await metaTemplateService.submitAll(req.merchant!.merchantId);
     res.json(summary);
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });

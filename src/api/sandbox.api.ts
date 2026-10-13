@@ -123,7 +123,7 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
       'refused_delivery': 'CUSTOMER_REFUSED',
     };
     const cat = categoryMap[simNDR.reason] || 'CUSTOMER_NOT_AVAILABLE';
-    const mapping = templateMapperService.getMappingForCategory(cat as any, 'en', waCfg?.templates);
+    const mapping = templateMapperService.getMappingForCategory(cat as any, 'en', waCfg?.templateMap);
     const templateName = mapping.templateName;
 
     // Send rescue template to self

@@ -30,8 +30,10 @@ export const connectApi = {
   shopifyToken: (t: string, shop: string, key: string, apiSecret: string) =>
     call(t, '/shopify/token', key.startsWith('shpat_') ? { shop, accessToken: key, apiSecret } : { shop, clientId: key, apiSecret }),
   woocommerce: (t: string, url: string, consumerKey: string, consumerSecret: string) => call(t, '/woocommerce', { url, consumerKey, consumerSecret }),
-  whatsappSignup: (t: string, code: string, businessId?: string) => call(t, '/whatsapp/signup', { code, businessId }),
-  whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string) => call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken }),
+  whatsappSignup: (t: string, code: string, session: { businessId?: string; wabaId?: string; phoneNumberId?: string } = {}) =>
+    call(t, '/whatsapp/signup', { code, ...session }),
+  whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string, appSecret?: string) =>
+    call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken, ...(appSecret ? { appSecret } : {}) }),
   whatsappTemplates: (t: string) => call(t, '/whatsapp/templates/status'),
   resubmitWhatsAppTemplates: (t: string) => call(t, '/whatsapp/templates/resubmit', {}),
   testPulse: (t: string) => call(t, '/whatsapp/test-pulse', {}),

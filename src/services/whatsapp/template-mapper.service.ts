@@ -40,7 +40,9 @@ export class TemplateMapperService {
     ADDRESS_ISSUE: { template: 'ndr_address_en', requiredVars: ['customerName', 'externalOrderId'] },
     PREMISES_LOCKED: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
     RESCHEDULE_REQUEST: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },
-    COD_COLLECTION_ISSUE: { template: 'ndr_cod_convert_en', requiredVars: ['customerName', 'externalOrderId', 'codAmount'] },
+    // No payment link in the first message: online payment is only offered after the
+    // payment guard (known order value, amendable carrier) inside the conversation.
+    COD_COLLECTION_ISSUE: { template: 'ndr_cod_convert_en', requiredVars: ['customerName', 'externalOrderId'] },
     CANCELLATION_RISK: { template: 'ndr_retention_en', requiredVars: ['customerName', 'externalOrderId'] },
     RTO_ARREST: { template: 'rto_arrest_en', requiredVars: ['customerName', 'externalOrderId'] },
     UNKNOWN_FAILURE: { template: 'ndr_reschedule_en', requiredVars: ['customerName', 'externalOrderId'] },

@@ -56,6 +56,7 @@ export interface IMerchant extends Document {
       discountCap?: number;
       minOrderValue: number;
       messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
+      allowPostDispatch?: boolean;
     };
     ndrRescue: {
       enabled: boolean;
@@ -241,6 +242,8 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         discountCap: { type: Number, default: 0 },
         minOrderValue: { type: Number, default: 0 },
         messageLanguage: { type: String, enum: ['en', 'hi', 'ta', 'te', 'bn', 'mr'], default: 'en' },
+        // Offer online payment after dispatch only when the merchant opts in (carrier COD must be amendable).
+        allowPostDispatch: { type: Boolean, default: false },
       },
       ndrRescue: {
         enabled: { type: Boolean, default: false },

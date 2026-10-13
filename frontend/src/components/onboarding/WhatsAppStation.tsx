@@ -34,7 +34,7 @@ function formatTemplateName(rawName: string): string {
 
 interface WhatsAppStationProps {
   onConnect: () => void;
-  onManualConnect: (phoneId: string, wabaId: string, accessToken: string) => void;
+  onManualConnect: (phoneId: string, wabaId: string, accessToken: string, appSecret?: string) => void;
   onPulse: (phone: string, storeName: string) => void;
   onResubmitTemplates: () => void;
   busy: any;
@@ -68,6 +68,7 @@ export function WhatsAppStation({
   const [phoneId, setPhoneId] = useState(connectionDetails?.phoneNumberId || '');
   const [wabaId, setWabaId] = useState(connectionDetails?.wabaId || '');
   const [accessToken, setAccessToken] = useState('');
+  const [appSecret, setAppSecret] = useState('');
   const [editingCreds, setEditingCreds] = useState(false);
 
   useEffect(() => {
@@ -391,7 +392,7 @@ export function WhatsAppStation({
           className="ob-form"
           onSubmit={(e) => {
             e.preventDefault();
-            onManualConnect(phoneId.trim(), wabaId.trim(), accessToken.trim());
+            onManualConnect(phoneId.trim(), wabaId.trim(), accessToken.trim(), appSecret.trim() || undefined);
             setEditingCreds(false);
           }}
         >
@@ -423,27 +424,26 @@ export function WhatsAppStation({
               type="password"
               autoComplete="off"
               spellCheck={false}
-              placeholder="EAAG… (paste fresh temporary token or permanent System User token)"
+              placeholder="EAAG… permanent System User token"
               value={accessToken}
               onChange={(e) => setAccessToken(e.target.value)}
               required
             />
           </Field>
+          <Field label="App secret (only if you use your own Meta app)">
+            <input
+              className="ob-input"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="From your app → App settings → Basic"
+              value={appSecret}
+              onChange={(e) => setAppSecret(e.target.value)}
+            />
+          </Field>
           <div className="ob-steps">
-            <p className="ob-steps__title">How to get a fresh or permanent token:</p>
+            <p className="ob-steps__title">How to get a permanent token:</p>
             <ol className="ob-steps__list">
-              <li>
-                <strong>Fastest (Meta App Dashboard):</strong> Open{' '}
-                <a
-                  href="https://developers.facebook.com/apps"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Meta App Dashboard
-                </a>{' '}
-                → click your App → <strong>WhatsApp → API Setup</strong>. Copy your{' '}
-                <strong>Access token</strong> (valid 24h for testing).
-              </li>
               <li>
                 <strong>Permanent Token (Never Expires):</strong> Open{' '}
                 <a
@@ -453,8 +453,11 @@ export function WhatsAppStation({
                 >
                   Business Settings → System Users
                 </a>{' '}
-                → Create System User → Assign WhatsApp asset → Generate Token with{' '}
-                <code>whatsapp_business_messaging</code>.
+                → Create System User → Assign WhatsApp asset → Generate Token (expiry: never) with{' '}
+                <code>whatsapp_business_messaging</code> and <code>whatsapp_business_management</code>.
+              </li>
+              <li>
+                Temporary tokens from the API Setup page expire in 24 hours and are not accepted.
               </li>
             </ol>
           </div>

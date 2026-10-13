@@ -251,26 +251,46 @@ export default function OnboardingPage() {
   });
   const connectWhatsApp = async () => {
     setBusy('whatsapp'); setErr(null); push('› opening Meta Embedded Signup…');
+    // Embedded Signup posts the WABA + phone the merchant picked as a window message
+    // ("session info"); the backend verifies these ids against the token before using them.
+    const session: { businessId?: string; wabaId?: string; phoneNumberId?: string } = {};
+    const onMessage = (event: MessageEvent) => {
+      if (!/^https:\/\/([a-z0-9-]+\.)?facebook\.com$/.test(event.origin)) return;
+      try {
+        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (msg?.type === 'WA_EMBEDDED_SIGNUP' && msg?.data) {
+          if (msg.data.waba_id) session.wabaId = String(msg.data.waba_id);
+          if (msg.data.phone_number_id) session.phoneNumberId = String(msg.data.phone_number_id);
+          if (msg.data.business_id) session.businessId = String(msg.data.business_id);
+        }
+      } catch { /* non-JSON messages from the SDK */ }
+    };
+    window.addEventListener('message', onMessage);
+    const done = () => window.removeEventListener('message', onMessage);
     try {
       await loadFbSdk();
       window.FB.init({ appId: import.meta.env.VITE_META_APP_ID, version: 'v22.0' });
       window.FB.login((resp: any) => {
         const code = resp?.authResponse?.code || resp?.code;
-        if (!code) { setErr('Signup was cancelled.'); setBusy(null); return; }
-        push('› exchanging signup code for a permanent token…');
-        connectApi.whatsappSignup(token!, code, resp?.authResponse?.business_id).then(async () => {
-          push('✓ WhatsApp connected · submitting templates');
-          await refresh();
-          advanceToNext('whatsapp');
-          setBusy(null);
-        }).catch((e: any) => { setErr(e.message); setBusy(null); });
-      }, { config_id: META_CONFIG_ID, response_type: 'code', override_default_response_type: true });
-    } catch (e: any) { setErr(e.message); setBusy(null); }
+        if (!code) { done(); setErr('Signup was cancelled.'); setBusy(null); return; }
+        push('› activating your WhatsApp number…');
+        // The session message can arrive just after the login callback; give it a moment.
+        setTimeout(() => {
+          done();
+          connectApi.whatsappSignup(token!, code, { businessId: session.businessId || resp?.authResponse?.business_id, wabaId: session.wabaId, phoneNumberId: session.phoneNumberId }).then(async () => {
+            push('✓ WhatsApp connected · submitting templates');
+            await refresh();
+            advanceToNext('whatsapp');
+            setBusy(null);
+          }).catch((e: any) => { setErr(e.message); setBusy(null); });
+        }, 800);
+      }, { config_id: META_CONFIG_ID, response_type: 'code', override_default_response_type: true, extras: { setup: {}, sessionInfoVersion: '3' } });
+    } catch (e: any) { done(); setErr(e.message); setBusy(null); }
   };
-  const connectWhatsAppManual = async (phoneNumberId: string, wabaId: string, accessToken: string) => {
+  const connectWhatsAppManual = async (phoneNumberId: string, wabaId: string, accessToken: string, appSecret?: string) => {
     setBusy('whatsapp'); setErr(null); push('› validating WhatsApp credentials…');
     try {
-      await connectApi.whatsappManual(token!, phoneNumberId, wabaId, accessToken);
+      await connectApi.whatsappManual(token!, phoneNumberId, wabaId, accessToken, appSecret);
       push('✓ WhatsApp connected · submitting templates');
       await refresh();
       advanceToNext('whatsapp');

@@ -4,6 +4,7 @@ import { config } from '../config/env';
 import { logger, maskPhone } from '../utils/logger';
 import { assertSafeCopy } from '../utils/customer-copy-guard';
 import { normalizeIndianPhone } from '../utils/phoneNormalizer';
+import { resolveTemplate } from './whatsapp/template-registry';
 
 export interface WhatsAppConfig {
   phoneNumberId?: string;
@@ -113,7 +114,7 @@ export class WhatsAppService {
    *  - opt-out suppression is scoped to the sending merchant (a STOP to one brand
    *    does not silence every other brand); platform/ops sends check any suppression.
    */
-  private async checkSendBlocked(normalizedTo: string, merchantConfig?: WhatsAppConfig): Promise<any | null> {
+  private async checkSendBlocked(normalizedTo: string, merchantConfig?: WhatsAppConfig, ctx?: { templateMap?: Record<string, string> }): Promise<any | null> {
     let merchantId: any = null;
     if (merchantConfig?.phoneNumberId) {
       try {
@@ -122,13 +123,14 @@ export class WhatsAppService {
         // Skip the lookup when the DB is not connected (unit tests / boot) instead of
         // letting Mongoose buffer the query for 10s.
         const m: any = mongoose.connection.readyState === 1
-          ? await (Merchant as any).findOne({ 'whatsappConfig.phoneNumberId': merchantConfig.phoneNumberId }).select('_id settings.globalPause')
+          ? await (Merchant as any).findOne({ 'whatsappConfig.phoneNumberId': merchantConfig.phoneNumberId }).select('_id settings.globalPause whatsappConfig.templateMap')
           : null;
         if (m?.settings?.globalPause === true) {
           logger.warn('WhatsApp message aborted: merchant has paused all automations', { merchantId: m._id });
           return { success: false, suppressed: true, reason: 'merchant_paused' };
         }
         merchantId = m?._id || null;
+        if (ctx && m?.whatsappConfig?.templateMap) ctx.templateMap = m.whatsappConfig.templateMap;
       } catch (err: any) {
         logger.warn('Could not resolve merchant for pause check', { error: err?.message });
       }
@@ -182,11 +184,19 @@ export class WhatsAppService {
     merchantConfig?: WhatsAppConfig
   ): Promise<WhatsAppResponse> {
     const normalizedTo = normalizeIndianPhone(to);
-    const blocked = await this.checkSendBlocked(normalizedTo, merchantConfig);
+    const ctx: { templateMap?: Record<string, string> } = {};
+    const blocked = await this.checkSendBlocked(normalizedTo, merchantConfig, ctx);
     if (blocked) return blocked;
 
-    const map = (merchantConfig as any)?.templateMap || {};
-    const registeredName = map[templateName] || templateName;
+    // Logical → registered name, language fallback and parameter shape (template-registry).
+    const resolved = resolveTemplate(templateName, language, components, (merchantConfig as any)?.templateMap || ctx.templateMap);
+    if (resolved.error) {
+      logger.error('WhatsApp template payload does not match the registered template', { templateName, registered: resolved.name, error: resolved.error });
+      throw new Error(resolved.error);
+    }
+    const registeredName = resolved.name;
+    language = resolved.language;
+    components = resolved.components;
     const { phoneNumberId, accessToken } = this.resolveCredentials(merchantConfig);
     const version = this.defaultApiVersion;
 

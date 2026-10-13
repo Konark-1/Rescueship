@@ -228,7 +228,8 @@ export const config: AppConfig = {
     phoneNumberId: getEnv('WHATSAPP_PHONE_NUMBER_ID', false),
     accessToken: getEnv('WHATSAPP_ACCESS_TOKEN', false),
     verifyToken: getEnv('WHATSAPP_VERIFY_TOKEN', false),
-    appSecret: getEnv('WHATSAPP_APP_SECRET', false),
+    // One Meta app signs webhooks and runs Embedded Signup; accept either variable name.
+    appSecret: getEnv('WHATSAPP_APP_SECRET', false) || getEnv('META_APP_SECRET', false),
   },
 
   razorpay: {
