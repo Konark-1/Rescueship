@@ -234,7 +234,7 @@ const RegisterPage: React.FC = () => {
           disabled={loading || !termsAccepted || !dpaAccepted}
           whileTap={{ scale: 0.98 }}
         >
-          {loading ? 'Creating account...' : 'Start Free Trial'}
+          {loading ? 'Creating account...' : 'Create account'}
         </motion.button>
       </form>
       <div className="auth-links">

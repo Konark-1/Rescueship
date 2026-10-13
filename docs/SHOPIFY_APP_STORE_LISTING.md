@@ -14,7 +14,7 @@
 | **Short Tagline** | `Cut COD RTO losses by 62% with autonomous WhatsApp re-delivery interception in 90 seconds.` | 96 characters |
 | **Primary Category** | Orders and shipping &rarr; Delivery management | |
 | **Secondary Category** | Customer service &rarr; Chat and messaging | |
-| **Pricing Model** | Recurring Monthly Subscription + 14-Day Free Trial | 90-Day Money-Back Guarantee |
+| **Pricing Model** | Recurring Subscription (paid upfront, no free trial) | 90-Day Money-Back Guarantee |
 | **Developer Name** | RescueShip Technologies Private Limited | |
 | **Support Email** | `support@rescueship.com` | Official support desk |
 | **Privacy Policy URL** | `https://rescueship-frontend.onrender.com/privacy` | DPDP Act 2023 Compliant |
@@ -73,7 +73,7 @@ Convert up to 34% of COD checkouts into prepaid orders with dynamic, one-click W
 - **Enterprise DPDP Act 2023 Compliance:** AES-256-GCM encryption with Indian sovereign data storage.
 
 **Try RescueShip Risk-Free:**  
-Enjoy a 14-day zero-risk trial plus our 90-day money-back performance guarantee. If our verified rescues don't pay for your plan, you pay nothing.
+Backed by our 90-day money-back performance guarantee. If our verified rescues don't pay for your plan, you pay nothing.
 ```
 
 ---

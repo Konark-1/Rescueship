@@ -99,7 +99,7 @@ describe('RescueShip Plan Simulation Test Suite (12 Core Test Cases)', () => {
       codConversion: { enabled: false },
       partialPay: { enabled: true, amount: 49, trigger: 'AFTER_FAILED_ATTEMPT' },
     },
-    billing: { rescueCredits: 100, totalRescues: 5, totalConversions: 2 },
+    billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 100, totalRescues: 5, totalConversions: 2 },
     whatsappConfig: { phoneNumberId: 'wa_123' },
     carrierConfig: { provider: 'shiprocket' },
   };

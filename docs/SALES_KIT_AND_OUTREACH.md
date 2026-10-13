@@ -191,10 +191,10 @@ Below are 50 representative high-growth Indian D2C brands that match this exact 
 - **Headline:** Turn Logistics Losses into Net Profit — Risk-Free.
 - **Visual:** Plan comparison table (Starter ₹4,999 | Growth ₹11,999 | Scale ₹24,999 | Fleet ₹44,999) + Guarantee Shield.
 - **Copy:**
-  - **14-Day Zero-Risk Trial:** Connect your store in 5 minutes. No upfront fee.
+  - **90-Day Money-Back Guarantee:** Connect your store in 5 minutes. If recorded savings don't beat your fees in 90 days, full refund.
   - **90-Day Money-Back Performance Guarantee:** If our rescued orders don't cover your monthly plan cost, we refund 100% of your fee.
   - Average Customer ROI: **12x to 18x Plan Investment.**
-- **Speaker Script:** *"Setup takes 5 minutes without writing a single line of code. We give you a 14-day free trial. If within your first 90 days RescueShip hasn't paid for itself multiple times over, we will refund every single rupee. Let's connect your Shopify store right now."*
+- **Speaker Script:** *"Setup takes 5 minutes without writing a single line of code. We back you with a 90-day money-back guarantee. If within your first 90 days RescueShip hasn't paid for itself multiple times over, we will refund every single rupee. Let's connect your Shopify store right now."*
 
 ---
 
@@ -228,7 +228,7 @@ Spoken:
 [01:15 - 01:30] — THE ZERO-RISK CLOSE
 Visual: Shows the 1-Click Connect Station with Shopify, Shiprocket, and WhatsApp toggles.
 Spoken:
-"Setup takes literally 4 minutes. No developers needed. We back this with a 14-day zero-risk trial and our unconditional 90-day performance guarantee: if our rescues don't cover your subscription fee, you pay zero. Click the link below, connect your store, and protect your margins starting with tonight's dispatches."
+"Setup takes literally 4 minutes. No developers needed. We back this with our unconditional 90-day performance guarantee: if our rescues don't cover your subscription fee, you pay zero. Click the link below, connect your store, and protect your margins starting with tonight's dispatches."
 ```
 
 ---
@@ -285,7 +285,7 @@ COMMERCIAL ENGAGEMENT MODEL
   - Fleet Plan: ₹44,999/mo (Up to 25,000 orders)
 
 THE PERFORMANCE COMMITMENT
-14-Day Free Onboarding Trial + 90-Day Money-Back Guarantee. If net freight savings 
+90-Day Money-Back Guarantee. If net freight savings 
 do not exceed platform fees during your first 90 days, 100% full refund issued.
 
 Contact: founders@rescueship.com | https://rescueship.netlify.app
@@ -294,7 +294,7 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
 
 ---
 
-## 5. Concierge Onboarding Protocol & Trial Pitch Script
+## 5. Concierge Onboarding Protocol & Guarantee Pitch Script
 
 ### A. 15-Minute Concierge Onboarding Agenda
 
@@ -305,7 +305,7 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
 │ Min 00 – 03  │ Qualification: Confirm monthly volume & current RTO %  │
 │ Min 03 – 07  │ Live Setup: Connect Shopify Store & Courier API keys   │
 │ Min 07 – 11  │ Customization: WhatsApp Brand Templates & Policy Rules │
-│ Min 11 – 15  │ Baseline Anchor: Establish Holdout & Start 14-Day Run  │
+│ Min 11 – 15  │ Baseline Anchor: Establish Holdout & Start 90-Day Guarantee Window  │
 └──────────────┴────────────────────────────────────────────────────────┘
 ```
 
@@ -322,9 +322,9 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
    - Choose conversational tone: Warm Brand Voice vs. Direct Logistics Voice.
    - Enable 1-Click WhatsApp Location Sharing.
    - Enable Pre-Dispatch COD Conversion with a dynamic ₹50 / 5% UPI discount.
-4. **Minute 11–15 (Closing & 14-Day Risk-Free Trial Anchor):**
+4. **Minute 11–15 (Closing & 90-Day Guarantee Anchor):**
    - Establish the 10% holdout control group in the RescueLedger: *"We are leaving 10% of orders untouched as a scientific control group so there is zero debate on attribution."*
-   - Close with the trial agreement: *"Your 14-day zero-risk trial is active starting right now. Tonight's failed dispatches will be intercepted automatically. I will personally ping you on WhatsApp this Friday with your first rescue numbers. Welcome aboard!"*
+   - Close with the guarantee: *"Your 90-day money-back guarantee starts the day you subscribe. Tonight's failed dispatches will be intercepted automatically. I will personally ping you on WhatsApp this Friday with your first rescue numbers. Welcome aboard!"*
 
 ---
 
@@ -348,11 +348,11 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
 
 #### Objection 5: "What if it doesn't work for our particular product category?"
 - **The Rebuttal:**  
-  *"That's why we bear 100% of the risk. You get a full 14-day free trial where you can see real rescued orders in your live RescueLedger. Even after you subscribe, you have an unconditional 90-day money-back guarantee. If our verified freight savings don't exceed your plan fee, you get every single rupee back. You literally have nothing to lose except your RTO losses."*
+  *"That's why we bear 100% of the risk. You get 90 days, backed by a full refund, where you can see real rescued orders in your live RescueLedger. Even after you subscribe, you have an unconditional 90-day money-back guarantee. If our verified freight savings don't exceed your plan fee, you get every single rupee back. You literally have nothing to lose except your RTO losses."*
 
 ---
 
-### C. Post-Call Outreach & Trial Email Sequence
+### C. Post-Call Outreach & First-Month Email Sequence
 
 #### Email 1: Day 0 (Immediately Following Onboarding Call)
 - **Subject:** 🚢 You're live! RescueShip is now protecting {{Brand_Name}}'s dispatches
@@ -387,12 +387,12 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
   > 
   > Your autonomous recovery loop is running smoothly. Let me know if you’d like to enable pre-dispatch COD-to-prepaid conversion to boost margin further!
 
-#### Email 3: Day 14 (Trial Graduation & Retainer Confirmation)
-- **Subject:** 🛡️ Trial Summary: RescueShip generated {{ROI_Multiplier}}x ROI during your trial
+#### Email 3: Day 30 (First-Month Review)
+- **Subject:** 🛡️ First month: RescueShip generated {{ROI_Multiplier}}x ROI
 - **Body:**
   > Hi {{Founder_First_Name}},
   > 
-  > Today marks the conclusion of your 14-day zero-risk trial on {{Brand_Name}}. Here is your final verified performance audit:
+  > Today marks the end of your first month on {{Brand_Name}}. Here is your final verified performance audit:
   > - **Total Rescued Orders:** {{Total_Rescued}} orders
   > - **Preserved Merchandise Value (GMV):** ₹{{Total_GMV}}
   > - **Net Sunk Freight Saved:** ₹{{Total_Freight_Saved}}

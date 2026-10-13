@@ -167,63 +167,8 @@ export const setupSubscriptionLifecycleWorker = () => {
         }
       }
 
-      // ─── Free-Trial Lifecycle (implicit 14-day trial, no stored expiry date) ───
-      // Trial merchants have no nextInvoiceDate; the guard computes a 14-day
-      // window from createdAt. Remind near the end, notify once at the end, and
-      // flag the dashboard badge. License-granted merchants (accessExpiresAt set)
-      // are excluded — they follow the date-based flow above.
-      const TRIAL_DAYS = 14;
-      const trialMerchants = await Merchant.find({
-        'billing.plan': 'free_trial',
-        'billing.activatedAt': { $exists: false },
-        'billing.nextInvoiceDate': { $exists: false },
-        accessExpiresAt: { $exists: false },
-      }).select('_id name email billing licenseStatus createdAt');
-
-      for (const merchant of trialMerchants) {
-        try {
-          const createdAtMs = merchant.createdAt ? new Date(merchant.createdAt).getTime() : now;
-          const trialEndMs = createdAtMs + TRIAL_DAYS * 24 * 3600 * 1000;
-          const daysLeft = Math.ceil((trialEndMs - now) / (24 * 3600 * 1000));
-          const mId = merchant._id.toString();
-          const upgradeUrl = `${appUrl}/billing`;
-
-          if (daysLeft === 3 || daysLeft === 1) {
-            const cacheKey = `trial_remind_${mId}_${daysLeft}_${new Date().toISOString().slice(0, 10)}`;
-            if (!(await (redisConnection as any).get(cacheKey))) {
-              await emailService.sendSubscriptionExpiringReminder(
-                merchant.email,
-                merchant.name || 'Merchant',
-                daysLeft,
-                'free trial',
-                upgradeUrl
-              );
-              await (redisConnection as any).set(cacheKey, '1', 'EX', 86400);
-              trialRemindersSent++;
-              logger.info('Free-trial ending reminder delivered', { merchantId: mId, daysLeft });
-            }
-          } else if (daysLeft <= 0) {
-            const cacheKey = `trial_expired_${mId}`;
-            if (!(await (redisConnection as any).get(cacheKey))) {
-              await emailService.sendSubscriptionExpiredAlert(
-                merchant.email,
-                merchant.name || 'Merchant',
-                'free trial',
-                upgradeUrl
-              );
-              await Merchant.updateOne({ _id: merchant._id }, { $set: { licenseStatus: 'EXPIRED' } });
-              await (redisConnection as any).set(cacheKey, '1', 'EX', 30 * 86400); // once, not daily
-              trialExpiredCount++;
-              logger.warn('Free trial ended — automation blocked by guard until upgrade', { merchantId: mId });
-            }
-          }
-        } catch (trialErr: any) {
-          logger.error('Error processing trial merchant in subscription watchdog', {
-            merchantId: merchant._id,
-            error: trialErr.message,
-          });
-        }
-      }
+      // No free trial (pay-first + 90-day money-back guarantee): nothing to remind.
+      const trialMerchants: unknown[] = [];
 
       logger.info('Subscription lifecycle watchdog run complete', {
         merchantsChecked: merchants.length,

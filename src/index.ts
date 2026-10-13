@@ -340,8 +340,8 @@ import { requireActiveSubscription } from './middleware/planGating.middleware';
 // the router level blocks expired/past-due/cancelled merchants from the
 // product (orders, analytics, realtime, AI, templates, exports, metrics, audit
 // logs) while keeping /api/billing, /api/settings, /api/auth and /api/connect
-// reachable for renewal, account access and onboarding (trial merchants pass
-// the guard via the 14-day trial fallback in subscription-guard).
+// reachable for renewal, account access and onboarding. There is no free trial:
+// merchants without an activated plan are blocked by the guard.
 for (const gatedRouter of [
   ordersRouter,
   analyticsRouter,

@@ -326,7 +326,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
           enum: ['active', 'pre_signup', 'pending_payment', 'paused', 'paused_quality', 'past_due', 'cancelled'],
         },
         lastPaymentError: String,
-        // Free trial gets 100 orders/mo (matches planGating planLimits + subscription-guard fallback).
+        // 'free_trial' = no paid plan yet (pay-first; the guard blocks automation until activation).
         planOrderLimit: { type: Number, default: 100 },
         currentMonthOrders: { type: Number, default: 0 },
         cycleStartDate: { type: Date, default: Date.now },
