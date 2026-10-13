@@ -233,6 +233,25 @@ router.get('/chats/recent', authenticateToken, async (req: AuthenticatedRequest,
  * GET /api/orders/:id
  * Get single order details with full audit logs
  */
+/**
+ * GET /api/orders/refunds/pending — orders with a refund awaiting the merchant.
+ */
+router.get('/refunds/pending', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const orders = await Order.find({
+      merchantId: req.merchant?.merchantId,
+      'codConversion.refundStatus': { $in: ['pending_approval', 'approved', 'failed'] },
+    })
+      .select('externalOrderId externalOrderName customerName status codConversion.refundStatus codConversion.refundAmount codConversion.refundReason codConversion.refundRequestedAt')
+      .sort({ 'codConversion.refundRequestedAt': -1 })
+      .limit(200)
+      .lean();
+    res.json({ orders });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:id', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const orderId = req.params.id;
@@ -462,10 +481,16 @@ router.post('/:orderId/resend-payment-link', authenticateToken, async (req: Auth
 router.post('/:orderId/reconcile-utr', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const orderId = req.params.orderId;
-  const { utr } = req.body || {};
+  const { utr, confirmReceivedInBank } = req.body || {};
 
   if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId)) {
     res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+  // Merchant attestation only: a customer's UTR claim is never enough. The merchant must
+  // enter the UTR they found in their own bank/gateway statement and confirm it explicitly.
+  if (typeof utr !== 'string' || !/^[A-Za-z0-9]{8,22}$/.test(utr.trim()) || confirmReceivedInBank !== true) {
+    res.status(400).json({ error: 'Enter the UTR from your bank statement and confirm the money was received.' });
     return;
   }
 
@@ -475,6 +500,10 @@ router.post('/:orderId/reconcile-utr', authenticateToken, async (req: Authentica
       res.status(404).json({ error: 'Order not found' });
       return;
     }
+    if (['converted_to_prepaid', 'delivered', 'returned', 'cancelled', 'rto'].includes(order.status as string) || (order as any).paid) {
+      res.status(409).json({ error: `Order is ${order.status}; nothing to reconcile` });
+      return;
+    }
 
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) {
@@ -482,11 +511,15 @@ router.post('/:orderId/reconcile-utr', authenticateToken, async (req: Authentica
       return;
     }
 
-    const finalUtr = utr || order.codConversion?.claimedUtr || 'MANUAL_VERIFIED';
+    const finalUtr = utr.trim();
+    const discount0 = order.codConversion?.incentiveOffered || 0;
+    const paidInr = Math.max(1, order.orderValue - discount0);
     const isNdrOrder = (order.status || '').startsWith('ndr_') || order.status === 'rto_initiated' || order.status === 'rto';
     const nextStatus = isNdrOrder ? 'ndr_rescued' : 'converted_to_prepaid';
 
     order.status = nextStatus as any;
+    (order as any).paid = true;
+    (order as any).paymentMethod = 'prepaid';
     if (!order.codConversion) {
       order.codConversion = {
         convertedAt: new Date(),
@@ -496,6 +529,7 @@ router.post('/:orderId/reconcile-utr', authenticateToken, async (req: Authentica
       order.codConversion.convertedAt = new Date();
       order.codConversion.claimedUtr = finalUtr;
     }
+    (order.codConversion as any).amountPaid = paidInr;
     await order.save();
 
     // Amend courier COD amount to ₹0
@@ -541,7 +575,7 @@ router.post('/:orderId/reconcile-utr', authenticateToken, async (req: Authentica
       orderId: order._id,
       action: 'payment_reconciled_via_utr',
       source: 'orders_api',
-      payload: { utr: finalUtr, newStatus: nextStatus },
+      payload: { utr: finalUtr, newStatus: nextStatus, attestedBy: 'merchant', amountInr: paidInr },
       status: 'success',
     });
 
@@ -549,6 +583,36 @@ router.post('/:orderId/reconcile-utr', authenticateToken, async (req: Authentica
   } catch (err: any) {
     logger.error('Failed to reconcile UTR', { merchantId, orderId, error: err.message });
     res.status(500).json({ error: err.message || 'Failed to reconcile UTR' });
+  }
+});
+
+/**
+ * Refund queue: online money on orders that will not be delivered (or paid twice).
+ * POST /api/orders/:orderId/refund          { action: 'approve' | 'mark_refunded' | 'reject', refundId? }
+ */
+router.post('/:orderId/refund', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  const merchantId = req.merchant?.merchantId;
+  const orderId = req.params.orderId;
+  const { action, refundId } = req.body || {};
+  if (typeof orderId !== 'string' || !Types.ObjectId.isValid(orderId) || !merchantId) {
+    res.status(400).json({ error: 'Invalid order ID' });
+    return;
+  }
+  try {
+    const { refundService } = await import('../services/refund.service');
+    if (action === 'approve') {
+      res.json(await refundService.executeRefund(merchantId, orderId));
+    } else if (action === 'mark_refunded') {
+      await refundService.markRefunded(merchantId, orderId, typeof refundId === 'string' ? refundId : undefined);
+      res.json({ status: 'refunded' });
+    } else if (action === 'reject') {
+      await refundService.reject(merchantId, orderId);
+      res.json({ status: 'rejected' });
+    } else {
+      res.status(400).json({ error: "action must be 'approve', 'mark_refunded' or 'reject'" });
+    }
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
   }
 });
 

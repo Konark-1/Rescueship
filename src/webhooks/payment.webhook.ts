@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { paymentService } from '../services/payment.service';
-import { Order } from '../models';
+import { Merchant, Order } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { SecurityAlertService } from '../services/security-alert.service';
 import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
@@ -61,7 +61,12 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   const order = await Order.findOne({ $or: [{ paymentLinkId: linkId }, { depositPaymentLinkId: linkId }] })
     .select('merchantId')
     .populate('merchantId', 'paymentConfig');
-  const merchant: any = order?.merchantId;
+  // A ₹1 self-test link created from onboarding has no order: resolve its merchant directly.
+  let testMerchant: any = null;
+  if (!order) {
+    try { testMerchant = await Merchant.findOne({ 'paymentConfig.testLinkId': linkId }).select('paymentConfig'); } catch { testMerchant = null; }
+  }
+  const merchant: any = order?.merchantId || testMerchant;
   const pc = merchant?.paymentConfig;
   const secrets: string[] = [];
   if (pc && (pc.provider || pc.gateway) === provider) {
@@ -81,6 +86,20 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  // First correctly signed event proves the merchant's webhook + secret are set up.
+  if (!pc?.webhookVerifiedAt) {
+    try {
+      await Merchant.updateOne({ _id: merchant._id }, { $set: { 'paymentConfig.webhookVerifiedAt': new Date() } });
+    } catch (err: any) {
+      logger.warn('Could not record payment webhook verification', { error: err?.message });
+    }
+  }
+  if (testMerchant) {
+    logger.info('Payment webhook self-test verified', { merchantId: String(merchant._id), provider });
+    res.status(200).json({ status: 'verified' });
+    return;
+  }
+
   const status = str(body.event || body.type || body.data?.link_status);
   const isPaid = provider === 'razorpay'
     ? status === 'payment_link.paid'
@@ -94,6 +113,10 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     ? Number(body.payload?.payment_link?.entity?.amount_paid ?? body.payload?.payment?.entity?.amount)
     : Math.round(Number(body.data?.link_amount_paid ?? body.data?.payment?.payment_amount) * 100);
   const amountPaidPaise = Number.isFinite(rawAmount) && rawAmount > 0 ? rawAmount : undefined;
+  // Gateway payment id (needed to refund).
+  const paymentId = provider === 'razorpay'
+    ? str(body.payload?.payment?.entity?.id)
+    : str(body.data?.payment?.cf_payment_id);
 
   const eventId = req.get('x-razorpay-event-id') || req.get('x-webhook-id') || `${linkId}_${status}`;
   const idemKey = IdempotencyGuard.key(`payment-${provider}`, String(merchant?._id), eventId);
@@ -114,7 +137,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     await codConversionQueue.add(
       'confirm-payment',
-      { action: 'payment_confirmed', paymentLinkId: linkId, provider, amountPaidPaise },
+      { action: 'payment_confirmed', paymentLinkId: linkId, provider, amountPaidPaise, paymentId },
       { jobId: makeJobId('pay', provider, linkId), attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true, removeOnFail: false }
     );
     await IdempotencyGuard.markProcessed(idemKey);

@@ -70,7 +70,9 @@ async function validateDelhivery(c: CarrierCreds) {
 
 async function validateClickpost(c: CarrierCreds) {
   const apiKey = assertStr(c.apiKey || c.apiToken, 'apiKey');
-  const res = await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { key: apiKey }, timeout: HTTP_TIMEOUT_MS });
+  // ClickPost APIs authenticate with the account username + key (NDR actions need both).
+  const username = assertStr(c.username, 'username');
+  const res = await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { username, key: apiKey }, timeout: HTTP_TIMEOUT_MS });
   if (typeof res.data !== 'object' || !res.data || (typeof res.data === 'string' && res.data.includes('<html'))) {
     throw new Error('Invalid ClickPost API key or service response.');
   }

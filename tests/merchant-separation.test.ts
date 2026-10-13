@@ -548,7 +548,7 @@ describe('Multi-Tenant Isolation & Merchant Separation Suite', () => {
       const res = await request(app)
         .post(`/api/orders/${foreignOrderId}/reconcile-utr`)
         .set('Authorization', `Bearer ${tokenA}`)
-        .send({ utr: 'UTR999999999' });
+        .send({ utr: 'UTR999999999', confirmReceivedInBank: true });
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Order not found');

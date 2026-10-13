@@ -180,8 +180,8 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         .set('x-webhook-timestamp', '1690000000')
         .send({ type: 'PAYMENT_SUCCESS_WEBHOOK', order_id: 'ORD_CF_101' });
 
+      // Unknown link → no merchant secret to verify with (no platform-secret fallback).
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Invalid Cashfree signature');
       expect(rtoArrestService.abortRtoAndReattempt).not.toHaveBeenCalled();
     });
 
@@ -217,11 +217,16 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         rtoArrestStatus: 'TRIGGERED',
       };
 
+      // The link belongs to a merchant whose own Cashfree secret signed the event.
+      const { encryptionService } = require('../src/services/encryption.service');
       jest.spyOn(Order, 'findOne').mockReturnValue({
         select: jest.fn().mockReturnValue({
-          populate: jest.fn().mockResolvedValue(null),
+          populate: jest.fn().mockResolvedValue({
+            merchantId: { _id: new Types.ObjectId(), paymentConfig: { provider: 'cashfree', keySecret: encryptionService.encrypt(secret) } },
+          }),
         }),
       } as any);
+      jest.spyOn(Merchant, 'updateOne').mockResolvedValue({} as any);
       const updateSpy = jest.spyOn(Order, 'findOneAndUpdate').mockResolvedValue(mockOrder as any);
 
       const res = await request(app)

@@ -270,8 +270,9 @@ export class OrderService {
       // to platform keys, and never treat undecryptable ciphertext as a credential.
       const pc: any = merchant.paymentConfig || {};
       const paymentProvider: 'razorpay' | 'cashfree' = pc.provider || pc.gateway || 'razorpay';
-      if (!pc.keyId || !pc.keySecret) {
-        logger.warn('COD conversion skipped: merchant has no connected payment gateway', { merchantId });
+      const { paymentWebhookReady } = require('./payment-guard');
+      if (!pc.keyId || !pc.keySecret || !paymentWebhookReady(merchant)) {
+        logger.warn('COD conversion skipped: payment gateway not connected or its webhook is not verified yet', { merchantId });
         if (creditReserved) {
           await Merchant.updateOne({ _id: merchant._id }, { $inc: { 'billing.rescueCredits': 1 } });
           creditReserved = false;
@@ -506,7 +507,7 @@ export class OrderService {
   /**
    * Handle successful payment webhook event
    */
-  public async handlePaymentSuccess(paymentLinkId: string, amountPaidPaise: number): Promise<void> {
+  public async handlePaymentSuccess(paymentLinkId: string, amountPaidPaise: number, paymentId?: string): Promise<void> {
     logger.info('Handling payment success for COD conversion', { paymentLinkId, amountPaidPaise });
 
     const order = await Order.findOne({
@@ -518,7 +519,21 @@ export class OrderService {
     }
 
     if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued' || order.status === 'confirmed') {
+      const priorLink = order.codConversion?.paymentLinkId || (order as any).depositTransactionId;
+      if (priorLink && priorLink !== paymentLinkId) {
+        // The customer paid a second link for the same order: that money must go back.
+        const { refundService } = require('./refund.service');
+        await refundService.flag(order, amountPaidPaise / 100, 'duplicate_payment', { paymentLinkId, paymentId });
+        return;
+      }
       logger.info('Order already converted to prepaid, confirmed, or rescued, duplicate webhook event', { paymentLinkId });
+      return;
+    }
+    if (['cancelled', 'delivered', 'returned'].includes(order.status as string)) {
+      // Paid after the order was closed: record the payment and queue a refund for approval.
+      await Order.updateOne({ _id: order._id }, { $set: { 'codConversion.amountPaid': amountPaidPaise / 100, 'codConversion.paymentLinkId': paymentLinkId, ...(paymentId ? { 'codConversion.paymentId': paymentId } : {}) } });
+      const { refundService } = require('./refund.service');
+      await refundService.flag(order, amountPaidPaise / 100, `paid_after_${order.status}`, { paymentLinkId, paymentId });
       return;
     }
 
@@ -601,6 +616,7 @@ export class OrderService {
           paymentMethod: isFullPayment ? 'prepaid' : order.paymentMethod,
           'codConversion.amountPaid': amountPaidInr,
           'codConversion.paymentLinkId': paymentLinkId,
+          ...(paymentId ? { 'codConversion.paymentId': paymentId } : {}),
           ...(isFullPayment && { 'codConversion.convertedAt': new Date() }),
           ...(isDepositOrder && {
             depositPaidAt: new Date(),
@@ -619,6 +635,13 @@ export class OrderService {
 
     if (!updatedOrder) {
       logger.warn('Order status transition race condition or order already converted', { orderId: order._id });
+      // The money is real even if the transition lost a race; make sure it is accounted for.
+      const fresh: any = await Order.findById(order._id);
+      if (fresh && ['cancelled', 'delivered', 'returned'].includes(fresh.status) && !(fresh.codConversion?.amountPaid > 0)) {
+        await Order.updateOne({ _id: order._id }, { $set: { 'codConversion.amountPaid': amountPaidInr, 'codConversion.paymentLinkId': paymentLinkId, ...(paymentId ? { 'codConversion.paymentId': paymentId } : {}) } });
+        const { refundService } = require('./refund.service');
+        await refundService.flag(fresh, amountPaidInr, `paid_after_${fresh.status}`, { paymentLinkId, paymentId });
+      }
       return;
     }
 
@@ -765,14 +788,14 @@ export class OrderService {
     };
   }
 
-  public async handlePaymentConfirmation(paymentLinkId: string, amountPaidPaise: any): Promise<void> {
+  public async handlePaymentConfirmation(paymentLinkId: string, amountPaidPaise: any, paymentId?: string): Promise<void> {
     const amount = Number(amountPaidPaise);
     if (!Number.isFinite(amount) || amount <= 0) {
       // Fail the job loud so BullMQ retries / dead-letters it and operators can see it,
       // instead of silently succeeding and leaving the order stuck in cod_conversion_sent.
       throw new Error(`Missing or invalid payment amount for payment link ${paymentLinkId}`);
     }
-    return this.handlePaymentSuccess(paymentLinkId, amount);
+    return this.handlePaymentSuccess(paymentLinkId, amount, typeof paymentId === 'string' ? paymentId.slice(0, 64) : undefined);
   }
 
   public async sendCODReminder(orderId: string): Promise<void> {

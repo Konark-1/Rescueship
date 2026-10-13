@@ -41,6 +41,7 @@ export default function OnboardingPage() {
     }
   });
   const [busy, setBusy] = useState<string | null>(null);
+  const [paymentSetup, setPaymentSetup] = useState<any>(null);
   const [log, setLog] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
   const [assist, setAssist] = useState<'idle' | 'busy' | 'done'>('idle');
@@ -368,13 +369,16 @@ export default function OnboardingPage() {
     }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
-  const connectPayment = async (gateway: string, keyId: string, keySecret: string) => {
+  const connectPayment = async (gateway: string, keyId: string, keySecret: string, webhookSecret?: string) => {
     setBusy('payment'); setErr(null); push(`› validating ${gateway} keys…`);
     try {
-      await connectApi.payment(token!, gateway, keyId, keySecret);
+      const result: any = await connectApi.payment(token!, gateway, keyId, keySecret, webhookSecret);
       push(`✓ ${gateway} validated`);
+      setPaymentSetup(result);
       await refresh();
-      advanceToNext('payment');
+      // Stay on this step until the signed webhook is verified (₹1 self-test).
+      if (result?.webhookVerified) advanceToNext('payment');
+      else push('› add the webhook in your gateway dashboard, then run the ₹1 test');
       setBusy(null);
     }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
@@ -640,6 +644,8 @@ export default function OnboardingPage() {
               {active === 'payment' && (
                 <PaymentStation
                   onConnect={connectPayment}
+                  setup={paymentSetup}
+                  onTestLink={() => connectApi.paymentTestLink(token!)}
                   busy={busy === 'payment'}
                   done={done('payment')}
                   gateway={state?.connections?.payment?.gateway}

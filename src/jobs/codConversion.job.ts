@@ -50,7 +50,7 @@ export const codConversionWorker = new Worker(
       if (action === 'process_new_cod') {
         await orderService.processCODOrder(targetMerchantId, orderData);
       } else if (action === 'payment_confirmed') {
-        await orderService.handlePaymentConfirmation(paymentLinkId, job.data.amountPaidPaise);
+        await orderService.handlePaymentConfirmation(paymentLinkId, job.data.amountPaidPaise, job.data.paymentId);
       } else if (action === 'send_reminder') {
         await orderService.sendCODReminder(job.data.orderId);
       } else {

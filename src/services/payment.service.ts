@@ -60,31 +60,41 @@ export class PaymentService {
    * Razorpay Link Generation
    */
   private async createRazorpayLink(params: PaymentLinkParams, merchantConfig?: PaymentConfig): Promise<PaymentLinkResult> {
-    const keyId = merchantConfig?.keyId || config.razorpay.keyId;
-    const keySecret = merchantConfig?.keySecret || config.razorpay.keySecret;
+    // Customer payments go ONLY to the merchant's own gateway account. Never fall back to
+    // platform keys: that would collect the merchant's money into RescueShip's account.
+    const keyId = merchantConfig?.keyId;
+    const keySecret = merchantConfig?.keySecret;
 
     if (!keyId || !keySecret) {
-      throw new Error('Razorpay credentials are not configured');
+      throw new Error('Merchant Razorpay credentials are not configured');
     }
 
     const url = 'https://api.razorpay.com/v1/payment_links';
 
-    // Razorpay amount is in paise (1 INR = 100 paise), min ₹1 (100 paise)
-    const validAmount = Math.max(1, params.amount);
-    const amountInPaise = Math.round(validAmount * 100);
+    // Razorpay amount is in paise; minimum ₹1. Never silently round a bad amount up.
+    if (!Number.isFinite(params.amount) || params.amount < 1) {
+      throw new Error(`Invalid payment amount: ${params.amount}`);
+    }
+    const amountInPaise = Math.round(params.amount * 100);
 
-    const safeExpireMinutes = Math.min(params.expiresInMinutes || 1440, 10080); // Max 7 days
+    // expire_by must be at least 15 minutes ahead; cap at 7 days.
+    const safeExpireMinutes = Math.max(16, Math.min(params.expiresInMinutes || 1440, 10080));
     const expireTimestamp = Math.floor(Date.now() / 1000) + safeExpireMinutes * 60;
+
+    // reference_id must be unique per merchant account and ≤ 40 chars.
+    const refSuffix = `${Date.now().toString(36)}${crypto.randomBytes(2).toString('hex')}`;
+    const referenceId = `rs_${String(params.orderId).replace(/[^A-Za-z0-9_-]/g, '').slice(-(40 - 4 - refSuffix.length))}_${refSuffix}`;
 
     const payload = {
       amount: amountInPaise,
       currency: params.currency,
       accept_partial: false,
+      reference_id: referenceId,
       description: (params.description || 'Order Upgrade').slice(0, 200),
       customer: {
         name: (params.customerName || 'Customer').slice(0, 50),
         contact: params.customerPhone,
-        email: params.customerEmail || 'customer@example.com',
+        ...(params.customerEmail ? { email: params.customerEmail } : {}),
       },
       notify: {
         sms: false,
@@ -125,15 +135,20 @@ export class PaymentService {
    * Cashfree Link Generation
    */
   private async createCashfreeLink(params: PaymentLinkParams, merchantConfig?: PaymentConfig): Promise<PaymentLinkResult> {
-    const clientId = merchantConfig?.clientId || config.cashfree.clientId;
-    const clientSecret = merchantConfig?.clientSecret || config.cashfree.clientSecret;
+    // Merchant's own Cashfree account only (no platform fallback).
+    const clientId = merchantConfig?.clientId;
+    const clientSecret = merchantConfig?.clientSecret;
     const apiVersion = config.cashfree.apiVersion || '2023-08-01';
 
     if (!clientId || !clientSecret) {
-      throw new Error('Cashfree credentials are not configured');
+      throw new Error('Merchant Cashfree credentials are not configured');
+    }
+    if (!Number.isFinite(params.amount) || params.amount < 1) {
+      throw new Error(`Invalid payment amount: ${params.amount}`);
     }
 
-    const isProd = config.server.nodeEnv === 'production';
+    // Explicit environment switch; NODE_ENV only as the fallback.
+    const isProd = (process.env.CASHFREE_ENV || (config.server.nodeEnv === 'production' ? 'production' : 'sandbox')) === 'production';
     const baseUrl = isProd ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
     const url = `${baseUrl}/links`;
 
@@ -144,16 +159,14 @@ export class PaymentService {
     const linkId = `link_${safeOrder}${suffix}`;
     const safeExpireMinutes = Math.min(params.expiresInMinutes || 1440, 10080); // Max 7 days
     const expiryTime = new Date(Date.now() + safeExpireMinutes * 60 * 1000).toISOString();
-    const validAmount = Math.max(1, params.amount);
-
     const payload = {
       link_id: linkId,
-      link_amount: validAmount,
+      link_amount: params.amount,
       link_currency: params.currency,
       link_purpose: (params.description || 'Order Upgrade').slice(0, 200),
       customer_details: {
         customer_phone: params.customerPhone,
-        customer_email: params.customerEmail || 'customer@example.com',
+        ...(params.customerEmail ? { customer_email: params.customerEmail } : {}),
         customer_name: (params.customerName || 'Customer').slice(0, 50),
       },
       link_meta: {

@@ -118,9 +118,8 @@ router.post(['/', '/payment'], async (req: Request, res: Response): Promise<void
     }
   }
 
-  if (config.cashfree.clientSecret) {
-    candidates.push(config.cashfree.clientSecret);
-  }
+  // No platform-secret fallback: links are created only on the merchant's own Cashfree
+  // account, so only that merchant's secret can legitimately sign the event.
 
   if (candidates.length === 0) {
     logger.warn('Cashfree webhook rejected: no secret configured to verify signature');
@@ -139,6 +138,16 @@ router.post(['/', '/payment'], async (req: Request, res: Response): Promise<void
     logger.warn('Cashfree webhook signature verification failed', { cashfreeOrderId });
     res.status(401).json({ error: 'Invalid Cashfree signature' });
     return;
+  }
+  if (ownerMerchantId) {
+    try {
+      await Merchant.updateOne(
+        { _id: ownerMerchantId, 'paymentConfig.webhookVerifiedAt': { $exists: false } },
+        { $set: { 'paymentConfig.webhookVerifiedAt': new Date() } }
+      );
+    } catch (err: any) {
+      logger.warn('Could not record Cashfree webhook verification', { error: err?.message });
+    }
   }
 
   // Determine if this is a payment success event
@@ -215,6 +224,7 @@ router.post(['/', '/payment'], async (req: Request, res: Response): Promise<void
         paymentLinkId: cashfreeOrderId,
         provider: 'cashfree',
         amountPaidPaise,
+        paymentId: str(body.data?.payment?.cf_payment_id || body.cf_payment_id),
       },
       {
         jobId: makeJobId('pay', 'cashfree', cashfreeOrderId),

@@ -95,13 +95,30 @@ describe('PaymentService - Unit Tests', () => {
       });
     });
 
-    it('should enforce ₹1 floor for amounts less than or equal to 0', async () => {
-      (axios.post as jest.Mock).mockResolvedValue({
-        data: {
-          id: 'plink_rzp_123',
-          short_url: 'https://rzp.io/i/testlink',
-        },
-      });
+    it('rejects amounts below ₹1 instead of silently charging ₹1', async () => {
+      await expect(
+        paymentService.createPaymentLink(
+          'razorpay',
+          { amount: 0, currency: 'INR', description: 'Zero amount order', customerName: 'Jane Doe', customerPhone: '+919876543210', orderId: 'ORD0' },
+          { keyId: 'rzp_key_test', keySecret: 'rzp_secret_test' }
+        )
+      ).rejects.toThrow(/Invalid payment amount/);
+      expect(axios.post).not.toHaveBeenCalled();
+    });
+
+    it('never falls back to platform keys and sends a unique reference_id without a dummy email', async () => {
+      await expect(
+        paymentService.createPaymentLink('razorpay', { amount: 499, currency: 'INR', description: 'x', customerName: 'A', customerPhone: '+919876543210', orderId: 'ORD1' })
+      ).rejects.toThrow(/Merchant Razorpay credentials/);
+
+      (axios.post as jest.Mock).mockResolvedValue({ data: { id: 'plink_1', short_url: 'https://rzp.io/i/x' } });
+      await paymentService.createPaymentLink('razorpay', { amount: 499, currency: 'INR', description: 'x', customerName: 'A', customerPhone: '+919876543210', orderId: 'ORD1' }, { keyId: 'k', keySecret: 's' });
+      const body = (axios.post as jest.Mock).mock.calls[0][1];
+      expect(body.reference_id).toMatch(/^rs_ORD1_/);
+      expect(body.reference_id.length).toBeLessThanOrEqual(40);
+      expect(body.customer.email).toBeUndefined();
+      expect(body.expire_by - Math.floor(Date.now() / 1000)).toBeGreaterThanOrEqual(15 * 60);
+    });
 
       await paymentService.createPaymentLink(
         'razorpay',

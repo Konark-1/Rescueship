@@ -112,6 +112,15 @@ async function cancelOrder(merchantId: any, externalOrderId: string, reason: str
   );
   if (res.modifiedCount) {
     await AuditLog.create({ merchantId, action: 'order_cancelled_on_platform', source: 'shopify', payload: { externalOrderId, reason }, status: 'success' });
+    try {
+      const order: any = await Order.findOne({ merchantId, externalOrderId }, { _id: 1 });
+      if (order?._id) {
+        const { refundService } = require('../services/refund.service');
+        await refundService.flagIfPaid(order._id, 'cancelled_on_shopify');
+      }
+    } catch (err: any) {
+      logger.warn('Refund flag check failed after Shopify cancellation', { externalOrderId, error: err?.message });
+    }
   }
   return res.modifiedCount > 0;
 }

@@ -424,14 +424,26 @@ router.get('/carrier/webhook', authenticateToken, standardMerchantLimiter, async
 
 // ── Payment ──  (outbound credential validation → strict limiter)
 router.post('/payment', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { gateway, keyId, keySecret } = req.body;
+  const { gateway, keyId, keySecret, webhookSecret } = req.body;
   if (typeof gateway !== 'string' || typeof keyId !== 'string' || typeof keySecret !== 'string' || !gateway || !keyId || !keySecret) {
     return res.status(400).json({ error: 'gateway, keyId, keySecret required' });
+  }
+  if (webhookSecret !== undefined && webhookSecret !== null && typeof webhookSecret !== 'string') {
+    return res.status(400).json({ error: 'webhookSecret must be a string' });
   }
   if (gateway !== 'razorpay' && gateway !== 'cashfree') {
     return res.status(400).json({ error: 'Unsupported gateway' });
   }
-  try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret)); }
+  try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret, webhookSecret || undefined)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+// ₹1 self-test link that proves the signed payment webhook reaches RescueShip.
+router.post('/payment/test-link', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await paymentConnectService.createWebhookTestLink(req.merchant!.merchantId)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+router.get('/payment/webhook-status', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await paymentConnectService.webhookStatus(req.merchant!.merchantId)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 

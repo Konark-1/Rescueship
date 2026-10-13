@@ -124,8 +124,9 @@ const CARRIER_DEFS: CarrierDef[] = [
     badge: 'Multi-Courier Gateway',
     icon: '📡',
     desc: 'Multi-carrier tracking gateway and logistics post-purchase platform.',
-    apiGuide: 'From ClickPost Dashboard → API & Integrations → Copy your ClickPost API Key.',
+    apiGuide: 'From ClickPost Dashboard → API & Integrations → copy your ClickPost username and API key.',
     apiInputs: [
+      { field: 'username', label: 'ClickPost username', placeholder: 'Your ClickPost account username' },
       { field: 'apiKey', label: 'ClickPost API Key', placeholder: 'e.g. cp_api_key_...' },
     ],
   },

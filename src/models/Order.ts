@@ -60,11 +60,13 @@ export interface IOrder extends Document {
     refundStatus?: 'none' | 'pending_approval' | 'approved' | 'processing' | 'refunded' | 'failed' | 'rejected';
     refundAmount?: number;
     refundId?: string | null;
+    refundPaymentId?: string | null;
     refundRequestedAt?: Date | null;
     refundReason?: string | null;
   };
   /** Shopify order name (e.g. "#1001") and number (1001) — couriers report these, not the numeric id. */
   externalOrderName?: string | null;
+  carrierMeta?: Record<string, any> | null;
   externalOrderNumber?: string | null;
   ndr?: {
     reason?: string | null;
@@ -207,10 +209,13 @@ const OrderSchema = new Schema<IOrder>(
       },
       refundAmount: { type: Number, default: 0 },
       refundId: { type: String, default: null },
+      refundPaymentId: { type: String, default: null },
       refundRequestedAt: { type: Date, default: null },
       refundReason: { type: String, default: null },
     },
     externalOrderName: { type: String, default: null },
+    // Carrier-side ids needed for API actions (ClickPost cp_id / account_code).
+    carrierMeta: { type: Schema.Types.Mixed, default: null },
     externalOrderNumber: { type: String, default: null },
     ndr: {
       reason: { type: String, default: null },

@@ -5,4 +5,5 @@ module.exports = {
   testMatch: ['<rootDir>/tests/**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/frontend/'],
   clearMocks: true,
+  setupFiles: ['<rootDir>/tests/setup-env.ts'],
 };

@@ -589,9 +589,14 @@ export default function TemplatesPage() {
       return;
     }
 
+    // The customer's claim is not proof: the merchant must find the UTR in their own statement.
+    if (!selectedThread.claimedUtr || !window.confirm(`Did UTR ${selectedThread.claimedUtr} arrive in your bank/gateway account? Only confirm after checking your statement.`)) {
+      return;
+    }
     try {
       await api.post(`/api/orders/${selectedThread.orderId}/reconcile-utr`, {
         utr: selectedThread.claimedUtr,
+        confirmReceivedInBank: true,
       });
       setActionNotice('UTR reconciled on gateway. Order marked prepaid and courier COD adjusted to ₹0.');
       showToast('✓ UTR reconciled! Carrier COD balance updated to ₹0.');

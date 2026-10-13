@@ -39,6 +39,8 @@ export interface ParsedNdr {
   pincode?: string;
   city?: string;
   state?: string;
+  /** Carrier ids needed for later API actions (e.g. ClickPost cp_id / account_code) */
+  carrierMeta?: Record<string, string | number>;
 }
 
 function str(v: unknown, max = 256): string {
@@ -152,6 +154,9 @@ export function createCarrierNdrHandler(
         }).limit(2);
         if (candidates.length === 1) order = candidates[0];
         else if (candidates.length > 1) logger.warn('Ambiguous order reference from carrier; not auto-matching', { merchantId, ref });
+      }
+      if (order && parsed.carrierMeta && Object.keys(parsed.carrierMeta).length) {
+        await Order.updateOne({ _id: order._id }, { $set: { carrierMeta: parsed.carrierMeta } }).catch(() => {});
       }
       if (order && !order.awb && parsed.awb) {
         // Remember the AWB so later events match directly.

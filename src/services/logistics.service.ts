@@ -79,6 +79,66 @@ function sanitizeDeferredDate(dateStr: string | undefined): string {
   return dateStr;
 }
 
+/**
+ * ClickPost NDR action API (v2). Auth is username + key as query params; the body needs the
+ * courier partner id (cp_id) and account_code that ClickPost sends on its tracking webhook,
+ * stored on the order as carrierMeta. Actions: REATTEMPT (address, drop_pincode, phone_number,
+ * preferred_date) or INITIATE_RTO. There is no COD amendment action.
+ */
+const CLICKPOST_NDR_URL = process.env.CLICKPOST_NDR_URL || 'https://www.clickpost.in/api/v2/ndr-update-api';
+
+async function clickPostShipmentContext(awb: string, merchantId?: string): Promise<any | null> {
+  const { Order } = require('../models');
+  const q: any = { awb, carrier: 'clickpost' };
+  if (merchantId) q.merchantId = merchantId;
+  const rows = await Order.find(q).select('merchantId carrierMeta shippingAddress shippingPincode customerPhone').limit(2).lean();
+  return rows.length === 1 ? rows[0] : null; // ambiguous across tenants → refuse
+}
+
+async function clickPostNdrAction(
+  awb: string,
+  carrierConfig: CarrierConfig | undefined,
+  action: 'REATTEMPT' | 'INITIATE_RTO',
+  fields: { address?: string; landmark?: string; pincode?: string; phone?: string; preferredDate?: string; remark?: string }
+): Promise<RescheduleResult> {
+  const key = carrierConfig?.apiKey || carrierConfig?.apiToken;
+  const username = carrierConfig?.username;
+  if (!key || !username) {
+    return { success: false, message: 'ClickPost username and API key are required' };
+  }
+  const ctx = await clickPostShipmentContext(awb, (carrierConfig as any)?.merchantId);
+  const cpId = ctx?.carrierMeta?.cpId;
+  const accountCode = ctx?.carrierMeta?.accountCode;
+  if (!cpId || !accountCode) {
+    return { success: false, message: 'ClickPost courier id/account code not known for this AWB yet (arrives with the first ClickPost tracking webhook)' };
+  }
+  const addr: any = ctx?.shippingAddress && typeof ctx.shippingAddress === 'object' ? ctx.shippingAddress : {};
+  const payload: any = { waybill: awb, cp_id: cpId, account_code: accountCode, action };
+  if (action === 'REATTEMPT') {
+    payload.address = sanitizeString(fields.address || [addr.address1, addr.address2, addr.city].filter(Boolean).join(', '), 250);
+    payload.landmark = sanitizeString(fields.landmark, 100);
+    payload.drop_pincode = sanitizePincode(fields.pincode || ctx?.shippingPincode || addr.zip);
+    payload.phone_number = sanitizeString(fields.phone || ctx?.customerPhone, 15);
+    payload.preferred_date = sanitizeDeferredDate(fields.preferredDate);
+    if (!payload.address || !payload.drop_pincode || !payload.phone_number) {
+      return { success: false, message: 'ClickPost reattempt needs address, pincode and phone' };
+    }
+  }
+  if (fields.remark) payload.remark = sanitizeString(fields.remark, 150);
+  try {
+    const response = await axios.post(CLICKPOST_NDR_URL, payload, {
+      params: { username, key },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+    const ok = response.data?.meta?.success === true || response.data?.meta?.status === 200 || response.data?.meta?.status === 'success';
+    return { success: ok, message: response.data?.meta?.message || `ClickPost ${action}`, carrierResponse: response.data };
+  } catch (error: any) {
+    logger.error('ClickPost NDR action failed', { awb, action, error: error.response?.data || error.message });
+    return { success: false, message: error.message, carrierResponse: error.response?.data };
+  }
+}
+
 export class LogisticsService {
   private static instance: LogisticsService;
   private tokenPromises = new Map<string, Promise<string>>();
@@ -399,74 +459,17 @@ export class LogisticsService {
   }
 
   private async rescheduleClickPost(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) {
-        throw new Error('ClickPost API Token is not configured');
-      }
-
-      // ClickPost NDR action update endpoint
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'REATTEMPT', // REATTEMPT or DEFER_DLV
-        meta: {
-          preferred_date: sanitizeDeferredDate(params.newDate),
-          reason: sanitizeString(params.reason, 150, 'Customer request'),
-        },
-      };
-
-      const response = await axios.post(url, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Updated ClickPost NDR',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+    return clickPostNdrAction(params.awb, carrierConfig, 'REATTEMPT', { preferredDate: params.newDate, remark: params.reason });
   }
 
   private async updateAddressClickPost(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) {
-        throw new Error('ClickPost API Token is not configured');
-      }
-
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'ADDRESS_UPDATE',
-        meta: {
-          new_address: sanitizeString(params.address, 200),
-          new_pincode: sanitizePincode(params.pincode),
-          new_city: sanitizeString(params.city, 50),
-          new_phone: params.phone,
-        },
-      };
-
-      const response = await axios.post(url, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Updated ClickPost address',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost address update failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+    // ClickPost has no separate address API: a REATTEMPT carries the corrected address.
+    return clickPostNdrAction(params.awb, carrierConfig, 'REATTEMPT', {
+      address: [params.address, params.city].filter(Boolean).join(', '),
+      pincode: params.pincode,
+      phone: params.phone,
+      remark: 'Address corrected by customer',
+    });
   }
 
   private async rescheduleDelhivery(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
@@ -591,36 +594,7 @@ export class LogisticsService {
   }
 
   private async cancelClickPost(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) {
-        throw new Error('ClickPost API Token is not configured');
-      }
-
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'RTO',
-        meta: {
-          reason: sanitizeString(params.reason, 150, 'Customer cancelled order on WhatsApp'),
-        },
-      };
-
-      const response = await axios.post(url, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiToken}`,
-        },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Cancelled delivery and initiated RTO on ClickPost',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost cancel / RTO request failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+    return clickPostNdrAction(params.awb, carrierConfig, 'INITIATE_RTO', { remark: (params as any).reason || 'Customer cancelled order on WhatsApp' });
   }
 
   private async cancelDelhivery(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
@@ -687,28 +661,10 @@ export class LogisticsService {
     }
   }
 
-  private async adjustCodClickPost(params: CodAmendmentParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) throw new Error('ClickPost API Token is not configured');
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'UPDATE_COD',
-        meta: { cod_amount: params.newCodAmount, reason: params.reason },
-      };
-      const response = await axios.post(url, payload, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiToken}` },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Updated ClickPost COD amount',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost COD amendment failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+  private async adjustCodClickPost(params: CodAmendmentParams, _carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    // ClickPost's NDR API has no COD amendment; the merchant must change it with the courier.
+    logger.warn('ClickPost COD amendment requested but not supported by the API', { awb: params.awb });
+    return { success: false, message: 'ClickPost has no COD amendment API; update the COD amount with the courier' };
   }
 
   private async adjustCodDelhivery(params: CodAmendmentParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {

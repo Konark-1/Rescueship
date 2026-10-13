@@ -40,7 +40,9 @@ export const connectApi = {
   carrier: (t: string, creds: any) => call(t, '/carrier', creds),
   carrierDisconnect: (t: string, provider?: string) => call(t, '/carrier/disconnect', { provider }),
   carrierWebhooks: (t: string) => call(t, '/carrier/webhook'),
-  payment: (t: string, gateway: string, keyId: string, keySecret: string) => call(t, '/payment', { gateway, keyId, keySecret }),
+  payment: (t: string, gateway: string, keyId: string, keySecret: string, webhookSecret?: string) =>
+    call(t, '/payment', { gateway, keyId, keySecret, ...(webhookSecret ? { webhookSecret } : {}) }),
+  paymentTestLink: (t: string) => call(t, '/payment/test-link', {}),
   ownerPhone: (t: string, ownerPhone: string, storeName?: string) => call(t, '/owner-phone', { ownerPhone, storeName }),
   finalize: (t: string) => call(t, '/finalize', {}),
   requestAssistedSetup: (t: string) => call(t, '/assisted-setup/request', {}),

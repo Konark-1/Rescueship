@@ -995,6 +995,12 @@ export class NDRService {
         await order.save();
 
         await this.cancelEscalationJobs(order, merchant);
+        try {
+          const { refundService } = require('./refund.service');
+          await refundService.flagIfPaid(order._id, 'customer_cancelled');
+        } catch (refundErr: any) {
+          logger.warn('Refund flag check failed', { orderId: order._id, error: refundErr?.message });
+        }
 
         if (order.carrier && order.awb) {
           try {
