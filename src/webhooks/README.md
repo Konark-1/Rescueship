@@ -8,7 +8,7 @@
 |------|--------|----------------|
 | `shopify.webhook.ts` | Shopify | `orders/create`, `orders/updated`, `fulfillments/create` — Universal ingestion for both COD and Prepaid orders (`paymentMethod: 'prepaid'` saved to DB, phone normalized with `normalizeIndianPhone`, auto-reconciles quarantined shipments matching fulfillments) |
 | `woocommerce.webhook.ts` | WooCommerce | `order.created`, `order.updated` — Universal ingestion for both COD and Prepaid orders (`paymentMethod: 'prepaid'` saved to DB, phone normalized with `normalizeIndianPhone`, increments `billing.currentMonthOrders`, auto-reconciles quarantined shipments matching metadata) |
-| `shiprocket.webhook.ts` | Shiprocket | Delivery status updates, NDR events (`/webhooks/shiprocket/ndr`) |
+| `shiprocket.webhook.ts` | Shiprocket | Delivery status updates, NDR events (`/webhooks/carrier/ndr` — Shiprocket rejects URLs containing "shiprocket"/"sr"; `/webhooks/shiprocket/ndr` still works) |
 | `delhivery.webhook.ts` | Delhivery | Shipment tracking, NDR events (`/webhooks/delhivery/ndr`) |
 | `bluedart.webhook.ts` | Blue Dart Express | Waybill tracking, delivery failure & NDR remarks (`/webhooks/bluedart/ndr`) |
 | `xpressbees.webhook.ts` | Xpressbees | Real-time NDR status & failed delivery events (`/webhooks/xpressbees/ndr`) |

@@ -5,6 +5,7 @@ import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2 } from 'lucide-
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
 import { billingApi } from '../services/billing.api';
+import { takePendingShop } from '../lib/shopify-launch';
 import SetupGuide from '../components/SetupGuide';
 import StoreStation from '../components/onboarding/StoreStation';
 import WhatsAppStation from '../components/onboarding/WhatsAppStation';
@@ -243,6 +244,22 @@ export default function OnboardingPage() {
       setBusy(null);
     }
   };
+
+  // Resume a Shopify install that started from the Shopify admin (/shopify?shop=…).
+  const pendingShopHandledRef = useRef(false);
+  useEffect(() => {
+    if (pendingShopHandledRef.current || !state || !token) return;
+    pendingShopHandledRef.current = true;
+    const pendingShop = takePendingShop();
+    if (!pendingShop) return;
+    if (state?.connections?.shopify?.status === 'connected' && state.connections.shopify.shopDomain === pendingShop) {
+      if (user?.onboardingStatus === 'completed') nav('/dashboard', { replace: true });
+      return;
+    }
+    setActive('shopify');
+    void handleOAuthConnect(pendingShop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, token]);
 
   const loadFbSdk = () => new Promise<void>((res) => {
     if (window.FB) return res();

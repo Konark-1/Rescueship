@@ -1,0 +1,40 @@
+# Shopify app configuration — source of truth for the RescueShip public app.
+# Push with:  npx @shopify/cli@latest app deploy   (run from the repo root, logged in to the Partner org)
+# client_id is public; the client secret lives only in Render as SHOPIFY_API_SECRET.
+
+client_id = "1a20e595abbf5dd1bc579e3b291dce0b"
+name = "RescueShip"
+# Shopify opens this with ?shop=…&hmac=…&host=… — the SPA parks the shop and resumes OAuth
+# after login → payment → onboarding (frontend/src/pages/ShopifyLaunchPage.tsx).
+application_url = "https://rescueship.netlify.app/shopify"
+# Standalone web app (Netlify sends X-Frame-Options: DENY), not an App Bridge embedded app.
+embedded = false
+
+[build]
+automatically_update_urls_on_dev = false
+include_config_on_deploy = true
+
+[access_scopes]
+# Keep in sync with SHOPIFY_SCOPES (src/services/shopify-oauth.service.ts).
+scopes = "read_orders,write_orders,read_fulfillments,write_fulfillments,read_products"
+# Non-embedded app → the authorization-code grant run by our backend
+# (/api/connect/shopify/url → Shopify consent → /api/connect/shopify/callback).
+use_legacy_install_flow = true
+
+[auth]
+redirect_urls = [
+  "https://rescueship.onrender.com/api/connect/shopify/callback",
+]
+
+[webhooks]
+api_version = "2026-07"
+
+  # Mandatory privacy webhooks for public apps. Handled (HMAC-verified with the app
+  # secret) in src/webhooks/shopify.webhook.ts. Order/fulfillment/app-uninstalled
+  # topics are registered per shop after OAuth by shopify-oauth.service.ts.
+  [[webhooks.subscriptions]]
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+  uri = "https://rescueship.onrender.com/webhooks/shopify"
+
+[pos]
+embedded = false

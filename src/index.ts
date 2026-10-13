@@ -296,6 +296,9 @@ app.get('/r/pay/:id', async (req, res) => {
 app.use('/webhooks/shopify', webhookLimiter, shopifyRouter);
 app.use('/webhooks/woocommerce', webhookLimiter, woocommerceRouter);
 app.use('/webhooks/shiprocket', webhookLimiter, shiprocketRouter);
+// Shiprocket's webhook form rejects URLs containing "shiprocket", "kartrocket", "sr" or "kr",
+// so merchants paste this alias instead: /webhooks/carrier/ndr?merchant_id=<id> + x-api-key header.
+app.use('/webhooks/carrier', webhookLimiter, shiprocketRouter);
 app.use('/webhooks/clickpost', webhookLimiter, clickpostRouter);
 app.use('/webhooks/delhivery', webhookLimiter, delhiveryRouter);
 app.use('/webhooks/bluedart', webhookLimiter, bluedartRouter);

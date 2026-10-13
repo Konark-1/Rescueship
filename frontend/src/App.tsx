@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import './styles/app.css';
 import { AppLayout } from './components/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { BillingGate } from './components/BillingGate';
 
 // Route-level code-splitting: Heavy dashboard & ancillary pages loaded on-demand
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -21,6 +22,7 @@ const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ConnectedApisPage = lazy(() => import('./pages/ConnectedApisPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const ShopifyLaunchPage = lazy(() => import('./pages/ShopifyLaunchPage'));
 const SandboxPage = lazy(() => import('./pages/SandboxPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
@@ -77,7 +79,7 @@ const DashboardLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ child
     return <Navigate to="/onboarding" replace />;
   }
 
-  return <AppLayout>{children}</AppLayout>;
+  return <BillingGate><AppLayout>{children}</AppLayout></BillingGate>;
 };
 
 // Wildcard handler component
@@ -105,6 +107,8 @@ export const App: React.FC = () => {
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/dpa" element={<DPDPAddendum />} />
+              {/* Shopify app launch / install entry (application_url) */}
+              <Route path="/shopify" element={<ShopifyLaunchPage />} />
 
               {/* Protected Routes inside AppLayout */}
               <Route path="/dashboard" element={
@@ -174,7 +178,9 @@ export const App: React.FC = () => {
               {/* Onboarding Wizard (not wrapped in standard layout) */}
               <Route path="/onboarding" element={
                 <ProtectedRoute>
-                  <OnboardingPage />
+                  <BillingGate>
+                    <OnboardingPage />
+                  </BillingGate>
                 </ProtectedRoute>
               } />
 

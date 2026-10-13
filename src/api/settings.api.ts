@@ -527,7 +527,7 @@ router.post('/carrier-webhook-secret/rotate', authenticateToken, credentialValid
     res.status(200).json({
       secret,
       webhookUrls: {
-        shiprocket: `${base}/webhooks/shiprocket/ndr?merchant_id=${merchant._id}`,
+        shiprocket: `${base}/webhooks/carrier/ndr?merchant_id=${merchant._id}`,
         delhivery: `${base}/webhooks/delhivery/ndr?merchant_id=${merchant._id}`,
         clickpost: `${base}/webhooks/clickpost/ndr?merchant_id=${merchant._id}`,
       },

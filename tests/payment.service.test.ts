@@ -120,28 +120,6 @@ describe('PaymentService - Unit Tests', () => {
       expect(body.expire_by - Math.floor(Date.now() / 1000)).toBeGreaterThanOrEqual(15 * 60);
     });
 
-      await paymentService.createPaymentLink(
-        'razorpay',
-        {
-          amount: 0,
-          currency: 'INR',
-          description: 'Zero amount order',
-          customerName: 'Jane Doe',
-          customerPhone: '+919876543210',
-          orderId: 'ORD0',
-        },
-        { keyId: 'rzp_key_test', keySecret: 'rzp_secret_test' }
-      );
-
-      expect(axios.post).toHaveBeenCalledWith(
-        'https://api.razorpay.com/v1/payment_links',
-        expect.objectContaining({
-          amount: 100, // ₹1 = 100 paise
-        }),
-        expect.any(Object)
-      );
-    });
-
     it('should cap expiration time to 7 days (10,080 minutes)', async () => {
       const nowMs = 1700000000000;
       jest.spyOn(Date, 'now').mockReturnValue(nowMs);

@@ -12,7 +12,9 @@
     "generate:design": "node scripts/generate-design-md.cjs",
     "test": "jest --forceExit",
     "typecheck": "tsc --noEmit",
-    "check:connections": "ts-node scripts/check-connections.ts"
+    "check:connections": "ts-node scripts/check-connections.ts",
+    "templates:submit": "ts-node scripts/submit-templates.ts",
+    "smoke:deploy": "ts-node scripts/smoke-deploy.ts"
   },
   "keywords": [],
   "author": "",

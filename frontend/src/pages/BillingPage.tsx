@@ -16,6 +16,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { markBillingActive } from '../components/BillingGate';
 import type { Tier, Cycle, StoreMetrics } from '../config/pricing.config';
 import {
   TIERS,
@@ -54,7 +55,7 @@ export interface SubscriptionStatus {
 }
 
 export default function BillingPage() {
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
@@ -162,7 +163,8 @@ export default function BillingPage() {
           try {
             const verified = await billingApi.verify(token!, { ...resp, tier, cycle });
             setActive(verified);
-            nav('/onboarding?subscribed=true');
+            markBillingActive(token);
+            nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true');
           } catch (e: any) {
             setErr(e.message);
           }
@@ -276,8 +278,9 @@ export default function BillingPage() {
             <span className="bl-nav__step-pill">
               Step 1 of 2 · Plan & Guarantee
             </span>
-            <button className="bl-nav__back" onClick={() => nav('/onboarding')}>
-              ← Back to Onboarding
+            {/* Unpaid merchants start here (login → plan → onboarding), so there is no "back". */}
+            <button className="bl-nav__back" onClick={() => { logout(); nav('/login'); }}>
+              Log out
             </button>
           </div>
         </header>
