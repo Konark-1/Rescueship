@@ -6,7 +6,7 @@ const TRUST_BADGES = [
   { icon: ShieldCheck, text: 'HMAC-verified webhooks' },
   { icon: FileCheck, text: 'Privacy-first data handling' },
   { icon: IndianRupee, text: 'Razorpay & Cashfree native' },
-  { icon: Activity, text: '24/7 uptime monitoring' },
+  { icon: Activity, text: 'Automated health checks' },
 ];
 
 export function TrustStrip() {

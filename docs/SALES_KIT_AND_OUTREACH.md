@@ -192,9 +192,9 @@ Below are 50 representative high-growth Indian D2C brands that match this exact 
 - **Visual:** Plan comparison table (Starter ₹4,999 | Growth ₹11,999 | Scale ₹24,999 | Fleet ₹44,999) + Guarantee Shield.
 - **Copy:**
   - **14-Day Zero-Risk Trial:** Connect your store in 5 minutes. No upfront fee.
-  - **30-Day Money-Back Performance Guarantee:** If our rescued orders don't cover your monthly plan cost, we refund 100% of your fee.
+  - **90-Day Money-Back Performance Guarantee:** If our rescued orders don't cover your monthly plan cost, we refund 100% of your fee.
   - Average Customer ROI: **12x to 18x Plan Investment.**
-- **Speaker Script:** *"Setup takes 5 minutes without writing a single line of code. We give you a 14-day free trial. If within your first 30 days RescueShip hasn't paid for itself multiple times over, we will refund every single rupee. Let's connect your Shopify store right now."*
+- **Speaker Script:** *"Setup takes 5 minutes without writing a single line of code. We give you a 14-day free trial. If within your first 90 days RescueShip hasn't paid for itself multiple times over, we will refund every single rupee. Let's connect your Shopify store right now."*
 
 ---
 
@@ -228,7 +228,7 @@ Spoken:
 [01:15 - 01:30] — THE ZERO-RISK CLOSE
 Visual: Shows the 1-Click Connect Station with Shopify, Shiprocket, and WhatsApp toggles.
 Spoken:
-"Setup takes literally 4 minutes. No developers needed. We back this with a 14-day zero-risk trial and our unconditional 30-day performance guarantee: if our rescues don't cover your subscription fee, you pay zero. Click the link below, connect your store, and protect your margins starting with tonight's dispatches."
+"Setup takes literally 4 minutes. No developers needed. We back this with a 14-day zero-risk trial and our unconditional 90-day performance guarantee: if our rescues don't cover your subscription fee, you pay zero. Click the link below, connect your store, and protect your margins starting with tonight's dispatches."
 ```
 
 ---
@@ -285,8 +285,8 @@ COMMERCIAL ENGAGEMENT MODEL
   - Fleet Plan: ₹44,999/mo (Up to 25,000 orders)
 
 THE PERFORMANCE COMMITMENT
-14-Day Free Onboarding Trial + 30-Day Money-Back Guarantee. If net freight savings 
-do not exceed platform fees during your first 30 days, 100% full refund issued.
+14-Day Free Onboarding Trial + 90-Day Money-Back Guarantee. If net freight savings 
+do not exceed platform fees during your first 90 days, 100% full refund issued.
 
 Contact: founders@rescueship.com | https://rescueship.netlify.app
 ================================================================================
@@ -348,7 +348,7 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
 
 #### Objection 5: "What if it doesn't work for our particular product category?"
 - **The Rebuttal:**  
-  *"That's why we bear 100% of the risk. You get a full 14-day free trial where you can see real rescued orders in your live RescueLedger. Even after you subscribe, you have an unconditional 30-day money-back guarantee. If our verified freight savings don't exceed your plan fee, you get every single rupee back. You literally have nothing to lose except your RTO losses."*
+  *"That's why we bear 100% of the risk. You get a full 14-day free trial where you can see real rescued orders in your live RescueLedger. Even after you subscribe, you have an unconditional 90-day money-back guarantee. If our verified freight savings don't exceed your plan fee, you get every single rupee back. You literally have nothing to lose except your RTO losses."*
 
 ---
 
@@ -399,6 +399,6 @@ Contact: founders@rescueship.com | https://rescueship.netlify.app
   > - **Your Monthly Plan Investment:** ₹{{Plan_Price}}
   > - **Verified Net ROI:** {{ROI_Multiplier}}x
   > 
-  > Your subscription will transition seamlessly to keep your interceptor active without missing a single dispatch. Remember, your **30-day performance guarantee** remains in full effect.
+  > Your subscription will transition seamlessly to keep your interceptor active without missing a single dispatch. Remember, your **90-day performance guarantee** remains in full effect.
   > 
   > Thanks for partnering with us to eliminate RTO waste!

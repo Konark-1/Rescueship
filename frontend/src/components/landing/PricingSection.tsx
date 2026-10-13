@@ -102,7 +102,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         <div className="pricing__enterprise">
           <span className="pricing__enterprise-text">
             Shipping 25,000+ orders/mo? Custom SLAs and a dedicated WhatsApp number —{' '}
-            <a href="mailto:founders@rescueship.com" className="pricing__enterprise-link">
+            <a href="mailto:konarkofficial@gmail.com" className="pricing__enterprise-link">
               talk to us.
             </a>
           </span>
