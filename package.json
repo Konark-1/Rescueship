@@ -10,7 +10,9 @@
     "worker:dev": "ts-node src/worker.ts",
     "build": "tsc",
     "generate:design": "node scripts/generate-design-md.cjs",
-    "test": "jest --forceExit"
+    "test": "jest --forceExit",
+    "typecheck": "tsc --noEmit",
+    "check:connections": "ts-node scripts/check-connections.ts"
   },
   "keywords": [],
   "author": "",

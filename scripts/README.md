@@ -16,6 +16,9 @@
 | `liveops-watchtower.ts` | LiveOps telemetry & watchtower checks | `npx ts-node scripts/liveops-watchtower.ts [dlq\|waba\|webhooks\|all]` |
 | `tunnel.js` | Dev webhook tunnel | `node scripts/tunnel.js` (localtunnel :3000) |
 | `generate-design-md.cjs` | Design token extractor | `node scripts/generate-design-md.cjs` |
+| `check-connections.ts` | Read-only live check of a merchant's Shopify / WhatsApp / gateway / courier credentials | `npm run check:connections -- <email> [--save]` |
+
+`scripts/local/` is git-ignored: put one-off debugging scripts there. Never hard-code tokens, passwords or connection strings in a committed script; read them from `.env`.
 
 ## Note on Test Scripts
 All test runners, simulated flow verification scripts, and adversarial probes have been cleanly separated into [`tests/scripts/`](../tests/scripts/):
