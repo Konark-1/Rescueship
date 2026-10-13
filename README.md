@@ -95,7 +95,7 @@ RescueShip integrates out-of-the-box with India's top 8 logistics networks and a
 
 | Logistics Partner | Ingestion Webhook | Action Dispatching | Integration Modes |
 | :--- | :--- | :--- | :--- |
-| **Shiprocket** | `/webhooks/shiprocket/ndr` | Escalation API, Next-Day Reattempt, COD Adjustment | Direct API & Webhook-Only |
+| **Shiprocket** | `/webhooks/shiprocket/ndr` | Reattempt / address change (`/ndr/reattempt`), return (`/ndr/{awb}/action`) | Direct API & Webhook-Only |
 | **Delhivery** | `/webhooks/delhivery/ndr` | Waypoint Reattempt Slotting, Address Update API | Direct API & Webhook-Only |
 | **Blue Dart Express (DHL)** | `/webhooks/bluedart/ndr` | Waybill Rescheduling, Consignee Remarks Sync | Direct API & Webhook-Only |
 | **Xpressbees** | `/webhooks/xpressbees/ndr` | Real-Time Reattempt Dispatch, Street/Pin Rectification | Direct API & Webhook-Only |
@@ -104,6 +104,22 @@ RescueShip integrates out-of-the-box with India's top 8 logistics networks and a
 | **DTDC** | `/webhooks/dtdc/ndr` | Consignment Tracking, Address Amendment Sync | Direct API & Webhook-Only |
 | **ClickPost** | `/webhooks/clickpost/ndr` | Logistics Intelligence Parsing, Reattempt Dispatch | Direct API & Webhook-Only |
 | **Custom / Aggregators** | `/webhooks/custom/ndr` | Universal Payload Ingestion (NimbusPost, Shipway, Shyplite, India Post, Private Fleets) | Webhook-Only & Universal API |
+
+### Verified integration status (October 2026)
+
+Checked against live accounts, not just docs. "Code only" means implemented from documentation and not yet exercised against a live account.
+
+| Integration | Status | Notes |
+| :--- | :--- | :--- |
+| Shiprocket | Verified: login, orders, NDR endpoints | `POST /ndr/action` does not exist (405). No API to change COD amount after pickup. |
+| ClickPost | Code only (v2 NDR API) | Needs username + key; cp_id/account_code arrive with the first tracking webhook. No COD amendment API. |
+| Delhivery, Blue Dart, Xpressbees, Shadowfax, Ecom Express, DTDC | Code only | Use webhook-only mode until a live account is tested. |
+| Razorpay | Verified: keys, payment links, webhook listing | A webhook for `payment_link.paid` must exist; pay links stay off until a signed webhook is seen (₹1 test). |
+| Cashfree | Code only | Refunds are manual (merchant marks them done). |
+| Shopify | Verified: GraphQL Admin 2026-07 | Stored tokens can be revoked silently; the daily connection check catches it. |
+| WhatsApp Cloud API | Verified: number, WABA, templates, subscribed apps | Temporary 24h tokens are rejected; use a System User token. |
+
+Run `npm run check:connections -- <merchant email>` for a read-only live check of one merchant.
 
 ### Dual Integration Modes
 
