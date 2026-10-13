@@ -41,7 +41,13 @@ export const LIMIT: Record<Tier, number> = { starter: 1000, growth: 5000, scale:
 export const creditAllowanceFor = (tier: string): number => (LIMIT as any)[tier] ? (LIMIT as any)[tier] * 2 : 100;
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
 const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.15, annual: 0.20 };
-const PERIOD: Record<Cycle, 'monthly' | 'quarterly' | 'yearly'> = { quarterly: 'monthly', semi: 'monthly', annual: 'monthly' };
+// Renewals repeat the cycle the merchant chose, charged upfront (3 / 6 / 12 months).
+const RZ_PERIOD: Record<Cycle, { period: 'monthly' | 'yearly'; interval: number; totalCount: number }> = {
+  quarterly: { period: 'monthly', interval: 3, totalCount: 20 }, // up to 5 years
+  semi: { period: 'monthly', interval: 6, totalCount: 10 },
+  annual: { period: 'yearly', interval: 1, totalCount: 5 },
+};
+const addMonths = (d: Date, months: number) => { const x = new Date(d.getTime()); x.setMonth(x.getMonth() + months); return x; };
 const DAY_MS = 24 * 3600 * 1000;
 
 /** Self-serve rescue-credit top-up packs (server-authoritative pricing). */
@@ -155,10 +161,11 @@ export class SubscriptionService {
 
     try {
       // (2) renewal subscription — first charge at the renewal date (if Subscriptions feature is enabled on Razorpay account)
-      const planId = await this.ensurePlan(tier, cycle, p.renewMonthly);
-      const startAt = Math.floor(Date.now() / 1000) + (MONTHS[cycle] || 3) * 30 * 24 * 3600;
+      const planId = await this.ensurePlan(tier, cycle, p.renewalCharge);
+      // First renewal falls due when the upfront period ends.
+      const startAt = Math.floor(addMonths(new Date(), MONTHS[cycle] || 3).getTime() / 1000);
       const subscription = await rz.post('/subscriptions', {
-        plan_id: planId, total_count: 12, quantity: 1, start_at: startAt,
+        plan_id: planId, total_count: RZ_PERIOD[cycle].totalCount, quantity: 1, start_at: startAt,
         notes: { merchantId, tier, cycle, kind: 'renewal' },
       });
       subscriptionId = subscription.data.id;
@@ -411,8 +418,7 @@ export class SubscriptionService {
 
   /**
    * Called from the subscription.charged webhook — roll the cycle forward AND
-   * advance nextInvoiceDate/accessExpiresAt by one month (the Razorpay mandate
-   * is a monthly plan), so a paying merchant is never wrongly suspended by the
+   * advance nextInvoiceDate/accessExpiresAt by one full cycle (3/6/12 months), so a paying merchant is never wrongly suspended by the
    * daily watchdog. Also issues the renewal invoice.
    */
   async onRenewalCharged(subscriptionId: string, paymentId: string | undefined, amountPaise: number | undefined) {
@@ -424,9 +430,9 @@ export class SubscriptionService {
     const b: any = merchant.billing || {};
     const tier = b.plan, cycle = normalizeCycle(b.billingCycle);
     if (isTier(tier) && isCycle(cycle) && typeof amountPaise === 'number') {
-      // Renewal subscriptions are monthly plans; accept either the monthly or full-cycle amount.
+      // Renewals charge the full cycle upfront (same cycle the merchant chose).
       const p = priceFor(tier, cycle);
-      const okAmounts = new Set([p.renewMonthly * 100, p.renewalCharge * 100]);
+      const okAmounts = new Set([p.renewalCharge * 100]);
       if (!okAmounts.has(amountPaise)) {
         logger.error('Renewal charged with unexpected amount — not rolling cycle forward', { merchantId: merchant._id, subscriptionId, amountPaise, expected: [...okAmounts] });
         return;
@@ -441,10 +447,10 @@ export class SubscriptionService {
       }
     }
     const now = new Date();
-    // Stack onto any unexpired time; each successful monthly charge buys one more month.
+    // Stack onto any unexpired time; each successful renewal buys one more full cycle.
     const currentExpiry = b.nextInvoiceDate ? new Date(b.nextInvoiceDate) : null;
     const base = currentExpiry && currentExpiry.getTime() > now.getTime() ? currentExpiry : now;
-    const nextInvoice = new Date(base.getTime() + 30 * DAY_MS);
+    const nextInvoice = addMonths(base, isCycle(cycle) ? MONTHS[cycle] : 3);
 
     await Merchant.updateOne({ _id: merchant._id }, { $set: {
       'billing.cycleStartDate': now,
@@ -731,9 +737,10 @@ export class SubscriptionService {
     return { credits: updated?.billing?.rescueCredits };
   }
 
-  /** Create-or-find a Razorpay plan keyed by (tier+cycle) at the renewal monthly amount. */
-  private async ensurePlan(tier: Tier, cycle: Cycle, monthly: number): Promise<string> {
-    const key = `rs_plan_${tier}_${cycle}_${monthly}`;
+  /** Create-or-find a Razorpay plan keyed by (tier+cycle) that charges the whole cycle upfront. */
+  private async ensurePlan(tier: Tier, cycle: Cycle, cycleCharge: number): Promise<string> {
+    const { period, interval } = RZ_PERIOD[cycle];
+    const key = `rs_plan_v2_${tier}_${cycle}_${cycleCharge}`;
     const { default: mongoose } = await import('mongoose');
     const db = mongoose.connection.db;
     if (db) {
@@ -741,7 +748,10 @@ export class SubscriptionService {
       const doc = await col.findOne({ _id: key as any });
       if (doc?.planId) return doc.planId;
     }
-    const { data } = await rz.post('/plans', { period: PERIOD[cycle], interval: 1, amount: monthly * 100, currency: 'INR', notes: { key } });
+    const { data } = await rz.post('/plans', {
+      period, interval, currency: 'INR', notes: { key },
+      item: { name: `RescueShip ${tier} (${cycle})`, amount: cycleCharge * 100, currency: 'INR' },
+    });
     await this.rememberPlan(key, data.id);
     return data.id;
   }

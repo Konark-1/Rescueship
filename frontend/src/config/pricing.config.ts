@@ -62,8 +62,8 @@ export const TIERS: TierConfig[] = [
     orders: 25000,
     base: 44999,
     blurb: 'For high-volume ops with multi-carrier delivery.',
-    flagship: 'Dedicated SLAs & Enterprise Gateways',
-    features: ['25,000 Orders/mo', 'Carrier Fraud Watchtower & Storefront Sync', 'Dedicated WhatsApp Gateway', 'Custom SLA Guarantee'],
+    flagship: 'Priority support & guided onboarding',
+    features: ['25,000 Orders/mo', 'Carrier Fraud Watchtower & Storefront Sync', 'Priority support', 'Guided onboarding call'],
   },
 ];
 
