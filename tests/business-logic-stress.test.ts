@@ -78,6 +78,9 @@ jest.mock('../src/models', () => {
             const orMatch = query.$or.some((sub: any) => {
               if (sub.awb && order.awb === sub.awb) return true;
               if (sub.externalOrderId && order.externalOrderId === sub.externalOrderId) return true;
+              // handlePaymentSuccess resolves by either link id
+              if (sub.paymentLinkId && order.paymentLinkId === sub.paymentLinkId) return true;
+              if (sub.depositPaymentLinkId && order.depositPaymentLinkId === sub.depositPaymentLinkId) return true;
               return false;
             });
             if (!orMatch) match = false;

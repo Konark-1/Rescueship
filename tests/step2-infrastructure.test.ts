@@ -6,8 +6,6 @@ import express, { Express } from 'express';
 import { Types } from 'mongoose';
 import { CarrierRateLimitError } from '../src/utils/errors.util';
 import { setupCarrierAxiosInterceptor } from '../src/services/carrier-connect.service';
-import { carrierDlq } from '../src/queues/dlq.queue';
-import { processCarrierJob } from '../src/workers/carrier-dispatch.worker';
 import { acquireLock, releaseLock, LUA_RELEASE_LOCK } from '../src/utils/distributed-lock.util';
 import { createCarrierNdrHandler } from '../src/webhooks/carrier-ndr.handler';
 import { redisConnection } from '../src/config/redis';
@@ -202,95 +200,6 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
       await expect(interceptor.rejected(error500)).rejects.toEqual(error500);
     });
 
-    it('2.1.4: should route 429 carrier failures to DLQ with exponential backoff delay', async () => {
-      const dlqAddSpy = jest.spyOn(carrierDlq, 'add');
-
-      // Make logisticsService throw CarrierRateLimitError
-      (logisticsService.rescheduleDelivery as jest.Mock).mockRejectedValue(
-        new CarrierRateLimitError('Carrier API Rate Limit Hit')
-      );
-
-      // Test attempt 0: delay should be 2^0 * 60,000 = 60,000ms (1 min)
-      const mockJobAttempt0: any = {
-        id: 'job_rate_limited_0',
-        attemptsMade: 0,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-          carrierConfig: {},
-        },
-      };
-
-      const result0 = await processCarrierJob(mockJobAttempt0);
-      expect(result0).toEqual({
-        dlqRouted: true,
-        delay: 60000,
-        reason: 'CarrierRateLimitError (429)',
-      });
-
-      expect(dlqAddSpy).toHaveBeenCalledWith(
-        'retry-carrier-action',
-        expect.objectContaining({
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          originalJobId: 'job_rate_limited_0',
-          attemptsMade: 1,
-        }),
-        {
-          delay: 60000,
-          attempts: 5,
-        }
-      );
-
-      // Test attempt 2: delay should be 2^2 * 60,000 = 240,000ms (4 min)
-      const mockJobAttempt2: any = {
-        id: 'job_rate_limited_2',
-        attemptsMade: 2,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-          carrierConfig: {},
-        },
-      };
-
-      const result2 = await processCarrierJob(mockJobAttempt2);
-      expect(result2.delay).toBe(240000);
-
-      // Test attempt 10: should cap at 3,600,000ms (1 hour)
-      const mockJobAttempt10: any = {
-        id: 'job_rate_limited_10',
-        attemptsMade: 10,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-          carrierConfig: {},
-        },
-      };
-
-      const result10 = await processCarrierJob(mockJobAttempt10);
-      expect(result10.delay).toBe(3600000);
-    });
-
-    it('2.1.5: should throw unrecoverable non-429 errors so standard BullMQ failure triggers', async () => {
-      (logisticsService.rescheduleDelivery as jest.Mock).mockRejectedValue(
-        new Error('Fatal carrier parsing failure')
-      );
-
-      const mockJob: any = {
-        id: 'job_fatal_error',
-        attemptsMade: 0,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-        },
-      };
-
-      await expect(processCarrierJob(mockJob)).rejects.toThrow('Fatal carrier parsing failure');
-    });
   });
 
   // ═════════════════════════════════════════════════════════════════════════

@@ -8,6 +8,7 @@
  *   Mode 3: 📍+✏️ Both → Step 1: GPS → Step 2: Text → Combined → push
  */
 
+import { redisCache } from '../utils/redis-cache';
 import { isAmbiguousAcrossMerchants } from '../utils/phone-order-scope';
 import { Order, Merchant, AuditLog, NdrCase } from '../models';
 import { whatsAppService } from './whatsapp.service';
@@ -523,7 +524,7 @@ export class AddressCorrectionService {
     const cacheKey = `gemini_addr_cache:${textHash}`;
     try {
       if (redisConnection) {
-        const cached = await redisConnection.get(cacheKey);
+        const cached = await redisCache.get(cacheKey);
         if (cached) {
           const parsedCached = JSON.parse(cached);
           logger.info('Returning cached address extraction from Redis', { cacheKey });
@@ -560,7 +561,7 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
         const aiResult: ExtractedAddressDetails = { cleanAddress, landmark, driverNote, pincode };
         try {
           if (redisConnection && typeof redisConnection.set === 'function') {
-            await redisConnection.set(cacheKey, JSON.stringify(aiResult), 'EX', 86400); // 24 hours
+            await redisCache.set(cacheKey, JSON.stringify(aiResult), 'EX', 86400); // 24 hours
           }
         } catch (setErr: any) {
           logger.warn('Failed to write address extraction to Redis cache', { error: setErr?.message });
@@ -607,7 +608,7 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
 
     try {
       if (redisConnection) {
-        await redisConnection.set(cacheKey, JSON.stringify(heuristicResult), 'EX', 86400);
+        await redisCache.set(cacheKey, JSON.stringify(heuristicResult), 'EX', 86400);
       }
     } catch (setErr: any) {
       logger.warn('Failed to write address extraction to Redis cache', { error: setErr?.message });

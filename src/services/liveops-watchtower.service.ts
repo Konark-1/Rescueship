@@ -46,13 +46,20 @@ export interface WebhookFailureRateResult {
  * 1. Check Redis / BullMQ dead letter queue and failed counts across core worker queues
  */
 export async function checkDeadLetterQueue(): Promise<DeadLetterCheckResult> {
-  const CORE_QUEUES = [
-    'carrier-dispatch',
-    'cod-conversion',
-    'ndr-rescue',
-    'notification-dispatch',
-    'order-ingestion',
-  ];
+  // Queues that actually have producers in this codebase.
+  const CORE_QUEUES = ['cod-conversion', 'ndr-rescue', 'escalation', 'ndr-lifecycle', 'reconciliation'];
+
+  // Don't hang on Redis' offline queue: report the outage instead.
+  const st = (redisConnection as any)?.status;
+  if (st && st !== 'ready') {
+    return {
+      deadLetterQueue: { waiting: 0, active: 0, completed: 0, failed: 0, delayed: 0, total: 0 },
+      failedByQueue: Object.fromEntries(CORE_QUEUES.map((q) => [q, -1])),
+      totalFailedAcrossQueues: 0,
+      status: 'critical',
+      timestamp: new Date().toISOString(),
+    } as any;
+  }
 
   const failedByQueue: Record<string, number> = {};
   let totalFailedAcrossQueues = 0;
@@ -72,7 +79,7 @@ export async function checkDeadLetterQueue(): Promise<DeadLetterCheckResult> {
   }
 
   // Also inspect dedicated dlq queue
-  const dlqQueue = new Queue('dlq', { connection: redisConnection as any });
+  const dlqQueue = new Queue('dead-letter', { connection: redisConnection as any });
   let dlqCounts = {
     waiting: 0,
     active: 0,

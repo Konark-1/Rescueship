@@ -3,7 +3,9 @@ import path from 'path';
 import fs from 'fs';
 
 // Load .env at the absolute beginning
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+if (process.env.SKIP_DOTENV !== 'true') {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') });
+}
 
 import express from 'express';
 import helmet from 'helmet';
@@ -460,15 +462,6 @@ async function bootstrap() {
         } catch (workerErr: any) {
           logger.warn('[SHUTDOWN] Error stopping BullMQ workers', { error: workerErr.message });
         }
-
-        // 3. Stop carrier dispatch & DLQ workers if active
-        try {
-          const { carrierDispatchWorker, carrierDlqWorker } = await import('./workers/carrier-dispatch.worker');
-          await Promise.all([
-            carrierDispatchWorker?.close(),
-            carrierDlqWorker?.close(),
-          ]);
-        } catch {}
 
         // 4. Teardown SSE Realtime connections
         try {

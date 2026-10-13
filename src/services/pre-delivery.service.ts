@@ -12,6 +12,7 @@
  *  4. Customer RTO Risk score > 0.6
  */
 
+import { redisCache } from '../utils/redis-cache';
 import { Order, Merchant, AuditLog, BillingEvent } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { encryptionService } from './encryption.service';
@@ -163,7 +164,7 @@ export class PreDeliveryService {
     const lockKey = `predeliv_lock:${order._id}`;
     try {
       if (redisConnection && typeof (redisConnection as any).set === 'function') {
-        const acquired = await redisConnection.set(lockKey, '1', 'EX', 21600, 'NX');
+        const acquired = await redisCache.set(lockKey, '1', 'EX', 21600, 'NX');
         if (!acquired) {
           logger.info('Pre-delivery confirmation already in progress or dispatched', { orderId: order._id });
           return false;

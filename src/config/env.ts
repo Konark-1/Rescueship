@@ -15,8 +15,11 @@
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load .env from project root (two levels up from src/config/)
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+// Load .env from project root (two levels up from src/config/).
+// SKIP_DOTENV=true (set by the test setup) keeps tests away from live secrets and services.
+if (process.env.SKIP_DOTENV !== 'true') {
+  dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+}
 
 /* ------------------------------------------------------------------ */
 /*  Type definitions                                                   */
@@ -187,8 +190,10 @@ if (process.env.GEMINI_MODEL && DEPRECATED_GEMINI_MODELS.includes(process.env.GE
     `[AI Engine] Notice: Runtime GEMINI_MODEL (${process.env.GEMINI_MODEL}) auto-upgraded to gemini-3.8-flash for high-fidelity address decoding.`
   );
 }
-// Force runtime model to gemini-3.8-flash as mandated for enterprise tier
-process.env.GEMINI_MODEL = 'gemini-3.8-flash';
+// Default model; an explicit, non-deprecated GEMINI_MODEL is respected.
+if (!process.env.GEMINI_MODEL || DEPRECATED_GEMINI_MODELS.includes(process.env.GEMINI_MODEL)) {
+  process.env.GEMINI_MODEL = 'gemini-3.8-flash';
+}
 
 /**
  * Fully-typed, validated application configuration.

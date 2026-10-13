@@ -1,3 +1,4 @@
+import { redisCache } from '../utils/redis-cache';
 import axios from 'axios';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
@@ -167,7 +168,7 @@ export class LogisticsService {
     // Try to get token from Redis cache first
     const cacheKey = `shiprocket:token:${srEmail}`;
     try {
-      const cachedToken = await redisConnection.get(cacheKey);
+      const cachedToken = await redisCache.get(cacheKey);
       if (cachedToken) {
         return cachedToken;
       }
@@ -196,7 +197,7 @@ export class LogisticsService {
 
         // Cache token in Redis (valid for 9 days, Shiprocket tokens expire in 10 days)
         try {
-          await redisConnection.set(cacheKey, token, 'EX', 9 * 24 * 60 * 60);
+          await redisCache.set(cacheKey, token, 'EX', 9 * 24 * 60 * 60);
         } catch (err: any) {
           logger.warn('Failed to cache Shiprocket token in Redis', { error: err.message });
         }

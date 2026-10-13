@@ -1,3 +1,4 @@
+import { redisCache } from '../utils/redis-cache';
 import axios from 'axios';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
@@ -131,7 +132,7 @@ export class GeminiService {
     const cacheKey = this.getCacheKey(text);
     try {
       if (redisConnection && typeof redisConnection.get === 'function') {
-        const cached = await redisConnection.get(cacheKey);
+        const cached = await redisCache.get(cacheKey);
         if (cached) {
           logger.debug('Gemini address parse cache hit', { cacheKey });
           return JSON.parse(cached) as StructuredIndianAddress;
@@ -187,7 +188,7 @@ export class GeminiService {
       // Save to Redis Cache safely
       if (redisConnection && typeof redisConnection.set === 'function') {
         try {
-          const setPromise = redisConnection.set(cacheKey, JSON.stringify(parsed), 'EX', CACHE_TTL_SECONDS);
+          const setPromise = redisCache.set(cacheKey, JSON.stringify(parsed), 'EX', CACHE_TTL_SECONDS);
           if (setPromise && typeof (setPromise as any).catch === 'function') {
             (setPromise as Promise<any>).catch((err: Error) => {
               logger.warn('Failed to cache Gemini parse result', { error: err.message });
