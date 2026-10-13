@@ -24,3 +24,6 @@ test-results/
 playwright-report/
 blob-report/
 *.tsbuildinfo
+
+# One-off local debug scripts (may contain credentials) — never commit
+scripts/local/
