@@ -11,6 +11,7 @@ import { setupSubscriptionLifecycleWorker, scheduleSubscriptionLifecycle } from 
 import { setupDigestWorker, scheduleDigestJob } from './digest.job';
 import { piiAnonymizationWorker, schedulePiiAnonymization } from './pii-anonymization.job';
 import { staleDepositsWorker, scheduleCancelStaleDeposits } from './cancel-stale-deposits.job';
+import { setupConnectionHealthWorker, scheduleConnectionHealth } from './connection-health.job';
 import { logger } from '../utils/logger';
 
 export * from './codConversion.job';
@@ -26,12 +27,14 @@ export * from './subscription-lifecycle.job';
 export * from './digest.job';
 export * from './pii-anonymization.job';
 export * from './cancel-stale-deposits.job';
+export * from './connection-health.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
 let weeklyRoiReportWorker: any = null;
 let subscriptionLifecycleWorker: any = null;
 let digestWorker: any = null;
+let connectionHealthWorker: any = null;
 
 /**
  * Start all BullMQ workers safely without re-running active workers.
@@ -45,6 +48,7 @@ export function startAllWorkers(): void {
   if (!weeklyRoiReportWorker) weeklyRoiReportWorker = setupWeeklyRoiReportWorker();
   if (!subscriptionLifecycleWorker) subscriptionLifecycleWorker = setupSubscriptionLifecycleWorker();
   if (!digestWorker) digestWorker = setupDigestWorker();
+  if (!connectionHealthWorker) connectionHealthWorker = setupConnectionHealthWorker();
 
   const workers = [
     codConversionWorker,
@@ -60,6 +64,7 @@ export function startAllWorkers(): void {
     digestWorker,
     piiAnonymizationWorker,
     staleDepositsWorker,
+    connectionHealthWorker,
   ].filter(Boolean);
 
   for (const worker of workers) {
@@ -99,6 +104,10 @@ export function startAllWorkers(): void {
     logger.error('Failed to schedule daily DPDP PII anonymization cron job', { error: err.message });
   });
 
+  scheduleConnectionHealth().catch((err) => {
+    logger.error('Failed to schedule daily connection health sweep', { error: err.message });
+  });
+
   scheduleCancelStaleDeposits().catch((err) => {
     logger.error('Failed to schedule repeatable stale deposits cleanup job', { error: err.message });
   });
@@ -126,6 +135,8 @@ export async function stopAllWorkers(): Promise<void> {
     subscriptionLifecycleWorker?.close(),
     digestWorker?.close(),
     piiAnonymizationWorker?.close(),
+    staleDepositsWorker?.close(),
+    connectionHealthWorker?.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

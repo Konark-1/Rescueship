@@ -158,8 +158,11 @@ export function startQualityMonitorWorker(): Worker {
       // re-checked for auto-resume when the rating returns to YELLOW or GREEN.
       const activeMerchants = await Merchant.find({
         'billing.status': { $in: ['active', 'paused_quality'] },
-        'onboarding.completedAt': { $exists: true },
-        'whatsappConfig.wabaId': { $exists: true },
+        $and: [
+          { $or: [{ 'onboarding.completedAt': { $exists: true } }, { onboardingStatus: 'completed' }] },
+          // Older connects stored only businessAccountId.
+          { $or: [{ 'whatsappConfig.wabaId': { $exists: true } }, { 'whatsappConfig.businessAccountId': { $exists: true } }] },
+        ],
       }).lean();
 
       const results: QualityCheckResult[] = [];

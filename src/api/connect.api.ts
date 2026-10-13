@@ -59,7 +59,7 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
           ...(c.whatsapp || { status: 'disconnected' }),
           status: waStatus || c.whatsapp?.status || 'disconnected',
           phoneNumberId: (m as any).whatsappConfig?.phoneNumberId || null,
-          wabaId: (m as any).whatsappConfig?.wabaId || null,
+          wabaId: (m as any).whatsappConfig?.wabaId || (m as any).whatsappConfig?.businessAccountId || null,
         },
         carrier: c.carrier || { status: 'disconnected' },
         carriers: c.carriers || {},
@@ -436,6 +436,13 @@ router.post('/payment', authenticateToken, credentialValidationLimiter, async (r
   }
   try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret, webhookSecret || undefined)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+// Live check of every connection (Shopify token, WhatsApp token, gateway keys + webhook, courier login).
+router.post('/health/check', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { checkMerchantConnections } = await import('../services/connection-health.service');
+    res.json(await checkMerchantConnections(req.merchant!.merchantId));
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // ₹1 self-test link that proves the signed payment webhook reaches RescueShip.
 router.post('/payment/test-link', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {

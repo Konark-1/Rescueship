@@ -363,14 +363,8 @@ export class LogisticsService {
   ): Promise<RescheduleResult> {
     logger.info('Amending COD amount on carrier', { carrier, awb: params.awb, newCodAmount: params.newCodAmount });
 
-    if (process.env.NODE_ENV === 'test') {
-      return {
-        success: true,
-        message: `Successfully amended COD amount to ₹${params.newCodAmount}`,
-        carrierResponse: { status: 200, collectable: params.newCodAmount },
-      };
-    }
-
+    // No test-mode shortcut here: this is a money path, and a fake success would hide that a
+    // carrier cannot amend COD (tests mock the carrier call instead).
     if (carrier === 'shiprocket') {
       return this.adjustCodShiprocket(params, carrierConfig);
     } else if (carrier === 'clickpost') {
@@ -392,8 +386,8 @@ export class LogisticsService {
       
       const payload = {
         awb: params.awb,
-        action: 'reattempt',
         deferred_date: sanitizeDeferredDate(params.newDate),
+        comments: sanitizeString(params.reason, 150, 'Customer requested reattempt'),
       };
 
       const response = await axios.post(url, payload, {
@@ -425,14 +419,14 @@ export class LogisticsService {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
       const url = 'https://apiv2.shiprocket.in/v1/external/ndr/reattempt';
 
+      // Shiprocket's reattempt API carries the corrected address as address1/address2 + phone
+      // (verified against apiv2 in Oct 2026; there is no separate address-update endpoint).
       const payload = {
         awb: params.awb,
-        action: 'reattempt',
         address1: sanitizeString(params.address, 200),
-        city: sanitizeString(params.city, 50),
-        pin_code: sanitizePincode(params.pincode),
+        address2: sanitizeString([params.city, sanitizePincode(params.pincode)].filter(Boolean).join(' '), 100),
         phone: params.phone,
-        name: sanitizeString(params.customerName, 50, 'Customer'),
+        deferred_date: sanitizeDeferredDate(undefined),
       };
 
       const response = await axios.post(url, payload, {
@@ -564,11 +558,11 @@ export class LogisticsService {
   private async cancelShiprocket(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
     try {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
+      // POST /ndr/action does not exist (405); the action endpoint takes the AWB in the path.
+      const url = `https://apiv2.shiprocket.in/v1/external/ndr/${encodeURIComponent(params.awb)}/action`;
 
       const payload = {
-        awb: params.awb,
-        action: 'rto',
+        action: 'return',
         comments: sanitizeString(params.reason, 150, 'Customer requested order cancellation via WhatsApp NDR'),
       };
 
@@ -638,27 +632,11 @@ export class LogisticsService {
     }
   }
 
-  private async adjustCodShiprocket(params: CodAmendmentParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
-      const payload = {
-        awb: params.awb,
-        action: 'instructions',
-        comments: `Update COD Collectable: Rs ${params.newCodAmount}. ${params.reason}`,
-      };
-      const response = await axios.post(url, payload, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      });
-      return {
-        success: response.data.status === 200 || response.data.success || false,
-        message: response.data.message || 'Updated Shiprocket collectable amount',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('Shiprocket COD amendment failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+  private async adjustCodShiprocket(params: CodAmendmentParams, _carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    // Shiprocket only lets the seller switch COD↔prepaid before pickup, in its panel; there is
+    // no API to change the collectable amount of a shipped AWB. Never pretend it worked.
+    logger.warn('Shiprocket COD amendment requested but not supported by the API', { awb: params.awb });
+    return { success: false, message: 'Shiprocket has no API to change the COD amount after pickup; update it with the courier' };
   }
 
   private async adjustCodClickPost(params: CodAmendmentParams, _carrierConfig?: CarrierConfig): Promise<RescheduleResult> {

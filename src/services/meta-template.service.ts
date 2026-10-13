@@ -170,7 +170,8 @@ export class MetaTemplateService {
   async pollStatus(merchantId: string) {
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) throw new Error('Merchant not found');
-    const wabaId = (merchant as any).whatsappConfig?.wabaId;
+    // Older connects stored only businessAccountId.
+    const wabaId = (merchant as any).whatsappConfig?.wabaId || (merchant as any).whatsappConfig?.businessAccountId;
     if (!wabaId) throw new Error('No WABA on merchant');
     const token = this.token(merchant);
     const names = TEMPLATE_DEFS.map((d) => d.name);

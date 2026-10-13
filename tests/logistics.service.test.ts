@@ -105,10 +105,10 @@ describe('LogisticsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://apiv2.shiprocket.in/v1/external/ndr/action',
+        // Live-verified Oct 2026: POST /ndr/reattempt exists; POST /ndr/action is 405.
+        'https://apiv2.shiprocket.in/v1/external/ndr/reattempt',
         expect.objectContaining({
           awb: 'SR_AWB_101',
-          action: 'reattempt',
           deferred_date: '2026-10-02',
         }),
         expect.objectContaining({
@@ -224,12 +224,10 @@ describe('LogisticsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://apiv2.shiprocket.in/v1/external/ndr/action',
+        'https://apiv2.shiprocket.in/v1/external/ndr/reattempt',
         expect.objectContaining({
-          action: 'address_update',
           address1: 'Plot 45, Sector 18',
-          city: 'Gurugram',
-          pin_code: '122002',
+          address2: 'Gurugram 122002',
           phone: '9876543210',
         }),
         expect.any(Object)
@@ -299,10 +297,9 @@ describe('LogisticsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://apiv2.shiprocket.in/v1/external/ndr/action',
+        'https://apiv2.shiprocket.in/v1/external/ndr/AWB_CANCEL_1/action',
         expect.objectContaining({
-          awb: 'AWB_CANCEL_1',
-          action: 'rto',
+          action: 'return',
         }),
         expect.any(Object)
       );
@@ -310,15 +307,15 @@ describe('LogisticsService', () => {
   });
 
   describe('adjustCodAmount', () => {
-    it('returns successful COD amendment response', async () => {
+    it('never reports a Shiprocket COD amendment as done (no API exists after pickup)', async () => {
       const res = await logisticsService.adjustCodAmount('shiprocket', {
         awb: 'AWB_COD_1',
         newCodAmount: 0,
         reason: 'Converted to prepaid',
       });
 
-      expect(res.success).toBe(true);
-      expect(res.carrierResponse.collectable).toBe(0);
+      expect(res.success).toBe(false);
+      expect(mockedAxios.post).not.toHaveBeenCalled();
     });
   });
 });
