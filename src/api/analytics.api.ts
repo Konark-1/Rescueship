@@ -1,3 +1,4 @@
+import { requireFeature } from '../middleware/planGating.middleware';
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { analyticsService } from '../services/analytics.service';
@@ -151,7 +152,7 @@ router.get('/roi', authenticateToken, async (req: AuthenticatedRequest, res: Res
  * Expose Courier Fraud Index:
  * Aggregate fake delivery attempts grouped by Carrier Name with disputed freight calculations.
  */
-router.get('/fraud-index', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/fraud-index', authenticateToken, requireFeature('fraud_watchtower'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const startDateStr = req.query.startDate as string;
   const endDateStr = req.query.endDate as string;
@@ -213,7 +214,7 @@ router.get('/funnel', authenticateToken, async (req: AuthenticatedRequest, res: 
  * Export CSV containing disputed fake delivery attempts:
  * AWB, Courier Remark, WhatsApp Customer Reply Timestamp, Proof of Fake Attempt
  */
-router.get('/fraud-disputes/export', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/fraud-disputes/export', authenticateToken, requireFeature('fraud_watchtower'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const carrier = req.query.carrier as string;
   const startDateStr = req.query.startDate as string;

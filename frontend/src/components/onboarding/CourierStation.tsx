@@ -630,12 +630,13 @@ export function CourierStation({
                       style={{ background: 'var(--emerald-06)', borderColor: 'var(--emerald-20)' }}
                     >
                       <strong style={{ color: 'var(--emerald)' }}>
-                        Instant 1-Click Connect: Zero API Keys Needed
+                        Webhook only: alerts and WhatsApp, no courier actions
                       </strong>
-                      Don’t have developer API access or not sure what keys your courier platform uses?
-                      Simply paste this Webhook URL into your {currentDef.name} tracking or webhook
-                      settings. RescueShip will receive delivery failure events and trigger WhatsApp
-                      rescue messages automatically!
+                      Paste this Webhook URL into your {currentDef.name} tracking or webhook settings.
+                      RescueShip will receive failed-delivery events and message your customer on
+                      WhatsApp. Without API keys it cannot reschedule, change the address or cancel
+                      with the courier: when a customer asks for that, you get a task in the
+                      dashboard to do it in your courier panel.
                     </div>
 
                     {activeCarrier === 'custom' && (

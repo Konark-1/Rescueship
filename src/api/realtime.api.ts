@@ -6,7 +6,7 @@
  */
 
 import { Router, Response } from 'express';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { authenticateToken, authenticateSseToken, AuthenticatedRequest } from '../middleware/auth';
 import { realtimeService } from '../services/realtime.service';
 import { logger } from '../utils/logger';
 import { Merchant } from '../models/Merchant';
@@ -20,7 +20,7 @@ const router = Router();
  */
 router.get(
   '/stream',
-  authenticateToken,
+  authenticateSseToken,
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const merchantId = req.merchant?.merchantId;
     if (!merchantId) {

@@ -8,6 +8,7 @@
  *   Mode 3: 📍+✏️ Both → Step 1: GPS → Step 2: Text → Combined → push
  */
 
+import { isAmbiguousAcrossMerchants } from '../utils/phone-order-scope';
 import { Order, Merchant, AuditLog, NdrCase } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { logisticsService } from './logistics.service';
@@ -156,6 +157,7 @@ export class AddressCorrectionService {
       logger.info('Location received but no order awaiting GPS', { phone });
       return false;
     }
+    if (!resolvedOrder && (await isAmbiguousAcrossMerchants(order, normalizedPhone))) return false;
 
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) throw new Error('Merchant not found');
@@ -318,6 +320,7 @@ export class AddressCorrectionService {
       }
     }
 
+    if (order && !resolvedOrder && (await isAmbiguousAcrossMerchants(order, normalizedPhone))) return false;
     if (!order) {
       return false;
     }

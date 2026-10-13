@@ -1177,6 +1177,10 @@ export class NDRService {
       }).sort({ updatedAt: -1 });
 
       if (!order) return;
+      if (!resolvedOrder) {
+        const { isAmbiguousAcrossMerchants } = require('../utils/phone-order-scope');
+        if (await isAmbiguousAcrossMerchants(order, normalizedPhone)) return;
+      }
 
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;

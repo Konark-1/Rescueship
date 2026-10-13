@@ -18,6 +18,12 @@ import { Merchant } from '../src/models';
 import { config } from '../src/config/env';
 import { encryptionService } from '../src/services/encryption.service';
 
+// Plan gating is tested in its own suite; these tests cover the route logic for an entitled plan.
+jest.mock('../src/middleware/planGating.middleware', () => ({
+  ...jest.requireActual('../src/middleware/planGating.middleware'),
+  requireFeature: () => (_req: any, _res: any, next: any) => next(),
+}));
+
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 

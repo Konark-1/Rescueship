@@ -272,6 +272,21 @@ export class EmailService {
     return this.sendEmail({ to: email, subject, text, html });
   }
 
+  public async sendEmailVerification(email: string, token: string, merchantName: string = 'Merchant'): Promise<boolean> {
+    const appUrl = process.env.APP_URL || 'https://app.rescueship.io';
+    const verifyUrl = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+    const subject = 'Confirm your email - RescueShip';
+    const text = `Hello ${merchantName},\n\nPlease confirm this is your email address:\n${verifyUrl}\n\nIf you did not create a RescueShip account, ignore this email.\n\nRescueShip Team`;
+    const html = `<div style="font-family: sans-serif; line-height: 1.5;">
+      <h2>Confirm your email</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>Please confirm this is your email address.</p>
+      <p style="margin: 20px 0;"><a href="${verifyUrl}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Confirm email</a></p>
+      <p style="font-size: 12px; color: #888;">If you did not create a RescueShip account, ignore this email.</p>
+    </div>`;
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
   public async sendPasswordResetToken(email: string, token: string, merchantName?: string): Promise<boolean> {
     return this.sendPasswordResetEmail(email, token, merchantName);
   }

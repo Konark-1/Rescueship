@@ -10,6 +10,17 @@ import { emailService } from '../services/email.service';
 
 const router = Router();
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+const VERIFY_TOKEN_TTL_MS = 48 * 60 * 60 * 1000;
+
+/** Issue a single-use email verification token (only its hash is stored) and email it. */
+async function issueEmailVerification(merchant: any): Promise<void> {
+  const rawToken = crypto.randomBytes(32).toString('base64url');
+  await Merchant.updateOne(
+    { _id: merchant._id },
+    { $set: { 'emailVerification.tokenHash': hashResetToken(rawToken), 'emailVerification.expiresAt': new Date(Date.now() + VERIFY_TOKEN_TTL_MS) } }
+  );
+  void emailService.sendEmailVerification(merchant.email, rawToken, merchant.name).catch(() => {});
+}
 
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
@@ -96,6 +107,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 
     const token = generateToken(merchant._id.toString(), merchant.tokenVersion ?? 1);
     logger.info('New merchant registered successfully', { merchantId: merchant._id });
+    await issueEmailVerification(merchant).catch((err: any) => logger.warn('Could not issue email verification', { error: err?.message }));
 
     // Fire-and-forget: never block or fail registration on notifications
     void emailService.sendMerchantWelcome(merchant.email, merchant.name).catch(() => {});
@@ -196,6 +208,12 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
     return;
   }
 
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    // Without an audience, verifyIdToken would accept tokens minted for ANY Google client.
+    res.status(503).json({ error: 'Google sign-in is not configured' });
+    return;
+  }
+
   try {
     const ticket = await googleClient.verifyIdToken({
       idToken: credential,
@@ -215,10 +233,15 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
     let merchant = await Merchant.findOne({ $or: [{ email: cleanEmail }, { googleId }] });
 
     if (!merchant) {
+      if (payload.email_verified !== true) {
+        res.status(400).json({ error: 'Your Google email is not verified. Verify it with Google and try again.' });
+        return;
+      }
       // Create new merchant without password
       merchant = await Merchant.create({
         name: name || 'Google User',
         email: cleanEmail,
+        emailVerified: true,
         googleId,
         platform: 'shopify', // Default, they will configure in onboarding
         onboardingStatus: 'pending'
@@ -232,13 +255,20 @@ router.post('/google', async (req: Request, res: Response): Promise<void> => {
           merchant.googleId = googleId;
           await merchant.save();
           logger.info('Google account linked via password confirmation', { merchantId: merchant._id });
-        } else if (payload.email_verified === true) {
-          // JIT auto-link: Google itself verified this user owns the email.
-          // Equivalent to "if you own the inbox, you own the account" — the same
-          // guarantee a password-reset email flow relies on.
+        } else if (payload.email_verified === true && (merchant.emailVerified === true || !merchant.password)) {
+          // JIT auto-link only when the existing account's own email was verified (or it
+          // has no password). Otherwise someone could pre-register the victim's email with
+          // a password and keep access after the victim signs in with Google.
           merchant.googleId = googleId;
+          merchant.emailVerified = true;
           await merchant.save();
           logger.info('Google account auto-linked via verified email', { merchantId: merchant._id, email: cleanEmail });
+        } else if (payload.email_verified === true) {
+          res.status(409).json({
+            error: 'An account with this email already exists but its email was never confirmed. Log in with its password to link Google, or use "Forgot password" to take it over from your inbox.',
+            code: 'ACCOUNT_EXISTS_UNVERIFIED',
+          });
+          return;
         } else {
           logger.warn('Google OAuth login rejected: email not verified by provider', { email: cleanEmail });
           await SecurityAlertService.sendCriticalAlert('OAUTH_ACCOUNT_TAKEOVER_PROBE_BLOCKED', {
@@ -360,6 +390,7 @@ router.post('/change-password', authenticateToken, async (req: AuthenticatedRequ
 
     merchant.password = newPassword;
     merchant.tokenVersion = (merchant.tokenVersion ?? 1) + 1;
+    merchant.emailVerified = true; // the reset link proved inbox ownership
     await merchant.save();
     // Invalidate any outstanding reset token once the password has been changed.
     await Merchant.updateOne({ _id: merchant._id }, { $unset: { passwordReset: 1 } });
@@ -475,6 +506,54 @@ router.post('/reset-password', passwordResetLimiter, async (req: Request, res: R
   } catch (err: any) {
     logger.error('Reset password failed', { error: err.message });
     res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+/**
+ * POST /api/auth/verify-email  { email, token }
+ */
+router.post('/verify-email', passwordResetLimiter, async (req: Request, res: Response): Promise<void> => {
+  const { email, token } = req.body ?? {};
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail || typeof token !== 'string' || token.length < 32 || token.length > 128) {
+    res.status(400).json({ error: 'Invalid or expired verification link' });
+    return;
+  }
+  try {
+    const merchant = await Merchant.findOneAndUpdate(
+      { email: cleanEmail, 'emailVerification.tokenHash': hashResetToken(token), 'emailVerification.expiresAt': { $gt: new Date() } },
+      { $set: { emailVerified: true }, $unset: { emailVerification: 1 } },
+      { new: true }
+    );
+    if (!merchant) {
+      res.status(400).json({ error: 'Invalid or expired verification link' });
+      return;
+    }
+    res.json({ message: 'Email confirmed', emailVerified: true });
+  } catch (err: any) {
+    logger.error('Email verification failed', { error: err.message });
+    res.status(500).json({ error: 'Failed to verify email' });
+  }
+});
+
+/**
+ * POST /api/auth/resend-verification (authenticated)
+ */
+router.post('/resend-verification', authenticateToken, passwordResetLimiter, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const merchant = await Merchant.findById(req.merchant!.merchantId).select('email name emailVerified');
+    if (!merchant) {
+      res.status(404).json({ error: 'Merchant not found' });
+      return;
+    }
+    if (merchant.emailVerified) {
+      res.json({ message: 'Email already confirmed', emailVerified: true });
+      return;
+    }
+    await issueEmailVerification(merchant);
+    res.json({ message: 'Verification email sent' });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to send verification email' });
   }
 });
 

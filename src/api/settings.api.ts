@@ -1,3 +1,4 @@
+import { requireFeature } from '../middleware/planGating.middleware';
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { credentialValidationLimiter } from '../middleware/rateLimiter';
@@ -687,7 +688,7 @@ router.get('/pincode-rules', authenticateToken, async (req: AuthenticatedRequest
  * PUT /api/settings/pincode-rules
  * Set or update geo-risk restriction for a pincode and sync to Shopify / WooCommerce
  */
-router.put('/pincode-rules', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.put('/pincode-rules', authenticateToken, requireFeature('storefront_sync'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   if (!merchantId) {
     res.status(401).json({ error: 'Unauthorized' });

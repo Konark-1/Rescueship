@@ -35,6 +35,17 @@ export const requireActiveSubscription = async (
     }
 
     const subCheck = checkSubscriptionAccess(merchant);
+    // An expired plan or used-up quota stops automation and new actions, not the merchant's
+    // access to their own data: reads stay open, and refunds owed to customers can still be
+    // processed.
+    const method = req.method.toUpperCase();
+    const isRead = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    const isRefund = /\/refund$/.test(req.path);
+    if (!subCheck.allowed && (isRead || isRefund)) {
+      res.setHeader('X-Subscription-Status', 'inactive');
+      next();
+      return;
+    }
     if (!subCheck.allowed) {
       logger.warn('Access denied: Subscription inactive or quota exceeded', {
         merchantId,
@@ -95,9 +106,10 @@ export const requireFeature = (featureName: string) => {
       if (!allowedFeatures.includes(featureName)) {
         logger.warn('Feature access denied by plan gating', { merchantId, plan: planKey, feature: featureName });
         res.status(403).json({
-          error: `The feature '${featureName}' requires a Growth or Scale subscription plan.`,
+          error: `The feature '${featureName}' is not included in your ${planKey} plan.`,
           currentPlan: planKey,
           requiredFeature: featureName,
+          upgradeRequired: true,
         });
         return;
       }

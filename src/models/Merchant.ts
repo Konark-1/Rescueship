@@ -17,6 +17,9 @@ export interface IMerchant extends Document {
   password?: string;
   /** Single-use password reset token (sha256 hash) + expiry. Never selected by default. */
   passwordReset?: { tokenHash?: string; expiresAt?: Date };
+  /** true once the merchant proved inbox ownership (verification link, reset, or verified Google). */
+  emailVerified?: boolean;
+  emailVerification?: { tokenHash?: string; expiresAt?: Date };
   googleId?: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
   onboardingStatus: 'pending' | 'skipped' | 'completed';
@@ -203,6 +206,12 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
     email: { type: String, required: true, lowercase: true, trim: true },
     password: { type: String, required: false },
     passwordReset: {
+      type: { tokenHash: { type: String }, expiresAt: { type: Date } },
+      required: false,
+      select: false,
+    },
+    emailVerified: { type: Boolean, default: false },
+    emailVerification: {
       type: { tokenHash: { type: String }, expiresAt: { type: Date } },
       required: false,
       select: false,
