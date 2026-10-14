@@ -15,12 +15,21 @@ const queryClient = new QueryClient({
   },
 })
 
+const googleClientId =
+  import.meta.env.VITE_GOOGLE_CLIENT_ID ||
+  '143490522495-d9iev2jh0fkbgb65cfi1vi72rgc1dgdn.apps.googleusercontent.com';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      {googleClientId ? (
+        <GoogleOAuthProvider clientId={googleClientId}>
+          <App />
+        </GoogleOAuthProvider>
+      ) : (
         <App />
-      </GoogleOAuthProvider>
+      )}
     </QueryClientProvider>
   </StrictMode>,
-)
+);
+

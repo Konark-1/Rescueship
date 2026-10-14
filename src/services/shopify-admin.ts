@@ -82,19 +82,28 @@ export async function getShopifyAccess(merchant: any): Promise<{ domain: string;
   const s = merchant?.shopify;
   if (s?.shopDomain && !s.demo && !s.uninstalledAt) {
     const domain = String(s.shopDomain).toLowerCase();
-    const expiresSoon = s.tokenExpiresAt && new Date(s.tokenExpiresAt).getTime() - Date.now() < 5 * 60 * 1000;
-    if (s.clientId && s.apiSecret && (!s.accessToken || expiresSoon)) {
+    const expiresSoon = s.tokenExpiresAt ? new Date(s.tokenExpiresAt).getTime() - Date.now() < 5 * 60 * 1000 : false;
+    const clientId = s.clientId || process.env.SHOPIFY_API_KEY;
+    const apiSecretRaw = s.apiSecret ? encryptionService.decrypt(s.apiSecret) : process.env.SHOPIFY_API_SECRET;
+    if (clientId && apiSecretRaw && (!s.accessToken || expiresSoon)) {
       try {
-        const secret = encryptionService.decrypt(s.apiSecret);
-        const fresh = await exchangeClientCredentials(domain, s.clientId, secret);
+        const fresh = await exchangeClientCredentials(domain, clientId, apiSecretRaw);
         await Merchant.updateOne(
           { _id: merchant._id },
-          { $set: { 'shopify.accessToken': encryptionService.encrypt(fresh.accessToken), 'shopify.tokenExpiresAt': fresh.expiresAt, 'shopify.scope': fresh.scope } }
+          {
+            $set: {
+              'shopify.clientId': clientId,
+              'shopify.apiSecret': encryptionService.encrypt(apiSecretRaw),
+              'shopify.accessToken': encryptionService.encrypt(fresh.accessToken),
+              'shopify.tokenExpiresAt': fresh.expiresAt,
+              'shopify.scope': fresh.scope
+            }
+          }
         );
         return { domain, token: fresh.accessToken };
       } catch (err: any) {
         logger.error('Shopify client-credentials token refresh failed; merchant must reconnect', { merchantId: merchant?._id, error: err?.message });
-        return null;
+        if (!s.accessToken) return null;
       }
     }
     if (s.accessToken) {

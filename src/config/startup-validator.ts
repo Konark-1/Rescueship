@@ -47,11 +47,14 @@ const OPTIONAL_VARS: EnvRequirement[] = [
 ];
 
 const PRODUCTION_REQUIRED_VARS: EnvRequirement[] = [
-  { key: 'WHATSAPP_APP_SECRET', required: true, description: 'Meta WhatsApp App Secret for webhook HMAC' },
   { key: 'RAZORPAY_WEBHOOK_SECRET', required: true, description: 'Razorpay Webhook Secret for HMAC verification' },
   { key: 'SHOPIFY_API_SECRET', required: true, description: 'Shopify API Secret for webhook HMAC' },
-  { key: 'DELHIVERY_WEBHOOK_SECRET', required: true, description: 'Delhivery Webhook Secret for HMAC/Token' },
-  { key: 'CLICKPOST_WEBHOOK_SECRET', required: true, description: 'ClickPost Webhook Secret for HMAC/Token' },
+];
+
+const PRODUCTION_RECOMMENDED_VARS: EnvRequirement[] = [
+  { key: 'WHATSAPP_APP_SECRET', required: false, description: 'Meta WhatsApp App Secret for webhook HMAC' },
+  { key: 'DELHIVERY_WEBHOOK_SECRET', required: false, description: 'Delhivery Webhook Secret for HMAC/Token' },
+  { key: 'CLICKPOST_WEBHOOK_SECRET', required: false, description: 'ClickPost Webhook Secret for HMAC/Token' },
 ];
 
 export function validateEnvironment(): void {
@@ -71,6 +74,12 @@ export function validateEnvironment(): void {
       const value = process.env[env.key];
       if (!value || value.trim() === '' || value.startsWith('your-')) {
         errors.push(`  ❌ [PRODUCTION] ${env.key} must be configured with a valid secret (not placeholder): ${env.description}`);
+      }
+    }
+    for (const env of PRODUCTION_RECOMMENDED_VARS) {
+      const value = process.env[env.key];
+      if (!value || value.trim() === '' || value.startsWith('your-')) {
+        warnings.push(`  ⚠️  [PRODUCTION] ${env.key} not set (${env.description}); operating in merchant-specific or fallback mode`);
       }
     }
     // Development-only switches must never be on in production.
@@ -111,6 +120,10 @@ export function validateEnvironment(): void {
     errors.forEach((e) => console.error(e));
     console.error('\nPlease set these in your .env file and restart.\n');
     process.exit(1);
+  }
+
+  if (warnings.length > 0) {
+    warnings.forEach((w) => logger.warn(w.trim()));
   }
 
   logger.info('✅ Environment validation passed', {

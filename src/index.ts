@@ -44,6 +44,7 @@ import settingsRouter from './api/settings.api';
 import templatesRouter from './api/templates.api';
 import billingRouter from './api/billing.api';
 import auditLogsRouter from './api/auditlogs.api';
+import { checkAllMerchants } from './services/connection-health.service';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -418,6 +419,17 @@ async function bootstrap() {
     await connectDatabase();
     await ensureIndexes();
 
+    // Autonomous connection verification & self-healing on boot
+    checkAllMerchants()
+      .then((res) => logger.info('✅ Initial merchant connection auto-verification complete', res))
+      .catch((err) => logger.warn('⚠️ Initial merchant connection auto-verification error', { error: err.message }));
+
+    // Periodic watchdog: auto-verify connections every 30 minutes in background
+    const autoVerifyInterval = setInterval(() => {
+      checkAllMerchants().catch((err) => logger.warn('⚠️ Periodic connection auto-verification error', { error: err.message }));
+    }, 30 * 60 * 1000);
+    autoVerifyInterval.unref();
+
     // 3. Connect Redis
     const redisHealthy = await connectRedis();
 
@@ -447,6 +459,8 @@ async function bootstrap() {
       forceExitTimer.unref();
 
       try {
+        clearInterval(autoVerifyInterval);
+
         // 1. Stop accepting new incoming HTTP connections
         await new Promise<void>((resolve) => {
           server.close((err) => {

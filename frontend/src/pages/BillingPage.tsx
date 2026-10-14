@@ -64,9 +64,23 @@ export default function BillingPage() {
   const [params] = useSearchParams();
 
   const [volume, setVolume] = useState<number>(() => {
-    const q = params.get('v');
-    const stored = localStorage.getItem('rs_volume');
-    return Number(q || stored || 1000);
+    try {
+      const q = params.get('v');
+      if (q) {
+        const parsed = Number(q);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('rs_volume');
+        if (stored) {
+          const parsed = Number(stored);
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return 1000;
   });
   // Plan = what is included; the order band (from volume) = how much it costs.
   const [plan, setPlan] = useState<PlanKey>(() => recommendedPlan(Number(params.get('v') || 1000)));
@@ -86,7 +100,13 @@ export default function BillingPage() {
   const [showTuner, setShowTuner] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('rs_volume', String(volume));
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('rs_volume', String(volume));
+      }
+    } catch {
+      // ignore
+    }
   }, [volume]);
 
   useEffect(() => {

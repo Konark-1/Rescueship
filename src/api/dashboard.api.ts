@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { Order, Merchant, NdrCase } from '../models';
 import { whatsAppDispatcherService } from '../services/whatsapp/whatsapp-dispatcher.service';
@@ -159,12 +159,33 @@ router.get('/attention', authenticateToken, async (req: AuthenticatedRequest, re
     return;
   }
   try {
-    const merchant: any = await Merchant.findById(merchantId).select('email emailVerified connections');
-    const items: any[] = [];
+    let merchant: any = await Merchant.findById(merchantId).select('email emailVerified connections onboardingStatus role shopify');
 
+    // Auto-verify & self-heal if any connection is unhealthy/broken, unverified, or checked > 10m ago
     const connections = merchant?.connections || {};
+    const tenMinutesAgo = Date.now() - 10 * 60 * 1000;
+    const hasUncheckedOrBroken = ['shopify', 'whatsapp', 'payment', 'carrier'].some((kind) => {
+      const c = connections[kind];
+      if (!c) return false;
+      const broken = c.status === 'error' || c.status === 'token_expired' || c.status === 'templates_rejected' || (c.health && c.health.ok === false);
+      const stale = !c.health?.checkedAt || new Date(c.health.checkedAt).getTime() < tenMinutesAgo;
+      return broken || stale;
+    }) || (merchant && merchant.emailVerified !== true);
+
+    if (hasUncheckedOrBroken && mongoose.connection.readyState === 1) {
+      try {
+        const { checkMerchantConnections } = require('../services/connection-health.service');
+        await checkMerchantConnections(merchantId);
+        merchant = await Merchant.findById(merchantId).select('email emailVerified connections onboardingStatus role shopify');
+      } catch (checkErr: any) {
+        logger.debug('Auto-verification in attention check skipped', { error: checkErr.message });
+      }
+    }
+
+    const items: any[] = [];
+    const activeConnections = merchant?.connections || {};
     for (const kind of ['shopify', 'whatsapp', 'payment', 'carrier']) {
-      const c = connections[kind] || {};
+      const c = activeConnections[kind] || {};
       const broken = c.status === 'error' || c.status === 'token_expired' || c.status === 'templates_rejected';
       const unhealthy = c.health && c.health.ok === false;
       if (broken || unhealthy) {

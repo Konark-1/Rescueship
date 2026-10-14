@@ -192,23 +192,9 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
 export default function LandingPage() {
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
 
-  const [fontsReady, setFontsReady] = useState(() => {
-    try {
-      return typeof document !== 'undefined' && 'fonts' in document ? document.fonts.status === 'loaded' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const [reduced, setReduced] = useState(() => {
-    try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-  });
+  const [reduced, setReduced] = useState(false);
   const [booted, setBooted] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(() => {
-    try {
-      return typeof window !== 'undefined' ? !(window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!sessionStorage.getItem('rs_booted')) : true;
-    } catch { return true; }
-  });
+  const [showOverlay, setShowOverlay] = useState(false);
 
   const feedCounterRef = useRef(0);
   const [feedLines, setFeedLines] = useState<{ id: string; t: string; msg: string; cls?: string }[]>([]);
@@ -226,39 +212,40 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (typeof document !== 'undefined' && 'fonts' in document) {
-      if (document.fonts.check('16px "Barlow Condensed"')) {
-        setFontsReady(true);
-        return;
-      }
-      document.fonts.ready
-        .then(() => setFontsReady(true))
-        .catch(() => setFontsReady(true));
-      const t = setTimeout(() => setFontsReady(true), 250);
-      return () => clearTimeout(t);
-    } else {
-      setFontsReady(true);
+      document.fonts.ready.catch(() => {});
     }
   }, []);
 
   useEffect(() => {
-    if (!fontsReady) return;
     let r = false;
-    try { r = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch {}
+    try {
+      r = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {}
     setReduced(r);
+
     let seen = false;
-    try { seen = !!sessionStorage.getItem('rs_booted'); } catch {}
+    try {
+      seen = typeof window !== 'undefined' && !!sessionStorage.getItem('rs_booted');
+    } catch {}
+
     if (r || seen) {
       setShowOverlay(false);
-      const t = setTimeout(() => setBooted(true), 40);
-      return () => clearTimeout(t);
+      setBooted(true);
+      return;
     }
+
+    setShowOverlay(true);
     const t1 = setTimeout(() => setBooted(true), 1200);
-    const t2 = setTimeout(() => { setShowOverlay(false); try { sessionStorage.setItem('rs_booted', '1'); } catch {} }, 1600);
+    const t2 = setTimeout(() => {
+      setShowOverlay(false);
+      try { sessionStorage.setItem('rs_booted', '1'); } catch {}
+    }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [fontsReady]);
+  }, []);
 
   const skipBoot = () => {
-    setBooted(true); setShowOverlay(false);
+    setBooted(true);
+    setShowOverlay(false);
     try { sessionStorage.setItem('rs_booted', '1'); } catch {}
   };
 

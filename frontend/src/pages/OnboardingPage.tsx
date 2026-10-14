@@ -36,7 +36,7 @@ export default function OnboardingPage() {
   const [state, setState] = useState<any>(null);
   const [active, setActive] = useState<Key>(() => {
     try {
-      const p = new URLSearchParams(window.location.search).get('station') as Key | null;
+      const p = params.get('station') as Key | null;
       return p && STATIONS.some((s) => s.key === p) ? p : 'shopify';
     } catch {
       return 'shopify';
