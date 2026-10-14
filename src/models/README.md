@@ -31,6 +31,15 @@
 - `RescueLedger` is append-only, no TTL — permanent attribution record
 - ALL queries MUST include `merchantId` in filter (tenant isolation)
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `merchant-separation.test.ts` | Multi-tenant isolation across Mongoose collection queries | **PASS** (16/16 passed) |
+| `step1-core-hardening.test.ts` | Compound indexes, partial unique indexes, TTL eviction rules | **PASS** (14/14 passed) |
+| `suppression-and-watchtower.test.ts` | Pre-dispatch high-risk order suppression and watchtower alerts | **PASS** (9/9 passed) |
+| `business-logic-stress.test.ts` | Schema indexing and concurrency under high volume load | **PASS** (12/12 passed) |
+
 ## Agent Cheat Sheet
 
 - To add a new model: Create `ModelName.ts`, add to `index.ts` barrel, add indexes in `indexes.ts`

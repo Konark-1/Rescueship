@@ -31,6 +31,15 @@ const apiBase = () => (process.env.API_PUBLIC_URL || process.env.API_BASE_URL ||
 const result = (ok: boolean | null, detail: string): HealthResult => ({ ok, detail, checkedAt: new Date() });
 const errText = (e: any) => String(e?.response?.data?.error?.message || e?.response?.data?.errors || e?.response?.data?.message || e?.message || 'request failed').slice(0, 200);
 
+export const isOwnerAccount = (merchant: any): boolean => {
+  const ownerEmail = (process.env.OWNER_NOTIFY_EMAIL || process.env.SMTP_USER || '').toLowerCase();
+  const mEmail = (merchant?.email || '').toLowerCase();
+  return Boolean(
+    merchant?.role === 'admin' ||
+    (ownerEmail && mEmail && mEmail === ownerEmail)
+  );
+};
+
 export async function checkShopify(merchant: any): Promise<HealthResult> {
   const domain = merchant?.shopify?.shopDomain || merchant?.platformConfig?.shopifyDomain;
   if (!domain) return result(null, 'Not connected');
@@ -86,8 +95,9 @@ export async function checkShopify(merchant: any): Promise<HealthResult> {
 }
 
 export async function checkWhatsApp(merchant: any): Promise<HealthResult> {
+  const isOwner = isOwnerAccount(merchant);
   const w = merchant?.whatsappConfig || {};
-  const phoneId = w.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+  const phoneId = w.phoneNumberId || (isOwner ? process.env.WHATSAPP_PHONE_NUMBER_ID : undefined);
   if (!phoneId) return result(null, 'Not connected');
   let token = dec(w.accessToken);
 
@@ -104,48 +114,52 @@ export async function checkWhatsApp(merchant: any): Promise<HealthResult> {
       if (code !== 190 && e?.response?.status !== 401) {
         return result(false, `WhatsApp check failed: ${errText(e)}`);
       }
-      // If code 190 (expired), fall through to auto-heal with environment token
+      // If code 190 (expired) and owner account, fall through to auto-heal
     }
   }
 
-  // Automatic self-healing: check if process.env.WHATSAPP_ACCESS_TOKEN is available and valid
-  const envToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  if (envToken && envToken !== token) {
-    try {
-      const { data } = await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(phoneId)}`, {
-        params: { fields: 'id,quality_rating,status' },
-        headers: { Authorization: `Bearer ${envToken}` },
-        timeout: 10000,
-      });
-      const { Merchant } = require('../models');
-      await Merchant.updateOne(
-        { _id: merchant._id },
-        {
-          $set: {
-            'whatsappConfig.accessToken': encryptionService.encrypt(envToken),
-            'whatsappConfig.phoneNumberId': phoneId,
-            'connections.whatsapp.status': 'connected',
-            'connections.whatsapp.lastError': null,
-          },
-        }
-      );
-      return result(true, `Number ${data.status || 'reachable'}, quality ${data.quality_rating || 'unknown'} (auto-synced token)`);
-    } catch (healErr: any) {
-      logger.debug('WhatsApp auto-heal token test skipped', { error: healErr.message });
+  // Automatic self-healing: ONLY allowed for the owner/developer account.
+  // External merchants must use their own credentials configured during onboarding.
+  if (isOwner) {
+    const envToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    if (envToken && envToken !== token) {
+      try {
+        const { data } = await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(phoneId)}`, {
+          params: { fields: 'id,quality_rating,status' },
+          headers: { Authorization: `Bearer ${envToken}` },
+          timeout: 10000,
+        });
+        const { Merchant } = require('../models');
+        await Merchant.updateOne(
+          { _id: merchant._id },
+          {
+            $set: {
+              'whatsappConfig.accessToken': encryptionService.encrypt(envToken),
+              'whatsappConfig.phoneNumberId': phoneId,
+              'connections.whatsapp.status': 'connected',
+              'connections.whatsapp.lastError': null,
+            },
+          }
+        );
+        return result(true, `Number ${data.status || 'reachable'}, quality ${data.quality_rating || 'unknown'} (auto-synced token)`);
+      } catch (healErr: any) {
+        logger.debug('WhatsApp auto-heal token test skipped', { error: healErr.message });
+      }
     }
   }
 
-  return result(false, 'WhatsApp access token expired. Use a permanent System User token.');
+  return result(false, 'WhatsApp access token expired. Generate a permanent System User token in Meta Business Suite.');
 }
 
 export async function checkPayment(merchant: any): Promise<HealthResult> {
+  const isOwner = isOwnerAccount(merchant);
   const pc = merchant?.paymentConfig || {};
-  const provider = pc.provider || pc.gateway || (process.env.RAZORPAY_KEY_ID ? 'razorpay' : undefined);
-  let keyId = dec(pc.keyId) || process.env.RAZORPAY_KEY_ID;
-  let keySecret = dec(pc.keySecret) || process.env.RAZORPAY_KEY_SECRET;
+  const provider = pc.provider || pc.gateway || (isOwner && process.env.RAZORPAY_KEY_ID ? 'razorpay' : undefined);
+  let keyId = dec(pc.keyId) || (isOwner ? process.env.RAZORPAY_KEY_ID : undefined);
+  let keySecret = dec(pc.keySecret) || (isOwner ? process.env.RAZORPAY_KEY_SECRET : undefined);
 
   if (!provider && !keyId) return result(null, 'Not connected');
-  if (!keyId || !keySecret) return result(false, 'Stored gateway keys cannot be read. Reconnect the gateway.');
+  if (!keyId || !keySecret) return result(false, 'Stored gateway keys cannot be read. Reconnect the gateway in Settings.');
 
   const { Merchant } = require('../models');
 
@@ -220,15 +234,16 @@ export async function checkPayment(merchant: any): Promise<HealthResult> {
 }
 
 export async function checkCarrier(merchant: any): Promise<HealthResult> {
+  const isOwner = isOwnerAccount(merchant);
   const cc = merchant?.carrierConfig || {};
-  const provider = cc.provider || 'shiprocket';
+  const provider = cc.provider || (isOwner ? 'shiprocket' : undefined);
   if (!provider) return result(null, 'Not connected');
   const specific = cc.carriers?.[provider] || cc;
   if (specific.mode === 'webhook_only') return result(null, 'Webhook-only: courier actions are manual');
   if (provider === 'shiprocket') {
-    const email = dec(specific.email) || process.env.SHIPROCKET_EMAIL;
-    const password = dec(specific.password) || process.env.SHIPROCKET_PASSWORD;
-    if (!email || !password) return result(false, 'Shiprocket API user missing. Reconnect Shiprocket.');
+    const email = dec(specific.email) || (isOwner ? process.env.SHIPROCKET_EMAIL : undefined);
+    const password = dec(specific.password) || (isOwner ? process.env.SHIPROCKET_PASSWORD : undefined);
+    if (!email || !password) return result(false, 'Shiprocket API user missing. Reconnect Shiprocket in Settings.');
     try {
       const { data } = await axios.post('https://apiv2.shiprocket.in/v1/external/auth/login', { email, password }, { timeout: 15000 });
       return data?.token ? result(true, 'Shiprocket API login works') : result(false, 'Shiprocket login returned no token');

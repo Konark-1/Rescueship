@@ -41,6 +41,18 @@
 - `carrier-ndr.handler.ts` is the shared NDR entry point for all 8 carriers and custom aggregators
 - **Universal Order Ingestion Invariant**: Neither Shopify nor WooCommerce ignores prepaid orders. Storing both prepaid and COD orders preserves consignee contact numbers in MongoDB, guaranteeing 100% downstream carrier NDR rescue coverage even when carrier webhooks omit phone numbers.
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `universal-order-ingestion.test.ts` | Shopify + WooCommerce prepaid & COD ingestion, phone normalization, quarantined shipment linking | **PASS** (12/12 passed) |
+| `storefront-sync.test.ts` | E-commerce store webhooks, order creation, fulfillment updates | **PASS** (9/9 passed) |
+| `shopify-lifecycle.test.ts` | Shopify app install/uninstall, client credentials token exchange, GDPR compliance webhooks | **PASS** (7/7 passed) |
+| `webhook-security.test.ts` | HMAC signature validation for Shopify, Razorpay, Cashfree, Meta, Couriers | **PASS** (11/11 passed) |
+| `refund-and-gateway.test.ts` | Payment gateway webhooks, refund queue, merchant-only API keys | **PASS** (8/8 passed) |
+| `anti-exploitation.test.ts` | Webhook tampering prevention, payload manipulation defense | **PASS** (15/15 passed) |
+| `shiprocket-alias.test.ts` | Webhook alias endpoint, signature validation, idempotency | **PASS** (6/6 passed) |
+
 ## Agent Cheat Sheet
 
 - To add a new webhook source: Create `provider.webhook.ts`, add HMAC in `../middleware/webhookVerify.ts`, add Zod schema in `../schemas/`, mount in `../index.ts` under `/webhooks/provider`

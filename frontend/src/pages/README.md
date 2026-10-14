@@ -1,37 +1,51 @@
 # pages/
 
-> **Purpose**: Application page route components — 14 lazy-loaded pages for the merchant console.
+> **Purpose**: Top-level page views — lazy-loaded route targets for authentication, dashboard, order management, onboarding, enterprise reporting, and legal compliance.
 
 ## File Catalog
 
-| File | Route | Role |
-|------|-------|------|
-| `LandingPage.tsx` | `/` | PLG landing: boot sequence, scroll story, AI decoder, carrier marquee, lead capture |
-| `LoginPage.tsx` | `/login` | Email/password + Google OAuth sign-in |
-| `RegisterPage.tsx` | `/register` | Merchant registration with platform selection |
-| `ForgotPasswordPage.tsx` | `/forgot-password` | Password reset email request |
-| `ResetPasswordPage.tsx` | `/reset-password` | Token-based password reset confirmation |
-| `DashboardPage.tsx` | `/dashboard` | Real-time telemetry with SSE, Recharts, AnimatedCounters |
-| `OrdersPage.tsx` | `/orders` | Order management: search, filters, timeline modal |
-| `OnboardingPage.tsx` | `/onboarding` | 4-station wizard: Store, WhatsApp, Multi-Carrier Hub (8 couriers + custom, Direct API & Webhook-only modes), Payment |
-| `SandboxPage.tsx` | `/sandbox` | NDR simulation, WABA quality monitoring |
+| File | Route | Purpose |
+|------|-------|---------|
+| `LandingPage.tsx` | `/` | Conversion landing: hero, ROI calculator, plan picker, FAQ, trust badges |
+| `LoginPage.tsx` | `/login` | Email/password login + Google OAuth |
+| `RegisterPage.tsx` | `/register` | Merchant registration |
+| `ForgotPasswordPage.tsx` | `/forgot-password` | Password reset request |
+| `ResetPasswordPage.tsx` | `/reset-password` | Password reset confirmation with token |
+| `VerifyEmailPage.tsx` | `/verify-email` | Email verification confirmation |
+| `DashboardPage.tsx` | `/dashboard` | Command center: live metric counters, urgent action queue, resolution feed |
+| `OrdersPage.tsx` | `/orders` | Order management: search, filters, timeline modal, address edit |
+| `OnboardingPage.tsx` | `/onboarding` | 4-station wizard: Store, WhatsApp, Multi-Carrier Hub, Payment |
+| `ReportsPage.tsx` | `/reports` | Enterprise reporting: Carrier Fraud Watchtower, AI Rescue Funnel, high-risk pincodes |
+| `ConnectedApisPage.tsx` | `/connected-apis` (`/docs` redirect) | API integration credentials, webhook signing secrets, cURL samples |
+| `SandboxPage.tsx` | `/sandbox` | Interactive NDR sandbox simulator, fake remark testing, WABA quality monitoring |
 | `SettingsPage.tsx` | `/settings` | Platform/carrier/WhatsApp/payment credential management |
-| `TemplatesPage.tsx` | `/templates` | Meta WhatsApp template registry + mobile preview |
-| `BillingPage.tsx` | `/billing` | Plan selection, ROI calculator, Razorpay checkout |
-| `AuditLogsPage.tsx` | `/audit-logs` | SOC-2 audit trail viewer + JSON inspector |
-| `DocsPage.tsx` | `/docs` | Interactive API docs: cURL/Node/Python examples |
+| `TemplatesPage.tsx` | `/templates` | Meta WhatsApp template registry + real-time mobile preview |
+| `BillingPage.tsx` | `/billing` | Plan selection, India-market feature ladders, Razorpay checkout |
+| `AuditLogsPage.tsx` | `/audit-logs` | SOC-2 immutable audit trail viewer + raw JSON inspector |
+| `ShopifyLaunchPage.tsx` | `/shopify` | Shopify App Store launch & OAuth installation bridge |
+| `PrivacyPolicy.tsx` | `/privacy` | Privacy policy compliance page |
+| `TermsOfService.tsx` | `/terms` | Merchant terms of service |
+| `DPDPAddendum.tsx` | `/dpa` | Digital Personal Data Protection (DPDP) Act legal addendum |
 
-Associated CSS: `landing.css`, `auth.css`, `onboarding.css`, `sandbox.css`, `billing.css`
+Associated CSS: `landing.css`, `auth.css`, `onboarding.css`, `sandbox.css`, `billing.css`, `legal.css`, `TemplatesPage.css`
 
 ## Key Invariants
 
 - ALL pages lazy-loaded via `React.lazy()` in `App.tsx`
 - Protected pages require `useAuth().isAuthenticated`
-- `OnboardingPage` renders only when `user.onboardingStatus === 'pending'`
-- `DashboardPage` uses `useRealtime()` hook for live SSE updates
-- Data fetching uses `../services/api` (auto auth headers)
+- `DashboardLayoutWrapper` gates access unless merchant completed onboarding
+- `DashboardPage` uses `useRealtime()` hook for live SSE stream events
+- Data fetching uses `../services/api` with automatic JWT Bearer headers
 
-## Agent Cheat Sheet
+## 🧪 Verified Tests & Status
 
-- To add a new page: Create `YourPage.tsx`, lazy-import in `App.tsx`, add `<Route>`
-- To add to sidebar: Add entry in `../components/AppLayout.tsx` navigation sections
+| Test Suite | Scope | Status |
+| :--- | :--- | :---: |
+| `tests/all-pages.spec.ts` | End-to-end smoke across all page routes: Landing, Auth, Dashboard, Orders, Settings, Templates, Billing, Reports, Sandbox, Onboarding | `PASS` ✅ |
+| `tests/landing-plg.spec.ts` | Landing page PLG funnel, email capture modal, ROI interactive calculator | `PASS` ✅ |
+| `tests/landing-v2.spec.ts` | Responsive layouts, pricing tier selectors, FAQ accordion | `PASS` ✅ |
+| `tests/onboarding.spec.ts` | 4-Station onboarding wizard: Store, WhatsApp, Multi-Carrier Hub, Payment | `PASS` ✅ |
+| `tests/reports-enterprise.spec.ts` | Enterprise reports: Fraud Watchtower, AI Funnel, pincode sync | `PASS` ✅ |
+| `tests/checkout-flow.spec.ts` | Billing checkout & Razorpay checkout integration | `PASS` ✅ |
+| `tests/accessibility.spec.ts` | WCAG 2.1 AA accessibility checks across all page views | `PASS` ✅ |
+

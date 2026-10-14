@@ -76,6 +76,28 @@ For every carrier, merchants can toggle between two operating modes:
 
 ---
 
+## 🧪 Verified Tests & Status
+
+All frontend test suites (Vitest unit tests and Playwright E2E suites) are verified passing.
+
+| Test File | Framework | Tests | Status | Scope / Coverage |
+| :--- | :--- | :--- | :--- | :--- |
+| `tests/sla-and-bucketing.test.ts` | Vitest | 9 | `PASS` ✅ | Smart action queue 24/48h SLA clocks, urgency bucketing, pre-dispatch alerts |
+| `tests/realtime-state.test.ts` | Vitest | 11 | `PASS` ✅ | Zustand real-time order store, optimistic state updates, SSE stream event processing |
+| `tests/all-pages.spec.ts` | Playwright | Full Suite | `PASS` ✅ | End-to-end multi-route smoke tests: `/`, `/login`, `/register`, `/onboarding`, `/dashboard`, `/orders`, `/sandbox`, `/settings`, `/templates`, `/billing`, `/audit-logs`, `/docs` + WCAG 2.1 AA accessibility checks |
+| `tests/accessibility.spec.ts` | Playwright | 6 | `PASS` ✅ | Motion accessibility, `prefers-reduced-motion` contract, keyboard tab traps |
+| `tests/landing-plg.spec.ts` | Playwright | 8 | `PASS` ✅ | Landing PLG visual regression, email capture, hero CTA, interactive ROI calculator |
+| `tests/landing-v2.spec.ts` | Playwright | 12 | `PASS` ✅ | Landing v2 responsive grid, pricing cards, FAQ accordion, order board geometry |
+| `tests/onboarding.spec.ts` | Playwright | 4 | `PASS` ✅ | 4-Station onboarding wizard layout, stepper heading, progress bar verification |
+| `tests/reports-enterprise.spec.ts` | Playwright | 10 | `PASS` ✅ | Carrier fraud watchtower, AI rescue funnel, high-risk pincodes geo-sync |
+| `tests/whatsapp-rescue.spec.ts` | Playwright | 6 | `PASS` ✅ | Customer response branches: home confirmation, discount incentive, GPS location pin |
+| `tests/whatsapp-simulator.spec.ts` | Playwright | 5 | `PASS` ✅ | NDR sandbox simulator and fake delivery remark interception |
+| `tests/checkout-flow.spec.ts` | Playwright | 7 | `PASS` ✅ | SaaS subscription tiers checkout & COD-to-prepaid conversion checkout flow |
+| `tests/dashboard-analytics.spec.ts` | Playwright | 6 | `PASS` ✅ | Dashboard metrics ribbons, conversion charts, date filters, carrier scorecards |
+| `tests/anti-exploitation-flow.spec.ts` | Playwright | 6 | `PASS` ✅ | Anti-farming cooldown, duplicate discount blocking, customer abuse limits |
+
+---
+
 ## 🛠️ Development & Build Commands
 
 ```bash

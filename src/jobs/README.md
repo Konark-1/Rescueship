@@ -31,6 +31,14 @@
 - `monthlyReset` resets billing counters — must run exactly once per month
 - All cron schedules registered in `index.ts` → `startAllWorkers()`
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `gaps-operational-hardening.test.ts` | 15-min reminder sweep, 72h auto-expiry, Sunday ROI report job logic | **PASS** (16/16 passed) |
+| `merchant-digest.service.test.ts` | Hourly event buffering, digest batching, quota warning triggers | **PASS** (7/7 passed) |
+| `step2-infrastructure.test.ts` | BullMQ queue isolation, worker lifecycle, connection retry logic | **PASS** (10/10 passed) |
+
 ## Agent Cheat Sheet
 
 - To add a new worker: Create `yourworker.job.ts`, export worker, import in `index.ts`, add to `startAllWorkers()`

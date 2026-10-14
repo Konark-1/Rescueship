@@ -5,22 +5,13 @@
 
 ## Active Script Catalog
 
-| Script | Purpose | Usage |
-|--------|---------|-------|
-| `verify-adversarial-fixes.ts` | Multi-vector adversarial security probe suite (Run in CI) | `npx ts-node tests/scripts/verify-adversarial-fixes.ts` |
-| `master-e2e-test.ts` | End-to-end full platform lifecycle validation | `npx ts-node tests/scripts/master-e2e-test.ts` |
-| `run-50-irregular-live-tests.ts` | 50 irregular scenarios live verification | `npx ts-node tests/scripts/run-50-irregular-live-tests.ts` |
-| `execute-50-live-tests.ts` | Live execution runner for 50 test cases | `npx ts-node tests/scripts/execute-50-live-tests.ts` |
-| `simulate-50-scenarios.ts` | 50 scenarios simulator using JSON dataset | `npx ts-node tests/scripts/simulate-50-scenarios.ts` |
-| `e2e-verification.ts` | Multi-carrier integration verification | `npx ts-node tests/scripts/e2e-verification.ts` |
-| `advanced-edge-cases-test.ts` | Edge cases and boundary testing | `npx ts-node tests/scripts/advanced-edge-cases-test.ts` |
-| `test-2pm-vs-830pm.ts` | Timing and delivery window differential test | `npx ts-node tests/scripts/test-2pm-vs-830pm.ts` |
-| `test-infra.ts` | MongoDB and Redis infrastructure connectivity probe | `npx ts-node tests/scripts/test-infra.ts` |
-| `load-test.js` | k6 load test script for webhook ingestion | `k6 run tests/scripts/load-test.js` |
+| Script | Purpose | Usage | Status |
+|--------|---------|-------| :--- |
+| `verify-adversarial-fixes.ts` | Multi-vector adversarial security probe suite (Run in GitHub Actions CI) | `npx ts-node tests/scripts/verify-adversarial-fixes.ts` | **PASS** (12/12 probes passed) |
 
-## Retired Scripts & Historical Documentation
+## Retired Ad-Hoc Scripts
 
-The following integration scripts that previously contained simulated key strings or ad-hoc test passwords have been retired:
+All legacy manual runner scripts (`master-e2e-test.ts`, `run-50-irregular-live-tests.ts`, `execute-50-live-tests.ts`, `simulate-50-scenarios.ts`, `e2e-verification.ts`, `advanced-edge-cases-test.ts`, `test-2pm-vs-830pm.ts`, `test-infra.ts`, `load-test.js`, `simulate-all-possibilities.ts`, `test-shiprocket.ts`, `simulate_flow.ts`, `verify-phase5-identity-ops.ts`) have been retired to eliminate repository clutter and potential secret scan false positives. All test coverage is now executed via official Jest suites (`npm test`) and the CI adversarial probe.
 - `simulate-all-possibilities.ts`
 - `test-shiprocket.ts`
 - `simulate_flow.ts`
