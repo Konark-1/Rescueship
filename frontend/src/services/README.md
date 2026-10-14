@@ -6,7 +6,8 @@
 
 | File | Key Exports |
 |------|-------------|
-| `api.ts` | `export default api` (Axios instance) |
+| `api.ts` | `export default api` (Axios instance configured with base URL and auth interceptors) |
+| `billing.api.ts` | `billingApi` (Subscription checkout, portal links, plan upgrade, invoice history endpoints) |
 
 ## Configuration
 

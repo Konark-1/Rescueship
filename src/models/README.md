@@ -20,6 +20,9 @@
 | `BillingEvent.ts` | Billing ledger | `BillingEvent` model — credit deductions, plan changes |
 | `WebhookEvent.ts` | Webhook dedup | `WebhookEvent` model — raw webhook deduplication log |
 | `WhatsAppTemplate.ts` | Template catalog | `WhatsAppTemplate` model — Meta template registry per merchant |
+| `Invoice.ts` | Merchant invoices | `Invoice` model — subscription payment receipts, GST breakdown, download URLs |
+| `SuppressedPhone.ts` | Anti-abuse suppression | `SuppressedPhone` model — repeated RTO offenders & blacklisted phone numbers |
+| `TrialUsage.ts` | Free simulation tracker | `TrialUsage` model — track free trial test rescue quota limits |
 
 ## Key Invariants
 

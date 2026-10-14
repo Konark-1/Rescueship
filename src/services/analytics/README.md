@@ -7,6 +7,7 @@
 | File | Role | Key Exports |
 |------|------|-------------|
 | `roi-calculator.service.ts` | ROI calculator | `RoiCalculatorService` singleton — `getRtoLossPerOrder()`, `getMerchantRoiSummary()`, `getWeeklyReportMetrics()` |
+| `pincode-risk.service.ts` | Pincode risk analysis | `PincodeRiskService` singleton — computes historical RTO rates, risk tiers, and auto-guard triggers per pincode |
 
 ## Architecture & Data Flow
 

@@ -8,10 +8,17 @@
 |------|------|-------------|
 | `circuit-breaker.ts` | Tenant failure tracking | `TenantCircuitBreaker` — trips after 5 failures, 15-min cooldown, fires security alerts |
 | `customer-copy-guard.ts` | Copy linter | `assertSafeCopy(s)`, `scanCustomerCopy(strings[])` — blocks accusatory language |
+| `distributed-lock.util.ts` | Distributed locking | `withDistributedLock(key, ttl, fn)` — Redis-based mutual exclusion lock |
+| `errors.util.ts` | Standard error classes | `AppError`, `ValidationError`, `AuthError`, `NotFoundError` |
 | `idempotency.ts` | Dedup guard | `IdempotencyGuard` — atomic Redis `SET NX` claims: `claim()`, `release()`, `markProcessed()` |
 | `job-id.ts` | BullMQ job IDs | `makeJobId(...parts)` — sanitized IDs joined with `__` (no colons) |
 | `logger.ts` | Winston logger | `logger`, `maskPhone(phone)`, `createChildLogger(meta)` — auto PII redaction |
+| `phone-order-scope.ts` | Phone tenant scoping | Scoped phone number matching preventing cross-tenant order leaks |
 | `phoneNormalizer.ts` | Phone normalization | `normalizeIndianPhone(phone)`, `isValidIndianPhone(phone)` |
+| `redis-cache.ts` | Redis caching helper | `getOrSetCache(key, ttl, fetcher)` — cache wrapper with TTL support |
+| `security.utils.ts` | Cryptographic utilities | `timingSafeEqual`, token generation, and secure hashing helpers |
+| `subscription-guard.ts` | Subscription bounds guard | `checkSubscriptionActive(merchant)` — verifies license status and order quotas |
+| `webhook-heartbeat.ts` | Webhook heartbeat telemetry | Logs last received webhook timestamp per provider for connectivity health monitoring |
 
 ## Key Invariants
 

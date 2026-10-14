@@ -74,6 +74,7 @@
 - ALL 61 suites / 525 tests MUST pass before any deploy (`npm test`)
 - Run with: `npm test` (configured with `jest --forceExit`)
 - Tests use in-memory mocks — do NOT connect to real external MongoDB/Redis
+- `setup-env.ts`: Central test harness pre-load script injecting required environment variables and crypto mocks
 - Config: `jest.config.ts` in project root, uses `ts-jest`
 
 ## Agent Cheat Sheet

@@ -21,7 +21,7 @@ import type { UnifiedDashboardOrder } from '../types/dashboard.d';
 import { bucketRoiRecordsByWeek } from '../lib/utils';
 import '../styles/dashboard.css';
 
-const SHOW_SIMULATOR = import.meta.env.DEV;
+const SHOW_SIMULATOR = import.meta.env.DEV || (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'));
 
 const TrendCharts = lazy(() => import('../components/dashboard/TrendCharts'));
 const RescueFunnel = lazy(() => import('../components/reports/RescueFunnel'));

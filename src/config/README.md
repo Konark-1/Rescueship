@@ -11,6 +11,7 @@
 | `redis.ts` | Redis connection | `redisConnection: Redis`, `connectRedis()`, `disconnectRedis()` |
 | `logger.ts` | Logger factory | `default logger`, `createLogger(label)` |
 | `order-status.ts` | Status constants | `ORDER_STATUS` enum object, `terminalOutcome(status)` |
+| `plans.ts` | SaaS Plan feature definitions | `PLANS`, `PlanFeatures`, `hasFeature(plan, feature)` — authoritative backend feature matrix |
 | `rescue-policy.ts` | Policy engine | `RescuePolicy` interface, `defaultRescuePolicy()`, `getPolicy()`, `validatePolicy()` |
 | `startup-validator.ts` | Boot checks | `validateEnvironment()` — exits on missing critical env vars |
 

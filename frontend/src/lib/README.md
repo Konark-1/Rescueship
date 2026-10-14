@@ -9,6 +9,8 @@
 | `billing.ts` | Billing API + calculations | Types: `Tier`, `Cycle`. Constants: `TIERS`, `CYCLES`. Functions: `inr()`, `priceFor()`, `lossFor()`, `recommendedTier()`. API: `billingApi`. Helper: `loadRazorpay()` |
 | `connect.ts` | Onboarding API | `connectApi` with 17 endpoints (state, shopifyUrl, carrier, payment, whatsapp, testPulse, finalize, skip). Auto 401 session eviction |
 | `motion.ts` | Animation presets | Springs: `springDefault`, `springSnappy`, `springBouncy`. Easings: `easeSmoothOut`. Variants: `fadeUp`, `fadeIn`, `scaleUp`, `staggerContainer`, `hoverLift` |
+| `shopify-launch.ts` | Shopify App Bridge / Launch utilities | Launch coordination helpers for Shopify embedded app context |
+| `utils.ts` | Class name & style utilities | `cn()` Tailwind class merge helper via clsx + tailwind-merge |
 
 ## Key Invariants
 

@@ -1,13 +1,15 @@
 import { PlanPicker } from './PlanPicker';
-import { estimate, recommendedPlan, planByKey, priceFor, bandFor } from '../../config/pricing.config';
+import { estimate, recommendedPlan, planByKey, priceFor, bandFor, type PlanKey } from '../../config/pricing.config';
 
 export interface PricingSectionProps {
   orders: number;
   onOrdersChange: (n: number) => void;
+  selectedPlan?: PlanKey;
+  onSelectPlan?: (plan: PlanKey) => void;
 }
 
-export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) {
-  const plan = planByKey(recommendedPlan(orders));
+export function PricingSection({ orders, onOrdersChange, selectedPlan, onSelectPlan }: PricingSectionProps) {
+  const plan = planByKey(selectedPlan || recommendedPlan(orders));
   const band = bandFor(orders);
   const e = estimate(orders, {}, plan.key);
   const monthly = band ? priceFor(plan.key, band, 'quarterly').monthly : 0;
@@ -30,7 +32,12 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
 
         {/* Reused PlanPicker component controlled by shared monthlyOrders state */}
         <div className="pricing__picker-wrap">
-          <PlanPicker value={orders} onChange={onOrdersChange} />
+          <PlanPicker
+            value={orders}
+            onChange={onOrdersChange}
+            selectedTierKey={selectedPlan}
+            onSelectTier={(key) => onSelectPlan?.(key as PlanKey)}
+          />
         </div>
 
         {/* 1. Break-even line */}

@@ -6,7 +6,8 @@
 
 | File | Size | Sections |
 |------|------|----------|
-| `app.css` | 19,928 bytes | Page scaffolding, panel containers, stat cards, button system, forms, badges, tables, modals, toasts, code blocks, scrollbars |
+| `app.css` | ~20 KB | Page scaffolding, panel containers, stat cards, button system, forms, badges, tables, modals, toasts, code blocks, scrollbars |
+| `dashboard.css` | ~5 KB | Responsive grid layouts, action queue cards, financial summary widgets, and live chart styling |
 
 ## CSS Class Reference
 

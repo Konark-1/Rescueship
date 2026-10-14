@@ -8,6 +8,7 @@
 |------|------|-------------|
 | `whatsapp-dispatcher.service.ts` | Outbound engine | `WhatsAppDispatcherService` singleton — `dispatchNdrRescue(options)`. Enforces 4h cooldown, 3-attempt max, atomic credit deduction, quiet hours, opt-outs, and prepaid remark sanitization (`COD_COLLECTION_ISSUE` → `CUSTOMER_NOT_AVAILABLE` for prepaid parcels). |
 | `template-mapper.service.ts` | Template selection | `TemplateMapperService` singleton — `getMappingForCategory(category)`, `validateTemplatePayload()`, `buildTemplateComponents()` |
+| `template-registry.ts` | Canonical template definitions | Single source of truth for Meta Utility/Marketing templates (payload structures, variable mappings, languages) |
 
 ## Key Invariants
 

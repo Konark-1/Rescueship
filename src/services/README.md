@@ -34,7 +34,19 @@
 | `whatsapp-cost.service.ts` | Cost classifier | Functional — marketing (~₹0.88) vs utility (~₹0.14) classification |
 | `woocommerce-connect.service.ts` | WooCommerce | Instance — store connection via Consumer Key/Secret |
 | `alert.service.ts` | System alerts | Instance — quality warnings, template rejections, billing alerts |
+| `cashfree.service.ts` | Cashfree integration | Singleton — Cashfree Payment Gateway links, order sync, webhook verification |
+| `connection-health.service.ts` | Connection health | Singleton — automated health probes across Shopify, WhatsApp, Gateways, and Couriers |
+| `cooldown.service.ts` | Notification cooldown | Singleton — enforces anti-spam time buffers across customer communication channels |
+| `free-test.service.ts` | Free test rescue simulation | Singleton — allows newly registered merchants to test-drive live WhatsApp rescues |
+| `liveops-watchtower.service.ts` | LiveOps watchtower | Singleton — active health checks, DLQ alert telemetry, system degradation detection |
 | `merchant-digest.service.ts` | Hourly digest | Singleton — batches real-time operational events into hourly merchant emails |
+| `payment-guard.ts` | Payment security guard | Singleton — verifies payment integrity, carrier post-dispatch amendments, prevents double refund |
+| `pincode-guard.service.ts` | High-risk pincode guard | Singleton — blocks high-risk COD orders and automates delivery suppression rules |
+| `pre-delivery.service.ts` | Pre-delivery confirmation | Singleton — sends WhatsApp verification before dispatch and day-of-delivery alerts |
+| `refund.service.ts` | Refund processing | Singleton — handles customer refunds via Razorpay/Cashfree gateways with idempotency |
+| `setup-status.service.ts` | Onboarding progress | Singleton — evaluates merchant connection state across all onboarding steps |
+| `shopify-admin.ts` | Shopify Admin client | Singleton — administrative Shopify REST/GraphQL mutations for order tags and holds |
+| `storefront-sync.service.ts` | Storefront synchronization | Singleton — syncs order status changes, cancellation, and notes back to store |
 
 ## Subdirectories
 

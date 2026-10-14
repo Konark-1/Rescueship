@@ -22,6 +22,7 @@ import { RoiCalculator } from '../components/landing/RoiCalculator';
 import { PricingSection } from '../components/landing/PricingSection';
 import { TrustStrip } from '../components/landing/TrustStrip';
 import { FaqSection } from '../components/landing/FaqSection';
+import type { PlanKey } from '../config/pricing.config';
 import './landing.css';
 
 /* ═══ BOOT SEQUENCE ═══ */
@@ -191,6 +192,7 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
 /* ═══ MAIN ═══ */
 export default function LandingPage() {
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey | undefined>(undefined);
 
   const [reduced, setReduced] = useState(false);
   const [booted, setBooted] = useState(false);
@@ -709,11 +711,20 @@ export default function LandingPage() {
       </section>
 
       {/* 12. ROI CALCULATOR */}
-      <RoiCalculator orders={monthlyOrders} onOrdersChange={setMonthlyOrders} />
+      <RoiCalculator
+        orders={monthlyOrders}
+        onOrdersChange={setMonthlyOrders}
+        selectedPlan={selectedPlan}
+      />
 
       {/* 13. PRICING SECTION */}
       <section id="pricing">
-        <PricingSection orders={monthlyOrders} onOrdersChange={setMonthlyOrders} />
+        <PricingSection
+          orders={monthlyOrders}
+          onOrdersChange={setMonthlyOrders}
+          selectedPlan={selectedPlan}
+          onSelectPlan={setSelectedPlan}
+        />
       </section>
 
       {/* 14. TRUST STRIP */}

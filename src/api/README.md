@@ -6,12 +6,15 @@
 
 | File | Role | Key Endpoints |
 |------|------|---------------|
+| `ai.api.ts` | AI address decoder | `POST /decode-address`, `/geocode` |
 | `analytics.api.ts` | Dashboard metrics | `GET /dashboard`, `GET /carriers` (Growth+ gated) |
 | `auditlogs.api.ts` | Audit trail | `GET /` (paginated) |
 | `auth.api.ts` | Authentication | `POST /register`, `/login`, `/google`, `/logout`, `/change-password`, `/forgot-password`, `/reset-password` |
 | `billing.api.ts` | Subscriptions | `GET /usage`, `/plan`, `/status`, `POST /checkout`, `/checkout/verify` |
 | `connect.api.ts` | Onboarding wizard | 20+ endpoints for Store/WhatsApp/Carrier/Payment integration |
+| `dashboard.api.ts` | Dashboard API | `GET /summary`, `GET /action-queue`, `POST /action-queue/resolve` |
 | `export.api.ts` | Data export | `GET /:type` (CSV/JSON, Scale+ gated) |
+| `liveops.api.ts` | LiveOps telemetry | `GET /status`, `GET /dlq`, `POST /dlq/retry` (admin only) |
 | `metrics.api.ts` | Performance | `GET /my`, `GET /cohort` (admin only) |
 | `orders.api.ts` | Order management & dispute resolution | `GET /`, `GET /:id`, `GET /export/csv`, `GET /chats/recent`, `POST /:orderId/resend-payment-link`, `POST /:orderId/reconcile-utr` |
 | `plg.api.ts` | PLG self-serve | `POST /signup`, `GET /validate-token`, `POST /activate` (public) |

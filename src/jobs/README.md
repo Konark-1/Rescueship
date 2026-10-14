@@ -18,6 +18,9 @@
 | `quality-monitor.job.ts` | `quality-monitor` | On-demand | Meta WABA quality rating checker |
 | `template-poller.job.ts` | `template-poller` | Delay-based | Meta template approval status polling |
 | `whatsappSend.job.ts` | `whatsapp-send` | Event-driven | High-throughput outbound WhatsApp (70 msg/s rate limit) |
+| `cancel-stale-deposits.job.ts` | `cancel-stale-deposits` | `*/10 * * * *` (10-min) | Sweeps expired COD part-payment intent tokens & releases held stock |
+| `connection-health.job.ts` | `connection-health` | `*/30 * * * *` (30-min) | Proactively tests credentials across Shopify, couriers, WhatsApp & gateways |
+| `subscription-lifecycle.job.ts` | `subscription-lifecycle` | `0 1 * * *` (1AM daily) | Daily subscription state check, grace period warnings, quota enforcement |
 | `digest.job.ts` | `digest-notifications` | `0 * * * *` (Hourly) | Hourly batched operational digest email to merchants |
 | `pii-anonymization.job.ts` | `pii-anonymization` | `0 2 * * *` (2AM daily) | DPDP Act 2023 automated customer PII redaction (> 180 days) |
 | `deadLetter.job.ts` | `dead-letter` | Receives failed | Permanently failed job forensics |

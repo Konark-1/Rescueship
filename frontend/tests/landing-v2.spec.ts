@@ -80,31 +80,31 @@ test.describe('Landing Page v2 Specifications', () => {
 
     // Verify output panel:
     // failures = 3000 * 0.6 * 0.25 = 450
-    // rescued = 450 * 0.6 = 270
-    // savings = 270 * 250 = ₹67,500
-    // plan = Growth
+    // rescued = 450 * 0.31 = 140
+    // savings = 112,500 * 0.31 = ₹34,875
+    // plan = Prevent
     const roiOut = page.locator('.roi__out');
     await expect(roiOut).toContainText('~450');
-    await expect(roiOut).toContainText('failed deliveries intercepted / month');
-    await expect(roiOut).toContainText('~270');
-    await expect(roiOut).toContainText('rescued at a typical 60% rescue rate');
-    await expect(roiOut).toContainText('67,500');
-    await expect(roiOut).toContainText('freight saved / month');
-    await expect(roiOut.locator('.roi__out-plan-name')).toHaveText('Growth');
+    await expect(roiOut).toContainText('COD parcels coming back / month');
+    await expect(roiOut).toContainText('~140');
+    await expect(roiOut).toContainText('fewer RTOs with Prevent');
+    await expect(roiOut).toContainText('34,875');
+    await expect(roiOut).toContainText('saved / month');
+    await expect(roiOut.locator('.roi__out-plan-name')).toHaveText('Prevent');
   });
 
   test('3. Sync: PlanPicker selection updates ROI Calculator recommended plan', async ({ page }) => {
-    // In PlanPicker, click Scale tier card
-    const scaleCard = page.locator('.plan-picker__card, .bl-tier-card').filter({ hasText: 'Scale' }).first();
-    await expect(scaleCard).toBeVisible();
-    await scaleCard.click();
+    // In PlanPicker, click Prevent tier card
+    const preventCard = page.locator('.plan-picker__card, .bl-tier-card').filter({ hasText: 'Prevent' }).first();
+    await expect(preventCard).toBeVisible();
+    await preventCard.click();
 
     // Verify PlanPicker reflects selection
-    await expect(scaleCard).toHaveClass(/is-selected/);
+    await expect(preventCard).toHaveClass(/is-selected/);
 
-    // Verify ROI calculator "Recommended plan" updates to Scale (two-way shared state)
+    // Verify ROI calculator "Recommended plan" updates to Prevent (two-way shared state)
     const roiPlanName = page.locator('.roi__out-plan-name');
-    await expect(roiPlanName).toHaveText('Scale');
+    await expect(roiPlanName).toHaveText('Prevent');
   });
 
   test('4. Break-even line: renders coverage multiple > 1 and 90-day guarantee banner', async ({ page }) => {
@@ -122,8 +122,8 @@ test.describe('Landing Page v2 Specifications', () => {
     // Verify 90-day guarantee banner
     const guarantee = page.locator('.pricing__guarantee');
     await expect(guarantee).toBeVisible();
-    await expect(guarantee).toContainText('90-day guarantee');
-    await expect(guarantee).toContainText("if your ROI ledger doesn't cover the license fee, we refund the difference");
+    await expect(guarantee).toContainText('90-day money-back guarantee');
+    await expect(guarantee).toContainText("savings recorded in your dashboard don't exceed the fees you paid");
   });
 
   test('5. FAQ: renders 6 items and accordion expands/collapses with correct aria-expanded state', async ({ page }) => {
@@ -217,7 +217,7 @@ test.describe('Landing Page v2 Specifications', () => {
     // TrustStrip assertions
     const trust = page.locator('.trust');
     await expect(trust).toBeVisible();
-    await expect(trust).toContainText('24/7 uptime monitoring');
+    await expect(trust).toContainText('Automated health checks');
     await expect(trust).toContainText('Privacy-first data handling');
 
     // AccountabilityScene sample case tag

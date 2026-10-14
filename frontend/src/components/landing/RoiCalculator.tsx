@@ -1,13 +1,14 @@
 import { useState, useId } from 'react';
-import { estimate, recommendedPlan, planByKey } from '../../config/pricing.config';
+import { estimate, recommendedPlan, planByKey, type PlanKey } from '../../config/pricing.config';
 import { Calculator } from 'lucide-react';
 
 export interface RoiCalculatorProps {
   orders: number;
   onOrdersChange: (n: number) => void;
+  selectedPlan?: PlanKey;
 }
 
-export function RoiCalculator({ orders, onOrdersChange }: RoiCalculatorProps) {
+export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalculatorProps) {
   const [codShare, setCodShare] = useState(60);
   const [rtoRate, setRtoRate] = useState(25);
 
@@ -16,7 +17,7 @@ export function RoiCalculator({ orders, onOrdersChange }: RoiCalculatorProps) {
   const rtoSliderId = useId();
 
   const metrics = { codPct: codShare / 100, codRtoRate: rtoRate / 100 };
-  const plan = planByKey(recommendedPlan(orders, metrics));
+  const plan = planByKey(selectedPlan || recommendedPlan(orders, metrics));
   const e = estimate(orders, metrics, plan.key);
   const failures = e.rtos;
   const rescued = e.rtosAvoided;

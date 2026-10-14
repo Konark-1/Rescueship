@@ -2,9 +2,10 @@
 
 > **Purpose**: Backend root — Express 5 + TypeScript server powering the RescueShip COD rescue engine.
 
-## Entry Point
+## Entry Points
 
-`index.ts` — Boots Express 5, connects MongoDB + Redis, registers middleware pipeline (Helmet → CORS → mongo-sanitize → HPP → JSON body → rate limiters), mounts API routers under `/api/*`, webhook routers under `/webhooks/*`, SSE under `/api/realtime`, serves `src/public/` static files, starts BullMQ workers, listens on PORT.
+- `index.ts` — Boots Express 5, connects MongoDB + Redis, registers middleware pipeline (Helmet → CORS → mongo-sanitize → HPP → JSON body → rate limiters), mounts API routers under `/api/*`, webhook routers under `/webhooks/*`, SSE under `/api/realtime`, serves `src/public/` static files, starts BullMQ workers, listens on PORT.
+- `worker.ts` — Dedicated standalone BullMQ worker process entry point for decoupled background job execution in horizontal worker dynos.
 
 ## Directory Map
 

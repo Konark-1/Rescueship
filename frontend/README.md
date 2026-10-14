@@ -29,9 +29,9 @@
 | `/sandbox` | `SandboxPage.tsx` | Interactive test environment: simulate carrier NDRs, test WhatsApp customer flows, and pass graduation gate. |
 | `/settings` | `SettingsPage.tsx` | Credentials vault, multi-carrier hub, webhook endpoints, and single-select COD conversion incentive rules (none, flat, percentage with rupee margin cap). |
 | `/templates` | `TemplatesPage.tsx` | Recovery Flows & Customer Experience Hub: Tab 1 (Turnkey Playbooks & Flow Simulator with dynamic pricing), Tab 2 (Real Customer Chat Audit & Dispute Resolution with 1-click UTR reconciliation). |
-| `/billing` | `BillingPage.tsx` | SaaS tier selection (Starter, Growth, Scale), usage meters, and Razorpay checkout. |
+| `/billing` | `BillingPage.tsx` | SaaS tier selection (Rescue, Convert, Prevent), usage meters, and Razorpay checkout. |
+| `/reports` | `ReportsPage.tsx` | Comprehensive RTO and NDR performance reports, fraud analysis, and funnel drilldowns. |
 | `/audit-logs` | `AuditLogsPage.tsx` | SOC-2 compliant immutable audit trail viewer with formatted JSON event inspector. |
-| `/docs` | `DocsPage.tsx` | Interactive developer documentation: cURL, Node.js, and Python webhook code samples. |
 
 ---
 
@@ -116,6 +116,22 @@ npm run build
 # 5. Preview production build locally
 npm run preview
 ```
+
+---
+
+## ⚙️ Configuration & Build Files
+
+| File | Purpose |
+| :--- | :--- |
+| `vite.config.ts` | Vite 6 bundler and build configuration |
+| `vitest.config.ts` | Vitest unit and component testing harness configuration |
+| `playwright.config.ts` | Playwright E2E browser test configuration (Chromium & Mobile Chrome) |
+| `tsconfig.json` / `tsconfig.app.json` / `tsconfig.node.json` | Project TypeScript compiler options and project references |
+| `package.json` / `package-lock.json` | Dependencies, scripts, and package locks |
+| `index.html` | SPA entry HTML template |
+| `Dockerfile` / `.dockerignore` / `nginx.conf` | Container deployment and reverse proxy configurations |
+| `.env` / `.env.example` / `.gitignore` | Environment variable definitions and Git ignore rules |
+| `.oxlintrc.json` / `.stylelintrc.json` | Fast linter and stylesheet rules |
 
 ---
 

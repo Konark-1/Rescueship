@@ -640,7 +640,7 @@ test.describe('Protected app pages', () => {
     },
     {
       path: '/billing',
-      text: /Pick the line|Monthly order|Subscribe/i,
+      text: /Pick the line|Monthly order|Subscribe|Plan active|orders\/mo/i,
     },
     {
       path: '/audit-logs',

@@ -183,10 +183,10 @@ export const FraudWatchtower: React.FC<FraudWatchtowerProps> = ({ dateRange }) =
 
         <CardContent style={{ padding: 0 }}>
           {carriers.length === 0 ? (
-            <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-3)' }}>
-              <FileText size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>No disputed attempts in this period</div>
-              <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
+            <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-2, #a1a1aa)' }}>
+              <FileText size={32} style={{ margin: '0 auto 12px', opacity: 0.7 }} />
+              <div style={{ fontWeight: 600, color: 'var(--text-1, #f4f4f5)' }}>No disputed attempts in this period</div>
+              <div style={{ fontSize: '0.85rem', marginTop: '4px', color: 'var(--text-2, #a1a1aa)' }}>
                 Attempts a buyer says never happened, or that look suspicious (for example a failure minutes after going out for delivery), show up here.
               </div>
             </div>
