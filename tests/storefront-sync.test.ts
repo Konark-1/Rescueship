@@ -39,7 +39,7 @@ describe('Storefront Sync Service & Geo-Risk Settings', () => {
 
     validToken = jwt.sign(
       { merchantId, email: 'merchant@test.com', tokenVersion: 1 },
-      config.jwt.secret || 'test-jwt-secret-key-123456789012'
+      config.jwt.secret || '12345678901234567890123456789012'
     );
   });
 

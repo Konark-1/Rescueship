@@ -59,8 +59,8 @@ describe('Auth, plan gating and ops access', () => {
     expect((await request(app).post('/liveops/check-and-alert')).status).toBe(401);
     const pub = await request(app).get('/liveops/status');
     expect(pub.body.checks).toBeUndefined();
-    process.env.OPS_API_KEY = 'ops_key_123456';
-    const priv = await request(app).get('/liveops/status').set('x-ops-key', 'ops_key_123456');
+    process.env.OPS_API_KEY = '1234567890123456';
+    const priv = await request(app).get('/liveops/status').set('x-ops-key', '1234567890123456');
     expect(priv.body.checks).toBeDefined();
   });
 });

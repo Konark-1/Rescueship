@@ -10,7 +10,7 @@
  */
 
 process.env.NODE_ENV = 'test';
-process.env.ENCRYPTION_KEY = 'this_is_a_very_secret_encryption_key_32';
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
 
 import { codAdjustmentService } from '../src/services/courier/cod-adjustment.service';
 import { logisticsService } from '../src/services/logistics.service';

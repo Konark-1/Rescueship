@@ -20,7 +20,7 @@ async function runSecurityAuditProbes() {
     testMerchant = await Merchant.create({
       name: 'CI Security Probe Merchant',
       email: `ci_probe_${Date.now()}@rescueship.invalid`,
-      password: 'CIProbePassword123!',
+      password: crypto.randomBytes(16).toString('hex') + 'A1!',
       platform: 'custom',
       billing: { plan: 'scale', status: 'active', activatedAt: new Date(), rescueCredits: 1000 },
     } as any);

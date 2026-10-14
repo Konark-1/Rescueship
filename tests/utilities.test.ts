@@ -60,7 +60,7 @@ describe('Utility Functions Hardening', () => {
       expect(() => {
         logger.info('Testing secret redaction', {
           password: 'super_secret_password',
-          apiKey: 'key_1234567890',
+          apiKey: '123456789012',
           client_secret: 'sec_abcdef',
           phone: '+919988776655',
           tokenPresent: true, // safe key

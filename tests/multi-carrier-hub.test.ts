@@ -1,4 +1,4 @@
-process.env.ENCRYPTION_KEY = 'this_is_a_very_secret_encryption_key_32';
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
 process.env.NODE_ENV = 'test';
 
 let mockMerchantStore: any = {

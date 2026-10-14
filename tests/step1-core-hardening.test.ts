@@ -166,7 +166,7 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
     });
 
     it('1.1.3 - Webhook rejects invalid Cashfree HMAC with 401', async () => {
-      config.cashfree.clientSecret = 'cf_secret_prod_123';
+      config.cashfree.clientSecret = '1234567890123456';
 
       jest.spyOn(Order, 'findOne').mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -186,7 +186,7 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
     });
 
     it('1.1.4 - Verified webhook only queues confirm-payment; it never writes paid/prepaid or aborts RTO directly', async () => {
-      const secret = 'cf_secret_prod_123';
+      const secret = '1234567890123456';
       config.cashfree.clientSecret = secret;
 
       const payload = {

@@ -27,3 +27,4 @@ blob-report/
 
 # One-off local debug scripts (may contain credentials) — never commit
 scripts/local/
+scratch/
