@@ -319,7 +319,7 @@ app.get('/pay/:id', async (req, res) => {
     }
 
     const options = {
-      key: "rzp_test_Tdtx44D4UKp7S1",
+      key: "${process.env.RAZORPAY_KEY_ID || ''}",
       amount: ${finalAmount * 100},
       currency: "INR",
       name: "RescueShip Fast-Track",
