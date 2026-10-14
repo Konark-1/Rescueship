@@ -215,11 +215,11 @@ async function runSecurityAuditProbes() {
     assert('SEC-VERIFY: Valid HMAC Signature Accepted', false, e.message);
   }
 
-  // Probe 10: Billing Privilege Escalation (confirm-subscription without signature)
+  // Probe 10: Billing Privilege Escalation (checkout/verify without signature)
   try {
     const res = await axios.post(
-      `${BASE_URL}/api/billing/confirm-subscription`,
-      { plan: 'scale', cycle: 'annual', paymentId: 'fake_pay_123', subscriptionId: 'fake_sub_123' },
+      `${BASE_URL}/api/billing/checkout/verify`,
+      { tier: 'scale', cycle: 'annual', razorpay_payment_id: 'fake_pay_123', razorpay_order_id: 'fake_sub_123', razorpay_signature: 'fake_sig' },
       { headers: authHeaders, validateStatus: () => true }
     );
     assert(
@@ -265,10 +265,13 @@ async function runSecurityAuditProbes() {
     );
     const performers = res.data?.cohort?.topPerformers || [];
     const hasUnmaskedStore = performers.some((p: any) => !p.storeName.startsWith('Store ') && !p.merchantId.startsWith('anon_'));
+    const isProtected = res.status === 403 || (res.status === 200 && !hasUnmaskedStore);
     assert(
       'MED-COHORT: Cohort Metrics Competitor Anonymization',
-      res.status === 200 && !hasUnmaskedStore,
-      `Expected anonymized competitor names/IDs for non-admin merchant. Got ${performers.length} performers.`
+      isProtected,
+      res.status === 403
+        ? 'Cross-tenant cohort access strictly blocked for non-admin merchant (HTTP 403)'
+        : `Expected anonymized competitor names/IDs for non-admin merchant. Got ${performers.length} performers.`
     );
   } catch (e: any) {
     assert('MED-COHORT: Cohort Metrics Competitor Anonymization', false, e.message);
