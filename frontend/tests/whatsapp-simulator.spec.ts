@@ -17,6 +17,22 @@ test.describe('Negative Flows: Fake Remark Interception', () => {
       try { sessionStorage.setItem('rs_booted', '1'); } catch {}
     }, mockUserCompleted);
 
+    await page.route('**/api/**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/api/billing/status') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ active: true, plan: 'growth', status: 'active' }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
     // Mock dashboard metrics endpoints
     await page.route('**/api/dashboard/summary', async (route) => {
       await route.fulfill({
