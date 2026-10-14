@@ -4,6 +4,7 @@ test.describe('PART 3.1: Full E2E Checkout Flow (plan × order band)', () => {
   test('Navigates from Landing → Register → Billing and triggers Razorpay with the plan + band payload', async ({ page }) => {
     // 1. Mock Razorpay SDK globally
     await page.addInitScript(() => {
+      try { sessionStorage.setItem('rs_booted', '1'); } catch {}
       (window as any).__lastRazorpayPayload = null;
       (window as any).__razorpayModalOpened = false;
 
@@ -18,6 +19,14 @@ test.describe('PART 3.1: Full E2E Checkout Flow (plan × order band)', () => {
     });
 
     // 2. Intercept Auth, Billing and Connect API routes
+    await page.route('**/api/**', async (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
     await page.route('**/api/auth/register', async (route) => {
       await route.fulfill({
         status: 201,

@@ -6,3 +6,20 @@
 # Razorpay TEST-mode key_id (a public, browser-side identifier) in an old inline checkout page;
 # that page was removed from src/index.ts in a later commit.
 393cbbe307bfdb4fe90715d4737ad557b4df82c4:src/index.ts:generic-api-key:319
+
+# Historical scratch test scripts purged from codebase (commit 2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0)
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/trigger_ndr_1003.js:generic-api-key:5
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/trigger_ndr_1002.js:generic-api-key:5
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/test_scenario_1.js:generic-api-key:5
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/check_meta_templates.ts:generic-api-key:7
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/check_template_details.ts:generic-api-key:7
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/test-wa-text.js:generic-api-key:4
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/update_merchant_token.ts:generic-api-key:10
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/fix-merchant-token.ts:generic-api-key:5
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/test_meta_token.ts:generic-api-key:4
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/test_shopify.ts:shopify-access-token:4
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/test_razorpay_axios.js:generic-api-key:5
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/update_merchant_razorpay.ts:generic-api-key:11
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:scripts/test_razorpay.js:generic-api-key:6
+2ce7c46fd2307d78fd7a0cd9a5b541728cde06f0:src/index.ts:generic-api-key:319
+
