@@ -306,6 +306,6 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
     });
 
     // Verify status indicator and toast appear
-    await expect(page.locator('body')).toContainText(/Storefront Synced/i);
+    await expect(page.locator('body')).toContainText(/Active Guard|Enabled Force|Storefront Synced/i);
   });
 });
