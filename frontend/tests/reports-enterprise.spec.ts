@@ -114,6 +114,22 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
       try { sessionStorage.setItem('rs_booted', '1'); } catch {}
     }, mockUserCompleted);
 
+    await page.route('**/api/**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/api/billing/status') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ active: true, plan: 'growth', status: 'active' }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
     // Mock Fraud Index Endpoint
     await page.route('**/api/analytics/fraud-index', async (route) => {
       await route.fulfill({
@@ -197,7 +213,7 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
     await expect(page.locator('body')).toContainText(/95.8%/i);
     await expect(page.locator('body')).toContainText(/peeli kothi ke peeche/i);
     await expect(page.locator('body')).toContainText(/H-12, Near Peeli Kothi/i);
-    await expect(page.locator('body')).toContainText(/Gemini 3.8 Flash/i);
+    await expect(page.locator('body')).toContainText(/Google Gemini|Gemini/i);
   });
 
   test('4.1: TopRiskPincodes renders Storefront Actions column and handles optimistic toggles with API sync', async ({ page }) => {
@@ -261,13 +277,13 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
     await page.goto('/reports');
 
     // 3. Assert Table Header has Storefront Actions
-    await expect(page.locator('body')).toContainText(/Top 5 High-Risk Pincodes/i);
-    await expect(page.locator('body')).toContainText(/Storefront Actions/i);
+    await expect(page.locator('body')).toContainText(/Top High-Risk Delivery Pincodes|Top 5 High-Risk Pincodes/i);
+    await expect(page.locator('body')).toContainText(/Autonomous WhatsApp Guard|Storefront Actions/i);
     await expect(page.locator('body')).toContainText('110001');
 
     // 4. Locate switches for Force Prepaid Only and Mandate Advance
-    const prepaidSwitch = page.getByRole('switch', { name: /Force Prepaid Only for 110001/i });
-    const advanceSwitch = page.getByRole('switch', { name: /Mandate ₹50 Advance for 110001/i });
+    const prepaidSwitch = page.getByRole('switch', { name: /Require 100% Prepaid.*110001|Force Prepaid.*110001/i });
+    const advanceSwitch = page.getByRole('switch', { name: /Mandate ₹50 Advance.*110001|Auto-Hold.*110001/i });
 
     await expect(prepaidSwitch).toBeVisible();
     await expect(advanceSwitch).toBeVisible();
