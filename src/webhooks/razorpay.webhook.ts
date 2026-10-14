@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { paymentService } from '../services/payment.service';
@@ -99,6 +100,7 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
     res.status(401).json({ error: 'Invalid Razorpay signature' });
     return;
   }
+  markWebhookSeen('RAZORPAY');
 
   const paymentEntity = body.payload?.payment?.entity;
   const subEntity = body.payload?.subscription?.entity;

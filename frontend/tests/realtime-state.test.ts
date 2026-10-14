@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRealtime } from '../src/hooks/useRealtime';
 import { useOrderStore } from '../src/store/OrderStore';
-import { TIERS, PLANS, CYCLES } from '../src/config/pricing.config';
+import { PLANS, CYCLES, PRICE, BANDS, priceFor, estimate } from '../src/config/pricing.config';
 
 class MockEventSource {
   static instances: MockEventSource[] = [];
@@ -117,35 +117,34 @@ describe('useOrderStore Zustand Telemetry Mutations', () => {
   });
 });
 
-describe('Canonical Pricing Configuration (The ₹4,999 Mandate)', () => {
-  it('enforces canonical tier prices: Starter=4999, Growth=11999, Scale=24999, Fleet=44999', () => {
-    const starter = TIERS.find((t) => t.key === 'starter');
-    const growth = TIERS.find((t) => t.key === 'growth');
-    const scale = TIERS.find((t) => t.key === 'scale');
-    const fleet = TIERS.find((t) => t.key === 'fleet');
-
-    expect(starter?.base).toBe(4999);
-    expect(growth?.base).toBe(11999);
-    expect(scale?.base).toBe(24999);
-    expect(fleet?.base).toBe(44999);
+describe('Pricing configuration (plan × order band)', () => {
+  it('has three feature plans in ladder order', () => {
+    expect(PLANS.map((p) => p.key)).toEqual(['rescue', 'convert', 'prevent']);
   });
 
-  it('correctly maps PLANS with respective order limits and monthly rates', () => {
-    expect(PLANS.length).toBe(4);
-    expect(PLANS[0].priceMonthly).toBe(4999);
-    expect(PLANS[0].maxOrders).toBe(1000);
-    expect(PLANS[1].priceMonthly).toBe(11999);
-    expect(PLANS[2].priceMonthly).toBe(24999);
-    expect(PLANS[3].priceMonthly).toBe(44999);
+  it('prices rise with plan and with band', () => {
+    for (const b of BANDS) {
+      expect(PRICE.rescue[b]).toBeLessThan(PRICE.convert[b]);
+      expect(PRICE.convert[b]).toBeLessThan(PRICE.prevent[b]);
+    }
+    expect(PRICE.rescue[500]).toBe(999);
+    expect(PRICE.prevent[10000]).toBe(19999);
   });
 
-  it('enforces canonical billing discount tiers: Quarterly (0%), Semi (15%), Annual (20%)', () => {
-    const quarterly = CYCLES.find((c) => c.key === 'quarterly');
-    const semi = CYCLES.find((c) => c.key === 'semi');
-    const annual = CYCLES.find((c) => c.key === 'annual');
+  it('billing discounts: Quarterly 0%, Semi 10%, Annual 20%', () => {
+    expect(CYCLES.find((c) => c.key === 'quarterly')?.discount).toBe(0);
+    expect(CYCLES.find((c) => c.key === 'semi')?.discount).toBe(0.10);
+    expect(CYCLES.find((c) => c.key === 'annual')?.discount).toBe(0.20);
+    expect(priceFor('convert', 1000, 'annual').upfront).toBe(Math.round(1999 * 0.8) * 12);
+  });
 
-    expect(quarterly?.discount).toBe(0);
-    expect(semi?.discount).toBe(0.15);
-    expect(annual?.discount).toBe(0.20);
+  it('savings estimate grows with plan and stays above ~2.5× the price', () => {
+    const r = estimate(1000, {}, 'rescue').saved;
+    const c = estimate(1000, {}, 'convert').saved;
+    const p = estimate(1000, {}, 'prevent').saved;
+    expect(r).toBeLessThan(c);
+    expect(c).toBeLessThan(p);
+    expect(p / PRICE.prevent[1000]).toBeGreaterThan(2.5);
   });
 });
+

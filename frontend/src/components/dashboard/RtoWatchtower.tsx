@@ -94,9 +94,6 @@ export const RtoWatchtower: React.FC<RtoWatchtowerProps> = ({
               AI scored incoming COD orders before courier label generation to eliminate return freight losses.
             </div>
           </div>
-          <Badge variant="outline" style={{ fontSize: '0.72rem' }}>
-            Gemini 3.8 Flash ML Scored
-          </Badge>
         </div>
       </CardHeader>
 
@@ -119,16 +116,16 @@ export const RtoWatchtower: React.FC<RtoWatchtowerProps> = ({
 
         {isLoading ? (
           <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-3)', fontSize: '0.85rem' }}>
-            Evaluating pre-dispatch orders with Gemini 3.8 Flash ML…
+            Checking orders that have not shipped yet…
           </div>
         ) : displayOrders.length === 0 ? (
           <div style={{ padding: '36px 20px', textAlign: 'center', color: 'var(--text-3)' }}>
             <ShieldCheck size={28} style={{ margin: '0 auto 8px auto', color: 'var(--emerald)' }} />
             <div style={{ fontWeight: 600, color: 'var(--text-1)', marginBottom: '4px' }}>
-              Zero High-Risk Orders In Pre-Dispatch
+              No risky orders waiting to ship
             </div>
             <div style={{ fontSize: '0.8rem', maxWidth: '360px', margin: '0 auto' }}>
-              All incoming cash-on-delivery orders have passed phone syntax, pincode risk, and address completeness validations.
+              COD orders with a bad phone number, an incomplete address or a pincode with many returns show up here before they ship.
             </div>
           </div>
         ) : (

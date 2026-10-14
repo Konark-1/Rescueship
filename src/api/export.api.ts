@@ -13,7 +13,7 @@ import { logger } from '../utils/logger';
 
 const router = Router();
 
-const EXPORT_ALLOWED_PLANS = ['scale', 'enterprise'];
+import { planAllows } from '../config/plans';
 
 /**
  * GET /api/export/:type
@@ -45,12 +45,12 @@ router.get(
         return;
       }
 
-      const plan = merchant.billing?.plan || 'starter';
-      if (!EXPORT_ALLOWED_PLANS.includes(plan)) {
+      const plan = merchant.billing?.plan || 'free_trial';
+      if (!planAllows(merchant, 'csv_export')) {
         res.status(403).json({
-          error: 'Data export is available on Scale and Enterprise plans only.',
+          error: 'Data export is available on the Prevent plan.',
           currentPlan: plan,
-          upgradeTo: 'scale',
+          upgradeTo: 'prevent',
         });
         return;
       }
@@ -111,8 +111,8 @@ router.get(
     }
 
     const merchant = await Merchant.findById(merchantId);
-    const plan = merchant?.billing?.plan || 'starter';
-    const allowed = EXPORT_ALLOWED_PLANS.includes(plan);
+    const plan = merchant?.billing?.plan || 'free_trial';
+    const allowed = planAllows(merchant, 'csv_export');
 
     res.json({
       plan,

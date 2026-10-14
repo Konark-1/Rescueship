@@ -14,7 +14,8 @@
     "typecheck": "tsc --noEmit",
     "check:connections": "ts-node scripts/check-connections.ts",
     "templates:submit": "ts-node scripts/submit-templates.ts",
-    "smoke:deploy": "ts-node scripts/smoke-deploy.ts"
+    "smoke:deploy": "ts-node scripts/smoke-deploy.ts",
+    "setup": "ts-node scripts/setup.ts"
   },
   "keywords": [],
   "author": "",

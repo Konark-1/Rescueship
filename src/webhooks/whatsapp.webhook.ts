@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import crypto from 'crypto';
 import { whatsAppService } from '../services/whatsapp.service';
 import { ndrService } from '../services/ndr.service';
@@ -66,6 +67,7 @@ router.get('/', (req: Request, res: Response): void => {
     safeEqualStr(token, expectedToken)
   ) {
     logger.info('WhatsApp webhook verified successfully');
+    markWebhookSeen('WHATSAPP_VERIFY');
     res.status(200).send(typeof challenge === 'string' ? challenge : '');
   } else {
     logger.warn('WhatsApp webhook verification failed', { mode, tokenPresent: typeof token === 'string' && token.length > 0 });
@@ -108,6 +110,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       res.status(401).json({ error: 'Invalid WhatsApp signature' });
       return;
     }
+    markWebhookSeen('WHATSAPP');
   } else if (process.env.WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS === 'true' && process.env.NODE_ENV !== 'production') {
     logger.warn('WhatsApp appSecret not configured — accepting UNSIGNED webhook (WHATSAPP_ALLOW_UNSIGNED_WEBHOOKS=true, local dev only)');
   } else {
@@ -193,6 +196,13 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
   try {
     const normalizedFrom = normalizeIndianPhone(parsed.from);
     logger.info('Parsed WhatsApp incoming message', { from: maskPhone(normalizedFrom), type: parsed.type, merchantId });
+
+    // Owner phone verification: the merchant sends "RescueShip verify 123456" from their own
+    // phone to their business number. Never treated as a customer reply.
+    if ((merchant as any).ownerPhoneVerification?.phone) {
+      const { tryVerifyOwnerPhone } = await import('../services/free-test.service');
+      if (await tryVerifyOwnerPhone(merchant, normalizedFrom, parsed.text || '')) return;
+    }
 
     // Opt-out / opt-in: whole-message keywords only (an address like "near bus stop"
     // must never unsubscribe anyone), scoped to THIS merchant.

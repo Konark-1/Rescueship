@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { checkDeadLetterQueue, checkWebhookFailureRate } from '../services/liveops-watchtower.service';
 import { emailService } from '../services/email.service';
 import { logger } from '../utils/logger';
+import { getSetupStatus } from '../services/setup-status.service';
 
 const router = Router();
 
@@ -64,6 +65,19 @@ router.get('/status', async (req: Request, res: Response) => {
  * POST /api/liveops/check-and-alert
  * Invoked by automated cron / scheduled health monitor
  */
+/**
+ * GET /api/liveops/setup-status (X-Ops-Key)
+ * Operator checklist: which settings and webhooks are done. Booleans/timestamps only.
+ */
+router.get('/setup-status', requireOpsKey, async (_req: Request, res: Response) => {
+  try {
+    res.json(await getSetupStatus());
+  } catch (err: any) {
+    logger.error('Setup status failed', { error: err?.message });
+    res.status(500).json({ error: 'Setup status unavailable' });
+  }
+});
+
 router.post('/check-and-alert', requireOpsKey, async (_req: Request, res: Response) => {
   try {
     const [dlq, webhook] = await Promise.all([

@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import { Queue } from 'bullmq';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
@@ -257,6 +258,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
     res.status(401).json({ error: 'Invalid HMAC signature' });
     return;
   }
+  markWebhookSeen('SHOPIFY');
 
   const merchantId = merchant._id;
   const body = req.body ?? {};

@@ -28,17 +28,30 @@ import { alertService } from './alert.service';
 import { merchantDigestService } from './merchant-digest.service';
 import { logger } from '../utils/logger';
 
-export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
+/** Feature plans (what is included). Price also depends on the order band (how much). */
+export type Tier = 'rescue' | 'convert' | 'prevent';
+/** Monthly order bands. Above the top band → custom (enterprise) pricing. */
+export type Band = 500 | 1000 | 2500 | 5000 | 10000;
+export const BANDS: readonly Band[] = [500, 1000, 2500, 5000, 10000];
 export type Cycle = 'quarterly' | 'semi' | 'annual';
 
-const BASE: Record<Tier, number> = { starter: 1999, growth: 4999, scale: 11999, fleet: 24999 };
-export const LIMIT: Record<Tier, number> = { starter: 500, growth: 2000, scale: 6000, fleet: 15000 };
+/**
+ * Monthly price (₹, before GST) per plan × order band. Derived value-first:
+ * ≈20% of the expected monthly saving (RTOs avoided × ₹250), with a volume
+ * discount and a ₹999 floor. Keep in sync with frontend/src/config/pricing.config.ts
+ * (tests/pricing-consistency.test.ts enforces it).
+ */
+export const PRICE: Record<Tier, Record<Band, number>> = {
+  rescue:  { 500: 999,  1000: 1499, 2500: 2499, 5000: 4499,  10000: 7999 },
+  convert: { 500: 1499, 1000: 1999, 2500: 3999, 5000: 6999,  10000: 12499 },
+  prevent: { 500: 1999, 1000: 2999, 2500: 6499, 5000: 11499, 10000: 19999 },
+};
 /**
  * Monthly rescue-message allowance included with a paid plan. Each WhatsApp send
  * consumes one credit; a typical rescue uses 1–3 messages, so 2× the order limit
  * covers normal use. Credit packs top up on top of this.
  */
-export const creditAllowanceFor = (tier: string): number => (LIMIT as any)[tier] ? (LIMIT as any)[tier] * 2 : 100;
+export const creditAllowanceFor = (orderLimit: number): number => (Number(orderLimit) > 0 ? Number(orderLimit) * 2 : 0);
 const MONTHS: Record<Cycle, number> = { quarterly: 3, semi: 6, annual: 12 };
 const DISC: Record<Cycle, number> = { quarterly: 0, semi: 0.10, annual: 0.20 };
 // Renewals repeat the cycle the merchant chose, charged upfront (3 / 6 / 12 months).
@@ -98,7 +111,7 @@ async function recordInvoice(entry: {
   }
 }
 
-export const TIERS: readonly Tier[] = ['starter', 'growth', 'scale', 'fleet'];
+export const TIERS: readonly Tier[] = ['rescue', 'convert', 'prevent'];
 export const CYCLES: readonly Cycle[] = ['quarterly', 'semi', 'annual'];
 /** Accept legacy 'semi_annual' stored values / old clients and map onto the canonical key. */
 export function normalizeCycle(c: unknown): Cycle | null {
@@ -106,10 +119,12 @@ export function normalizeCycle(c: unknown): Cycle | null {
   return (CYCLES as readonly string[]).includes(String(c)) ? (c as Cycle) : null;
 }
 export const isTier = (v: unknown): v is Tier => typeof v === 'string' && (TIERS as readonly string[]).includes(v);
+export const isBand = (v: unknown): v is Band => BANDS.includes(Number(v) as Band);
 export const isCycle = (v: unknown): v is Cycle => typeof v === 'string' && (CYCLES as readonly string[]).includes(v);
 
-export function priceFor(tier: Tier, cycle: Cycle) {
-  const base = BASE[tier] ?? BASE.starter;
+export function priceFor(tier: Tier, band: Band, cycle: Cycle) {
+  const base = PRICE[tier]?.[band];
+  if (!base) throw new Error('Unknown plan or order band');
   const disc = DISC[cycle] ?? 0;
   const months = MONTHS[cycle] ?? 3;
   const monthly = Math.round(base * (1 - disc));
@@ -139,10 +154,11 @@ const rz = axios.create({
 
 export class SubscriptionService {
   /** Build the upfront intro order + the deferred renewal subscription. */
-  async createCheckout(merchantId: string, tier: Tier, cycle: Cycle) {
-    if (!isTier(tier) || !isCycle(cycle)) throw new Error('Invalid tier or billing cycle');
+  async createCheckout(merchantId: string, tier: Tier, band: Band, cycle: Cycle) {
+    if (!isTier(tier) || !isBand(band) || !isCycle(cycle)) throw new Error('Invalid plan, order band or billing cycle');
+    band = Number(band) as Band;
     if (!razorpayConfigured()) throw new Error('Billing is not configured on this deployment (RAZORPAY_KEY_ID/SECRET).');
-    const p = priceFor(tier, cycle);
+    const p = priceFor(tier, band, cycle);
 
     let orderId: string;
     let subscriptionId: string | undefined;
@@ -161,7 +177,7 @@ export class SubscriptionService {
 
     try {
       // (2) renewal subscription — first charge at the renewal date (if Subscriptions feature is enabled on Razorpay account)
-      const planId = await this.ensurePlan(tier, cycle, p.renewalCharge);
+      const planId = await this.ensurePlan(tier, band, cycle, p.renewalCharge);
       // First renewal falls due when the upfront period ends.
       const startAt = Math.floor(addMonths(new Date(), MONTHS[cycle] || 3).getTime() / 1000);
       const subscription = await rz.post('/subscriptions', {
@@ -176,7 +192,7 @@ export class SubscriptionService {
     }
 
     const billingUpdates: Record<string, any> = {
-      'billing.pendingTier': tier, 'billing.pendingCycle': cycle,
+      'billing.pendingTier': tier, 'billing.pendingBand': band, 'billing.pendingCycle': cycle,
       'billing.introOrderId': orderId,
       'billing.renewMonthly': p.renewMonthly,
       'billing.status': 'pending_payment',
@@ -232,18 +248,19 @@ export class SubscriptionService {
       throw new Error('This payment does not belong to a pending checkout for your account');
     }
     const tier = billing.pendingTier;
+    const band = Number(billing.pendingBand) as Band;
     const cycle = billing.pendingCycle;
-    if (!isTier(tier) || !isCycle(cycle)) throw new Error('Pending checkout is missing plan details; start checkout again');
+    if (!isTier(tier) || !isBand(band) || !isCycle(cycle)) throw new Error('Pending checkout is missing plan details; start checkout again');
     if (body.tier && body.tier !== tier) throw new Error('Plan mismatch with pending checkout');
     if (body.cycle && body.cycle !== cycle) throw new Error('Cycle mismatch with pending checkout');
 
-    const p = priceFor(tier, cycle);
+    const p = priceFor(tier, band, cycle);
     const expectedPaise = p.introUpfront * 100;
 
     // (4) fetch payment; fail closed on any error
     const payment = await this.fetchCapturedPayment(paymentId, orderId, expectedPaise, merchantId);
 
-    return this.provisionIntro(merchantId, orderId, tier, cycle, billing, (merchant as any).accessExpiresAt, payment);
+    return this.provisionIntro(merchantId, orderId, tier, band, cycle, billing, (merchant as any).accessExpiresAt, payment);
   }
 
   /** Fetch a payment from Razorpay and fail closed unless captured/INR/exact amount for the order. */
@@ -274,6 +291,7 @@ export class SubscriptionService {
     merchantId: string,
     orderId: string,
     tier: Tier,
+    band: Band,
     cycle: Cycle,
     billing: any,
     accessExpiresAt: any,
@@ -295,7 +313,7 @@ export class SubscriptionService {
       throw err;
     }
 
-    const p = priceFor(tier, cycle);
+    const p = priceFor(tier, band, cycle);
     const now = new Date();
     const renewalMonths = MONTHS[cycle] || 3;
 
@@ -314,9 +332,10 @@ export class SubscriptionService {
       { _id: merchantId, 'billing.introOrderId': orderId },
       { $set: {
         'billing.plan': tier,
-        'billing.planOrderLimit': LIMIT[tier],
+        'billing.planOrderLimit': band,
+        'billing.orderBand': band,
         'billing.billingCycle': cycle,
-        'billing.rescueCredits': Math.max(Number(billing.rescueCredits || 0), creditAllowanceFor(tier)),
+        'billing.rescueCredits': Math.max(Number(billing.rescueCredits || 0), creditAllowanceFor(band)),
         'billing.cycleStartDate': now,
         'billing.nextInvoiceDate': renewal,
         'billing.renewMonthly': p.renewMonthly,
@@ -326,9 +345,9 @@ export class SubscriptionService {
         'billing.cancelAtCycleEnd': false,
         accessExpiresAt: renewal,
         licenseStatus: 'ACTIVE',
-      }, $unset: { 'billing.pendingTier': 1, 'billing.pendingCycle': 1, 'billing.introOrderId': 1 } }
+      }, $unset: { 'billing.pendingTier': 1, 'billing.pendingBand': 1, 'billing.pendingCycle': 1, 'billing.introOrderId': 1 } }
     );
-    logger.info('Plan provisioned via self-serve checkout', { merchantId, tier, cycle, paymentId });
+    logger.info('Plan provisioned via self-serve checkout', { merchantId, tier, band, cycle, paymentId });
     await merchantDigestService.clearMerchantQuotaAlerts(merchantId.toString());
 
     await recordInvoice({
@@ -368,15 +387,16 @@ export class SubscriptionService {
     }
     const billing = merchant.billing || {};
     const tier = billing.pendingTier;
+    const band = Number(billing.pendingBand) as Band;
     const cycle = normalizeCycle(billing.pendingCycle);
-    if (!isTier(tier) || !isCycle(cycle)) {
+    if (!isTier(tier) || !isBand(band) || !isCycle(cycle)) {
       logger.warn('Intro reconcile skipped: pending intent missing plan details', { orderId });
       return;
     }
-    const expectedPaise = priceFor(tier, cycle).introUpfront * 100;
+    const expectedPaise = priceFor(tier, band, cycle).introUpfront * 100;
     try {
       const payment = await this.fetchCapturedPayment(paymentId, orderId, expectedPaise, merchant._id.toString());
-      await this.provisionIntro(merchant._id.toString(), orderId, tier, cycle, billing, merchant.accessExpiresAt, payment);
+      await this.provisionIntro(merchant._id.toString(), orderId, tier, band, cycle, billing, merchant.accessExpiresAt, payment);
       logger.info('Intro payment provisioned via webhook fallback', { merchantId: merchant._id.toString(), orderId, paymentId });
     } catch (err: any) {
       // Webhook failures make Razorpay retry; surface the reason for the log trail.
@@ -428,10 +448,10 @@ export class SubscriptionService {
       return;
     }
     const b: any = merchant.billing || {};
-    const tier = b.plan, cycle = normalizeCycle(b.billingCycle);
-    if (isTier(tier) && isCycle(cycle) && typeof amountPaise === 'number') {
-      // Renewals charge the full cycle upfront (same cycle the merchant chose).
-      const p = priceFor(tier, cycle);
+    const tier = b.plan, cycle = normalizeCycle(b.billingCycle), band = Number(b.orderBand) as Band;
+    if (isTier(tier) && isBand(band) && isCycle(cycle) && typeof amountPaise === 'number') {
+      // Renewals charge the full cycle upfront (same plan, band and cycle the merchant chose).
+      const p = priceFor(tier, band, cycle);
       const okAmounts = new Set([p.renewalCharge * 100]);
       if (!okAmounts.has(amountPaise)) {
         logger.error('Renewal charged with unexpected amount — not rolling cycle forward', { merchantId: merchant._id, subscriptionId, amountPaise, expected: [...okAmounts] });
@@ -497,7 +517,7 @@ export class SubscriptionService {
     if (!merchant) return;
     await Merchant.updateOne({ _id: merchant._id }, { $set: {
       'billing.plan': 'free_trial',
-      'billing.planOrderLimit': 100,
+      'billing.planOrderLimit': 0,
       'billing.status': status,
       'billing.cancelAtCycleEnd': false,
     }});
@@ -737,10 +757,10 @@ export class SubscriptionService {
     return { credits: updated?.billing?.rescueCredits };
   }
 
-  /** Create-or-find a Razorpay plan keyed by (tier+cycle) that charges the whole cycle upfront. */
-  private async ensurePlan(tier: Tier, cycle: Cycle, cycleCharge: number): Promise<string> {
+  /** Create-or-find a Razorpay plan keyed by (plan+band+cycle) that charges the whole cycle upfront. */
+  private async ensurePlan(tier: Tier, band: Band, cycle: Cycle, cycleCharge: number): Promise<string> {
     const { period, interval } = RZ_PERIOD[cycle];
-    const key = `rs_plan_v2_${tier}_${cycle}_${cycleCharge}`;
+    const key = `rs_plan_v3_${tier}_${band}_${cycle}_${cycleCharge}`;
     const { default: mongoose } = await import('mongoose');
     const db = mongoose.connection.db;
     if (db) {
@@ -750,7 +770,7 @@ export class SubscriptionService {
     }
     const { data } = await rz.post('/plans', {
       period, interval, currency: 'INR', notes: { key },
-      item: { name: `RescueShip ${tier} (${cycle})`, amount: cycleCharge * 100, currency: 'INR' },
+      item: { name: `RescueShip ${tier} ${band} orders (${cycle})`, amount: cycleCharge * 100, currency: 'INR' },
     });
     await this.rememberPlan(key, data.id);
     return data.id;

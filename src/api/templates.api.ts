@@ -215,7 +215,7 @@ router.post('/:id/submit', authenticateToken, async (req: AuthenticatedRequest, 
 // POST test send template (direct preview or live WhatsApp dispatch)
 router.post('/test-send', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
-  const { templateName, phone } = req.body;
+  const { templateName } = req.body; // tests always go to the merchant's own verified phone
   try {
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) {
@@ -223,11 +223,16 @@ router.post('/test-send', authenticateToken, async (req: AuthenticatedRequest, r
       return;
     }
     const ownerPhone = (merchant as any).ownerPhone;
-    const targetPhone = phone || ownerPhone || '+919999999999';
-    const waCfg = (merchant as any).whatsappConfig;
+        const waCfg = (merchant as any).whatsappConfig;
     const hasLiveWhatsapp = Boolean(ownerPhone && waCfg?.phoneNumberId && waCfg?.accessToken);
 
     if (hasLiveWhatsapp) {
+      const { reserveTestSend } = await import('../services/free-test.service');
+      const reservation = await reserveTestSend(merchant);
+      if (!reservation.allowed) {
+        res.status(429).json({ success: false, error: reservation.reason, code: reservation.code });
+        return;
+      }
       try {
         const decryptedToken = encryptionService.decrypt(waCfg.accessToken);
         await whatsAppService.sendTemplate(
@@ -257,6 +262,7 @@ router.post('/test-send', authenticateToken, async (req: AuthenticatedRequest, r
         });
         return;
       } catch (err: any) {
+        await reservation.release();
         logger.warn('Live test send failed, falling back to simulated preview', { error: err.message });
       }
     }

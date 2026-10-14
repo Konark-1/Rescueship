@@ -15,11 +15,14 @@ export const setupMonthlyResetWorker = () => {
       const result = await Merchant.updateMany({}, { $set: { 'billing.currentMonthOrders': 0 } });
       // Paid plans include a monthly rescue-message allowance: top credits back up
       // (never reduce credits a merchant bought with a pack).
+      // Allowance = 2 × the merchant's monthly order limit (their order band).
       const { creditAllowanceFor } = require('../services/subscription.service');
-      for (const tier of ['starter', 'growth', 'scale', 'fleet'] as const) {
-        const allowance = creditAllowanceFor(tier);
+      const limits: number[] = await Merchant.distinct('billing.planOrderLimit', { 'billing.status': 'active', 'billing.plan': { $ne: 'free_trial' } });
+      for (const limit of limits) {
+        const allowance = creditAllowanceFor(limit);
+        if (!allowance) continue;
         await Merchant.updateMany(
-          { 'billing.plan': tier, 'billing.status': 'active', 'billing.rescueCredits': { $lt: allowance } },
+          { 'billing.planOrderLimit': limit, 'billing.status': 'active', 'billing.plan': { $ne: 'free_trial' }, 'billing.rescueCredits': { $lt: allowance } },
           { $set: { 'billing.rescueCredits': allowance } }
         );
       }

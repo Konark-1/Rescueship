@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Smartphone, RefreshCw, KeyRound, CheckCircle2, AlertTriangle, Clock, MessageSquare } from 'lucide-react';
 import { Field } from './Field';
+import { TestRescuePanel, type TestRescueStatus, type VerificationInfo } from './TestRescuePanel';
 
 const FRIENDLY_NAMES: Record<string, string> = {
   ndr_rescue_en: 'Delivery verification & rescue',
@@ -35,7 +36,12 @@ function formatTemplateName(rawName: string): string {
 interface WhatsAppStationProps {
   onConnect: () => void;
   onManualConnect: (phoneId: string, wabaId: string, accessToken: string, appSecret?: string) => void;
-  onPulse: (phone: string, storeName: string) => void;
+  onPulse: () => void;
+  onStartVerify: (phone: string, storeName: string) => Promise<VerificationInfo | null>;
+  onRefresh: () => Promise<unknown>;
+  ownerPhoneVerified?: boolean;
+  pendingOwnerPhone?: string | null;
+  testRescues?: TestRescueStatus | null;
   onResubmitTemplates: () => void;
   busy: any;
   status: string;
@@ -61,9 +67,12 @@ export function WhatsAppStation({
   metaReady,
   onNext,
   connectionDetails,
+  onStartVerify,
+  onRefresh,
+  ownerPhoneVerified,
+  pendingOwnerPhone,
+  testRescues,
 }: WhatsAppStationProps) {
-  const [phone, setPhone] = useState(ownerPhone || '');
-  const [name, setName] = useState('');
   const [manual, setManual] = useState(!metaReady);
   const [phoneId, setPhoneId] = useState(connectionDetails?.phoneNumberId || '');
   const [wabaId, setWabaId] = useState(connectionDetails?.wabaId || '');
@@ -234,76 +243,21 @@ export function WhatsAppStation({
           </div>
         )}
 
-        <div className="ob-simulator">
-          <div className="ob-simulator__form">
-            <div>
-              <p className="ob-simulator__title">Test Your Automated Rescue</p>
-              <p className="ob-simulator__sub">
-                Send an actual verification message to your own number to verify autonomous NDR recovery before customer orders are handled.
-              </p>
-            </div>
+        <TestRescuePanel
+          ownerPhone={ownerPhone}
+          ownerPhoneVerified={ownerPhoneVerified}
+          pendingOwnerPhone={pendingOwnerPhone}
+          status={testRescues}
+          busy={busy === 'pulse'}
+          onStartVerify={onStartVerify}
+          onSend={onPulse}
+          onRefresh={onRefresh}
+        />
 
-            <Field label="Your mobile (for the test message)">
-              <input
-                className="ob-input"
-                placeholder="+91 9XXXXXXXXX"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </Field>
-
-            <Field label="Store name (optional)">
-              <input
-                className="ob-input"
-                placeholder="My Brand"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </Field>
-
-            <div style={{ display: 'flex', gap: 'var(--space-2-5)', flexWrap: 'wrap', marginTop: 'var(--space-2)' }}>
-              <button
-                type="button"
-                className="ob-btn ob-btn--ghost"
-                disabled={!phone || busy === 'pulse'}
-                onClick={() => onPulse(phone, name)}
-              >
-                {busy === 'pulse' ? (
-                  'Sending…'
-                ) : (
-                  <>
-                    <Smartphone size={14} aria-hidden="true" /> Send me a test rescue
-                  </>
-                )}
-              </button>
-              <button className="ob-btn" type="button" onClick={onNext}>
-                Continue to Courier setup →
-              </button>
-            </div>
-            {!phone && (
-              <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.78rem' }}>
-                Enter your mobile number above to enable the test rescue button.
-              </p>
-            )}
-          </div>
-
-          <div className="ob-phone-preview" aria-hidden="true">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
-              <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-2)' }}>
-                {name || 'RescueShip Store'} Assistant
-              </span>
-              <span className="ob-pill ok" style={{ fontSize: '0.66rem', padding: '1px 6px' }}>Verified</span>
-            </div>
-            <div className="ob-phone-preview__bubble">
-              👋 Hi Alex! We noticed the courier couldn't deliver order #1084 today due to an incomplete address.
-              <br /><br />
-              Tap below to confirm your house number or reschedule delivery:
-            </div>
-            <div className="ob-phone-preview__actions">
-              <span className="ob-phone-preview__btn">📍 Share Live GPS Location</span>
-              <span className="ob-phone-preview__btn">📅 Reschedule Delivery</span>
-            </div>
-          </div>
+        <div className="ob-test__next">
+          <button className="ob-btn ob-btn--ghost" type="button" onClick={onNext}>
+            Continue to courier setup
+          </button>
         </div>
 
         <div

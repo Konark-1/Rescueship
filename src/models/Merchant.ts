@@ -94,7 +94,9 @@ export interface IMerchant extends Document {
   licenseStatus?: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
   licensePlan?: '90_day_license' | 'annual_license' | 'custom';
   billing: {
-    plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'fleet' | 'enterprise';
+    plan: 'free_trial' | 'rescue' | 'convert' | 'prevent' | 'enterprise' | 'starter' | 'growth' | 'scale' | 'fleet';
+    /** Purchased monthly order band (500 / 1000 / 2500 / 5000 / 10000). */
+    orderBand?: number;
     billingCycle?: 'quarterly' | 'semi' | 'semi_annual' | 'annual';
     status?: 'active' | 'pre_signup' | 'pending_payment' | 'paused' | 'paused_quality' | 'past_due' | 'cancelled';
     lastPaymentError?: string;
@@ -106,6 +108,7 @@ export interface IMerchant extends Document {
     totalConversions: number;
     estimatedMetaSpendMonth?: number;
     pendingTier?: string;
+    pendingBand?: number;
     pendingCycle?: string;
     introOrderId?: string;
     razorpaySubscriptionId?: string;
@@ -129,6 +132,10 @@ export interface IMerchant extends Document {
   /** apiSecret: encrypted custom-app API secret (direct-token connect) used to verify webhook HMACs. */
   shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; clientId?: string; tokenExpiresAt?: Date; scope?: string; webhooksRegistered?: boolean; webhookErrors?: string[]; demo?: boolean; uninstalledAt?: Date };
   ownerPhone?: string;
+  /** Set when the owner proved the phone is theirs (inbound WhatsApp code). */
+  ownerPhoneVerifiedAt?: Date;
+  ownerPhoneVerification?: { phone: string; codeHash: string; expiresAt: Date; attempts?: number };
+  ownerPhoneChanges?: number;
   storeName?: string;
   onboarding?: {
     completedAt?: Date;
@@ -312,7 +319,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       type: {
         plan: {
           type: String,
-          enum: ['free_trial', 'starter', 'growth', 'scale', 'fleet', 'enterprise'],
+          enum: ['free_trial', 'rescue', 'convert', 'prevent', 'enterprise', 'starter', 'growth', 'scale', 'fleet'],
           default: 'free_trial',
         },
         billingCycle: {
@@ -327,14 +334,16 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         },
         lastPaymentError: String,
         // 'free_trial' = no paid plan yet (pay-first; the guard blocks automation until activation).
-        planOrderLimit: { type: Number, default: 100 },
+        planOrderLimit: { type: Number, default: 0 },
+        orderBand: { type: Number },
         currentMonthOrders: { type: Number, default: 0 },
         cycleStartDate: { type: Date, default: Date.now },
-        rescueCredits: { type: Number, default: 100 },
+        rescueCredits: { type: Number, default: 0 },
         totalRescues: { type: Number, default: 0 },
         totalConversions: { type: Number, default: 0 },
         estimatedMetaSpendMonth: { type: Number, default: 0 },
         pendingTier: String,
+        pendingBand: Number,
         pendingCycle: String,
         introOrderId: String,
         razorpaySubscriptionId: String,
@@ -348,10 +357,10 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       default: () => ({
         plan: 'free_trial',
         billingCycle: 'annual',
-        planOrderLimit: 100,
+        planOrderLimit: 0,
         currentMonthOrders: 0,
         cycleStartDate: new Date(),
-        rescueCredits: 100,
+        rescueCredits: 0,
         totalRescues: 0,
         totalConversions: 0,
         estimatedMetaSpendMonth: 0,
@@ -380,6 +389,14 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       uninstalledAt: Date,
     },
     ownerPhone: String,
+    ownerPhoneVerifiedAt: Date,
+    ownerPhoneVerification: {
+      phone: String,
+      codeHash: String,
+      expiresAt: Date,
+      attempts: Number,
+    },
+    ownerPhoneChanges: { type: Number, default: 0 },
     storeName: String,
     onboarding: {
       completedAt: Date,

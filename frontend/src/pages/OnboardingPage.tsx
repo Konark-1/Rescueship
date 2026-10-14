@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import type { VerificationInfo } from '../components/onboarding/TestRescuePanel';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
 import { billingApi } from '../services/billing.api';
@@ -14,11 +15,11 @@ import PaymentStation from '../components/onboarding/PaymentStation';
 import './onboarding.css';
 
 type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
-const STATIONS: { key: Key; label: string; verb: string; hint: string }[] = [
-  { key: 'shopify',  label: 'Your store',     verb: 'connect',   hint: 'Shopify: paste the key + secret from your own admin app. WooCommerce: paste your REST API keys. Either way, your store stays fully isolated.' },
-  { key: 'whatsapp', label: 'WhatsApp number', verb: 'verify',    hint: 'Your official WhatsApp Cloud API. Enables autonomous GPS pin sharing and AI address fix when buyers order with multiple/confusing addresses.' },
-  { key: 'carrier',  label: 'Courier partners', verb: 'link',      hint: 'Shiprocket, Blue Dart, Delhivery, DTDC, Xpressbees, Shadowfax, Ecom Express, ClickPost, or Custom: connect one or multiple couriers with live API or 1-click webhook.' },
-  { key: 'payment',  label: 'Payments',        verb: 'enable',    hint: 'Razorpay or Cashfree: generates instant payment links with discounts to convert risky COD orders to prepaid.' },
+const STATIONS: { key: Key; label: string; verb: string; title: string; hint: string }[] = [
+  { key: 'shopify',  label: 'Your store',       verb: 'connect', title: 'Connect your store',          hint: 'So RescueShip sees each order, its buyer and its courier.' },
+  { key: 'whatsapp', label: 'WhatsApp number',  verb: 'verify',  title: 'Connect your WhatsApp number', hint: 'Messages to buyers go out from this number, under your brand name. Meta bills this WhatsApp account per message.' },
+  { key: 'carrier',  label: 'Courier',          verb: 'link',    title: 'Connect your courier',         hint: 'So RescueShip hears about failed deliveries and can send the buyer’s answer back.' },
+  { key: 'payment',  label: 'Payments',         verb: 'enable',  title: 'Connect payments',             hint: 'Lets buyers pay online instead of cash on delivery. Uses your own Razorpay or Cashfree account.' },
 ];
 
 declare global { interface Window { FB: any; fbAsyncInit?: () => void; } }
@@ -400,21 +401,33 @@ export default function OnboardingPage() {
     }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
-  const pulse = async (targetPhone?: string, storeName?: string) => {
+  const pulse = async () => {
     setBusy('pulse');
     setErr(null);
-    push('› sending test rescue to your number…');
+    push('Sending a test rescue to your phone…');
     try {
-      if (targetPhone) {
-        await connectApi.ownerPhone(token!, targetPhone, storeName || '');
-      }
       await connectApi.testPulse(token!);
-      push('✓ test rescue sent — check your phone');
+      push('Test rescue sent. Check WhatsApp on your phone.');
       await refresh();
       setBusy(null);
     } catch (e: any) {
       setErr(e.message);
       setBusy(null);
+    }
+  };
+  // Starts owner-phone verification; the phone is confirmed when its WhatsApp message arrives.
+  const startVerify = async (rawPhone: string, storeName: string): Promise<VerificationInfo | null> => {
+    setErr(null);
+    let phone = rawPhone.replace(/[^\d+]/g, '');
+    if (/^\d{10}$/.test(phone)) phone = `+91${phone}`;
+    else if (/^\d{11,15}$/.test(phone)) phone = `+${phone}`;
+    try {
+      const r = await connectApi.ownerPhone(token!, phone, storeName || undefined);
+      await refresh();
+      return r?.verification || null;
+    } catch (e: any) {
+      setErr(e.message);
+      return null;
     }
   };
   const goLive = async () => {
@@ -475,10 +488,6 @@ export default function OnboardingPage() {
 
         {user && (
           <div className="ob-topbar__actions">
-            <div className="ob-guarantee-badge">
-              <ShieldCheck size={14} aria-hidden="true" />
-              <span>90-Day Guarantee</span>
-            </div>
             {user.onboardingStatus !== 'pending' && (
               <button
                 type="button"
@@ -508,7 +517,7 @@ export default function OnboardingPage() {
         {/* ── the route / spine ── */}
         <aside className="ob-spine">
           <div className="ob-spine__header">
-            <p className="ob-spine__kicker">Setup route: <span className="ob-spine__kicker-sub">Store Integration</span></p>
+            <p className="ob-spine__kicker">Setup</p>
           </div>
           <div className="ob-spine__track">
             {STATIONS.map((s, i) => {
@@ -533,7 +542,7 @@ export default function OnboardingPage() {
                   </span>
                   <span className="ob-node__text">
                     <strong>{s.label}</strong>
-                    <em>{isDone ? 'Connected' : pending ? (s.key === 'whatsapp' ? 'In review' : 'Connecting') : 'Awaiting setup'}</em>
+                    <em>{isDone ? 'Connected' : pending ? (s.key === 'whatsapp' ? 'Templates in Meta review' : 'Connecting') : 'Not connected yet'}</em>
                   </span>
                 </button>
               );
@@ -550,28 +559,28 @@ export default function OnboardingPage() {
           <div className="ob-trust-card">
             <p className="ob-trust-card__title">
               <ShieldCheck size={16} className="ob-trust-card__icon" aria-hidden="true" />
-              Data Safety Guarantee
+              Nothing goes live yet
             </p>
             <ul className="ob-trust-card__list">
               <li className="ob-trust-card__item">
                 <span className="ob-trust-card__icon">✓</span>
-                <span>256-bit bank-grade encryption at rest</span>
+                <span>Buyers get no messages until you switch rescues on.</span>
               </li>
               <li className="ob-trust-card__item">
                 <span className="ob-trust-card__icon">✓</span>
-                <span>Read-only order tracking with zero store disruption</span>
+                <span>Store, courier and payment keys are stored encrypted.</span>
               </li>
               <li className="ob-trust-card__item">
                 <span className="ob-trust-card__icon">✓</span>
-                <span>Instant 1-click disconnect anytime</span>
+                <span>Test rescues go only to your own verified phone.</span>
               </li>
             </ul>
           </div>
 
           {/* Guided setup card */}
           <div className="ob-assist">
-            <p className="ob-assist__title">Prefer hands-off setup?</p>
-            <p className="ob-assist__sub">Every step is self-serve, or our team will set it up for you on a complimentary 20-minute call.</p>
+            <p className="ob-assist__title">Stuck on a step?</p>
+            <p className="ob-assist__sub">We can walk you through it on a free 20-minute call.</p>
             <div className="ob-assist__actions">
               {state?.setupCallUrl && (
                 <a className="ob-assist__btn ob-assist__btn--primary" href={state.setupCallUrl} target="_blank" rel="noopener noreferrer">
@@ -594,15 +603,13 @@ export default function OnboardingPage() {
           <section key={active} className="ob-card">
             <div className="ob-card__header">
                 <div className="ob-card__topline">
-                  <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
+                  <h1 className="ob-card__title">{STATIONS[currentIndex].title}</h1>
                   <SetupGuide
                     station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : active === 'payment' ? 'payments' : 'whatsapp'}
                     storeUrl={state?.connections?.shopify?.shopDomain}
                   />
                 </div>
-                <h1 className="ob-card__title">
-                  {active === 'shopify' ? 'Connect Your Store' : active === 'whatsapp' ? 'Connect WhatsApp Number' : active === 'carrier' ? 'Link Courier Partners' : 'Enable Payment Recovery'}
-                </h1>
+                <p className="ob-card__kicker">{STATIONS[currentIndex].hint}</p>
               </div>
 
               {active === 'shopify' && (
@@ -641,6 +648,11 @@ export default function OnboardingPage() {
                   status={statusOf('whatsapp')}
                   templates={state?.templates}
                   ownerPhone={state?.ownerPhone}
+                  ownerPhoneVerified={state?.ownerPhoneVerified}
+                  pendingOwnerPhone={state?.pendingOwnerPhone}
+                  testRescues={state?.testRescues}
+                  onStartVerify={startVerify}
+                  onRefresh={refresh}
                   metaReady={META_SIGNUP_READY}
                   onNext={() => goToStation('carrier')}
                   connectionDetails={state?.connections?.whatsapp}
@@ -674,7 +686,7 @@ export default function OnboardingPage() {
 
           <footer className="ob-foot">
             <button className="ob-foot__skip" onClick={handleSkip} disabled={busy === 'skip'}>
-              {busy === 'skip' ? 'Opening dashboard…' : currentIndex >= STATIONS.length - 1 ? 'Finish later → dashboard' : 'Skip for now'}
+              {busy === 'skip' ? 'Opening dashboard…' : currentIndex >= STATIONS.length - 1 ? 'Finish later' : 'Skip for now'}
             </button>
             <button
               className="ob-foot__go"
@@ -688,8 +700,10 @@ export default function OnboardingPage() {
               }}
             >
               {allGreen
-                ? (busy === 'finalize' ? 'Activating rescues…' : '🚀 Activate live rescues →')
-                : `${STATIONS.filter((s) => !done(s.key)).length} station${STATIONS.filter((s) => !done(s.key)).length === 1 ? '' : 's'} to go`}
+                ? (busy === 'finalize'
+                    ? 'Switching on…'
+                    : (!state?.paid && !planInfo?.active) ? 'Choose a plan and go live' : 'Switch on rescues for buyers')
+                : `${STATIONS.filter((s) => !done(s.key)).length} ${STATIONS.filter((s) => !done(s.key)).length === 1 ? 'step' : 'steps'} left`}
             </button>
           </footer>
         </main>

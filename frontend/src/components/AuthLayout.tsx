@@ -39,8 +39,8 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, feat
           {features && <div className="auth-features">{features}</div>}
 
           <div className="auth-ticker">
-            <span className="ticker-badge"><i aria-hidden="true" />Live</span>
-            <span className="ticker-text">854 shipments rescued today · ₹12.5L RTO loss prevented</span>
+            <span className="ticker-badge"><i aria-hidden="true" />Free</span>
+            <span className="ticker-text">3 test rescues to your own phone · pay only when you go live</span>
           </div>
         </div>
       </div>

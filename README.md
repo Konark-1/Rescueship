@@ -1,5 +1,7 @@
 # 🚢 RescueShip — Autonomous WhatsApp NDR Interception & RTO Recovery Engine
 
+> **Going live?** Follow [docs/GO_LIVE.md](docs/GO_LIVE.md) — `npm run setup`, paste two files, four dashboard clicks, then `npm run setup -- --check`.
+
 [![Production Frontend](https://img.shields.io/badge/Render-rescueship--frontend.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship-frontend.onrender.com)
 [![Production Backend](https://img.shields.io/badge/Render-rescueship.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship.onrender.com)
 [![Test Suite](https://img.shields.io/badge/Tests-415%20passed%20(49%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)

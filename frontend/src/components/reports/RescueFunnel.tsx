@@ -156,125 +156,135 @@ export const RescueFunnel: React.FC<RescueFunnelProps> = ({ dateRange }) => {
           </CardContent>
         </Card>
 
-        {/* Right Column: Gemini AI Telemetry Widget */}
-        <Card style={{ padding: '24px', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
-          <CardHeader style={{ padding: 0, marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Right column: address-fix stats. Shown only with real parsed addresses, never sample numbers. */}
+        {aiTelemetry.addressesParsedCount > 0 ? (
+          <Card style={{ padding: '24px', display: 'flex', flexDirection: 'column', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%)', border: '1px solid rgba(99, 102, 241, 0.25)' }}>
+            <CardHeader style={{ padding: 0, marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: 'rgba(99, 102, 241, 0.15)',
+                      color: 'var(--indigo-soft, #818cf8)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Bot size={20} />
+                  </div>
+                  <div>
+                    <CardTitle style={{ fontSize: '1.2rem', fontWeight: 700 }}>
+                      Gemini AI Telemetry
+                    </CardTitle>
+                    <CardDescription style={{ marginTop: '2px' }}>
+                      High-fidelity address parsing & normalization
+                    </CardDescription>
+                  </div>
+                </div>
+                <Badge variant="success">
+                  Active
+                </Badge>
+              </div>
+            </CardHeader>
+
+            <CardContent style={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Parser Success Rate KPI */}
+              <div
+                style={{
+                  padding: '16px',
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  border: '1px solid var(--border, rgba(255, 255, 255, 0.08))',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-3, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    AI Parser Success Rate
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--emerald, #10b981)', marginTop: '2px', fontFamily: 'var(--font-display, inherit)' }}>
+                    {aiTelemetry.parserSuccessRate.toFixed(1)}%
+                  </div>
+                </div>
+                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Zap size={20} />
+                </div>
+              </div>
+
+              {/* Before & After Interactive Showcase */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2, #d4d4d8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Before &amp; After Normalization Example:
+                </div>
+
+                {/* Before Box */}
                 <div
                   style={{
-                    width: '36px',
-                    height: '36px',
+                    padding: '12px 14px',
                     borderRadius: '10px',
-                    background: 'rgba(99, 102, 241, 0.15)',
-                    color: 'var(--indigo-soft, #818cf8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    background: 'rgba(244, 63, 94, 0.08)',
+                    border: '1px solid rgba(244, 63, 94, 0.25)',
                   }}
                 >
-                  <Bot size={20} />
-                </div>
-                <div>
-                  <CardTitle style={{ fontSize: '1.2rem', fontWeight: 700 }}>
-                    Gemini AI Telemetry
-                  </CardTitle>
-                  <CardDescription style={{ marginTop: '2px' }}>
-                    High-fidelity address parsing & normalization
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge variant="success">
-                Active
-              </Badge>
-            </div>
-          </CardHeader>
-
-          <CardContent style={{ padding: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {/* Parser Success Rate KPI */}
-            <div
-              style={{
-                padding: '16px',
-                borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.03)',
-                border: '1px solid var(--border, rgba(255, 255, 255, 0.08))',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-3, #9ca3af)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  AI Parser Success Rate
-                </div>
-                <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--emerald, #10b981)', marginTop: '2px', fontFamily: 'var(--font-display, inherit)' }}>
-                  {aiTelemetry.parserSuccessRate.toFixed(1)}%
-                </div>
-              </div>
-              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: 'var(--emerald, #10b981)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <Zap size={20} />
-              </div>
-            </div>
-
-            {/* Before & After Interactive Showcase */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-2, #d4d4d8)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Before &amp; After Normalization Example:
-              </div>
-
-              {/* Before Box */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  background: 'rgba(244, 63, 94, 0.08)',
-                  border: '1px solid rgba(244, 63, 94, 0.25)',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--rose, #f43f5e)', textTransform: 'uppercase' }}>
-                  <span>Raw Hinglish Customer Input:</span>
-                </div>
-                <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: 'var(--text-1)', fontStyle: 'italic', lineHeight: 1.4 }}>
-                  "{aiTelemetry.sampleBefore}"
-                </p>
-              </div>
-
-              {/* Arrow transition */}
-              <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--indigo-soft, #818cf8)' }}>
-                <ArrowRight size={18} style={{ transform: 'rotate(90deg)' }} />
-              </div>
-
-              {/* After Box */}
-              <div
-                style={{
-                  padding: '12px 14px',
-                  borderRadius: '10px',
-                  background: 'rgba(16, 185, 129, 0.08)',
-                  border: '1px solid rgba(16, 185, 129, 0.25)',
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--emerald, #10b981)', textTransform: 'uppercase' }}>
-                    <CheckCircle2 size={12} />
-                    <span>Clean Courier Address (120-Char standard):</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--rose, #f43f5e)', textTransform: 'uppercase' }}>
+                    <span>Raw Hinglish Customer Input:</span>
                   </div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-3, #9ca3af)', fontFamily: 'var(--font-mono, monospace)' }}>
-                    {aiTelemetry.sampleAfter.length}/120 chars
-                  </span>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: 'var(--text-1)', fontStyle: 'italic', lineHeight: 1.4 }}>
+                    "{aiTelemetry.sampleBefore}"
+                  </p>
                 </div>
-                <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: '#fff', fontWeight: 500, lineHeight: 1.4 }}>
-                  {aiTelemetry.sampleAfter}
-                </p>
-              </div>
-            </div>
 
-            {/* Model telemetry note */}
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-3, #9ca3af)', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <MessageSquare size={13} />
-              <span>Direct multimodal parsing powered by Gemini 3.8 Flash</span>
-            </div>
-          </CardContent>
-        </Card>
+                {/* Arrow transition */}
+                <div style={{ display: 'flex', justifyContent: 'center', color: 'var(--indigo-soft, #818cf8)' }}>
+                  <ArrowRight size={18} style={{ transform: 'rotate(90deg)' }} />
+                </div>
+
+                {/* After Box */}
+                <div
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: '10px',
+                    background: 'rgba(16, 185, 129, 0.08)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--emerald, #10b981)', textTransform: 'uppercase' }}>
+                      <CheckCircle2 size={12} />
+                      <span>Clean Courier Address (120-Char standard):</span>
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-3, #9ca3af)', fontFamily: 'var(--font-mono, monospace)' }}>
+                      {aiTelemetry.sampleAfter.length}/120 chars
+                    </span>
+                  </div>
+                  <p style={{ margin: '6px 0 0 0', fontSize: '0.85rem', color: '#fff', fontWeight: 500, lineHeight: 1.4 }}>
+                    {aiTelemetry.sampleAfter}
+                  </p>
+                </div>
+              </div>
+
+              {/* Model telemetry note */}
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-3, #9ca3af)', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <MessageSquare size={13} />
+                <span>Typed addresses are read with Google Gemini, then checked against the pincode.</span>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card style={{ padding: '24px' }}>
+            <CardTitle style={{ fontSize: '1.1rem', fontWeight: 700 }}>Address fixes</CardTitle>
+            <CardDescription style={{ marginTop: '6px' }}>
+              None yet. When a buyer types an address or a landmark, RescueShip turns it into one the courier can use,
+              and the results show here.
+            </CardDescription>
+          </Card>
+        )}
       </div>
     </div>
   );

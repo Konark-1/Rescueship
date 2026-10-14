@@ -1,23 +1,19 @@
 import { useState, useId } from 'react';
-import { PLANS, tierForOrders, type Plan } from '../../config/pricing.config';
+import { PLANS, BANDS, bandFor, priceFor, estimate, recommendedPlan, inr, type PlanKey } from '../../config/pricing.config';
 import { SlidersHorizontal } from 'lucide-react';
 
 export interface PlanPickerProps {
   value?: number;
   onChange?: (orders: number) => void;
   selectedTierKey?: string;
-  onSelectTier?: (tierKey: string) => void;
+  onSelectTier?: (planKey: string) => void;
   cycleLabel?: string;
   hideSlider?: boolean;
 }
 
-const CHIPS = [
-  { label: 'Up to 1k', target: 1000 },
-  { label: '1k – 5k', target: 5000 },
-  { label: '5k – 12k', target: 12000 },
-  { label: '12k – 25k', target: 25000 },
-];
-
+/**
+ * Landing plan picker: the plan sets the features, the monthly order volume sets the price.
+ */
 export function PlanPicker({
   value,
   onChange,
@@ -26,31 +22,15 @@ export function PlanPicker({
   cycleLabel,
   hideSlider = false,
 }: PlanPickerProps) {
-  const [internalVolume, setInternalVolume] = useState(1500);
+  const [internalVolume, setInternalVolume] = useState(1000);
   const sliderId = useId();
 
   const volume = value !== undefined ? value : internalVolume;
-  const recommended = tierForOrders(volume);
-  const activePlanId = selectedTierKey || recommended.id;
+  const band = bandFor(volume);
+  const recommended = recommendedPlan(volume);
+  const activePlanId = (selectedTierKey as PlanKey) || recommended;
 
-  const handleVolumeChange = (newVal: number) => {
-    if (onChange) {
-      onChange(newVal);
-    } else {
-      setInternalVolume(newVal);
-    }
-    const newTier = tierForOrders(newVal);
-    onSelectTier?.(newTier.id);
-  };
-
-  const handleSelectPlan = (plan: Plan) => {
-    if (onChange) {
-      onChange(plan.maxOrders);
-    } else {
-      setInternalVolume(plan.maxOrders);
-    }
-    onSelectTier?.(plan.id);
-  };
+  const setVolume = (n: number) => (onChange ? onChange(n) : setInternalVolume(n));
 
   return (
     <div className="plan-picker">
@@ -75,28 +55,24 @@ export function PlanPicker({
             aria-label="Monthly order volume"
             className="bl-vol-slider plan-picker__slider"
             min={100}
-            max={25000}
+            max={15000}
             step={100}
             value={volume}
-            onChange={(e) => handleVolumeChange(Number(e.target.value))}
+            onChange={(e) => setVolume(Number(e.target.value))}
           />
 
           <div className="bl-vol-chips plan-picker__chips" role="group" aria-label="Order volume presets">
-            {CHIPS.map((chip) => {
-              const isActive =
-                (chip.target === 1000 && volume <= 1000) ||
-                (chip.target === 5000 && volume > 1000 && volume <= 5000) ||
-                (chip.target === 12000 && volume > 5000 && volume <= 12000) ||
-                (chip.target === 25000 && volume > 12000);
-
+            {[...BANDS, 15000].map((b) => {
+              const isActive = b === 15000 ? band === null : band === b;
+              const label = b === 15000 ? '10k+' : `≤ ${b >= 1000 ? `${b / 1000}k` : b}`;
               return (
                 <button
-                  key={chip.target}
+                  key={b}
                   type="button"
                   className={`bl-chip plan-picker__chip ${isActive ? 'is-active' : ''}`}
-                  onClick={() => handleVolumeChange(chip.target)}
+                  onClick={() => setVolume(b)}
                 >
-                  {chip.label}
+                  {label}
                 </button>
               );
             })}
@@ -104,23 +80,25 @@ export function PlanPicker({
         </div>
       )}
 
-      <div className="bl-tiers-list plan-picker__tiers" role="radiogroup" aria-label="Subscription plans">
+      <div className="bl-tiers-list plan-picker__tiers" role="radiogroup" aria-label="Plans">
         {PLANS.map((plan) => {
-          const isSelected = plan.id === activePlanId;
-          const isRec = plan.id === recommended.id;
+          const isSelected = plan.key === activePlanId;
+          const isRec = plan.key === recommended;
+          const e = estimate(volume, {}, plan.key);
+          const p = band ? priceFor(plan.key, band, 'quarterly') : null;
 
           return (
             <div
-              key={plan.id}
+              key={plan.key}
               role="radio"
               aria-checked={isSelected}
               tabIndex={0}
               className={`bl-tier-card plan-picker__card ${isSelected ? 'is-selected' : ''}`}
-              onClick={() => handleSelectPlan(plan)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleSelectPlan(plan);
+              onClick={() => onSelectTier?.(plan.key)}
+              onKeyDown={(ev) => {
+                if (ev.key === 'Enter' || ev.key === ' ') {
+                  ev.preventDefault();
+                  onSelectTier?.(plan.key);
                 }
               }}
             >
@@ -133,40 +111,18 @@ export function PlanPicker({
                     <span className="bl-tier-card__name">{plan.name}</span>
                     {isRec && <span className="bl-tier-card__badge">Recommended for you</span>}
                   </div>
+                  <p className="bl-tier-card__volume">{plan.tagline}</p>
                   <p className="bl-tier-card__volume">
-                    Up to {plan.maxOrders.toLocaleString('en-IN')} orders/mo · {plan.blurb}
+                    Covers {plan.coverage} · ≈{Math.round(plan.reduction * 100)}% fewer RTOs · saves ~{inr(e.saved)}/mo
                   </p>
-                  {plan.flagship && (
-                    <div style={{ marginTop: '6px' }}>
-                      <span
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          fontSize: '0.72rem',
-                          background: 'rgba(99, 102, 241, 0.15)',
-                          color: '#a5b4fc',
-                          padding: '2px 8px',
-                          borderRadius: '12px',
-                          fontWeight: 600,
-                          border: '1px solid rgba(99, 102, 241, 0.3)',
-                        }}
-                      >
-                        ⭐ {plan.flagship}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
 
               <div className="bl-tier-card__right">
                 <span className="bl-tier-card__price">
-                  ₹{plan.priceMonthly.toLocaleString('en-IN')}
-                  <small>/mo</small>
+                  {p ? <>{inr(p.monthly)}<small>/mo</small></> : 'Custom'}
                 </span>
-                <span className="bl-tier-card__subtext">
-                  {cycleLabel || `Billed quarterly`}
-                </span>
+                <span className="bl-tier-card__subtext">{p ? cycleLabel || 'Billed quarterly' : 'Above 10k orders'}</span>
               </div>
             </div>
           );

@@ -1,7 +1,7 @@
 /**
  * ExportButton.tsx
  * ─────────────────────────────────────────────────────────────
- * Zero-Memory Streaming CSV/JSON export button for Scale & Enterprise merchants.
+ * Zero-Memory Streaming CSV/JSON export button for Prevent-plan merchants.
  * 
  * 🛡️ ARCHITECTURAL SAFEGUARD (Invisible Trap 2 Neutralized):
  * Never buffers 60,000 rows into frontend JavaScript heap via Axios/Fetch Blob.
@@ -26,7 +26,8 @@ const EXPORT_LABELS: Record<string, string> = {
   carrier_performance: '📊 Export Carrier Performance',
 };
 
-const EXPORT_PLANS = ['scale', 'enterprise'];
+// CSV export is a Prevent feature (legacy 'scale'/'fleet' accounts keep it).
+const EXPORT_PLANS = ['prevent', 'enterprise', 'scale', 'fleet'];
 
 export default function ExportButton({ exportType, label, className = '' }: ExportButtonProps) {
   const { token } = useAuth();
@@ -103,7 +104,7 @@ export default function ExportButton({ exportType, label, className = '' }: Expo
               disabled={!planLoaded || !isAllowed}
               className="btn btn-ghost btn-sm"
               style={{ opacity: 0.6, cursor: 'not-allowed' }}
-              title={planLoaded ? 'Upgrade to Scale or Enterprise plan to export data' : 'Checking plan privileges…'}
+              title={planLoaded ? 'Exports are included in the Prevent plan' : 'Checking plan privileges…'}
             >
               {label || EXPORT_LABELS[exportType]} · CSV
             </button>
@@ -111,7 +112,7 @@ export default function ExportButton({ exportType, label, className = '' }: Expo
               disabled={!planLoaded || !isAllowed}
               className="btn btn-ghost btn-sm"
               style={{ opacity: 0.6, cursor: 'not-allowed' }}
-              title={planLoaded ? 'Upgrade to Scale or Enterprise plan to export data' : 'Checking plan privileges…'}
+              title={planLoaded ? 'Exports are included in the Prevent plan' : 'Checking plan privileges…'}
             >
               JSON
             </button>

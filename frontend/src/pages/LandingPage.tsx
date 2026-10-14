@@ -393,9 +393,9 @@ export default function LandingPage() {
             <span className="lp-console__dot lp-console__dot--r" />
             <span className="lp-console__dot lp-console__dot--a" />
             <span className="lp-console__dot lp-console__dot--g" />
-            <span className="lp-console__title">rescue_feed — live interception</span>
+            <span className="lp-console__title">rescue_feed — sample day</span>
             <motion.span className="lp-console__live" animate={reduced ? {} : { opacity: [1, 0.78, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}>● LIVE</motion.span>
+              transition={{ duration: 2, repeat: Infinity }}>● DEMO</motion.span>
           </div>
 
           <div className="lp-console__body">
@@ -432,11 +432,11 @@ export default function LandingPage() {
           <div className="lp-console__stats">
             <div className="lp-stat">
               <span className="lp-stat__n"><CountUp target={recovered} booted={booted} prefix="₹" delay={0.6} /></span>
-              <span className="lp-stat__l">recovered today</span>
+              <span className="lp-stat__l">recovered · sample</span>
             </div>
             <div className="lp-stat">
               <span className="lp-stat__n"><CountUp target={rescuedCount} booted={booted} delay={0.7} /></span>
-              <span className="lp-stat__l">orders rescued</span>
+              <span className="lp-stat__l">orders rescued · sample</span>
             </div>
             <div className="lp-stat">
               <span className="lp-stat__n"><CountUp target={90} booted={booted} suffix="s" delay={0.8} duration={1} /></span>
@@ -517,7 +517,7 @@ export default function LandingPage() {
                 {submitting ? 'Boarding…' : 'Start rescuing →'}
               </motion.button>
               {error && <p className="lp-pass__err">⚠ {error}</p>}
-              <p className="lp-pass__fine">Free test rescue · no card · live in 4 minutes</p>
+              <p className="lp-pass__fine">3 free test rescues to your own phone · no card to start</p>
             </motion.form>
           )}
         </div>
@@ -528,7 +528,7 @@ export default function LandingPage() {
 
       <section className="lp-board">
         <motion.p className="lp-section__kicker" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-          viewport={{ once: true }} transition={{ duration: 0.5 }}>Live order board</motion.p>
+          viewport={{ once: true }} transition={{ duration: 0.5 }}>Order board · sample</motion.p>
         <div className="lp-board__cols">
           <div className="lp-board__col">
             <div className="lp-board__col-h lp-board__col-h--fail">
@@ -751,7 +751,7 @@ export default function LandingPage() {
           </p>
           <div className="lp-final__actions">
             <Link to="/register" className="lp-final__btn">Board the ship →</Link>
-            <Link to="/sandbox" className="lp-final__btn lp-final__btn--secondary">or jump straight into Sandbox →</Link>
+            <Link to="/register" className="lp-final__btn lp-final__btn--secondary">or send yourself a test rescue →</Link>
           </div>
           <div className="lp-final__chips">
             <span>no credit card</span><span>no sales call</span><span>live in 4 min</span>
@@ -770,7 +770,6 @@ export default function LandingPage() {
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms of Service</Link>
           <Link to="/dpa">DPDP Addendum</Link>
-          <Link to="/connected-apis">Integrations</Link>
           <Link to="/login">Log in</Link>
           <Link to="/register" className="lp-foot__cta">Get started →</Link>
         </span>

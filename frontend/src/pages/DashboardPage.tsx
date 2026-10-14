@@ -21,6 +21,8 @@ import type { UnifiedDashboardOrder } from '../types/dashboard.d';
 import { bucketRoiRecordsByWeek } from '../lib/utils';
 import '../styles/dashboard.css';
 
+const SHOW_SIMULATOR = import.meta.env.DEV;
+
 const TrendCharts = lazy(() => import('../components/dashboard/TrendCharts'));
 const RescueFunnel = lazy(() => import('../components/reports/RescueFunnel'));
 
@@ -37,7 +39,7 @@ export const DashboardPage: React.FC = () => {
     endDate: new Date().toISOString(),
   });
   const [hasCustomRange, setHasCustomRange] = useState<boolean>(false);
-  const [activePresetLabel, setActivePresetLabel] = useState<string>('This Month');
+  const [activePresetLabel, setActivePresetLabel] = useState<string>('Last 30 Days');
 
   // State
   const [loading, setLoading] = useState<boolean>(true);
@@ -155,7 +157,8 @@ export const DashboardPage: React.FC = () => {
               s.dailyConversions.map((d: any) => ({
                 date: d.date,
                 rescued: d.conversions || d.rescued || 0,
-                rto: Math.max(1, Math.round((d.conversions || 2) * 0.2)),
+                // Returns are shown only when the API reports them; never estimated here.
+                rto: typeof d.rto === 'number' ? d.rto : typeof d.rtoCount === 'number' ? d.rtoCount : undefined,
               }))
             );
           }
@@ -186,7 +189,8 @@ export const DashboardPage: React.FC = () => {
               a.dailyConversions.map((d: any) => ({
                 date: d.date,
                 rescued: d.conversions || d.rescued || 0,
-                rto: Math.max(1, Math.round((d.conversions || 2) * 0.2)),
+                // Returns are shown only when the API reports them; never estimated here.
+                rto: typeof d.rto === 'number' ? d.rto : typeof d.rtoCount === 'number' ? d.rtoCount : undefined,
               }))
             );
           }
@@ -287,10 +291,10 @@ export const DashboardPage: React.FC = () => {
       <header className="dashboard-page__header">
         <div className="dashboard-page__title-group">
           <h1 className="dashboard-page__title">
-            ₹{totalSaved.toLocaleString('en-IN')} Saved {activePresetLabel}
+            ₹{totalSaved.toLocaleString('en-IN')} saved: {activePresetLabel.toLowerCase()}
           </h1>
           <p className="dashboard-page__subtitle">
-            Autonomous RTO Interception, NDR Intelligence &amp; COD Conversion Deck ({platformName} Integrated)
+            Failed deliveries saved, money kept, and the orders that need you. Connected to {platformName}.
           </p>
           <div className="dashboard-page__badges">
             <span className="badge badge-primary" style={{ padding: '4px 10px', fontSize: '0.78rem' }}>
@@ -318,7 +322,7 @@ export const DashboardPage: React.FC = () => {
               if (label) setActivePresetLabel(label);
             }}
           />
-          <button
+          {SHOW_SIMULATOR && <button
             type="button"
             data-testid="btn-simulate-ndr"
             className="btn btn-secondary btn-sm"
@@ -330,13 +334,13 @@ export const DashboardPage: React.FC = () => {
                 : undefined
             }
           >
-            {simulating ? 'Simulating…' : metaTier.isLimitReached ? '⚡ Rescues Paused' : '⚡ Simulate NDR'}
-          </button>
+            {simulating ? 'Simulating…' : metaTier.isLimitReached ? 'Rescues paused' : 'Simulate a failed delivery (dev)'}
+          </button>}
         </div>
       </header>
 
-      {/* WHATSAPP NDR SIMULATOR BUBBLE (Preserved for Playwright E2E Spec) */}
-      {simResult && (
+      {/* Developer-only simulator (kept for the Playwright e2e spec). Never shown in production builds. */}
+      {SHOW_SIMULATOR && simResult && (
         <section
           className="simulator-dock"
           data-testid="whatsapp-chat-bubble"

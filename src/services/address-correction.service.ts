@@ -648,12 +648,10 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
       try {
         token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
       } catch {
-        if (process.env.WHATSAPP_ACCESS_TOKEN) {
-          token = process.env.WHATSAPP_ACCESS_TOKEN;
-        } else {
-          logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
-          throw new Error('WhatsApp credentials require reconnection');
-        }
+        // Never substitute the platform token: the merchant's traffic must use the merchant's own
+        // credentials (billing, identity and quality all belong to their WABA).
+        logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
+        throw new Error('WhatsApp credentials require reconnection');
       }
     }
     return {

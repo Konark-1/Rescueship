@@ -19,7 +19,8 @@ import { Skeleton } from '../ui/skeleton';
 export interface DailyTrendItem {
   date: string;
   rescued: number;
-  rto: number;
+  /** Only present when the API reports returns; never estimated on the client. */
+  rto?: number;
 }
 
 export interface NdrReasonItem {
@@ -68,6 +69,7 @@ export const TrendCharts: React.FC<TrendChartsProps> = ({
   }
 
   const formattedTrendData: DailyTrendItem[] = trendData;
+  const hasRto = formattedTrendData.some((d) => typeof d.rto === 'number');
   const formattedReasons: NdrReasonItem[] = reasonsData;
   const totalNdrCases = formattedReasons.reduce((acc, curr) => acc + curr.value, 0);
 
@@ -236,7 +238,7 @@ export const TrendCharts: React.FC<TrendChartsProps> = ({
                       fillOpacity={1}
                       fill="url(#colorRescued)"
                     />
-                    <Area
+                    {hasRto && <Area
                       type="monotone"
                       dataKey="rto"
                       name="RTO Returned"
@@ -244,7 +246,7 @@ export const TrendCharts: React.FC<TrendChartsProps> = ({
                       strokeWidth={2}
                       fillOpacity={1}
                       fill="url(#colorRTO)"
-                    />
+                    />}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -253,10 +255,12 @@ export const TrendCharts: React.FC<TrendChartsProps> = ({
                   <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#10b981' }} />
                   <span style={{ color: 'var(--text-2, #d4d4d8)' }}>Rescued Deliveries</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e' }} />
-                  <span style={{ color: 'var(--text-2, #d4d4d8)' }}>RTO Returns</span>
-                </div>
+                {hasRto && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#f43f5e' }} />
+                    <span style={{ color: 'var(--text-2, #d4d4d8)' }}>RTO Returns</span>
+                  </div>
+                )}
               </div>
             </div>
           ) : (

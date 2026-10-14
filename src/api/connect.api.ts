@@ -18,6 +18,14 @@ import { emailService } from '../services/email.service';
 import { encryptionService } from '../services/encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
+import {
+  reserveTestSend,
+  getTestStatus,
+  buildVerification,
+  samePhone,
+  isPayingMerchant,
+  MAX_UNPAID_PHONE_CHANGES,
+} from '../services/free-test.service';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
 import { frontendOrigin } from '../config/env';
 import { credentialValidationLimiter } from '../middleware/rateLimiter';
@@ -52,6 +60,9 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
       merchantId: req.merchant!.merchantId,
       storeName: (m as any).storeName || (m as any).shopify?.shopDomain || null,
       ownerPhone: (m as any).ownerPhone || null,
+      ownerPhoneVerified: Boolean((m as any).ownerPhone && (m as any).ownerPhoneVerifiedAt),
+      pendingOwnerPhone: (m as any).ownerPhoneVerification?.phone || null,
+      testRescues: await getTestStatus(m).catch(() => null),
       connections: {
         shopify: c.shopify || { status: 'disconnected' },
         woocommerce: c.woocommerce || { status: 'disconnected' },
@@ -258,6 +269,7 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
 
   // 1. Token must be long-lived and carry the WhatsApp scopes (temporary API-setup tokens die in ~24h).
   let platformType: string | undefined;
+  let displayPhone: string | undefined;
   try {
     const info = await metaEmbeddedSignupService.inspectToken(token);
     if (!info.valid) return res.status(400).json({ error: 'Meta says this access token is not valid.' });
@@ -275,6 +287,7 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
     const match = (data?.data || []).find((p: any) => String(p.id) === phone);
     if (!match) return res.status(400).json({ error: 'That phone number ID is not part of this WhatsApp Business Account.' });
     platformType = match.platform_type;
+    displayPhone = match.display_phone_number;
   } catch (e: any) {
     const metaErr = e.response?.data?.error;
     const msg = metaErr?.message || e.message;
@@ -301,6 +314,7 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
     wabaId: waba,
     businessAccountId: waba,
     accessToken: encryptionService.encrypt(token),
+    ...(displayPhone ? { displayPhone } : {}),
     connectMethod: 'manual',
     webhooksSubscribed: activation.subscribed,
     // A merchant using their OWN Meta app: its webhooks are signed with that app's secret.
@@ -373,6 +387,8 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
   let decryptedToken: string;
   try { decryptedToken = encryptionService.decrypt(waCfg.accessToken); }
   catch { return res.status(400).json({ error: 'WhatsApp credentials need to be reconnected.' }); }
+  const reservation = await reserveTestSend(m);
+  if (!reservation.allowed) return res.status(429).json({ error: reservation.reason, code: reservation.code });
   try {
     const registeredName = waCfg.templateMap?.['rs_test_pulse_en'] || 'rs_test_pulse_v2_en';
     const templates: any[] = waCfg.templates || [];
@@ -394,8 +410,9 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
       );
     }
     await Merchant.findByIdAndUpdate(m._id, { $set: { 'onboarding.testRescueSentAt': new Date() } });
-    res.json({ ok: true, to: phone });
+    res.json({ ok: true, to: phone, remaining: reservation.remaining });
   } catch (e: any) {
+    await reservation.release();
     // Surface Meta's exact reason (often opt-in) so the merchant can self-fix.
     res.status(400).json({ error: e.message, hint: 'If Meta says the number is not opted in, send any message to your new WhatsApp Business number from this phone first, then retry.' });
   }
@@ -489,7 +506,7 @@ router.post('/assisted-setup/request', authenticateToken, standardMerchantLimite
 });
 
 // ── Owner phone (for the test pulse) + finalize ──
-router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/owner-phone', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
   const { ownerPhone, storeName } = req.body;
   // MED-1 fix: Validate phone format (E.164: +countrycode followed by 7-14 digits)
   if (ownerPhone !== undefined && (typeof ownerPhone !== 'string' || !/^\+\d{7,15}$/.test(ownerPhone))) {
@@ -498,10 +515,38 @@ router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest,
   if (storeName !== undefined && (typeof storeName !== 'string' || storeName.length > 120)) {
     return res.status(400).json({ error: 'Invalid store name' });
   }
-  await Merchant.findByIdAndUpdate(req.merchant!.merchantId, {
-    $set: { ...(ownerPhone ? { ownerPhone } : {}), ...(storeName ? { storeName: storeName.trim() } : {}) },
-  });
-  res.json({ ok: true });
+  const m: any = await Merchant.findById(req.merchant!.merchantId);
+  if (!m) return res.status(404).json({ error: 'not found' });
+
+  const $set: Record<string, unknown> = {};
+  if (storeName) $set.storeName = storeName.trim();
+
+  // A test message may only go to a phone the owner has proved is theirs: the number stays
+  // pending until a WhatsApp message with the code arrives FROM it (see whatsapp.webhook).
+  let verification: { code: string; sendTo: string | null; waLink: string | null } | null = null;
+  const alreadyVerified = ownerPhone && m.ownerPhoneVerifiedAt && samePhone(m.ownerPhone, ownerPhone);
+  if (ownerPhone && !alreadyVerified) {
+    if (!isPayingMerchant(m) && (m.ownerPhoneChanges || 0) >= MAX_UNPAID_PHONE_CHANGES) {
+      return res.status(429).json({ error: 'You have changed your test number too many times. Choose a plan or contact support to change it again.' });
+    }
+    const built = buildVerification(ownerPhone);
+    $set.ownerPhoneVerification = built.record;
+    const sendTo = String(m.whatsappConfig?.displayPhone || '').replace(/\D/g, '') || null;
+    const text = `RescueShip verify ${built.code}`;
+    verification = {
+      code: built.code,
+      sendTo,
+      waLink: sendTo ? `https://wa.me/${sendTo}?text=${encodeURIComponent(text)}` : null,
+    };
+  }
+
+  // Asking for a fresh code for the SAME pending number is not a change of number.
+  const isNewNumber = verification && !samePhone(m.ownerPhoneVerification?.phone, ownerPhone);
+  await Merchant.updateOne(
+    { _id: m._id },
+    { ...(Object.keys($set).length ? { $set } : {}), ...(isNewNumber ? { $inc: { ownerPhoneChanges: 1 } } : {}) }
+  );
+  res.json({ ok: true, verified: Boolean(alreadyVerified), verification });
 });
 router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const m = await Merchant.findById(req.merchant!.merchantId);

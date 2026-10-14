@@ -35,8 +35,8 @@ const RouteLoadingFallback: React.FC = () => (
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    backgroundColor: 'var(--bg-void, #050508)',
-    color: 'var(--text-3, #9ca3af)',
+    backgroundColor: '#f4f6f8',
+    color: '#5c6370',
     fontSize: '0.9rem',
   }}>
     Loading...
@@ -80,6 +80,15 @@ const DashboardLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ child
   }
 
   return <BillingGate><AppLayout>{children}</AppLayout></BillingGate>;
+};
+
+// Pages a merchant can use before paying: setup and free test rescues (capped server-side).
+const UnpaidOkLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.onboardingStatus === 'pending') {
+    return <Navigate to="/onboarding" replace />;
+  }
+  return <AppLayout>{children}</AppLayout>;
 };
 
 // Wildcard handler component
@@ -169,18 +178,17 @@ export const App: React.FC = () => {
               <Route path="/docs" element={<Navigate to="/connected-apis" replace />} />
               <Route path="/sandbox" element={
                 <ProtectedRoute>
-                  <DashboardLayoutWrapper>
+                  <UnpaidOkLayoutWrapper>
                     <SandboxPage />
-                  </DashboardLayoutWrapper>
+                  </UnpaidOkLayoutWrapper>
                 </ProtectedRoute>
               } />
 
-              {/* Onboarding Wizard (not wrapped in standard layout) */}
+              {/* Onboarding Wizard (not wrapped in standard layout). Open before payment:
+                  merchants connect and send free test rescues; going live needs a plan. */}
               <Route path="/onboarding" element={
                 <ProtectedRoute>
-                  <BillingGate>
-                    <OnboardingPage />
-                  </BillingGate>
+                  <OnboardingPage />
                 </ProtectedRoute>
               } />
 

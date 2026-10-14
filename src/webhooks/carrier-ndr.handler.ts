@@ -11,6 +11,7 @@
  *   - Unrecognized AWBs are cleanly routed to Shipment quarantine.
  */
 import { Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import { randomUUID } from 'crypto';
@@ -122,6 +123,7 @@ export function createCarrierNdrHandler(
         return;
       }
 
+      markWebhookSeen(provider === 'shiprocket' ? 'SHIPROCKET' : 'CARRIER');
       // 1. Durably record raw WebhookEvent
       try {
         await WebhookEvent.create({

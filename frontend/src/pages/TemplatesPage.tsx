@@ -24,7 +24,6 @@ import {
   Shield,
 } from 'lucide-react';
 import api from '../services/api';
-import { Toggle } from '../components/settings/WhatsAppTemplates';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../components/ui/dialog';
 import { RescueScene } from '../components/story/RescueScene';
 import './TemplatesPage.css';
@@ -211,58 +210,14 @@ const PLAYBOOKS: PlaybookDef[] = [
   },
 ];
 
-// Fallback demo threads if fresh database has 0 historical messages
-const FALLBACK_THREADS: ChatThread[] = [
-  {
-    orderId: 'demo_order_1',
-    externalOrderId: 'RS-77319',
-    customerName: 'Ananya Deshmukh',
-    customerPhone: '+91 98765 11029',
-    orderValue: 1850,
-    status: 'ndr_rescue_sent',
-    paymentMethod: 'cod',
-    carrier: 'Delhivery',
-    awb: 'DEL99482103',
-    claimedUtr: '408219504218',
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
-    lastMessageBody: 'I paid on PhonePe UTR 408219504218',
-    lastDirection: 'inbound',
-  },
-  {
-    orderId: 'demo_order_2',
-    externalOrderId: 'RS-89421',
-    customerName: 'Priya Sharma',
-    customerPhone: '+91 98200 48192',
-    orderValue: 1240,
-    status: 'ndr_rescued',
-    paymentMethod: 'cod',
-    carrier: 'BlueDart',
-    awb: 'BLU84019283',
-    claimedUtr: null,
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
-    lastMessageBody: 'Yes I’m home! Nobody came to my door! 😤',
-    lastDirection: 'inbound',
-  },
-  {
-    orderId: 'demo_order_3',
-    externalOrderId: 'RS-84920',
-    customerName: 'Rahul Verma',
-    customerPhone: '+91 99112 30192',
-    orderValue: 890,
-    status: 'converted_to_prepaid',
-    paymentMethod: 'cod',
-    carrier: 'Shadowfax',
-    awb: 'SFX83019284',
-    claimedUtr: null,
-    lastMessageAt: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    lastMessageBody: 'Paid ₹840 on UPI ✅',
-    lastDirection: 'inbound',
-  },
-];
 
 export default function TemplatesPage() {
   const [activeTab, setActiveTab] = useState<'playbooks' | 'chats'>('playbooks');
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [, setTemplates] = useState<Template[]>([]);
+  // Real Meta review status of the merchant's submitted WhatsApp templates.
+  const [metaTemplates, setMetaTemplates] = useState<Array<{ name: string; status: string }>>([]);
+  const metaStatusOf = (name: string) => metaTemplates.find((t) => t.name === name)?.status;
+  const approvedCount = PLAYBOOKS.filter((p) => metaStatusOf(p.templateName) === 'APPROVED').length;
   const [selectedPlaybook, setSelectedPlaybook] = useState<PlaybookDef>(PLAYBOOKS[0]);
   const [loading, setLoading] = useState(true);
   const [syncingMeta, setSyncingMeta] = useState(false);
@@ -298,11 +253,15 @@ export default function TemplatesPage() {
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [tplRes, setRes, chatRes] = await Promise.allSettled([
+      const [tplRes, setRes, chatRes, connRes] = await Promise.allSettled([
         api.get('/api/templates'),
         api.get('/api/settings'),
         api.get('/api/orders/chats/recent'),
+        api.get('/api/connect/state'),
       ]);
+      if (connRes.status === 'fulfilled' && Array.isArray(connRes.value.data?.templates)) {
+        setMetaTemplates(connRes.value.data.templates);
+      }
 
       if (tplRes.status === 'fulfilled' && Array.isArray(tplRes.value.data)) {
         setTemplates(tplRes.value.data);
@@ -334,10 +293,8 @@ export default function TemplatesPage() {
           setSelectedThread(chatRes.value.data[0]);
         }
       } else {
-        setThreads(FALLBACK_THREADS);
-        if (!selectedThread) {
-          setSelectedThread(FALLBACK_THREADS[0]);
-        }
+        // No real conversations yet: show an empty state, never sample customers.
+        setThreads([]);
       }
     } catch {
       showToast('Loaded local defaults', 'success');
@@ -621,7 +578,7 @@ export default function TemplatesPage() {
               Recovery Flows & Customer Experience
             </h1>
             <span className="badge badge-success" style={{ padding: '2px 8px', fontSize: '0.72rem' }}>
-              <CheckCircle size={11} /> {templates.length > 0 ? `${templates.length} Meta Templates Synced` : '5 Turnkey Playbooks Active'}
+              <CheckCircle size={11} /> {approvedCount} of {PLAYBOOKS.length} messages approved by Meta
             </span>
           </div>
           <p className="page-head__sub" style={{ marginTop: '4px', color: 'var(--text-2)', fontSize: '0.88rem' }}>
@@ -662,7 +619,7 @@ export default function TemplatesPage() {
           className={`rf-tab-btn ${activeTab === 'chats' ? 'active' : ''}`}
           onClick={() => setActiveTab('chats')}
         >
-          <MessageSquare size={15} /> Real Customer Chat Audit & Dispute Center
+          <MessageSquare size={15} /> Buyer conversations
           {threads.some((t) => t.claimedUtr) && (
             <span className="badge badge-warning" style={{ fontSize: '0.62rem', padding: '1px 5px', marginLeft: 4 }}>
               Dispute
@@ -1003,8 +960,8 @@ export default function TemplatesPage() {
                   <MessageSquare size={13} aria-hidden="true" />
                   Turnkey Recovery Playbooks
                 </span>
-                <span className="panel__aside" style={{ color: 'var(--emerald)', fontWeight: 600 }}>
-                  {PLAYBOOKS.length} / {PLAYBOOKS.length} Operational
+                <span className="panel__aside" style={{ color: approvedCount === PLAYBOOKS.length ? 'var(--emerald)' : 'var(--text-3)', fontWeight: 600 }}>
+                  {approvedCount} of {PLAYBOOKS.length} approved by Meta
                 </span>
               </div>
 
@@ -1033,16 +990,13 @@ export default function TemplatesPage() {
                           </span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span className="badge badge-success" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                            <CheckCircle size={10} /> Meta Approved
-                          </span>
-                          <Toggle
-                            id={`toggle-${playbook.id}`}
-                            aria-label={`Toggle ${playbook.title}`}
-                            checked={true}
-                            disabled={false}
-                            onChange={() => {}}
-                          />
+                          {(() => {
+                            const st = metaStatusOf(playbook.templateName);
+                            if (st === 'APPROVED') return <span className="badge badge-success" style={{ fontSize: '0.68rem', padding: '1px 6px' }}><CheckCircle size={10} /> Approved by Meta</span>;
+                            if (st === 'REJECTED') return <span className="badge badge-danger" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>Rejected by Meta</span>;
+                            if (st) return <span className="badge badge-warning" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>In Meta review</span>;
+                            return <span className="badge" style={{ fontSize: '0.68rem', padding: '1px 6px', color: 'var(--text-3)' }}>Not submitted</span>;
+                          })()}
                         </div>
                       </div>
 
@@ -1144,6 +1098,14 @@ export default function TemplatesPage() {
             </div>
           )}
 
+          {threads.length === 0 ? (
+            <div className="panel" style={{ padding: 'var(--space-8)', textAlign: 'center', borderRadius: 'var(--radius-lg)' }}>
+              <p style={{ fontWeight: 600, color: 'var(--text-1)', margin: 0 }}>No buyer conversations yet</p>
+              <p style={{ color: 'var(--text-3)', margin: '6px auto 0', maxWidth: 460 }}>
+                When a courier reports a failed delivery and RescueShip messages the buyer, the conversation shows up here.
+              </p>
+            </div>
+          ) : (
           <div className="audit-grid">
             {/* COLUMN 1: THREAD LIST */}
             <div className="thread-list-pane">
@@ -1425,6 +1387,7 @@ export default function TemplatesPage() {
               </div>
             </div>
           </div>
+          )}
         </div>
       )}
 

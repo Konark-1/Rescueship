@@ -1,5 +1,5 @@
 import { PlanPicker } from './PlanPicker';
-import { AVG_RESCUE_VALUE, tierForOrders } from '../../config/pricing.config';
+import { estimate, recommendedPlan, planByKey, priceFor, bandFor } from '../../config/pricing.config';
 
 export interface PricingSectionProps {
   orders: number;
@@ -7,14 +7,13 @@ export interface PricingSectionProps {
 }
 
 export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) {
-  const plan = tierForOrders(orders);
-
-  // Standard calibrated math for break-even (60% COD share, 25% RTO rate, 60% rescue rate)
-  const failures = Math.round(orders * 0.6 * 0.25);
-  const rescued = Math.round(failures * 0.6);
-  const savings = rescued * AVG_RESCUE_VALUE;
-  const breakEvenRescues = Math.ceil(plan.priceMonthly / AVG_RESCUE_VALUE);
-  const coverage = plan.priceMonthly > 0 ? savings / plan.priceMonthly : 0;
+  const plan = planByKey(recommendedPlan(orders));
+  const band = bandFor(orders);
+  const e = estimate(orders, {}, plan.key);
+  const monthly = band ? priceFor(plan.key, band, 'quarterly').monthly : 0;
+  const rescued = e.rtosAvoided;
+  const breakEvenRescues = monthly ? Math.ceil(monthly / e.costPerRto) : 0;
+  const coverage = monthly > 0 ? e.saved / monthly : 0;
 
   return (
     <div className="pricing" aria-labelledby="pricing-heading">
@@ -22,10 +21,10 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         <div className="pricing__header">
           <span className="pricing__eyebrow">PRICING</span>
           <h2 id="pricing-heading" className="pricing__heading">
-            Simple pricing that pays for itself.
+            Pick your protection. Pay for your size.
           </h2>
           <p className="pricing__sub">
-            Drag your order volume — your plan and your break-even update live.
+            Same features for every brand size — smaller brands simply pay less. Drag your monthly orders to see your price.
           </p>
         </div>
 
@@ -37,7 +36,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         {/* 1. Break-even line */}
         <div className="pricing__breakeven" aria-live="polite">
           <span className="pricing__breakeven-text">
-            <strong>{plan.name}</strong> pays for itself at ~<strong>{breakEvenRescues}</strong> rescues a month. At your volume you generate ~<strong>{rescued}</strong> — a <strong>{coverage.toFixed(1)}×</strong> return.
+            {band ? (<><strong>{plan.name}</strong> pays for itself at ~<strong>{breakEvenRescues}</strong> saved parcels a month. At your volume we expect ~<strong>{rescued}</strong> fewer RTOs — about <strong>{coverage.toFixed(1)}×</strong> its price.</>) : (<>Above 10,000 orders a month we build a custom plan.</>)}
           </span>
         </div>
 
@@ -60,10 +59,10 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
             <span style={{ fontSize: '1.1rem' }}>🛡️</span>
             <div>
               <div style={{ fontSize: '0.86rem', fontWeight: 600, color: '#f3f4f6' }}>
-                Enterprise NDR Command Center Included
+                Prevent plan: stop risky orders before they ship
               </div>
               <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
-                Carrier Fraud Watchtower rider audits + Storefront Geo-Risk Sync to Shopify &amp; WooCommerce.
+                Pre-dispatch COD confirmation, pincode risk rules and courier fake-attempt watch.
               </div>
             </div>
           </div>
@@ -78,7 +77,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
               border: '1px solid rgba(16, 185, 129, 0.3)',
             }}
           >
-            Included in Scale &amp; Fleet
+            Included in Prevent
           </span>
         </div>
 
@@ -86,7 +85,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         <div className="pricing__guarantee" role="region" aria-label="Money back guarantee">
           <span className="pricing__guarantee-icon" aria-hidden="true">🛡️</span>
           <span className="pricing__guarantee-text">
-            <strong>90-day guarantee</strong> — if your ROI ledger doesn&apos;t cover the license fee, we refund the difference.
+            <strong>90-day money-back guarantee</strong> — if the savings recorded in your dashboard don&apos;t exceed the fees you paid, we refund those fees in full.
           </span>
         </div>
 
@@ -101,7 +100,7 @@ export function PricingSection({ orders, onOrdersChange }: PricingSectionProps) 
         {/* 4. Enterprise row */}
         <div className="pricing__enterprise">
           <span className="pricing__enterprise-text">
-            Shipping more than 15,000 orders/mo? We'll set up a custom plan —{' '}
+            Shipping more than 10,000 orders/mo? We'll set up a custom plan —{' '}
             <a href="mailto:konarkofficial@gmail.com" className="pricing__enterprise-link">
               talk to us.
             </a>

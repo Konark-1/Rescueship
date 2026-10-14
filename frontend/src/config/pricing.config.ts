@@ -1,107 +1,107 @@
 /**
- * 🚢 RescueShip — Authoritative Unified Pricing Configuration
- * Single source of truth for both Landing Page presentation and in-app Billing Checkout.
- * Backend-enforced (src/services/subscription.service.ts, src/config/plans.ts), monthly before GST:
- * Starter ₹1,999 (500 orders) · Growth ₹4,999 (2,000) · Scale ₹11,999 (6,000) · Fleet ₹24,999 (15,000).
+ * 🚢 RescueShip — pricing & value model (single source for landing + billing).
+ *
+ * Price = feature PLAN (what is included) × monthly ORDER BAND (how much).
+ * Backend mirror: src/services/subscription.service.ts (PRICE) and src/config/plans.ts
+ * (features). tests/pricing-consistency.test.ts fails if the two drift.
+ *
+ * How prices were set (Oct 2026):
+ *   burn  = orders × COD share × COD RTO rate × cost per RTO
+ *   save  = burn × expected RTO reduction for the plan
+ *   price ≈ 20% of save (merchant keeps ~4–7×), volume discount, ₹999 floor.
+ *
+ * Evidence behind the defaults (vendor/industry blogs, used at or below their low end):
+ *   - COD RTO 30–40% (Base, India benchmarks 2026) → we use 30%.
+ *   - Cost of one RTO ₹205–315 direct (CampaignHQ) → we use ₹250 incl. packaging/wasted CAC.
+ *   - Failure reasons: customer unavailable 28–45%, address 14–25%, refused/COD 10–37%,
+ *     premises closed 10–15%, rescheduled ~9% (GoSwift, Shipsy, Pragma).
+ *   - Automated NDR follow-up: 8–14% RTO reduction (Base) → Rescue 12%.
+ *   - Prepaid nudge converts 8–12% of COD orders (CampaignHQ); prepaid RTO ≈ half of COD (Base)
+ *     → Convert ≈ 19%.
+ *   - Pre-dispatch COD confirmation: 30–40% COD RTO cut (CampaignHQ, vendor) → we credit
+ *     only 15% on top → Prevent ≈ 1 − (1−0.19)(1−0.15) ≈ 31%.
  */
 
-export type Tier = 'starter' | 'growth' | 'scale' | 'fleet';
+export type PlanKey = 'rescue' | 'convert' | 'prevent';
+/** @deprecated alias kept for older imports */
+export type Tier = PlanKey;
+export type Band = 500 | 1000 | 2500 | 5000 | 10000;
 export type Cycle = 'quarterly' | 'semi' | 'annual';
 
-export const AVG_RESCUE_VALUE = 250; // ₹ saved per rescue (midpoint of ₹200–400 RTO courier cost + repackaging)
+export const BANDS: Band[] = [500, 1000, 2500, 5000, 10000];
+/** Above the top band → custom (enterprise) pricing. */
+export const CUSTOM_ABOVE = 10000;
 
-export interface Plan {
-  id: Tier;
+/** Monthly price (₹, before GST) per plan × band. Mirror of the backend PRICE table. */
+export const PRICE: Record<PlanKey, Record<Band, number>> = {
+  rescue:  { 500: 999,  1000: 1499, 2500: 2499, 5000: 4499,  10000: 7999 },
+  convert: { 500: 1499, 1000: 1999, 2500: 3999, 5000: 6999,  10000: 12499 },
+  prevent: { 500: 1999, 1000: 2999, 2500: 6499, 5000: 11499, 10000: 19999 },
+};
+
+export interface PlanConfig {
+  key: PlanKey;
   name: string;
-  maxOrders: number;
-  priceMonthly: number;
-  blurb: string;
-  flagship?: string;
-  features?: string[];
+  tagline: string;
+  /** When the plan acts in the order's life. */
+  actsWhen: string;
+  /** Share of failed-delivery reasons the plan can act on (range, for display). */
+  coverage: string;
+  /** Expected reduction in RTOs (fraction) used for the savings estimate. */
+  reduction: number;
+  bestFor: string;
+  features: string[];
 }
 
-export interface TierConfig {
-  key: Tier;
-  name: string;
-  orders: number;
-  base: number;
-  blurb: string;
-  flagship?: string;
-  features?: string[];
-}
-
-export const TIERS: TierConfig[] = [
+export const PLANS: PlanConfig[] = [
   {
-    key: 'starter',
-    name: 'Starter',
-    orders: 500,
-    base: 1999,
-    blurb: 'For new D2C brands feeling the first RTO sting.',
+    key: 'rescue',
+    name: 'Rescue',
+    tagline: 'Save the parcel after a failed delivery.',
+    actsWhen: 'After the courier marks a delivery failed',
+    coverage: '≈50–70% of failure reasons',
+    reduction: 0.12,
+    bestFor: 'New brands losing parcels to “customer not available”',
     features: [
-      'Up to 500 orders/mo',
-      'WhatsApp NDR rescue: reschedule, address fix, location pin',
+      'WhatsApp rescue within minutes of a failed attempt',
+      'Reschedule, fix address or share location pin',
       'Shiprocket & Delhivery',
       'Rescue dashboard',
-      'Email support',
     ],
   },
   {
-    key: 'growth',
-    name: 'Growth',
-    orders: 2000,
-    base: 4999,
-    blurb: 'Turn failed COD deliveries into prepaid orders.',
+    key: 'convert',
+    name: 'Convert',
+    tagline: 'Also turn COD refusals into paid orders.',
+    actsWhen: '+ when the customer can’t or won’t pay cash',
+    coverage: '≈60–85% of failure reasons',
+    reduction: 0.19,
+    bestFor: 'COD-heavy brands where customers say “cash nahi hai”',
     features: [
-      'Up to 2,000 orders/mo',
-      'Everything in Starter',
-      'COD → prepaid links & partial COD deposit (your Razorpay/Cashfree)',
+      'Everything in Rescue',
+      'Pay-online & part-payment links (your Razorpay/Cashfree)',
+      'Prepaid offer right after a COD order',
       'AI address & landmark correction',
-      'All carriers incl. ClickPost & custom',
-      'Advanced analytics, live feed & weekly ROI report',
+      'All couriers, live analytics, weekly ROI report',
     ],
   },
   {
-    key: 'scale',
-    name: 'Scale',
-    orders: 6000,
-    base: 11999,
-    blurb: 'Stop RTO before the parcel even ships.',
-    flagship: 'Pre-delivery confirmation & pincode guard',
+    key: 'prevent',
+    name: 'Prevent',
+    tagline: 'Also stop risky orders before they ship.',
+    actsWhen: '+ before the parcel leaves your warehouse',
+    coverage: 'All of the above + pre-shipment check',
+    reduction: 0.31,
+    bestFor: 'High-value or high-risk products, Tier-2/3 COD',
     features: [
-      'Up to 6,000 orders/mo',
-      'Everything in Growth',
-      'Pre-delivery confirmation & COD reminders',
+      'Everything in Convert',
+      'Confirm COD orders on WhatsApp before dispatch',
+      'Delivery-day COD reminder',
       'Pincode risk rules + storefront sync',
-      'Courier fraud watchtower',
-      'CSV exports',
-    ],
-  },
-  {
-    key: 'fleet',
-    name: 'Fleet',
-    orders: 15000,
-    base: 24999,
-    blurb: 'For high-volume brands that want hands-on help.',
-    flagship: 'Priority support & guided onboarding',
-    features: [
-      'Up to 15,000 orders/mo',
-      'Everything in Scale',
-      'Priority WhatsApp & phone support',
-      'Guided onboarding call',
+      'Courier fake-attempt watch, CSV exports',
     ],
   },
 ];
-
-/** Aliased for components expecting `PLANS` (e.g. PlanPicker, PricingSection) */
-export const PLANS: Plan[] = TIERS.map((t) => ({
-  id: t.key,
-  name: t.name,
-  maxOrders: t.orders,
-  priceMonthly: t.base,
-  blurb: t.blurb,
-  flagship: t.flagship,
-  features: t.features,
-}));
 
 export const CYCLES: { key: Cycle; label: string; months: number; discount: number; tag: string }[] = [
   { key: 'quarterly', label: 'Quarterly',   months: 3,  discount: 0,    tag: '90-Day Guarantee' },
@@ -110,20 +110,25 @@ export const CYCLES: { key: Cycle; label: string; months: number; discount: numb
 ];
 
 export interface StoreMetrics {
-  aov: number;          // Average Order Value (e.g. 1200)
-  codPct: number;       // COD percentage 0..1 (e.g. 0.70)
-  courierRto: number;   // 2-way courier RTO cost (e.g. 140)
-  wastedCac: number;    // Wasted CAC + packaging (e.g. 250)
+  aov: number;          // Average order value (₹)
+  codPct: number;       // COD share 0..1
+  codRtoRate: number;   // Share of COD orders that come back (0..1)
+  courierRto: number;   // Forward + return freight lost per RTO (₹)
+  wastedCac: number;    // Packaging + wasted ad spend per RTO (₹)
 }
 
 export const DEFAULT_METRICS: StoreMetrics = {
   aov: 1200,
   codPct: 0.65,
+  codRtoRate: 0.30,
   courierRto: 130,
   wastedCac: 120,
 };
 
-/** Self-serve rescue-credit top-up packs — mirror of backend CREDIT_PACKS (display only). */
+/** Kept for older imports: cost of one RTO with default metrics. */
+export const AVG_RESCUE_VALUE = DEFAULT_METRICS.courierRto + DEFAULT_METRICS.wastedCac;
+
+/** Message top-up packs — mirror of backend CREDIT_PACKS (display only). */
 export const CREDIT_PACKS: { key: string; credits: number; priceInr: number; label: string }[] = [
   { key: 'pack_500',  credits: 500,  priceInr: 499,  label: '500 messages' },
   { key: 'pack_2000', credits: 2000, priceInr: 1499, label: '2,000 messages' },
@@ -132,55 +137,43 @@ export const CREDIT_PACKS: { key: string; credits: number; priceInr: number; lab
 
 export const inr = (n: number) => '₹' + Math.round(n).toLocaleString('en-IN');
 
-export function priceFor(tier: Tier, cycle: Cycle) {
-  const t = TIERS.find((item) => item.key === tier) || TIERS[0];
+/** Smallest band that covers the volume; null above the top band (custom pricing). */
+export function bandFor(volume: number): Band | null {
+  return BANDS.find((b) => volume <= b) ?? null;
+}
+
+export function planByKey(key: PlanKey): PlanConfig {
+  return PLANS.find((p) => p.key === key) || PLANS[0];
+}
+
+export function priceFor(plan: PlanKey, band: Band, cycle: Cycle) {
   const c = CYCLES.find((item) => item.key === cycle) || CYCLES[0];
-  const monthly = Math.round(t.base * (1 - c.discount));
+  const base = PRICE[plan][band];
+  const monthly = Math.round(base * (1 - c.discount));
   const upfront = monthly * c.months;
-
-  return {
-    monthly,
-    upfront,
-    introMonthly: monthly,     // Kept for backward compatibility
-    renewMonthly: monthly,     // Kept for backward compatibility
-    introUpfront: upfront,     // Kept for backward compatibility
-    renewalCharge: upfront,    // Kept for backward compatibility
-    months: c.months,
-  };
+  return { monthly, upfront, months: c.months, base };
 }
 
-export function lossFor(volume: number, metrics: Partial<StoreMetrics> = {}) {
+/**
+ * Burn and save for a store. "Burn" = what RTOs cost per month today; "save" = the
+ * expected reduction for the plan. Estimates — the dashboard shows real recovered ₹
+ * after the first 30 days.
+ */
+export function estimate(volume: number, metrics: Partial<StoreMetrics> = {}, plan: PlanKey = 'rescue') {
   const m = { ...DEFAULT_METRICS, ...metrics };
-  const costPerFailed = m.courierRto + m.wastedCac;
-  // Realistic blended RTO rate: COD orders face ~18% RTO; Prepaid face ~2.5%
-  const blendedRtoRate = (m.codPct * 0.18) + ((1 - m.codPct) * 0.025);
-  const failedDeliveries = Math.round(volume * blendedRtoRate);
-  const loss = Math.round(failedDeliveries * costPerFailed);
-  // Realistic, conservative rescue rate: 32% (not every customer responds or accepts re-attempt)
-  const rescueRate = 0.32;
-  const saved = Math.round(loss * rescueRate);
-  const rescuesPerMonth = Math.round(failedDeliveries * rescueRate);
-  const rescuesPerWeek = +(rescuesPerMonth / 4.33).toFixed(1);
-
-  return {
-    loss,
-    saved,
-    rescuesPerMonth,
-    rescuesPerWeek,
-    failedDeliveries,
-    costPerFailed,
-    blendedRtoRate,
-    codOrders: Math.round(volume * m.codPct),
-  };
+  const costPerRto = m.courierRto + m.wastedCac;
+  const codOrders = Math.round(volume * m.codPct);
+  const rtos = Math.round(codOrders * m.codRtoRate);
+  const burn = Math.round(rtos * costPerRto);
+  const reduction = planByKey(plan).reduction;
+  const rtosAvoided = Math.round(rtos * reduction);
+  const saved = Math.round(burn * reduction);
+  return { codOrders, rtos, burn, costPerRto, reduction, rtosAvoided, saved };
 }
 
-export function recommendedTier(volume: number): Tier {
-  if (volume <= 500) return 'starter';
-  if (volume <= 2000) return 'growth';
-  if (volume <= 6000) return 'scale';
-  return 'fleet';
-}
-
-export function tierForOrders(n: number): Plan {
-  return PLANS.find((p) => n <= p.maxOrders) ?? PLANS[PLANS.length - 1];
+/** Recommend the cheapest plan whose saving still beats ~3× its price; prefer more features. */
+export function recommendedPlan(volume: number, metrics: Partial<StoreMetrics> = {}): PlanKey {
+  const band = bandFor(volume) ?? 10000;
+  const ranked: PlanKey[] = ['prevent', 'convert', 'rescue'];
+  return ranked.find((k) => estimate(volume, metrics, k).saved >= 3 * PRICE[k][band]) ?? 'rescue';
 }

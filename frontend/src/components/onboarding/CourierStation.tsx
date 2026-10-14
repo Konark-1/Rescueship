@@ -256,8 +256,12 @@ export function CourierStation({
       import.meta.env.VITE_API_URL || 'https://rescueship.onrender.com'
     ).replace(/\/$/, '');
     const mid = merchantId || '';
-    return `${base}/webhooks/${providerKey}/ndr${mid ? `?merchant_id=${encodeURIComponent(mid)}` : ''}`;
+    // Shiprocket's form rejects URLs containing "shiprocket"/"sr" → alias route.
+    const pathKey = providerKey === 'shiprocket' ? 'carrier' : providerKey;
+    return `${base}/webhooks/${pathKey}/ndr${mid ? `?merchant_id=${encodeURIComponent(mid)}` : ''}`;
   };
+  const getWebhookSecret = (providerKey: string): string | null =>
+    webhookData.find((w) => w.provider === providerKey)?.webhookSecret || null;
 
   const handleCopy = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -291,6 +295,7 @@ export function CourierStation({
   };
 
   const activeWebhookUrl = getWebhookUrl(activeCarrier);
+  const activeWebhookSecret = getWebhookSecret(activeCarrier);
 
   return (
     <div className="ob-carrier-section">
@@ -510,6 +515,32 @@ export function CourierStation({
                     {copiedUrl === activeWebhookUrl ? 'Copied!' : 'Copy URL'}
                   </button>
                 </div>
+
+                {activeWebhookSecret && (
+                  <>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>
+                      Security token (paste as the <code>x-api-key</code> header / token):
+                    </div>
+                    <div className="ob-webhook-box">
+                      <span className="ob-webhook-code">{activeWebhookSecret}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(activeWebhookSecret)}
+                        style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Copy size={12} />
+                        {copiedUrl === activeWebhookSecret ? 'Copied!' : 'Copy token'}
+                      </button>
+                    </div>
+                  </>
+                )}
+                {activeCarrier === 'shiprocket' && (
+                  <ol style={{ fontSize: '0.76rem', color: 'var(--text-2)', margin: '4px 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
+                    <li>In Shiprocket open <strong>Settings → API → Webhooks</strong>.</li>
+                    <li>Paste the URL above, choose the <strong>x-api-key</strong> header and paste the token.</li>
+                    <li>Turn the webhook <strong>on</strong> and save. Failed deliveries now reach RescueShip within minutes.</li>
+                  </ol>
+                )}
 
                 {/* Next steps buttons */}
                 <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>

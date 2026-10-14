@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { planAllows } from '../config/plans';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { logger } from '../utils/logger';
@@ -341,10 +342,10 @@ export class EmailService {
     email: string,
     merchantName: string,
     reportData: { totalOrders: number; rescuedOrders: number; rescueRate: number; totalRevenueSaved: number },
-    plan: string = 'starter'
+    plan: string = 'free_trial'
   ): Promise<boolean> {
-    if (plan === 'starter' || plan === 'free_trial') {
-      logger.info('Skipped monthly summary email for Starter plan merchant', { email, merchantName });
+    if (!planAllows({ billing: { plan } }, 'weekly_report')) {
+      logger.info('Skipped monthly summary email: not included in plan', { email, merchantName, plan });
       return false;
     }
 

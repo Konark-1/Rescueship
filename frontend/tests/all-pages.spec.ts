@@ -336,10 +336,10 @@ async function mockBackend(page: Page) {
       return route.fulfill(
         json({
           active: true,
-          plan: 'Growth',
-          cycle: 'Annual',
-          limit: 10000,
-          renewMonthly: 4999,
+          plan: 'convert',
+          cycle: 'annual',
+          limit: 2500,
+          renewMonthly: 3199,
           nextInvoice: new Date(Date.now() + 30 * 86400000).toISOString(),
           activatedAt: new Date().toISOString(),
         }),
@@ -585,7 +585,7 @@ test.describe('Public pages', () => {
     for (const checkbox of await page.getByRole('checkbox').all()) {
       await checkbox.check();
     }
-    await page.getByRole('button', { name: /Start Free Trial/i }).click();
+    await page.getByRole('button', { name: /Start Free Trial|Create account/i }).click();
 
     await expect(page).toHaveURL(/\/(billing|onboarding)/);
     await expect(page.locator('body')).toContainText(/Setup|Economics|Pick the line|Plan|Guarantee/i);
@@ -722,7 +722,7 @@ test.describe('Protected app pages', () => {
     await expect(page.locator('body')).toContainText(/Monthly order/i);
     await expect(page.locator('body')).toContainText(/Due today/i);
 
-    await page.getByRole('button', { name: /Lock In|Subscribe/i }).click();
+    await page.getByRole('button', { name: /Lock In|Subscribe|Pay ₹/i }).click();
 
     await expect(page.locator('body')).toContainText(/Opening secure Razorpay checkout|Razorpay/i);
   });

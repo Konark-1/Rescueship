@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { paymentService } from '../services/payment.service';
@@ -85,6 +86,8 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     reject('Invalid HMAC signature', provider);
     return;
   }
+  markWebhookSeen('PAYMENT');
+
 
   // First correctly signed event proves the merchant's webhook + secret are set up.
   if (!pc?.webhookVerifiedAt) {
