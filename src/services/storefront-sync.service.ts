@@ -109,10 +109,8 @@ export class StorefrontSyncService {
       merchant.shopify?.shopDomain ||
       (merchant as any).shop_domain;
 
-    const rawShopifyToken =
-      merchant.platformConfig?.shopifyAccessToken ||
-      merchant.shopify?.accessToken ||
-      (merchant as any).shopify_access_token;
+    const { getShopifyAccess, setShopJsonMetafield } = require('./shopify-admin');
+    const shopifyAccess = shopifyDomain ? await getShopifyAccess(merchant) : null;
 
     const wcUrl =
       merchant.platformConfig?.woocommerceUrl ||
@@ -128,29 +126,10 @@ export class StorefrontSyncService {
       (merchant as any).wc_consumer_secret;
 
     try {
-      if (shopifyDomain && rawShopifyToken) {
-        const shopifyToken = this.decryptSafely(rawShopifyToken);
-        const domain = shopifyDomain.replace(/^https?:\/\//, '').replace(/\/+$/, '');
-
-        // Use Shopify Admin REST API to update Shop Metafield
-        await axios.post(
-          `https://${domain}/admin/api/2024-01/metafields.json`,
-          {
-            metafield: {
-              namespace: 'rescueship',
-              key: 'restricted_pincodes',
-              value: JSON.stringify(activeRestrictions),
-              type: 'json',
-            },
-          },
-          {
-            headers: {
-              'X-Shopify-Access-Token': shopifyToken,
-              'Content-Type': 'application/json',
-            },
-            timeout: 10000,
-          }
-        );
+      if (shopifyAccess) {
+        const domain = shopifyAccess.domain;
+        // GraphQL metafieldsSet on the shop (REST Admin 2024-01 is no longer supported).
+        await setShopJsonMetafield(domain, shopifyAccess.token, 'rescueship', 'restricted_pincodes', activeRestrictions);
 
         syncStatus = 'synced';
         logger.info('Successfully synced restricted pincodes to Shopify storefront', {

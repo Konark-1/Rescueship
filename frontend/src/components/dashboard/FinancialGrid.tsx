@@ -1,7 +1,6 @@
 import React from 'react';
 import { IndianRupee, ShieldCheck, CreditCard, Sparkles, TrendingUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '../ui/card';
-import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
 import type { FinancialROIData } from '../../types/analytics.d';
 
@@ -36,7 +35,7 @@ export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = fal
   const netSavingsFormatted = formatInr(roi?.netSavings || 0);
   const rescueRateFormatted = `${(roi?.rescueRate || 0).toFixed(1)}%`;
   const codPrepaidFormatted = formatInr(roi?.codToPrepaidGmv || 0);
-  const roiMultipleFormatted = `${(roi?.roiMultiple || 1.0).toFixed(1)}x`;
+  const roiMultipleFormatted = roi?.rescuedOrders ? `${(roi?.roiMultiple || 0).toFixed(1)}×` : '—';
   const isHighRoi = (roi?.roiMultiple || 0) > 1.0;
 
   return (
@@ -78,9 +77,6 @@ export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = fal
             </div>
             <div className="fin-card__subtext">
               <span>{roi?.rescuedOrders || 0} orders rescued</span>
-              <Badge variant="outline" style={{ marginLeft: 'auto', fontSize: '0.72rem' }}>
-                ₹140/order
-              </Badge>
             </div>
           </CardContent>
         </Card>
@@ -99,9 +95,6 @@ export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = fal
             </div>
             <div className="fin-card__subtext">
               <span>{roi?.codToPrepaidCount || 0} converted orders</span>
-              <span className="fin-card__subtext--positive" style={{ marginLeft: 'auto' }}>
-                Zero RTO Risk
-              </span>
             </div>
           </CardContent>
         </Card>
@@ -119,10 +112,7 @@ export const FinancialGrid: React.FC<FinancialGridProps> = ({ roi, loading = fal
               {roiMultipleFormatted}
             </div>
             <div className="fin-card__subtext">
-              <span>Deducts ₹{(roi?.whatsappHsmCosts || 0).toLocaleString('en-IN')} HSM cost</span>
-              <span style={{ marginLeft: 'auto', color: 'var(--emerald)' }}>
-                {isHighRoi ? 'High Yield' : 'Baseline'}
-              </span>
+              <span>After ₹{(roi?.whatsappHsmCosts || 0).toLocaleString('en-IN')} of WhatsApp message fees</span>
             </div>
           </CardContent>
         </Card>

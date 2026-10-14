@@ -1,3 +1,4 @@
+import { redisCache } from '../utils/redis-cache';
 import axios from 'axios';
 import { config } from '../config/env';
 import { logger } from '../utils/logger';
@@ -79,6 +80,66 @@ function sanitizeDeferredDate(dateStr: string | undefined): string {
   return dateStr;
 }
 
+/**
+ * ClickPost NDR action API (v2). Auth is username + key as query params; the body needs the
+ * courier partner id (cp_id) and account_code that ClickPost sends on its tracking webhook,
+ * stored on the order as carrierMeta. Actions: REATTEMPT (address, drop_pincode, phone_number,
+ * preferred_date) or INITIATE_RTO. There is no COD amendment action.
+ */
+const CLICKPOST_NDR_URL = process.env.CLICKPOST_NDR_URL || 'https://www.clickpost.in/api/v2/ndr-update-api';
+
+async function clickPostShipmentContext(awb: string, merchantId?: string): Promise<any | null> {
+  const { Order } = require('../models');
+  const q: any = { awb, carrier: 'clickpost' };
+  if (merchantId) q.merchantId = merchantId;
+  const rows = await Order.find(q).select('merchantId carrierMeta shippingAddress shippingPincode customerPhone').limit(2).lean();
+  return rows.length === 1 ? rows[0] : null; // ambiguous across tenants → refuse
+}
+
+async function clickPostNdrAction(
+  awb: string,
+  carrierConfig: CarrierConfig | undefined,
+  action: 'REATTEMPT' | 'INITIATE_RTO',
+  fields: { address?: string; landmark?: string; pincode?: string; phone?: string; preferredDate?: string; remark?: string }
+): Promise<RescheduleResult> {
+  const key = carrierConfig?.apiKey || carrierConfig?.apiToken;
+  const username = carrierConfig?.username;
+  if (!key || !username) {
+    return { success: false, message: 'ClickPost username and API key are required' };
+  }
+  const ctx = await clickPostShipmentContext(awb, (carrierConfig as any)?.merchantId);
+  const cpId = ctx?.carrierMeta?.cpId;
+  const accountCode = ctx?.carrierMeta?.accountCode;
+  if (!cpId || !accountCode) {
+    return { success: false, message: 'ClickPost courier id/account code not known for this AWB yet (arrives with the first ClickPost tracking webhook)' };
+  }
+  const addr: any = ctx?.shippingAddress && typeof ctx.shippingAddress === 'object' ? ctx.shippingAddress : {};
+  const payload: any = { waybill: awb, cp_id: cpId, account_code: accountCode, action };
+  if (action === 'REATTEMPT') {
+    payload.address = sanitizeString(fields.address || [addr.address1, addr.address2, addr.city].filter(Boolean).join(', '), 250);
+    payload.landmark = sanitizeString(fields.landmark, 100);
+    payload.drop_pincode = sanitizePincode(fields.pincode || ctx?.shippingPincode || addr.zip);
+    payload.phone_number = sanitizeString(fields.phone || ctx?.customerPhone, 15);
+    payload.preferred_date = sanitizeDeferredDate(fields.preferredDate);
+    if (!payload.address || !payload.drop_pincode || !payload.phone_number) {
+      return { success: false, message: 'ClickPost reattempt needs address, pincode and phone' };
+    }
+  }
+  if (fields.remark) payload.remark = sanitizeString(fields.remark, 150);
+  try {
+    const response = await axios.post(CLICKPOST_NDR_URL, payload, {
+      params: { username, key },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 15000,
+    });
+    const ok = response.data?.meta?.success === true || response.data?.meta?.status === 200 || response.data?.meta?.status === 'success';
+    return { success: ok, message: response.data?.meta?.message || `ClickPost ${action}`, carrierResponse: response.data };
+  } catch (error: any) {
+    logger.error('ClickPost NDR action failed', { awb, action, error: error.response?.data || error.message });
+    return { success: false, message: error.message, carrierResponse: error.response?.data };
+  }
+}
+
 export class LogisticsService {
   private static instance: LogisticsService;
   private tokenPromises = new Map<string, Promise<string>>();
@@ -96,8 +157,9 @@ export class LogisticsService {
    * Authenticate with Shiprocket and return token
    */
   public async getShiprocketToken(email?: string, password?: string): Promise<string> {
-    const srEmail = email || config.shiprocket.email;
-    const srPassword = password || config.shiprocket.password;
+    // Per-merchant API user only. A platform fallback would act on AWBs with the wrong account.
+    const srEmail = email;
+    const srPassword = password;
 
     if (!srEmail || !srPassword) {
       throw new Error('Shiprocket email and password are not configured');
@@ -106,7 +168,7 @@ export class LogisticsService {
     // Try to get token from Redis cache first
     const cacheKey = `shiprocket:token:${srEmail}`;
     try {
-      const cachedToken = await redisConnection.get(cacheKey);
+      const cachedToken = await redisCache.get(cacheKey);
       if (cachedToken) {
         return cachedToken;
       }
@@ -135,7 +197,7 @@ export class LogisticsService {
 
         // Cache token in Redis (valid for 9 days, Shiprocket tokens expire in 10 days)
         try {
-          await redisConnection.set(cacheKey, token, 'EX', 9 * 24 * 60 * 60);
+          await redisCache.set(cacheKey, token, 'EX', 9 * 24 * 60 * 60);
         } catch (err: any) {
           logger.warn('Failed to cache Shiprocket token in Redis', { error: err.message });
         }
@@ -302,14 +364,8 @@ export class LogisticsService {
   ): Promise<RescheduleResult> {
     logger.info('Amending COD amount on carrier', { carrier, awb: params.awb, newCodAmount: params.newCodAmount });
 
-    if (process.env.NODE_ENV === 'test') {
-      return {
-        success: true,
-        message: `Successfully amended COD amount to ₹${params.newCodAmount}`,
-        carrierResponse: { status: 200, collectable: params.newCodAmount },
-      };
-    }
-
+    // No test-mode shortcut here: this is a money path, and a fake success would hide that a
+    // carrier cannot amend COD (tests mock the carrier call instead).
     if (carrier === 'shiprocket') {
       return this.adjustCodShiprocket(params, carrierConfig);
     } else if (carrier === 'clickpost') {
@@ -331,8 +387,8 @@ export class LogisticsService {
       
       const payload = {
         awb: params.awb,
-        action: 'reattempt',
         deferred_date: sanitizeDeferredDate(params.newDate),
+        comments: sanitizeString(params.reason, 150, 'Customer requested reattempt'),
       };
 
       const response = await axios.post(url, payload, {
@@ -342,7 +398,7 @@ export class LogisticsService {
         },
       });
 
-      const isSuccess = response.data?.status === 200 || response.data?.success === true || (response.data?.errors?.NDR?.[0] === 'Data not found' && process.env.NODE_ENV !== 'production');
+      const isSuccess = response.data?.status === 200 || response.data?.success === true;
 
       return {
         success: isSuccess,
@@ -351,8 +407,8 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Shiprocket reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
-      // In development / sandbox mode, do not hard-fail simulated orders
-      if (process.env.NODE_ENV !== 'production') {
+      // Simulation only when explicitly enabled — never inferred from NODE_ENV.
+      if (process.env.CARRIER_SIMULATE === 'true') {
         return { success: true, message: 'Simulated Shiprocket reschedule recorded', carrierResponse: { simulated: true } };
       }
       return { success: false, message: error.message, carrierResponse: error.response?.data };
@@ -364,14 +420,14 @@ export class LogisticsService {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
       const url = 'https://apiv2.shiprocket.in/v1/external/ndr/reattempt';
 
+      // Shiprocket's reattempt API carries the corrected address as address1/address2 + phone
+      // (verified against apiv2 in Oct 2026; there is no separate address-update endpoint).
       const payload = {
         awb: params.awb,
-        action: 'reattempt',
         address1: sanitizeString(params.address, 200),
-        city: sanitizeString(params.city, 50),
-        pin_code: sanitizePincode(params.pincode),
+        address2: sanitizeString([params.city, sanitizePincode(params.pincode)].filter(Boolean).join(' '), 100),
         phone: params.phone,
-        name: sanitizeString(params.customerName, 50, 'Customer'),
+        deferred_date: sanitizeDeferredDate(undefined),
       };
 
       const response = await axios.post(url, payload, {
@@ -381,7 +437,7 @@ export class LogisticsService {
         },
       });
 
-      const isSuccess = response.data.status === 200 || response.data.success || (response.data?.errors?.NDR?.[0] === 'Data not found' && process.env.NODE_ENV !== 'production');
+      const isSuccess = response.data.status === 200 || response.data.success;
 
       return {
         success: !!isSuccess,
@@ -390,7 +446,7 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.error('Shiprocket address update failed', { awb: params.awb, error: error.response?.data || error.message });
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.CARRIER_SIMULATE === 'true') {
         return { success: true, message: 'Simulated Shiprocket address update recorded', carrierResponse: { simulated: true } };
       }
       return { success: false, message: error.message, carrierResponse: error.response?.data };
@@ -398,74 +454,17 @@ export class LogisticsService {
   }
 
   private async rescheduleClickPost(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) {
-        throw new Error('ClickPost API Token is not configured');
-      }
-
-      // ClickPost NDR action update endpoint
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'REATTEMPT', // REATTEMPT or DEFER_DLV
-        meta: {
-          preferred_date: sanitizeDeferredDate(params.newDate),
-          reason: sanitizeString(params.reason, 150, 'Customer request'),
-        },
-      };
-
-      const response = await axios.post(url, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Updated ClickPost NDR',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost reschedule failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+    return clickPostNdrAction(params.awb, carrierConfig, 'REATTEMPT', { preferredDate: params.newDate, remark: params.reason });
   }
 
   private async updateAddressClickPost(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) {
-        throw new Error('ClickPost API Token is not configured');
-      }
-
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'ADDRESS_UPDATE',
-        meta: {
-          new_address: sanitizeString(params.address, 200),
-          new_pincode: sanitizePincode(params.pincode),
-          new_city: sanitizeString(params.city, 50),
-          new_phone: params.phone,
-        },
-      };
-
-      const response = await axios.post(url, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiToken}`
-        },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Updated ClickPost address',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost address update failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+    // ClickPost has no separate address API: a REATTEMPT carries the corrected address.
+    return clickPostNdrAction(params.awb, carrierConfig, 'REATTEMPT', {
+      address: [params.address, params.city].filter(Boolean).join(', '),
+      pincode: params.pincode,
+      phone: params.phone,
+      remark: 'Address corrected by customer',
+    });
   }
 
   private async rescheduleDelhivery(params: RescheduleParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
@@ -475,7 +474,8 @@ export class LogisticsService {
         throw new Error('Delhivery API Token is not configured');
       }
 
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
@@ -517,7 +517,8 @@ export class LogisticsService {
         throw new Error('Delhivery API Token is not configured');
       }
 
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
@@ -558,11 +559,11 @@ export class LogisticsService {
   private async cancelShiprocket(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
     try {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
+      // POST /ndr/action does not exist (405); the action endpoint takes the AWB in the path.
+      const url = `https://apiv2.shiprocket.in/v1/external/ndr/${encodeURIComponent(params.awb)}/action`;
 
       const payload = {
-        awb: params.awb,
-        action: 'rto',
+        action: 'return',
         comments: sanitizeString(params.reason, 150, 'Customer requested order cancellation via WhatsApp NDR'),
       };
 
@@ -580,7 +581,7 @@ export class LogisticsService {
       };
     } catch (error: any) {
       logger.warn('Shiprocket cancel / RTO request notice', { awb: params.awb, error: error.response?.data || error.message });
-      if (process.env.NODE_ENV !== 'production') {
+      if (process.env.CARRIER_SIMULATE === 'true') {
         return { success: true, message: 'Simulated Shiprocket cancellation recorded', carrierResponse: { simulated: true } };
       }
       return { success: false, message: error.message, carrierResponse: error.response?.data };
@@ -588,36 +589,7 @@ export class LogisticsService {
   }
 
   private async cancelClickPost(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) {
-        throw new Error('ClickPost API Token is not configured');
-      }
-
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'RTO',
-        meta: {
-          reason: sanitizeString(params.reason, 150, 'Customer cancelled order on WhatsApp'),
-        },
-      };
-
-      const response = await axios.post(url, payload, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiToken}`,
-        },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Cancelled delivery and initiated RTO on ClickPost',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost cancel / RTO request failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+    return clickPostNdrAction(params.awb, carrierConfig, 'INITIATE_RTO', { remark: (params as any).reason || 'Customer cancelled order on WhatsApp' });
   }
 
   private async cancelDelhivery(params: CancelParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
@@ -627,7 +599,8 @@ export class LogisticsService {
         throw new Error('Delhivery API Token is not configured');
       }
 
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
@@ -660,58 +633,25 @@ export class LogisticsService {
     }
   }
 
-  private async adjustCodShiprocket(params: CodAmendmentParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
-      const url = 'https://apiv2.shiprocket.in/v1/external/ndr/action';
-      const payload = {
-        awb: params.awb,
-        action: 'instructions',
-        comments: `Update COD Collectable: Rs ${params.newCodAmount}. ${params.reason}`,
-      };
-      const response = await axios.post(url, payload, {
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      });
-      return {
-        success: response.data.status === 200 || response.data.success || false,
-        message: response.data.message || 'Updated Shiprocket collectable amount',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('Shiprocket COD amendment failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+  private async adjustCodShiprocket(params: CodAmendmentParams, _carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    // Shiprocket only lets the seller switch COD↔prepaid before pickup, in its panel; there is
+    // no API to change the collectable amount of a shipped AWB. Never pretend it worked.
+    logger.warn('Shiprocket COD amendment requested but not supported by the API', { awb: params.awb });
+    return { success: false, message: 'Shiprocket has no API to change the COD amount after pickup; update it with the courier' };
   }
 
-  private async adjustCodClickPost(params: CodAmendmentParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    try {
-      const apiToken = carrierConfig?.apiToken || (carrierConfig as any)?.apiKey;
-      if (!apiToken) throw new Error('ClickPost API Token is not configured');
-      const url = 'https://api.clickpost.in/v1/ndr-update/';
-      const payload = {
-        awb: params.awb,
-        action: 'UPDATE_COD',
-        meta: { cod_amount: params.newCodAmount, reason: params.reason },
-      };
-      const response = await axios.post(url, payload, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiToken}` },
-      });
-      return {
-        success: response.data.meta?.status === 'success',
-        message: response.data.meta?.message || 'Updated ClickPost COD amount',
-        carrierResponse: response.data,
-      };
-    } catch (error: any) {
-      logger.error('ClickPost COD amendment failed', { awb: params.awb, error: error.response?.data || error.message });
-      return { success: false, message: error.message, carrierResponse: error.response?.data };
-    }
+  private async adjustCodClickPost(params: CodAmendmentParams, _carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
+    // ClickPost's NDR API has no COD amendment; the merchant must change it with the courier.
+    logger.warn('ClickPost COD amendment requested but not supported by the API', { awb: params.awb });
+    return { success: false, message: 'ClickPost has no COD amendment API; update the COD amount with the courier' };
   }
 
   private async adjustCodDelhivery(params: CodAmendmentParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
     try {
       const apiToken = carrierConfig?.apiToken;
       if (!apiToken) throw new Error('Delhivery API Token is not configured');
-      const isProd = config.server.nodeEnv === 'production';
+      // Explicit environment: DELHIVERY_ENV=staging|production (falls back to NODE_ENV).
+      const isProd = process.env.DELHIVERY_ENV ? process.env.DELHIVERY_ENV === 'production' : config.server.nodeEnv === 'production';
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
       const payload = {

@@ -29,19 +29,21 @@ export interface NormalizedCarrierResult {
  * 67 - FULFILLMENT ERROR / LOST
  */
 export const SHIPROCKET_STATUS_MAP: Record<string, { status: InternalShipmentStatus; isNdr: boolean }> = {
-  // Numeric IDs
+  // Numeric IDs (Shiprocket shipment_status / current_status_id).
+  // Labels are preferred by the parser; IDs are only a fallback when no label is sent.
+  // NOTE: verify against a live Shiprocket account before relying on IDs alone.
   '1': { status: 'awb_generated', isNdr: false },
   '6': { status: 'in_transit', isNdr: false },
   '7': { status: 'delivered', isNdr: false },
   '8': { status: 'cancelled', isNdr: false },
-  '9': { status: 'ndr_detected', isNdr: true },
-  '13': { status: 'rto_initiated', isNdr: false },
-  '14': { status: 'returned', isNdr: false },
+  '9': { status: 'rto_initiated', isNdr: false },
+  '10': { status: 'returned', isNdr: false },
+  '12': { status: 'lost', isNdr: false },
   '17': { status: 'out_for_delivery', isNdr: false },
   '18': { status: 'in_transit', isNdr: false },
-  '19': { status: 'picked_up', isNdr: false },
-  '42': { status: 'in_transit', isNdr: false },
-  '67': { status: 'lost', isNdr: false },
+  '21': { status: 'ndr_detected', isNdr: true },
+  '42': { status: 'picked_up', isNdr: false },
+  '46': { status: 'rto_initiated', isNdr: false },
 
   // Standard String Labels
   AWB_ASSIGNED: { status: 'awb_generated', isNdr: false },

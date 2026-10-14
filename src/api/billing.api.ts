@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { AuditLog, BillingEvent, Invoice, Merchant } from '../models';
-import { subscriptionService, isTier, isCycle, CREDIT_PACKS } from '../services/subscription.service';
+import { subscriptionService, isTier, isBand, isCycle, CREDIT_PACKS } from '../services/subscription.service';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -36,13 +36,15 @@ router.get('/plan', authenticateToken, async (req: AuthenticatedRequest, res: Re
   }
 });
 
-// POST /api/billing/checkout  { tier, cycle } → { orderId, subscriptionId, amountInr, currency, keyId }
+// POST /api/billing/checkout  { plan, band, cycle } → { orderId, subscriptionId, amountInr, currency, keyId }
+// plan = rescue | convert | prevent (features), band = monthly orders (500…10000), cycle = quarterly | semi | annual.
 router.post('/checkout', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { tier, cycle } = req.body ?? {};
-  if (!isTier(tier) || !isCycle(cycle)) {
-    return res.status(400).json({ error: 'Invalid plan or billing cycle' });
+  const { plan, tier, band, cycle } = req.body ?? {};
+  const p = plan ?? tier;
+  if (!isTier(p) || !isBand(band) || !isCycle(cycle)) {
+    return res.status(400).json({ error: 'Invalid plan, order band or billing cycle' });
   }
-  try { res.json(await subscriptionService.createCheckout(req.merchant!.merchantId, tier, cycle)); }
+  try { res.json(await subscriptionService.createCheckout(req.merchant!.merchantId, p, Number(band) as any, cycle)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 

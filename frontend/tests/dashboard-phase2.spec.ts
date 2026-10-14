@@ -16,6 +16,22 @@ test.describe('Dashboard Phase 2 & 3A: Data Honesty, SLA Timers & Accessibility'
       window.localStorage.setItem('user', JSON.stringify(user));
       try { sessionStorage.setItem('rs_booted', '1'); } catch {}
     }, mockUserCompleted);
+
+    await page.route('**/api/**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/api/billing/status') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ active: true, plan: 'growth', status: 'active' }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    });
   });
 
   test('3.1: displays "Awaiting scan" for order without detectedAt, real SLA for order with detectedAt', async ({ page }) => {

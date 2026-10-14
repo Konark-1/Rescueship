@@ -50,8 +50,7 @@ export const FraudWatchtower: React.FC<FraudWatchtowerProps> = ({ dateRange }) =
 
   if (error) {
     const isPlanGated =
-      error.toLowerCase().includes('scale') ||
-      error.toLowerCase().includes('growth') ||
+      error.toLowerCase().includes('prevent') ||
       error.toLowerCase().includes('plan');
 
     return (
@@ -186,9 +185,9 @@ export const FraudWatchtower: React.FC<FraudWatchtowerProps> = ({ dateRange }) =
           {carriers.length === 0 ? (
             <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--text-3)' }}>
               <FileText size={32} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-              <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>No Fraud Telemetry Logged</div>
+              <div style={{ fontWeight: 600, color: 'var(--text-2)' }}>No disputed attempts in this period</div>
               <div style={{ fontSize: '0.85rem', marginTop: '4px' }}>
-                All delivery attempts in this period were legitimate or verified with customers.
+                Attempts a buyer says never happened, or that look suspicious (for example a failure minutes after going out for delivery), show up here.
               </div>
             </div>
           ) : (

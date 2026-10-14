@@ -54,10 +54,18 @@ api.interceptors.response.use(
     }
 
     // Auto-retry cold starts (502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout, network drop)
+    // only for read requests: retrying a POST after a dropped response can submit it twice
+    // (send a WhatsApp message, create a payment link, connect a gateway).
     const status = error.response ? error.response.status : null;
     const isColdStart = status === 502 || status === 503 || status === 504 || error.code === 'ECONNABORTED' || (!status && !error.response);
+    const method = String(originalRequest?.method || 'get').toLowerCase();
+    const isIdempotent = method === 'get' || method === 'head' || method === 'options';
 
-    if (isColdStart && originalRequest && (originalRequest._retryCount || 0) < 3) {
+    if (status === 403 && error.response?.data?.upgradeRequired) {
+      window.dispatchEvent(new CustomEvent('rescueship:upgrade-required', { detail: error.response.data }));
+    }
+
+    if (isColdStart && isIdempotent && originalRequest && (originalRequest._retryCount || 0) < 3) {
       originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
       const backoffMs = originalRequest._retryCount * 2500; // 2.5s, 5s, 7.5s
       await new Promise((resolve) => setTimeout(resolve, backoffMs));

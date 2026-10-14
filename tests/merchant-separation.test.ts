@@ -9,8 +9,8 @@
  * 4. Data Isolation: Orders, chats, and WhatsApp templates are strictly inaccessible cross-tenant.
  */
 
-process.env.JWT_SECRET = 'test-secret-at-least-32-characters-long-super-secure';
-process.env.ENCRYPTION_KEY = 'this_is_a_very_secret_encryption_key_32';
+process.env.JWT_SECRET = '12345678901234567890123456789012';
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
 process.env.NODE_ENV = 'test';
 
 import express from 'express';
@@ -548,7 +548,7 @@ describe('Multi-Tenant Isolation & Merchant Separation Suite', () => {
       const res = await request(app)
         .post(`/api/orders/${foreignOrderId}/reconcile-utr`)
         .set('Authorization', `Bearer ${tokenA}`)
-        .send({ utr: 'UTR999999999' });
+        .send({ utr: 'UTR999999999', confirmReceivedInBank: true });
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe('Order not found');

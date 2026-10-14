@@ -11,10 +11,12 @@ export const deadLetterWorker = new Worker(
       error: errorMessage,
     });
     
+    const alertTo = process.env.OPS_ALERT_EMAIL;
+    if (!alertTo) return;
     try {
       const { emailService } = await import('../services/email.service');
       await emailService.sendEmail({
-        to: 'konarkofficial@gmail.com',
+        to: alertTo,
         subject: `🚨 [RescueShip DLQ Alert] Job ${jobId} in queue "${originalQueue}" failed`,
         text: `Dead-letter queue alert:\nJob: ${jobId}\nQueue: ${originalQueue}\nError: ${errorMessage}\nTimestamp: ${new Date().toISOString()}`,
       });

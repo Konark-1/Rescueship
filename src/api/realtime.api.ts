@@ -6,7 +6,8 @@
  */
 
 import { Router, Response } from 'express';
-import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
+import { planAllows } from '../config/plans';
+import { authenticateToken, authenticateSseToken, AuthenticatedRequest } from '../middleware/auth';
 import { realtimeService } from '../services/realtime.service';
 import { logger } from '../utils/logger';
 import { Merchant } from '../models/Merchant';
@@ -20,7 +21,7 @@ const router = Router();
  */
 router.get(
   '/stream',
-  authenticateToken,
+  authenticateSseToken,
   async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const merchantId = req.merchant?.merchantId;
     if (!merchantId) {
@@ -30,9 +31,8 @@ router.get(
 
     // Plan gate: Growth+ only
     const merchant = await Merchant.findById(merchantId);
-    const plan = merchant?.billing?.plan || 'starter';
-    if (plan === 'starter' || plan === 'free_trial') {
-      res.status(403).json({ error: 'Real-time dashboard requires Growth plan or above.' });
+    if (!planAllows(merchant, 'realtime_feed')) {
+      res.status(403).json({ error: 'The live dashboard is included from the Convert plan.' });
       return;
     }
 

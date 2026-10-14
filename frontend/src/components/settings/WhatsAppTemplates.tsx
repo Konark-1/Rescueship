@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import api from '../../services/api';
 import { CheckCircle, Clock, AlertTriangle, XCircle } from 'lucide-react';
 
 export interface WhatsAppTemplateItem {
@@ -80,70 +81,41 @@ export interface WhatsAppTemplatesProps {
   onToggleLive?: (id: string, isLive: boolean) => void;
 }
 
-const DEFAULT_TEMPLATES: WhatsAppTemplateItem[] = [
-  {
-    id: 'rs_ndr_rescue_v1',
-    name: 'rs_ndr_rescue_v1',
-    category: 'UTILITY',
-    metaStatus: 'APPROVED',
-    isLive: true,
-    body: 'Hi {{1}}, delivery attempt for your order #{{2}} failed: {{3}}. Confirm address or reschedule delivery: {{4}}',
-  },
-  {
-    id: 'rs_cod_convert_v1',
-    name: 'rs_cod_convert_v1',
-    category: 'MARKETING',
-    metaStatus: 'PENDING',
-    isLive: false,
-    body: 'Convert your COD order #{{1}} to prepaid via UPI and get 5% instant cashback: {{2}}',
-  },
-  {
-    id: 'rs_rto_alert_v1',
-    name: 'rs_rto_alert_v1',
-    category: 'UTILITY',
-    metaStatus: 'REJECTED',
-    isLive: false,
-    body: 'Urgent: Package returning to origin. Pay via UPI immediately to prevent return.',
-  },
-];
+/**
+ * Shows the merchant's real WhatsApp templates and their Meta review status
+ * (from /api/connect/state). No sample templates: an empty list says so.
+ */
+export const WhatsAppTemplates: React.FC<WhatsAppTemplatesProps> = ({ templates: provided }) => {
+  const [items, setItems] = useState<WhatsAppTemplateItem[] | null>(provided && provided.length ? provided : null);
+  const [error, setError] = useState(false);
 
-export const WhatsAppTemplates: React.FC<WhatsAppTemplatesProps> = ({
-  templates: initialTemplates,
-  onToggleLive,
-}) => {
-  const [items, setItems] = useState<WhatsAppTemplateItem[]>(
-    initialTemplates && initialTemplates.length > 0 ? initialTemplates : DEFAULT_TEMPLATES
-  );
-
-  const handleToggle = (id: string, newChecked: boolean) => {
-    setItems((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, isLive: newChecked } : t))
-    );
-    if (onToggleLive) {
-      onToggleLive(id, newChecked);
-    }
-  };
+  useEffect(() => {
+    if (provided && provided.length) return;
+    let cancelled = false;
+    api.get('/api/connect/state')
+      .then((r) => {
+        if (cancelled) return;
+        const list: any[] = Array.isArray(r.data?.templates) ? r.data.templates : [];
+        setItems(list.map((t) => ({
+          id: t.name,
+          name: t.name,
+          category: t.category || 'UTILITY',
+          metaStatus: t.status === 'APPROVED' ? 'APPROVED' : t.status === 'REJECTED' ? 'REJECTED' : 'PENDING',
+          isLive: t.status === 'APPROVED',
+        })));
+      })
+      .catch(() => { if (!cancelled) setError(true); });
+    return () => { cancelled = true; };
+  }, [provided]);
 
   const renderStatusBadge = (metaStatus: WhatsAppTemplateItem['metaStatus']) => {
     switch (metaStatus) {
       case 'APPROVED':
-        return (
-          <span className="badge badge-success">
-            <CheckCircle size={12} /> Approved
-          </span>
-        );
+        return <span className="badge badge-success"><CheckCircle size={12} /> Approved by Meta</span>;
       case 'PENDING':
-        return (
-          <span className="badge badge-warning">
-            <Clock size={12} /> ⏳ Pending Meta Review
-          </span>
-        );
+        return <span className="badge badge-warning"><Clock size={12} /> In Meta review</span>;
       case 'REJECTED':
-        return (
-          <span className="badge badge-danger">
-            <XCircle size={12} /> Rejected by Meta
-          </span>
-        );
+        return <span className="badge badge-danger"><XCircle size={12} /> Rejected by Meta</span>;
       default:
         return null;
     }
@@ -153,103 +125,53 @@ export const WhatsAppTemplates: React.FC<WhatsAppTemplatesProps> = ({
     <div className="whatsapp-templates-container" style={{ width: '100%' }}>
       <div style={{ marginBottom: '16px' }}>
         <h3 style={{ fontSize: '1rem', fontWeight: 600, margin: '0 0 4px 0', color: 'var(--text-1)' }}>
-          Meta WABA Templates & Live Automation Guard
+          WhatsApp message templates
         </h3>
         <p style={{ fontSize: '0.8rem', color: 'var(--text-3)', margin: 0 }}>
-          Templates must be reviewed and approved by Meta before they can be activated live.
-          Enforcing approval prevents Meta Cloud API <code style={{ fontSize: '0.75rem' }}>132000</code> rejection crashes.
+          Meta must approve each message before RescueShip can send it to buyers. Approved messages are used automatically.
         </p>
       </div>
 
+      {error && <p style={{ color: 'var(--rose)', fontSize: '0.85rem' }}>Could not load your templates. Refresh to try again.</p>}
+      {!error && items === null && <p style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>Loading templates…</p>}
+      {!error && items !== null && items.length === 0 && (
+        <p style={{ color: 'var(--text-3)', fontSize: '0.85rem' }}>
+          No templates submitted yet. They are submitted to Meta when you connect your WhatsApp number in setup.
+        </p>
+      )}
+
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {items.map((template) => {
-          const isApproved = template.metaStatus === 'APPROVED';
-          return (
-            <div
-              key={template.id}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                padding: '12px 16px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'var(--card-bg, rgba(255, 255, 255, 0.03))',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontFamily: 'monospace', fontWeight: 600, fontSize: '0.85rem' }}>
-                    {template.name}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '0.7rem',
-                      padding: '1px 6px',
-                      borderRadius: '4px',
-                      background: 'rgba(255, 255, 255, 0.08)',
-                      color: 'var(--text-2)',
-                    }}
-                  >
-                    {template.category}
-                  </span>
-                  {renderStatusBadge(template.metaStatus)}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.78rem', color: isApproved ? 'var(--text-1)' : 'var(--text-3)' }}>
-                      Go Live:
-                    </span>
-                    <Toggle
-                      id={`toggle-live-${template.id}`}
-                      label="Go Live"
-                      aria-label={`Go live with template ${template.name}`}
-                      checked={template.isLive}
-                      disabled={template.metaStatus !== 'APPROVED'}
-                      onChange={(checked) => handleToggle(template.id, checked)}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {template.body && (
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontStyle: 'italic' }}>
-                  "{template.body}"
-                </div>
-              )}
-
-              {template.metaStatus !== 'APPROVED' && (
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontSize: '0.75rem',
-                    color: template.metaStatus === 'PENDING' ? 'var(--amber, #f59e0b)' : 'var(--crimson, #f87171)',
-                    background:
-                      template.metaStatus === 'PENDING'
-                        ? 'var(--amber-06, rgba(245, 158, 11, 0.08))'
-                        : 'var(--crimson-06, rgba(239, 68, 68, 0.08))',
-                    border:
-                      template.metaStatus === 'PENDING'
-                        ? '1px solid var(--amber-15, rgba(245, 158, 11, 0.15))'
-                        : '1px solid var(--crimson-15, rgba(239, 68, 68, 0.15))',
-                    padding: '6px 10px',
-                    borderRadius: '4px',
-                  }}
-                >
-                  <AlertTriangle size={12} />
-                  <span>
-                    {template.metaStatus === 'PENDING'
-                      ? 'Go Live toggle is disabled while Meta processes template review (typically 1-6 hours).'
-                      : 'Template was rejected by Meta. Fix guidelines violation and resubmit before going live.'}
-                  </span>
-                </div>
-              )}
+        {(items || []).map((template) => (
+          <div
+            key={template.id}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              padding: '12px 16px',
+              borderRadius: '8px',
+              border: '1px solid var(--border)',
+              background: 'var(--card-bg)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.85rem' }}>{template.name}</span>
+              <span style={{ fontSize: '0.7rem', padding: '1px 6px', borderRadius: '4px', background: 'var(--white-08)', color: 'var(--text-2)' }}>
+                {template.category}
+              </span>
+              {renderStatusBadge(template.metaStatus)}
             </div>
-          );
-        })}
+            {template.body && (
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-2)', fontStyle: 'italic' }}>"{template.body}"</div>
+            )}
+            {template.metaStatus === 'REJECTED' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: 'var(--rose)' }}>
+                <AlertTriangle size={12} />
+                <span>Meta rejected this message. Resubmit it from the WhatsApp step in setup.</span>
+              </div>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ export const AuditLogsPage: React.FC = () => {
             Audit Logs &amp; Event Ledger
           </h1>
           <p className="page-head__sub" style={{ margin: '4px 0 0 0', fontSize: '0.875rem', color: 'var(--text-3)' }}>
-            Cryptographically sealed, append-only record of system webhooks, actions, and delivery events.
+            A record of webhooks, actions and delivery events on your account. Entries can't be edited and are deleted after 90 days.
           </p>
         </div>
       </header>

@@ -338,6 +338,9 @@ export class WhatsAppDispatcherService {
     limit: number = 1000
   ): Promise<{ allowed: boolean; current: number; limit: number }> {
     if (!redisConnection) return { allowed: true, current: 0, limit };
+    // Don't block (offline queue waits forever) when Redis is down: the dashboard must still load.
+    const st = (redisConnection as any).status;
+    if (st && st !== 'ready') return { allowed: true, current: 0, limit };
     try {
       const tierKey = `meta:24h:${merchantId}`;
       const countStr = await redisConnection.get(tierKey);
@@ -353,6 +356,8 @@ export class WhatsAppDispatcherService {
    */
   public async incrementMetaTierUsage(merchantId: string): Promise<number> {
     if (!redisConnection) return 1;
+    const st = (redisConnection as any).status;
+    if (st && st !== 'ready') return 1;
     try {
       const tierKey = `meta:24h:${merchantId}`;
       const count = await redisConnection.incr(tierKey);

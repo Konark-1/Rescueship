@@ -17,6 +17,22 @@ test.describe('TASK 3.3: Recharts High-Volume Aggregation & Performance', () => 
       try { sessionStorage.setItem('rs_booted', '1'); } catch {}
     }, mockUserCompleted);
 
+    await page.route('**/api/**', async (route) => {
+      const url = new URL(route.request().url());
+      if (url.pathname === '/api/billing/status') {
+        return route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ active: true, plan: 'growth', status: 'active' }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
     // Mock summary stats
     await page.route('**/api/dashboard/summary', async (route) => {
       await route.fulfill({
@@ -67,10 +83,10 @@ test.describe('TASK 3.3: Recharts High-Volume Aggregation & Performance', () => 
     const chartContainer = page.getByTestId('roi-chart-container');
     await expect(chartContainer).toBeVisible();
 
-    const responsiveContainer = page.locator('.recharts-responsive-container');
+    const responsiveContainer = chartContainer.locator('.recharts-responsive-container');
     await expect(responsiveContainer).toBeVisible();
 
-    const barChart = page.locator('.recharts-surface');
+    const barChart = chartContainer.locator('.recharts-surface');
     await expect(barChart).toBeVisible();
 
     // Verify zero memory or unhandled exceptions occurred
@@ -84,9 +100,9 @@ test.describe('TASK 3.3: Recharts High-Volume Aggregation & Performance', () => 
     await bars.first().hover();
 
     // Verify tooltip shows mathematically aggregated value without clipping
-    const tooltip = page.locator('.recharts-default-tooltip');
+    const tooltip = page.locator('.recharts-default-tooltip').last();
     await expect(tooltip).toBeVisible();
-    await expect(tooltip).toContainText('saved');
+    await expect(tooltip).toContainText(/Recovery ROI|saved/i);
     // Sum across 4 aggregated buckets: 14,00,000 / 4 = 3,50,000 each
     await expect(tooltip).toContainText('3,50,000');
   });

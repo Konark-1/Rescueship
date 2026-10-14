@@ -68,7 +68,7 @@ export default function SandboxPage() {
   const loadAlerts = useCallback(async () => {
     try {
       const list = await sandboxApi.alerts();
-      setAlerts(list?.alerts || list || []);
+      setAlerts(Array.isArray(list?.alerts) ? list.alerts : Array.isArray(list) ? list : []);
     } catch { /* ignore */ }
   }, []);
 

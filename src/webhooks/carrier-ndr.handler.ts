@@ -11,6 +11,7 @@
  *   - Unrecognized AWBs are cleanly routed to Shipment quarantine.
  */
 import { Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import { Queue } from 'bullmq';
 import { Types } from 'mongoose';
 import { randomUUID } from 'crypto';
@@ -21,7 +22,7 @@ import { authenticateCarrierWebhook, CarrierProvider } from './carrier-auth';
 import { orderStateMachineService } from '../services/state-machine/order-state-machine.service';
 import { logger } from '../utils/logger';
 import { makeJobId } from '../utils/job-id';
-import { acquireLock, releaseLock } from '../utils/distributed-lock.util';
+import { acquireLockWithWait, releaseLock, LockUnavailableError } from '../utils/distributed-lock.util';
 
 const ndrRescueQueue = new Queue('ndr-rescue', { connection: redisConnection as any });
 
@@ -39,6 +40,8 @@ export interface ParsedNdr {
   pincode?: string;
   city?: string;
   state?: string;
+  /** Carrier ids needed for later API actions (e.g. ClickPost cp_id / account_code) */
+  carrierMeta?: Record<string, string | number>;
 }
 
 function str(v: unknown, max = 256): string {
@@ -74,11 +77,21 @@ export function createCarrierNdrHandler(
     // ─── 🔒 2. Redis Concurrency Lock (SET NX) Scoped to Tenant to Prevent Retry Storms & Cross-Tenant Collisions ───
     const lockKey = `lock:ndr:${merchantId.toString()}:${provider}:${parsed.awb}`;
     const uniqueValue = randomUUID();
-    const acquired = await acquireLock(lockKey, 10000, uniqueValue);
+    let acquired = false;
+    try {
+      acquired = await acquireLockWithWait(lockKey, 10000, uniqueValue);
+    } catch (lockErr) {
+      if (lockErr instanceof LockUnavailableError) {
+        res.status(503).json({ error: 'Temporarily unavailable, retry later' });
+        return;
+      }
+      throw lockErr;
+    }
 
     if (!acquired) {
-      logger.warn(`[DUPLICATE WEBHOOK DROPPED] Lock exists for ${lockKey}`);
-      res.status(200).json({ status: 'ignored', reason: 'duplicate_lock_active', lockKey });
+      // Still busy after waiting: ask the carrier to retry rather than dropping the event.
+      logger.warn(`[WEBHOOK BUSY] Lock still held for ${lockKey}; asking provider to retry`);
+      res.status(503).json({ error: 'Busy processing a previous event for this shipment, retry later' });
       return;
     }
 
@@ -86,7 +99,12 @@ export function createCarrierNdrHandler(
 
     try {
 
-      const eventId = parsed.eventId || `${parsed.awb}_${parsed.status || 'ndr'}`;
+      // Fallback event id must differ between attempt 1 and attempt 2 on the same AWB:
+      // use the scan time, or the receipt hour when the carrier sends no time.
+      const timeKey = parsed.attemptTime && !Number.isNaN(new Date(parsed.attemptTime).getTime())
+        ? new Date(parsed.attemptTime).toISOString()
+        : new Date().toISOString().slice(0, 13);
+      const eventId = parsed.eventId || `${parsed.awb}_${parsed.status || 'ndr'}_${timeKey}`;
       idemKey = IdempotencyGuard.key(provider, merchantId.toString(), eventId);
 
       let claim;
@@ -105,6 +123,7 @@ export function createCarrierNdrHandler(
         return;
       }
 
+      markWebhookSeen(provider === 'shiprocket' ? 'SHIPROCKET' : 'CARRIER');
       // 1. Durably record raw WebhookEvent
       try {
         await WebhookEvent.create({
@@ -125,6 +144,25 @@ export function createCarrierNdrHandler(
       let order = await Order.findOne({ merchantId, awb: parsed.awb });
       if (!order && parsed.externalOrderId) {
         order = await Order.findOne({ merchantId, externalOrderId: parsed.externalOrderId });
+      }
+      if (!order && parsed.externalOrderId) {
+        // Aggregators (Shiprocket etc.) usually send the store's order name/number ("#1001" / "1001"),
+        // not Shopify's numeric id. Match on those, tenant-scoped, and only if unambiguous.
+        const ref = String(parsed.externalOrderId).trim();
+        const bare = ref.replace(/^#/, '');
+        const candidates = await Order.find({
+          merchantId,
+          $or: [{ externalOrderName: ref }, { externalOrderName: `#${bare}` }, { externalOrderNumber: bare }],
+        }).limit(2);
+        if (candidates.length === 1) order = candidates[0];
+        else if (candidates.length > 1) logger.warn('Ambiguous order reference from carrier; not auto-matching', { merchantId, ref });
+      }
+      if (order && parsed.carrierMeta && Object.keys(parsed.carrierMeta).length) {
+        await Order.updateOne({ _id: order._id }, { $set: { carrierMeta: parsed.carrierMeta } }).catch(() => {});
+      }
+      if (order && !order.awb && parsed.awb) {
+        // Remember the AWB so later events match directly.
+        try { await Order.updateOne({ _id: order._id, awb: null }, { $set: { awb: parsed.awb, carrier: provider } }); } catch { /* AWB already used */ }
       }
 
       // ─── 2. Shipment Registry Linking & Quarantine ───

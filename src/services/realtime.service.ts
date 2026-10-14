@@ -12,7 +12,8 @@ import { merchantDigestService } from './merchant-digest.service';
 import { logger } from '../utils/logger';
 
 export interface RealtimeEvent {
-  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted' | 'order_cancelled' | 'fake_remark_escalated' | 'ndr_case_expired' | 'rto_arrest_triggered' | 'customer_utr_submitted';
+  type: 'order_update' | 'ndr_detected' | 'ndr_rescued' | 'payment_received' | 'capacity_warning' | 'stats_refresh' | 'ndr_needs_review' | 'cod_converted' | 'order_cancelled' | 'fake_remark_escalated' | 'ndr_case_expired' | 'rto_arrest_triggered' | 'customer_utr_submitted'
+    | 'merchant_action_required';
   merchantId: string;
   payload: Record<string, any>;
   timestamp: string;

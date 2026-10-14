@@ -1,5 +1,5 @@
-process.env.ENCRYPTION_KEY = 'this_is_a_very_secret_encryption_key_32';
-process.env.JWT_SECRET = 'test-jwt-secret-key-1234567890';
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
+process.env.JWT_SECRET = '12345678901234567890123456789012';
 
 import dns from 'dns';
 import jwt from 'jsonwebtoken';

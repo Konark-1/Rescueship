@@ -233,7 +233,11 @@ export async function ensureIndexes(): Promise<void> {
       await run(DeliveryAttempt.collection as any, [
         { keys: { merchantId: 1, awb: 1, attemptTime: -1 }, options: { name: 'idx_attempt_merchant_awb_time' } },
         { keys: { createdAt: 1 }, options: { name: 'idx_attempt_ttl', expireAfterSeconds: 90 * 24 * 60 * 60 } },
-        { keys: { awb: 1, carrier: 1, carrierScanCode: 1, scanTimestamp: 1 }, options: { name: 'idx_unique_carrier_scan', unique: true, sparse: true } },
+        {
+          keys: { merchantId: 1, awb: 1, carrier: 1, carrierScanCode: 1, scanTimestamp: 1 },
+          options: { name: 'idx_unique_carrier_scan_v2', unique: true, partialFilterExpression: { scanTimestamp: { $type: 'date' } } },
+          replaces: ['idx_unique_carrier_scan'],
+        },
       ]);
     }
 

@@ -17,171 +17,9 @@ import { enqueueTemplatePolls } from '../jobs/template-poller.job';
 import { logger } from '../utils/logger';
 
 const G = 'https://graph.facebook.com/v22.0';
-/**
- * Meta requires URL buttons to have a FIXED host with at most one trailing {{1}}
- * variable. We host a tiny redirector so the payment link (Razorpay/Cashfree,
- * different hosts) can be passed as the dynamic suffix.
- */
-const PAY_REDIRECT_BASE = `${(process.env.API_PUBLIC_URL || process.env.API_BASE_URL || 'https://app.rescueship.io').replace(/\/$/, '')}/r/pay/`;
-
-export interface TplDef {
-  name: string;
-  category: 'UTILITY' | 'MARKETING';
-  language: string;
-  body: string;
-  bodyExample?: string[];
-  buttons?: {
-    type: 'QUICK_REPLY' | 'URL';
-    text: string;
-    url?: string;
-    example?: string[];
-  }[];
-}
-
-export const DEFAULT_TEMPLATE_MAP: Record<string, string> = {
-  ndr_rescue_en: 'ndr_rescue_v2_en',
-  cod_confirm_en: 'cod_confirm_v2_en',
-  cod_convert_en: 'cod_convert_v2_en',
-  address_pin_en: 'address_pin_v2_en',
-  rescue_done_en: 'rescue_done_v2_en',
-  rs_test_pulse_en: 'rs_test_pulse_v2_en',
-  predelivery_confirmation: 'predelivery_confirm_v2_en',
-  predelivery_confirm_en: 'predelivery_confirm_v2_en',
-  cod_reminder_en: 'cod_reminder_v2_en',
-  ndr_deposit_request_en: 'ndr_deposit_request_en',
-};
-
-/** Registered compliant templates on Meta WABA. */
-export const TEMPLATE_DEFS: TplDef[] = [
-  {
-    name: 'ndr_rescue_v2_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: "Hi {{1}}, we couldn't confirm a delivery attempt on order {{2}}. Can you help us verify so we can get this to you?",
-    bodyExample: ['John', 'ORD-1001'],
-    // Meta allows maximum 3 quick reply buttons
-    buttons: [
-      { type: 'QUICK_REPLY', text: "Yes I'm home" },
-      { type: 'QUICK_REPLY', text: 'Reschedule' },
-      { type: 'QUICK_REPLY', text: 'Cancel order' },
-    ],
-  },
-  {
-    name: 'cod_confirm_v2_en',
-    category: 'UTILITY',
-    language: 'en',   // utility-first default (L-3)
-    body: 'Hi {{1}}, confirm order {{2}} by paying online to lock your delivery slot. No cash needed at the door.',
-    bodyExample: ['John', 'ORD-1001'],
-    buttons: [
-      {
-        type: 'URL',
-        text: 'Pay Now',
-        url: `${PAY_REDIRECT_BASE}{{1}}`,
-        example: [`${PAY_REDIRECT_BASE}plink_example123`],
-      },
-    ],
-  },
-  {
-    name: 'cod_convert_v2_en',
-    category: 'MARKETING',
-    language: 'en', // incentive variant (costlier)
-    body: 'Hi {{1}}, pay online for order {{2}} now and get {{3}} off. Tap Pay Now to confirm.',
-    bodyExample: ['John', 'ORD-1001', '10%'],
-    buttons: [
-      {
-        type: 'URL',
-        text: 'Pay Now',
-        url: `${PAY_REDIRECT_BASE}{{1}}`,
-        example: [`${PAY_REDIRECT_BASE}plink_example123`],
-      },
-    ],
-  },
-  {
-    name: 'address_pin_v2_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: 'Hi {{1}}, please share your exact delivery location pin for order {{2}} so the driver can find you.',
-    bodyExample: ['John', 'ORD-1001'],
-  },
-  {
-    name: 'rescue_done_v2_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: 'Great news — order {{1}} is back on track and will be delivered {{2}}. Thank you!',
-    bodyExample: ['ORD-1001', 'tomorrow'],
-  },
-  {
-    name: 'rs_test_pulse_v2_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: 'RescueShip is connected. This is a test rescue for {{1}} — your WhatsApp recovery is live.',
-    bodyExample: ['Mamaearth Store'],
-  },
-  {
-    name: 'predelivery_confirm_v2_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: 'Hi {{1}}, your order {{2}} is out for delivery today. Please confirm if you are available to receive your package:',
-    bodyExample: ['John', 'ORD-1001'],
-    buttons: [
-      { type: 'QUICK_REPLY', text: "Yes I'm home" },
-      { type: 'QUICK_REPLY', text: 'Reschedule' },
-      { type: 'QUICK_REPLY', text: 'Cancel order' },
-    ],
-  },
-  {
-    name: 'cod_reminder_v2_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: 'Hi {{1}}, a quick reminder that your COD order {{2}} for {{3}} is scheduled for delivery soon. Please keep cash or UPI ready.',
-    bodyExample: ['John', 'ORD-1001', '₹999'],
-    buttons: [
-      {
-        type: 'URL',
-        text: 'Pay via UPI',
-        url: `${PAY_REDIRECT_BASE}{{1}}`,
-        example: [`${PAY_REDIRECT_BASE}plink_example123`],
-      },
-    ],
-  },
-  {
-    name: 'ndr_deposit_request_en',
-    category: 'UTILITY',
-    language: 'en',
-    body: 'Hi {{1}}, to confirm Order #{{2}} for express delivery, please pay a ₹{{3}} advance deposit via UPI. Remaining ₹{{4}} payable on delivery.',
-    bodyExample: ['John', 'ORD-1001', '50', '450'],
-    buttons: [
-      {
-        type: 'URL',
-        text: 'Pay Deposit',
-        url: `${PAY_REDIRECT_BASE}{{1}}`,
-        example: [`${PAY_REDIRECT_BASE}plink_example123`],
-      },
-    ],
-  },
-];
-
-export function buildComponents(d: TplDef) {
-  const bodyComp: any = { type: 'BODY', text: d.body };
-  if (d.bodyExample && d.bodyExample.length > 0) {
-    bodyComp.example = { body_text: [d.bodyExample] };
-  }
-  const comps: any[] = [bodyComp];
-  if (d.buttons?.length) {
-    comps.push({
-      type: 'BUTTONS',
-      buttons: d.buttons.map((b) => {
-        if (b.type === 'QUICK_REPLY') {
-          return { type: 'QUICK_REPLY', text: b.text };
-        }
-        const bUrl = b.url || `${PAY_REDIRECT_BASE}{{1}}`;
-        const ex = b.example || [bUrl.replace(/{{\d+}}/g, 'plink_example123')];
-        return { type: 'URL', text: b.text, url: bUrl, example: ex };
-      }),
-    });
-  }
-  return comps;
-}
+import { DEFAULT_TEMPLATE_MAP, TEMPLATE_DEFS, buildComponents } from './whatsapp/template-registry';
+export { DEFAULT_TEMPLATE_MAP, TEMPLATE_DEFS, buildComponents };
+export type { TplDef } from './whatsapp/template-registry';
 
 export class MetaTemplateService {
   private token(merchant: any): string {
@@ -332,7 +170,8 @@ export class MetaTemplateService {
   async pollStatus(merchantId: string) {
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) throw new Error('Merchant not found');
-    const wabaId = (merchant as any).whatsappConfig?.wabaId;
+    // Older connects stored only businessAccountId.
+    const wabaId = (merchant as any).whatsappConfig?.wabaId || (merchant as any).whatsappConfig?.businessAccountId;
     if (!wabaId) throw new Error('No WABA on merchant');
     const token = this.token(merchant);
     const names = TEMPLATE_DEFS.map((d) => d.name);
@@ -346,7 +185,9 @@ export class MetaTemplateService {
       const byName = new Map((data.data || []).map((t: any) => [t.name, t]));
       const merged = names.map((n) => {
         const live: any = byName.get(n);
-        return { name: n, status: live?.status || 'PENDING', rejectedReason: live?.rejected_reason || null };
+        // A template that is not on the WABA at all was never submitted (e.g. added in a
+        // later release): report it so the dashboard offers "Resubmit templates".
+        return { name: n, status: live?.status || 'MISSING', rejectedReason: live?.rejected_reason || null };
       });
       if (!(merchant as any).whatsappConfig) (merchant as any).whatsappConfig = {};
       (merchant as any).whatsappConfig.templates = merged;
@@ -356,7 +197,7 @@ export class MetaTemplateService {
       };
       merchant.markModified('whatsappConfig');
       const allApproved = merged.length > 0 && merged.every((m) => m.status === 'APPROVED');
-      const anyRejected = merged.some((m) => m.status === 'REJECTED');
+      const anyRejected = merged.some((m) => m.status === 'REJECTED' || m.status === 'MISSING');
       (merchant as any).connections = {
         ...((merchant as any).connections || {}),
         whatsapp: {

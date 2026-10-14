@@ -60,6 +60,28 @@ export async function authenticateToken(
   res: Response,
   next: NextFunction
 ): Promise<void> {
+  return authenticate(req, res, next, false);
+}
+
+/**
+ * Same as authenticateToken but also accepts `?token=` — ONLY for the SSE stream, because
+ * the browser EventSource API cannot send headers. Query tokens leak into logs and history,
+ * so no other route accepts them.
+ */
+export async function authenticateSseToken(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  return authenticate(req, res, next, true);
+}
+
+async function authenticate(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+  allowQueryToken: boolean
+): Promise<void> {
   try {
     const authHeader = req.headers.authorization;
     let token: string | undefined;
@@ -76,7 +98,7 @@ export async function authenticateToken(
         res.status(401).json({ error: 'Invalid authorization format. Use: Bearer <token>' });
         return;
       }
-    } else if (typeof req.query.token === 'string' && req.query.token.length > 0) {
+    } else if (allowQueryToken && typeof req.query.token === 'string' && req.query.token.length > 0) {
       token = req.query.token;
     }
 
@@ -85,7 +107,7 @@ export async function authenticateToken(
         ip: req.ip,
         path: req.path,
       });
-      res.status(401).json({ error: 'Authentication required. Provide a Bearer token or ?token= query parameter.' });
+      res.status(401).json({ error: 'Authentication required. Provide a Bearer token.' });
       return;
     }
 
@@ -97,7 +119,7 @@ export async function authenticateToken(
       logger.warn('Authentication failed: token payload missing merchantId', {
         ip: req.ip,
       });
-      res.status(403).json({ error: 'Invalid token payload' });
+      res.status(401).json({ error: 'Invalid token payload' });
       return;
     }
 
@@ -130,7 +152,8 @@ export async function authenticateToken(
   } catch (err: any) {
     if (err.name === 'TokenExpiredError') {
       logger.warn('Authentication failed: token expired', { ip: req.ip });
-      res.status(403).json({ error: 'Token has expired. Please log in again.' });
+      // 401 = re-authenticate (the frontend logs out); 403 is reserved for "authenticated but not allowed".
+      res.status(401).json({ error: 'Token has expired. Please log in again.', code: 'TOKEN_EXPIRED' });
       return;
     }
 
@@ -139,7 +162,7 @@ export async function authenticateToken(
         ip: req.ip,
         message: err.message,
       });
-      res.status(403).json({ error: 'Invalid token. Please log in again.' });
+      res.status(401).json({ error: 'Invalid token. Please log in again.', code: 'TOKEN_INVALID' });
       return;
     }
 

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('PART 3.1: Full E2E Checkout Flow & The ₹4,999 Mandate', () => {
-  test('Navigates from Landing → Register → Billing and triggers Razorpay with canonical ₹4,999 payload', async ({ page }) => {
+test.describe('PART 3.1: Full E2E Checkout Flow (plan × order band)', () => {
+  test('Navigates from Landing → Register → Billing and triggers Razorpay with the plan + band payload', async ({ page }) => {
     // 1. Mock Razorpay SDK globally
     await page.addInitScript(() => {
       (window as any).__lastRazorpayPayload = null;
@@ -67,8 +67,8 @@ test.describe('PART 3.1: Full E2E Checkout Flow & The ₹4,999 Mandate', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           success: true,
-          orderId: 'order_test_4999',
-          amountInr: 4999 * 3, // quarterly
+          orderId: 'order_test_prevent_1000',
+          amountInr: 2999 * 3 * 100, // Prevent, up to 1,000 orders, quarterly (paise)
           currency: 'INR',
           keyId: 'rzp_test_key_123',
         }),
@@ -78,8 +78,9 @@ test.describe('PART 3.1: Full E2E Checkout Flow & The ₹4,999 Mandate', () => {
     // 3. Step 1: Landing Page Verification
     await page.goto('/');
     await expect(page.locator('body')).toContainText(/RescueShip/i);
-    // Verify Starter canonical ₹4,999 pricing is on the page
-    await expect(page.locator('body')).toContainText(/4,999/);
+    // Pricing shows the three plans (Rescue / Convert / Prevent)
+    await expect(page.locator('body')).toContainText(/Rescue/);
+    await expect(page.locator('body')).toContainText(/Prevent/);
 
     // 4. Step 2: Register Flow
     await page.goto('/register');
@@ -92,14 +93,17 @@ test.describe('PART 3.1: Full E2E Checkout Flow & The ₹4,999 Mandate', () => {
     await checkboxes.nth(0).check({ force: true });
     await checkboxes.nth(1).check({ force: true });
 
-    const registerBtn = page.getByRole('button', { name: /Start Free Trial/i });
+    const registerBtn = page.getByRole('button', { name: /Start Free Trial|Create account/i });
     await expect(registerBtn).toBeEnabled();
     await registerBtn.click();
 
-    // 5. Step 3: Verified navigation to Billing to select plan
+    // 5. Step 3: New accounts go to setup first (free test rescues), then choose a plan on /billing
+    await expect(page).toHaveURL(/\/onboarding/);
+    await page.goto('/billing?from=onboarding');
     await expect(page).toHaveURL(/\/billing/);
-    await expect(page.locator('body')).toContainText(/Starter/i);
-    await expect(page.locator('body')).toContainText(/4,999/);
+    // Default 1,000 orders → Prevent is recommended at ₹2,999/mo
+    await expect(page.locator('body')).toContainText(/Prevent/);
+    await expect(page.locator('body')).toContainText(/2,999/);
 
     // 6. Step 4: Trigger Checkout Modal
     const payBtn = page.locator('.bl-btn-checkout');
@@ -109,15 +113,17 @@ test.describe('PART 3.1: Full E2E Checkout Flow & The ₹4,999 Mandate', () => {
     // Wait for checkout API intercept
     await page.waitForTimeout(500);
 
-    // 7. Step 5: Assertions: Exact ₹4,999 payload verification
+    // 7. Step 5: Assertions: plan + band + cycle payload
     expect(checkoutPayloadCaptured).not.toBeNull();
-    expect(checkoutPayloadCaptured.tier).toBe('starter');
+    expect(checkoutPayloadCaptured.plan).toBe('prevent');
+    expect(checkoutPayloadCaptured.band).toBe(1000);
+    expect(checkoutPayloadCaptured.cycle).toBe('quarterly');
 
     const lastRzp = await page.evaluate(() => (window as any).__lastRazorpayPayload);
     expect(lastRzp).not.toBeNull();
     expect(lastRzp.key).toBe('rzp_test_key_123');
-    expect(lastRzp.order_id).toBe('order_test_4999');
-    expect(lastRzp.description).toContain('4,999');
+    expect(lastRzp.order_id).toBe('order_test_prevent_1000');
+    expect(lastRzp.description).toContain('Prevent');
 
     const modalOpened = await page.evaluate(() => (window as any).__razorpayModalOpened);
     expect(modalOpened).toBe(true);

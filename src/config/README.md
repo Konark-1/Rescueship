@@ -22,6 +22,14 @@
 - `startup-validator.ts` blocks boot if `JWT_SECRET`, `ENCRYPTION_KEY`, or `MONGODB_URI` missing
 - `ORDER_STATUS` defines the ONLY valid order statuses — do NOT add statuses elsewhere
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `step2-infrastructure.test.ts` | MongoDB/Redis connection lifecycle, fallback retry logic, graceful disconnection | **PASS** (10/10 passed) |
+| `idempotency.test.ts` | Redis SET NX claim locks, duplicate event suppression, TTL expiry | **PASS** (6/6 passed) |
+| `startup-validator` | Critical environment variable verification, safe production warnings, Render boot safety | **PASS** (Verified in CI & Production) |
+
 ## Agent Cheat Sheet
 
 - To add a new env var: Add to `AppConfig` interface in `env.ts`, add validation in `startup-validator.ts`

@@ -26,17 +26,23 @@ export const connectApi = {
   state: (t: string) => call(t, '/state'),
   shopifyUrl: (t: string, shop: string) => call(t, `/shopify/url?shop=${encodeURIComponent(shop)}`),
   shopifyDemoConnect: (t: string, shop: string) => call(t, '/shopify/demo-connect', { shop }),
-  shopifyToken: (t: string, shop: string, accessToken: string, apiSecret: string) => call(t, '/shopify/token', { shop, accessToken, apiSecret }),
+  // `key` is either a legacy custom app's Admin API token (shpat_…) or a Dev Dashboard app's Client ID.
+  shopifyToken: (t: string, shop: string, key: string, apiSecret: string) =>
+    call(t, '/shopify/token', key.startsWith('shpat_') ? { shop, accessToken: key, apiSecret } : { shop, clientId: key, apiSecret }),
   woocommerce: (t: string, url: string, consumerKey: string, consumerSecret: string) => call(t, '/woocommerce', { url, consumerKey, consumerSecret }),
-  whatsappSignup: (t: string, code: string, businessId?: string) => call(t, '/whatsapp/signup', { code, businessId }),
-  whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string) => call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken }),
+  whatsappSignup: (t: string, code: string, session: { businessId?: string; wabaId?: string; phoneNumberId?: string } = {}) =>
+    call(t, '/whatsapp/signup', { code, ...session }),
+  whatsappManual: (t: string, phoneNumberId: string, wabaId: string, accessToken: string, appSecret?: string) =>
+    call(t, '/whatsapp/manual', { phoneNumberId, wabaId, accessToken, ...(appSecret ? { appSecret } : {}) }),
   whatsappTemplates: (t: string) => call(t, '/whatsapp/templates/status'),
   resubmitWhatsAppTemplates: (t: string) => call(t, '/whatsapp/templates/resubmit', {}),
   testPulse: (t: string) => call(t, '/whatsapp/test-pulse', {}),
   carrier: (t: string, creds: any) => call(t, '/carrier', creds),
   carrierDisconnect: (t: string, provider?: string) => call(t, '/carrier/disconnect', { provider }),
   carrierWebhooks: (t: string) => call(t, '/carrier/webhook'),
-  payment: (t: string, gateway: string, keyId: string, keySecret: string) => call(t, '/payment', { gateway, keyId, keySecret }),
+  payment: (t: string, gateway: string, keyId: string, keySecret: string, webhookSecret?: string) =>
+    call(t, '/payment', { gateway, keyId, keySecret, ...(webhookSecret ? { webhookSecret } : {}) }),
+  paymentTestLink: (t: string) => call(t, '/payment/test-link', {}),
   ownerPhone: (t: string, ownerPhone: string, storeName?: string) => call(t, '/owner-phone', { ownerPhone, storeName }),
   finalize: (t: string) => call(t, '/finalize', {}),
   requestAssistedSetup: (t: string) => call(t, '/assisted-setup/request', {}),

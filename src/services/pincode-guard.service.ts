@@ -1,3 +1,4 @@
+import { paymentWebhookReady } from './payment-guard';
 import { IMerchant, IOrder, Order, AuditLog } from '../models';
 import { paymentService } from './payment.service';
 import { whatsAppService } from './whatsapp.service';
@@ -69,7 +70,7 @@ export class PincodeGuardService {
         keyId = encryptionService.decrypt(pc.keyId);
         keySecret = encryptionService.decrypt(pc.keySecret);
       } catch (decErr: any) {
-        logger.warn('Failed to decrypt payment credentials in PincodeGuard; fallback to simulation if dev', {
+        logger.warn('Failed to decrypt payment credentials in PincodeGuard; rule will not be applied', {
           merchantId: merchant._id,
           error: decErr?.message,
         });
@@ -96,6 +97,7 @@ export class PincodeGuardService {
       });
 
       let paymentLink: { linkId: string; shortUrl: string };
+      if (!paymentWebhookReady(merchant)) return this.skipHold(merchant, order, 'payment_webhook_unverified');
       try {
         if (keyId && keySecret) {
           paymentLink = await paymentService.createPaymentLink(
@@ -114,11 +116,7 @@ export class PincodeGuardService {
               : { clientId: keyId, clientSecret: keySecret }
           );
         } else {
-          // Simulation fallback for local dev / unconfigured gateway
-          paymentLink = {
-            linkId: `sim_dep_${Date.now()}`,
-            shortUrl: `https://pay.rescueship.com/deposit/${order._id}?amt=${depositAmount}`,
-          };
+          return this.skipHold(merchant, order, 'no_payment_gateway');
         }
       } catch (plErr: any) {
         logger.error('Failed to create advance deposit payment link', {
@@ -126,10 +124,7 @@ export class PincodeGuardService {
           orderId: order._id,
           error: plErr.message,
         });
-        paymentLink = {
-          linkId: `sim_dep_${Date.now()}`,
-          shortUrl: `https://pay.rescueship.com/deposit/${order._id}?amt=${depositAmount}`,
-        };
+        return this.skipHold(merchant, order, 'payment_link_failed');
       }
 
       // Update Order with Awaiting Deposit status
@@ -182,6 +177,7 @@ export class PincodeGuardService {
       });
 
       let paymentLink: { linkId: string; shortUrl: string };
+      if (!paymentWebhookReady(merchant)) return this.skipHold(merchant, order, 'payment_webhook_unverified');
       try {
         if (keyId && keySecret) {
           paymentLink = await paymentService.createPaymentLink(
@@ -200,10 +196,7 @@ export class PincodeGuardService {
               : { clientId: keyId, clientSecret: keySecret }
           );
         } else {
-          paymentLink = {
-            linkId: `sim_prep_${Date.now()}`,
-            shortUrl: `https://pay.rescueship.com/prepaid/${order._id}`,
-          };
+          return this.skipHold(merchant, order, 'no_payment_gateway');
         }
       } catch (plErr: any) {
         logger.error('Failed to create force-prepaid payment link', {
@@ -211,10 +204,7 @@ export class PincodeGuardService {
           orderId: order._id,
           error: plErr.message,
         });
-        paymentLink = {
-          linkId: `sim_prep_${Date.now()}`,
-          shortUrl: `https://pay.rescueship.com/prepaid/${order._id}`,
-        };
+        return this.skipHold(merchant, order, 'payment_link_failed');
       }
 
       await Order.findByIdAndUpdate(order._id, {
@@ -255,6 +245,25 @@ export class PincodeGuardService {
       return true;
     }
 
+    return false;
+  }
+
+  /**
+   * No working gateway (or no verified webhook): never invent a payment URL and never
+   * hold the order on a link that cannot confirm. The order continues as normal COD and
+   * the merchant sees why the pincode rule was not applied.
+   */
+  private async skipHold(merchant: any, order: any, reason: string): Promise<boolean> {
+    logger.warn('Pincode guard rule not applied', { merchantId: merchant._id, orderId: order._id, reason });
+    await AuditLog.create({
+      merchantId: merchant._id,
+      orderId: order._id,
+      action: 'pincode_guard_skipped',
+      source: 'pincode_guard_service',
+      payload: { reason, externalOrderId: order.externalOrderId },
+      status: 'failed',
+      error: reason,
+    }).catch(() => {});
     return false;
   }
 

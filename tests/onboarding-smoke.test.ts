@@ -75,7 +75,7 @@ describe('Production Onboarding Resilience Smoke Tests (Task 4.5)', () => {
     });
 
     it('rejects short state tokens (< 16 chars) due to insufficient entropy', () => {
-      const shortToken = 'short_abc123';
+      const shortToken = '123456';
       const res = woocommerceService.verifyOAuthState(shortToken);
       expect(res.valid).toBe(false);
       expect(res.statusCode).toBe(400);

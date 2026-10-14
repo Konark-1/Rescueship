@@ -11,7 +11,26 @@ import { setupSubscriptionLifecycleWorker, scheduleSubscriptionLifecycle } from 
 import { setupDigestWorker, scheduleDigestJob } from './digest.job';
 import { piiAnonymizationWorker, schedulePiiAnonymization } from './pii-anonymization.job';
 import { staleDepositsWorker, scheduleCancelStaleDeposits } from './cancel-stale-deposits.job';
+import { setupConnectionHealthWorker, scheduleConnectionHealth } from './connection-health.job';
+import { Queue } from 'bullmq';
+import { redisConnection } from '../config/redis';
 import { logger } from '../utils/logger';
+
+/** Jobs that exhausted their retries are copied here so the dead-letter worker can alert ops. */
+let deadLetterQueue: Queue | null = null;
+function forwardToDeadLetter(worker: any): void {
+  if (worker.name === 'dead-letter') return;
+  worker.on('failed', (job: any, err: Error) => {
+    if (!job) return;
+    const maxAttempts = job.opts?.attempts || 1;
+    if (job.attemptsMade < maxAttempts) return;
+    if (!deadLetterQueue) deadLetterQueue = new Queue('dead-letter', { connection: redisConnection as any });
+    // No job payload (it can hold phone numbers / addresses): ids and the error are enough to act on.
+    deadLetterQueue
+      .add('failed-job', { originalQueue: worker.name, jobId: job.id, jobData: { name: job.name }, errorMessage: String(err?.message || '').slice(0, 500) }, { removeOnComplete: 1000, removeOnFail: 1000 })
+      .catch((e) => logger.warn('Could not forward failed job to dead-letter queue', { queue: worker.name, error: e.message }));
+  });
+}
 
 export * from './codConversion.job';
 export * from './ndrRescue.job';
@@ -26,12 +45,14 @@ export * from './subscription-lifecycle.job';
 export * from './digest.job';
 export * from './pii-anonymization.job';
 export * from './cancel-stale-deposits.job';
+export * from './connection-health.job';
 
 let monthlyResetWorker: any = null;
 let reconciliationWorker: any = null;
 let weeklyRoiReportWorker: any = null;
 let subscriptionLifecycleWorker: any = null;
 let digestWorker: any = null;
+let connectionHealthWorker: any = null;
 
 /**
  * Start all BullMQ workers safely without re-running active workers.
@@ -45,6 +66,7 @@ export function startAllWorkers(): void {
   if (!weeklyRoiReportWorker) weeklyRoiReportWorker = setupWeeklyRoiReportWorker();
   if (!subscriptionLifecycleWorker) subscriptionLifecycleWorker = setupSubscriptionLifecycleWorker();
   if (!digestWorker) digestWorker = setupDigestWorker();
+  if (!connectionHealthWorker) connectionHealthWorker = setupConnectionHealthWorker();
 
   const workers = [
     codConversionWorker,
@@ -60,12 +82,14 @@ export function startAllWorkers(): void {
     digestWorker,
     piiAnonymizationWorker,
     staleDepositsWorker,
+    connectionHealthWorker,
   ].filter(Boolean);
 
   for (const worker of workers) {
     worker.on('error', (err: Error) => {
       logger.warn(`BullMQ worker ${worker.name || 'unknown'} Redis warning`, { error: err.message });
     });
+    forwardToDeadLetter(worker);
     if (!worker.isRunning()) {
       worker.run();
     }
@@ -99,6 +123,10 @@ export function startAllWorkers(): void {
     logger.error('Failed to schedule daily DPDP PII anonymization cron job', { error: err.message });
   });
 
+  scheduleConnectionHealth().catch((err) => {
+    logger.error('Failed to schedule daily connection health sweep', { error: err.message });
+  });
+
   scheduleCancelStaleDeposits().catch((err) => {
     logger.error('Failed to schedule repeatable stale deposits cleanup job', { error: err.message });
   });
@@ -126,6 +154,8 @@ export async function stopAllWorkers(): Promise<void> {
     subscriptionLifecycleWorker?.close(),
     digestWorker?.close(),
     piiAnonymizationWorker?.close(),
+    staleDepositsWorker?.close(),
+    connectionHealthWorker?.close(),
   ]);
 
   logger.info('✅  All BullMQ workers stopped');

@@ -21,7 +21,16 @@ import { frontendOrigin } from '../config/env';
 
 const SCOPES = process.env.SHOPIFY_SCOPES || 'read_orders,write_orders,read_fulfillments,write_fulfillments,read_products';
 const SHOP_RE = /^[a-zA-Z0-9][a-zA-Z0-9-]*\.myshopify\.com$/;
-const TOPICS = ['orders/create', 'orders/updated', 'orders/cancelled'];
+// Order lifecycle + fulfillment (AWB link) + uninstall. GDPR compliance topics
+// (customers/data_request, customers/redact, shop/redact) are configured in the app's
+// config for public apps; the same /webhooks/shopify route handles them.
+const TOPICS = ['orders/create', 'orders/updated', 'orders/cancelled', 'fulfillments/create', 'fulfillments/update', 'app/uninstalled'];
+const REQUIRED_SCOPES = ['read_orders', 'write_orders'];
+export function missingScopes(granted: string): string[] {
+  const have = new Set(String(granted || '').split(',').map((x) => x.trim()).filter(Boolean));
+  // write_x implies read_x in Shopify's scope model.
+  return REQUIRED_SCOPES.filter((sc) => !have.has(sc) && !(sc.startsWith('read_') && have.has(sc.replace('read_', 'write_'))));
+}
 const SHOPIFY_API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-07';
 const backendPublic = () => (process.env.API_PUBLIC_URL || '').replace(/\/$/, '');
 
@@ -177,21 +186,6 @@ export class ShopifyOAuthService {
       $or: [{ 'shopify.shopDomain': shop }, { 'platformConfig.shopifyDomain': shop }],
     }).select('_id email');
     if (other) {
-      if (process.env.NODE_ENV !== 'production') {
-        const current = await Merchant.findById(merchantId).select('email');
-        if (current && (current.email === (other as any).email || !(other as any).email || current.email === 'konarkofficial@gmail.com')) {
-          await Merchant.updateOne(
-            { _id: other._id },
-            { $unset: { shopify: 1, 'platformConfig.shopifyDomain': 1, 'connections.shopify': 1 } }
-          );
-          logger.info('Transferred store connection from previous test merchant in development', {
-            from: other._id,
-            to: merchantId,
-            shop,
-          });
-          return;
-        }
-      }
       throw new Error('This Shopify store is already connected to another RescueShip account.');
     }
   }
@@ -250,6 +244,7 @@ export class ShopifyOAuthService {
     if (!validNonce) throw new Error('State nonce missing or replayed');
 
     let accessToken: string | null = null;
+    let grantedScope = '';
     const secret = process.env.SHOPIFY_API_SECRET;
     const clientId = process.env.SHOPIFY_API_KEY;
     if (!secret || !clientId) {
@@ -264,6 +259,7 @@ export class ShopifyOAuthService {
       }, { timeout: 10000 });
       if (data?.access_token) {
         accessToken = data.access_token as string;
+        grantedScope = String(data.scope || '');
       }
     } catch (err: any) {
       logger.warn('Shopify token exchange attempt failed', {
@@ -287,83 +283,131 @@ export class ShopifyOAuthService {
       shopDomain: shop,
       accessToken: encryptionService.encrypt(accessToken),
       apiSecret: encryptionService.encrypt(process.env.SHOPIFY_API_SECRET || ''),
-      scope: SCOPES, webhooksRegistered: false,
+      scope: grantedScope || SCOPES, webhooksRegistered: false,
     };
-    (merchant as any).connections = { ...((merchant as any).connections || {}), shopify: { status: 'connected', connectedAt: new Date(), shopDomain: shop, lastError: null, method: 'oauth' } };
+    const lacking = grantedScope ? missingScopes(grantedScope) : [];
+    if (lacking.length) logger.warn('Shopify OAuth granted fewer scopes than required', { shop, lacking });
+    (merchant as any).connections = { ...((merchant as any).connections || {}), shopify: { status: lacking.length ? 'error' : 'connected', connectedAt: new Date(), shopDomain: shop, lastError: lacking.length ? `Missing Shopify permissions: ${lacking.join(', ')}` : null, method: 'oauth' } };
     merchant.storeName = merchant.storeName || shop.replace(/\.myshopify\.com$/, '');
     await merchant.save();
 
-    const webhooksRegistered = await this.registerWebhooks(shop, accessToken);
-    (merchant as any).shopify.webhooksRegistered = webhooksRegistered;
+    const reg = await this.registerWebhooks(shop, accessToken);
+    (merchant as any).shopify.webhooksRegistered = reg.ok;
+    (merchant as any).shopify.webhookErrors = reg.errors;
+    const webhooksRegistered = reg.ok;
     await merchant.save();
     logger.info('Shopify connected + webhooks registered via one-click OAuth', { merchantId: decoded.merchantId, shop, webhooksRegistered });
     return { merchantId: decoded.merchantId, shop, returnOrigin: decoded.returnOrigin };
   }
 
-  /** Idempotent: create only the topics we don't already have. Non-fatal if webhook registration fails. */
-  private async registerWebhooks(shop: string, token: string): Promise<boolean> {
+  /**
+   * Idempotent: create only the topics we don't already have. Never throws; returns
+   * ok=false plus the reasons (userErrors are checked, not just transport errors) so the
+   * dashboard can show the merchant that order events will not arrive.
+   */
+  private async registerWebhooks(shop: string, token: string): Promise<{ ok: boolean; errors: string[] }> {
+    const errors: string[] = [];
     try {
       const publicUrl = backendPublic();
       if (!publicUrl || !publicUrl.startsWith('https://')) {
         logger.warn('Skipping automatic Shopify webhook registration: API_PUBLIC_URL is not configured as HTTPS', { shop, publicUrl });
-        return false;
+        return { ok: false, errors: ['API_PUBLIC_URL is not an https URL'] };
       }
-      const gql = async (q: string) => (await axios.post(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, { query: q }, { headers: { 'X-Shopify-Access-Token': token }, timeout: 8000 })).data;
-      const existing = await gql(`{ webhookSubscriptions(first: 50) { edges { node { topic } } } }`);
+      const callbackUrl = `${publicUrl}/webhooks/shopify`;
+      const gql = async (q: string, variables?: Record<string, unknown>) =>
+        (await axios.post(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, { query: q, variables }, { headers: { 'X-Shopify-Access-Token': token }, timeout: 8000 })).data;
+      const existing = await gql(`{ webhookSubscriptions(first: 100) { edges { node { topic } } } }`);
+      if (existing?.errors) {
+        return { ok: false, errors: [`webhookSubscriptions query failed: ${JSON.stringify(existing.errors).slice(0, 300)}`] };
+      }
       const have = new Set((existing?.data?.webhookSubscriptions?.edges || []).map((e: any) => e.node.topic));
       for (const topic of TOPICS) {
         const enumVal = this.topicEnum(topic);
         if (have.has(enumVal) || have.has(topic)) continue;
         try {
-          const mut = `mutation { webhookSubscriptionCreate(topic: ${enumVal}, webhookSubscription: { callbackUrl: "${publicUrl}/webhooks/shopify", format: JSON }) { userErrors { field message } } }`;
-          const res = await gql(mut);
-          if (res?.errors) logger.warn('Shopify webhook create issue', { topic, errors: res.errors });
+          // Newer API versions take `uri`; older ones `callbackUrl`. Try uri first.
+          let res = await gql(`mutation create($topic: WebhookSubscriptionTopic!, $sub: WebhookSubscriptionInput!) {
+            webhookSubscriptionCreate(topic: $topic, webhookSubscription: $sub) { webhookSubscription { id } userErrors { field message } }
+          }`, { topic: enumVal, sub: { uri: callbackUrl, format: 'JSON' } });
+          if (res?.errors && JSON.stringify(res.errors).includes('uri')) {
+            res = await gql(`mutation create($topic: WebhookSubscriptionTopic!, $sub: WebhookSubscriptionInput!) {
+              webhookSubscriptionCreate(topic: $topic, webhookSubscription: $sub) { webhookSubscription { id } userErrors { field message } }
+            }`, { topic: enumVal, sub: { callbackUrl, format: 'JSON' } });
+          }
+          const userErrors = res?.data?.webhookSubscriptionCreate?.userErrors || [];
+          if (res?.errors || userErrors.length) {
+            const msg = `${topic}: ${JSON.stringify(res?.errors || userErrors).slice(0, 300)}`;
+            errors.push(msg);
+            logger.warn('Shopify webhook create failed', { shop, topic, errors: res?.errors, userErrors });
+          }
         } catch (innerErr: any) {
+          errors.push(`${topic}: ${innerErr?.response?.status || innerErr.message}`);
           logger.warn('Shopify individual webhook topic create error', { topic, error: innerErr.message });
         }
       }
-      return true;
+      return { ok: errors.length === 0, errors };
     } catch (err: any) {
       logger.warn('Shopify webhook auto-registration error (non-fatal)', { shop, error: err?.response?.data || err.message });
-      return false;
+      return { ok: false, errors: [String(err?.response?.status || err.message)] };
     }
   }
-  private topicEnum(t: string) { return t.toUpperCase().replace('/', '_'); } // orders/create → ORDERS_CREATE
+  private topicEnum(t: string) { return t.toUpperCase().replace('/', '_'); } // orders/create → ORDERS_CREATE, app/uninstalled → APP_UNINSTALLED
 
   /**
-   * DIRECT-TOKEN CONNECT — the no-Partner-app path.
-   * Merchant creates a custom app in THEIR own Shopify admin (Settings → Apps
-   * → Develop apps → Create app → Admin API access token) and pastes it here.
-   * We validate it live (GET /shop.json), then store encrypted + register
-   * per-merchant webhooks with THEIR token. Fully multi-tenant safe; works in
-   * every environment, no Partner account required from anyone.
+   * DIRECT CONNECT — the no-Partner-app path, two flavours:
+   *  1. Dev Dashboard app (default since Shopify stopped allowing new legacy custom apps on
+   *     1 Jan 2026): the merchant pastes the app's Client ID + Client secret; we use the client
+   *     credentials grant to get a ~24h token and refresh it automatically (getShopifyAccess).
+   *  2. Legacy custom app created before 2026: the merchant pastes the permanent Admin API
+   *     access token + the app's API secret key.
+   * Either way the secret is required because webhooks are signed with it.
    */
-  async connectWithToken(merchantId: string, shop: string, accessToken: string, apiSecret?: string): Promise<{ shop: string }> {
+  async connectWithToken(merchantId: string, shop: string, accessToken: string | undefined, apiSecret?: string, clientId?: string): Promise<{ shop: string; webhooksRegistered: boolean; webhookErrors: string[]; missingScopes: string[] }> {
     shop = this.normalizeShopDomain(shop);
     if (!SHOP_RE.test(shop)) throw new Error('Invalid Shopify store domain (expected your-brand.myshopify.com)');
-    const token = (accessToken || '').trim();
-    if (!token) throw new Error('Access token required');
-    if (token.length < 20) throw new Error('That token looks too short — paste the full Admin API access token.');
-    // Webhooks created with a merchant's custom app are signed with THAT app's API secret key,
-    // so we need it to authenticate inbound events for this store.
     const secret = (apiSecret || '').trim();
     if (!secret || secret.length < 20) {
-      throw new Error('Custom app "API secret key" is required so RescueShip can verify webhooks from your store (Apps → Develop apps → API credentials).');
+      throw new Error('The app\'s client secret / API secret key is required so RescueShip can verify webhooks from your store.');
     }
+    const cid = (clientId || '').trim();
+    let token = (accessToken || '').trim();
+    let tokenExpiresAt: Date | undefined;
     await this.assertShopNotClaimed(shop, merchantId);
 
-    // Validate token live against the merchant's own store
-    const shopInfo = await axios.get(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/shop.json`, {
-      headers: { 'X-Shopify-Access-Token': token },
-      timeout: 8000,
-    }).catch((e: any) => {
-      const sc = e.response?.status;
-      if (sc === 401) throw new Error('Shopify rejected the token (401) — regenerate the Admin API access token and try again.');
-      if (sc === 404) throw new Error('Store not found — check the .myshopify.com domain.');
-      throw new Error(`Could not reach Shopify (${sc || e.code || 'network error'}). Try again in a moment.`);
-    });
+    const { exchangeClientCredentials, shopifyGraphql } = require('./shopify-admin');
+    if (!token) {
+      if (!cid) throw new Error('Paste either the Client ID (Dev Dashboard app) or the Admin API access token (legacy custom app).');
+      try {
+        const fresh = await exchangeClientCredentials(shop, cid, secret);
+        token = fresh.accessToken;
+        tokenExpiresAt = fresh.expiresAt;
+      } catch (e: any) {
+        const sc = e?.response?.status;
+        throw new Error(sc === 400 || sc === 401
+          ? 'Shopify rejected the Client ID / secret. Make sure the app is installed on this store and the credentials are copied exactly.'
+          : `Could not get a token from Shopify (${sc || e?.code || e?.message || 'network error'}).`);
+      }
+    } else if (token.length < 20) {
+      throw new Error('That token looks too short — paste the full Admin API access token.');
+    }
 
-    const shopName = shopInfo.data?.shop?.name || shop;
+    // Validate live and read the scopes actually granted to this token.
+    let shopName = shop;
+    let granted: string[] = [];
+    try {
+      const info = await shopifyGraphql(shop, token, `{ shop { name } currentAppInstallation { accessScopes { handle } } }`);
+      shopName = info?.shop?.name || shop;
+      granted = (info?.currentAppInstallation?.accessScopes || []).map((x: any) => x.handle);
+    } catch (e: any) {
+      const sc = e?.response?.status;
+      if (sc === 401) throw new Error('Shopify rejected the token (401) — regenerate it and try again.');
+      if (sc === 404) throw new Error('Store not found — check the .myshopify.com domain.');
+      throw new Error(`Could not reach Shopify (${sc || e?.code || 'network error'}). Try again in a moment.`);
+    }
+    const lacking = missingScopes(granted.join(','));
+    if (lacking.length) {
+      throw new Error(`The app is missing Shopify permissions: ${lacking.join(', ')}. Add them to the app's Admin API scopes, release/reinstall it, then reconnect.`);
+    }
 
     const merchant = await Merchant.findById(merchantId);
     if (!merchant) throw new Error('Merchant not found');
@@ -372,19 +416,21 @@ export class ShopifyOAuthService {
       shopDomain: shop,
       accessToken: encryptionService.encrypt(token),
       apiSecret: encryptionService.encrypt(secret),
-      scope: 'custom-app',
+      ...(cid && !accessToken ? { clientId: cid, tokenExpiresAt } : {}),
+      scope: granted.join(','),
       webhooksRegistered: false,
     };
-    (merchant as any).connections = { ...((merchant as any).connections || {}), shopify: { status: 'connected', connectedAt: new Date(), shopDomain: shop, method: 'token' } };
+    (merchant as any).connections = { ...((merchant as any).connections || {}), shopify: { status: 'connected', connectedAt: new Date(), shopDomain: shop, method: cid && !accessToken ? 'client_credentials' : 'token' } };
     merchant.storeName = merchant.storeName || shopName;
     await merchant.save();
 
-    const webhooksRegistered = await this.registerWebhooks(shop, token);
-    (merchant as any).shopify.webhooksRegistered = webhooksRegistered;
+    const reg = await this.registerWebhooks(shop, token);
+    (merchant as any).shopify.webhooksRegistered = reg.ok;
+    (merchant as any).shopify.webhookErrors = reg.errors;
     await merchant.save();
 
-    logger.info('Shopify connected via direct token', { merchantId, shop, webhooksRegistered });
-    return { shop };
+    logger.info('Shopify connected directly', { merchantId, shop, method: cid && !accessToken ? 'client_credentials' : 'token', webhooksRegistered: reg.ok });
+    return { shop, webhooksRegistered: reg.ok, webhookErrors: reg.errors, missingScopes: [] };
   }
 }
 export const shopifyOAuthService = new ShopifyOAuthService();

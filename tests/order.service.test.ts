@@ -67,7 +67,7 @@ describe('OrderService - Unit Tests', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue({
         _id: validMerchantId,
         settings: { codConversion: { enabled: false } },
-        billing: { rescueCredits: 100 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 100 },
       });
 
       await orderService.processCODOrder(validMerchantId, {
@@ -85,7 +85,7 @@ describe('OrderService - Unit Tests', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue({
         _id: validMerchantId,
         settings: { codConversion: { enabled: true } },
-        billing: { rescueCredits: 0 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 0 },
       });
 
       await orderService.processCODOrder(validMerchantId, {
@@ -103,7 +103,7 @@ describe('OrderService - Unit Tests', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue({
         _id: validMerchantId,
         settings: { codConversion: { enabled: true } },
-        billing: { rescueCredits: 50 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 50 },
       });
 
       await orderService.processCODOrder(validMerchantId, {
@@ -128,7 +128,7 @@ describe('OrderService - Unit Tests', () => {
             messageLanguage: 'en',
           },
         },
-        billing: { rescueCredits: 100 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 100 },
         paymentConfig: encPaymentConfig(),
         whatsappConfig: { phoneNumberId: 'ph123' },
       });
@@ -182,7 +182,7 @@ describe('OrderService - Unit Tests', () => {
             messageLanguage: 'en',
           },
         },
-        billing: { rescueCredits: 100 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 100 },
         paymentConfig: encPaymentConfig(),
       });
 
@@ -211,7 +211,7 @@ describe('OrderService - Unit Tests', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue({
         _id: validMerchantId,
         settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 0 } },
-        billing: { rescueCredits: 100 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 100 },
       });
 
       await orderService.processCODOrder(validMerchantId, {
@@ -227,7 +227,7 @@ describe('OrderService - Unit Tests', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue({
         _id: validMerchantId,
         settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 0 } },
-        billing: { rescueCredits: 100 },
+        billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 100 },
         paymentConfig: { provider: 'razorpay', keyId: 'not-ciphertext', keySecret: 'not-ciphertext' },
       });
 

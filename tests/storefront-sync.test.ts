@@ -16,6 +16,13 @@ import settingsRouter from '../src/api/settings.api';
 import { storefrontSyncService } from '../src/services/storefront-sync.service';
 import { Merchant } from '../src/models';
 import { config } from '../src/config/env';
+import { encryptionService } from '../src/services/encryption.service';
+
+// Plan gating is tested in its own suite; these tests cover the route logic for an entitled plan.
+jest.mock('../src/middleware/planGating.middleware', () => ({
+  ...jest.requireActual('../src/middleware/planGating.middleware'),
+  requireFeature: () => (_req: any, _res: any, next: any) => next(),
+}));
 
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
@@ -32,7 +39,7 @@ describe('Storefront Sync Service & Geo-Risk Settings', () => {
 
     validToken = jwt.sign(
       { merchantId, email: 'merchant@test.com', tokenVersion: 1 },
-      config.jwt.secret || 'test-jwt-secret-key-123456789012'
+      config.jwt.secret || '12345678901234567890123456789012'
     );
   });
 
@@ -41,13 +48,13 @@ describe('Storefront Sync Service & Geo-Risk Settings', () => {
   });
 
   describe('StorefrontSyncService.applyRestrictions()', () => {
-    it('successfully syncs restricted pincodes to Shopify via Admin REST API metafields', async () => {
+    it('successfully syncs restricted pincodes to Shopify via GraphQL metafieldsSet', async () => {
       const mockMerchant: any = {
         _id: merchantId,
         platform: 'shopify',
         platformConfig: {
           shopifyDomain: 'brand-store.myshopify.com',
-          shopifyAccessToken: 'shpat_secret_token_123',
+          shopifyAccessToken: encryptionService.encrypt('shpat_secret_token_123'),
         },
         pincodeRules: [],
         settings: { pincodeRules: [] },
@@ -55,7 +62,9 @@ describe('Storefront Sync Service & Geo-Risk Settings', () => {
       };
 
       jest.spyOn(Merchant, 'findById').mockResolvedValue(mockMerchant as any);
-      mockedAxios.post.mockResolvedValueOnce({ data: { metafield: { id: 991 } } });
+      mockedAxios.post
+        .mockResolvedValueOnce({ data: { data: { shop: { id: 'gid://shopify/Shop/1' } } } })
+        .mockResolvedValueOnce({ data: { data: { metafieldsSet: { metafields: [{ id: 'gid://shopify/Metafield/991' }], userErrors: [] } } } });
 
       const result = await storefrontSyncService.applyRestrictions(merchantId, '110001', {
         forcePrepaid: true,
@@ -69,29 +78,27 @@ describe('Storefront Sync Service & Geo-Risk Settings', () => {
       expect(result.rule.forcePrepaid).toBe(true);
       expect(result.rule.syncStatus).toBe('synced');
 
-      // Verify Shopify endpoint, headers, and metafield payload
-      expect(mockedAxios.post).toHaveBeenCalledTimes(1);
-      const [url, body, options] = mockedAxios.post.mock.calls[0];
+      // Shop id lookup, then metafieldsSet on the GraphQL Admin API (pinned version).
+      expect(mockedAxios.post).toHaveBeenCalledTimes(2);
+      const [url, body, options] = mockedAxios.post.mock.calls[1] as any[];
 
-      expect(url).toBe('https://brand-store.myshopify.com/admin/api/2024-01/metafields.json');
+      expect(url).toMatch(/^https:\/\/brand-store\.myshopify\.com\/admin\/api\/\d{4}-\d{2}\/graphql\.json$/);
       expect(options?.headers).toHaveProperty('X-Shopify-Access-Token', 'shpat_secret_token_123');
-      expect(options?.headers).toHaveProperty('Content-Type', 'application/json');
-
-      expect(body).toEqual({
-        metafield: {
-          namespace: 'rescueship',
-          key: 'restricted_pincodes',
-          value: JSON.stringify([
-            {
-              pincode: '110001',
-              forcePrepaid: true,
-              mandateAdvance: false,
-              advanceAmount: 50,
-              syncStatus: 'pending',
-            },
-          ]),
-          type: 'json',
-        },
+      expect(body.query).toContain('metafieldsSet');
+      expect(body.variables.metafields[0]).toEqual({
+        ownerId: 'gid://shopify/Shop/1',
+        namespace: 'rescueship',
+        key: 'restricted_pincodes',
+        type: 'json',
+        value: JSON.stringify([
+          {
+            pincode: '110001',
+            forcePrepaid: true,
+            mandateAdvance: false,
+            advanceAmount: 50,
+            syncStatus: 'pending',
+          },
+        ]),
       });
 
       expect(mockMerchant.save).toHaveBeenCalled();
@@ -154,7 +161,7 @@ describe('Storefront Sync Service & Geo-Risk Settings', () => {
         platform: 'shopify',
         platformConfig: {
           shopifyDomain: 'broken-store.myshopify.com',
-          shopifyAccessToken: 'shpat_invalid',
+          shopifyAccessToken: encryptionService.encrypt('shpat_invalid'),
         },
         pincodeRules: [],
         settings: { pincodeRules: [] },

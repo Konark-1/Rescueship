@@ -1369,3 +1369,68 @@
     transition: none !important;
   }
 }
+
+/* ── Free test rescue panel + mobile step track (Oct 2026) ── */
+
+.ob-test {
+  margin-top: var(--space-6);
+  padding: var(--space-5);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ob-test__title { font-weight: 700; font-size: 1.15rem; color: var(--text-1); }
+.ob-test__sub { margin-top: var(--space-1); color: var(--text-2); max-width: 62ch; }
+.ob-test__verified p,
+.ob-test__verify p { color: var(--text-1); }
+.ob-test__verified p { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.ob-test__verified p svg { color: var(--emerald); }
+.ob-test__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.ob-test__allowance { color: var(--text-3); font-size: 0.92rem; }
+.ob-test__code {
+  margin-top: var(--space-3);
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-1);
+  background: var(--white-04);
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+}
+.ob-test__hint { margin-top: var(--space-2); font-size: 0.88rem; color: var(--text-3); }
+.ob-test__link {
+  color: var(--indigo);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  background: none;
+  padding: 0;
+  margin-top: var(--space-2);
+}
+.ob-test__form { display: grid; gap: var(--space-3); max-width: 460px; }
+.ob-test__next { margin-top: var(--space-4); }
+@media (max-width: 860px) {
+  /* 1fr lets the horizontal step track push the column wider than the phone; clamp it. */
+  .ob-shell { grid-template-columns: minmax(0, 1fr); }
+  .ob-spine,
+  .ob-stage { min-width: 0; }
+  .ob-spine__track {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    overflow: visible;
+  }
+  .ob-node { min-width: 0; padding: var(--space-2) var(--space-1); text-align: center; justify-items: center; }
+  .ob-node__text strong { font-size: 0.8rem; line-height: 1.2; white-space: normal; }
+  .ob-node__text em { display: none; }
+}

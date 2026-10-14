@@ -32,8 +32,8 @@ const LoginPage: React.FC = () => {
       const { token, merchant } = response.data;
       login(token, merchant);
       if (merchant?.onboardingStatus === 'pending') {
-        const hasActivePlan = merchant?.billing?.plan && merchant?.billing?.plan !== 'free_trial' && merchant?.billing?.status === 'active';
-        navigate(hasActivePlan ? '/onboarding' : '/billing?from=auth');
+        // Setup and free test rescues come before payment; the plan is chosen at "go live".
+        navigate('/onboarding');
       } else {
         navigate('/dashboard');
       }
@@ -60,8 +60,8 @@ const LoginPage: React.FC = () => {
       const { token, merchant } = response.data;
       login(token, merchant);
       if (merchant.onboardingStatus === 'pending') {
-        const hasActivePlan = merchant?.billing?.plan && merchant?.billing?.plan !== 'free_trial' && merchant?.billing?.status === 'active';
-        navigate(hasActivePlan ? '/onboarding' : '/billing?from=auth');
+        // Setup and free test rescues come before payment; the plan is chosen at "go live".
+        navigate('/onboarding');
       } else {
         navigate('/dashboard');
       }

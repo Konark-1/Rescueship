@@ -119,7 +119,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     fontFamily: 'var(--font-mono, monospace)',
                   }}
                 >
-                  Distress Signal · Navigation Error
+                  Something went wrong
                 </span>
                 <h2
                   style={{
@@ -130,7 +130,7 @@ export class ErrorBoundary extends Component<Props, State> {
                     letterSpacing: '-0.02em',
                   }}
                 >
-                  Vessel Encountered Rough Seas
+                  This page failed to load
                 </h2>
               </div>
             </div>
@@ -143,8 +143,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 margin: '0 0 24px',
               }}
             >
-              RescueShip encountered an unexpected runtime exception while rendering this sector.
-              Automated telemetry has captured the telemetry event. You may re-anchor this view or navigate back to the command deck.
+              Part of this page hit an error and could not be shown. Reloading usually fixes it. Your data and settings are not affected.
             </p>
 
             {/* Action buttons */}
@@ -167,7 +166,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 }}
               >
                 <RefreshCw size={15} />
-                Re-anchor Vessel (Reload)
+                Reload the page
               </button>
               <button
                 onClick={this.handleReturnHome}
@@ -187,7 +186,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 }}
               >
                 <Home size={15} />
-                Command Deck
+                Go to dashboard
               </button>
             </div>
 

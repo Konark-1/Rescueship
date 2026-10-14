@@ -6,6 +6,7 @@
  * keys (self-serve safety). Reuses provider base URLs; never logs creds.
  */
 import axios, { AxiosInstance } from 'axios';
+import { planAllows } from '../config/plans';
 import { encryptionService } from './encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
@@ -70,7 +71,9 @@ async function validateDelhivery(c: CarrierCreds) {
 
 async function validateClickpost(c: CarrierCreds) {
   const apiKey = assertStr(c.apiKey || c.apiToken, 'apiKey');
-  const res = await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { key: apiKey }, timeout: HTTP_TIMEOUT_MS });
+  // ClickPost APIs authenticate with the account username + key (NDR actions need both).
+  const username = assertStr(c.username, 'username');
+  const res = await axios.get('https://api.clickpost.in/api/v3/carriers/', { params: { username, key: apiKey }, timeout: HTTP_TIMEOUT_MS });
   if (typeof res.data !== 'object' || !res.data || (typeof res.data === 'string' && res.data.includes('<html'))) {
     throw new Error('Invalid ClickPost API key or service response.');
   }
@@ -162,11 +165,21 @@ async function validateDtdc(c: CarrierCreds) {
 /** Where the carrier should POST NDR events for this merchant. */
 export function carrierWebhookUrl(provider: Provider, merchantId: string): string {
   const base = (process.env.API_PUBLIC_URL || process.env.API_BASE_URL || '').replace(/\/$/, '');
-  return `${base}/webhooks/${provider}/ndr?merchant_id=${encodeURIComponent(merchantId)}`;
+  // Shiprocket's form rejects URLs containing "shiprocket"/"sr" → use the alias route.
+  const path = provider === 'shiprocket' ? 'carrier' : provider;
+  return `${base}/webhooks/${path}/ndr?merchant_id=${encodeURIComponent(merchantId)}`;
 }
 
 export class CarrierConnectService {
   async validateAndSave(merchantId: string, creds: CarrierCreds) {
+    // 0. Plan check: Starter includes Shiprocket + Delhivery; other carriers are Growth+.
+    {
+      const { Merchant } = require('../models');
+      const m = await Merchant.findById(merchantId).select('billing.plan').lean();
+      if (!planAllows(m, String(creds.provider)) && !planAllows(m, 'all_carriers')) {
+        throw new Error(`${creds.provider} is available on the Growth plan and above. Upgrade on the Billing page to connect it.`);
+      }
+    }
     // 1. validate (throws → we never store)
     let shiprocketToken: string | undefined;
     if (creds.webhookOnly) {

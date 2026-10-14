@@ -10,7 +10,12 @@
     "worker:dev": "ts-node src/worker.ts",
     "build": "tsc",
     "generate:design": "node scripts/generate-design-md.cjs",
-    "test": "jest --forceExit"
+    "test": "jest --forceExit",
+    "typecheck": "tsc --noEmit",
+    "check:connections": "ts-node scripts/check-connections.ts",
+    "templates:submit": "ts-node scripts/submit-templates.ts",
+    "smoke:deploy": "ts-node scripts/smoke-deploy.ts",
+    "setup": "ts-node scripts/setup.ts"
   },
   "keywords": [],
   "author": "",

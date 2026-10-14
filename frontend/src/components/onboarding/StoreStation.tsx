@@ -255,19 +255,19 @@ export function ShopifyForm({
               required
             />
           </Field>
-          <Field label="Consumer key (Admin API access token)">
+          <Field label="Client ID (or legacy Admin API access token)">
             <input
               className="ob-input"
               type="password"
               autoComplete="off"
               spellCheck={false}
-              placeholder="shpat_xxxxxxxxxxxxxxxxxxxxxxxx"
+              placeholder="Client ID from Dev Dashboard, or shpat_… for older apps"
               value={consumerKey}
               onChange={(e) => setConsumerKey(e.target.value)}
               required
             />
           </Field>
-          <Field label="Consumer secret (API secret key)">
+          <Field label="Client secret (API secret key)">
             <input
               className="ob-input"
               type="password"
@@ -316,26 +316,21 @@ export function ShopifyForm({
                 )}
               </li>
               <li>
-                Under <strong>Develop apps</strong> (or Dev Dashboard), create or open your app (name it
-                "RescueShip").
+                Create an app named "RescueShip" and give it the Admin API scopes{' '}
+                <code>read_orders, write_orders, read_fulfillments</code> (add{' '}
+                <code>write_fulfillments</code> if you want tracking written back), then release it.
               </li>
+              <li>Install the app on this store.</li>
               <li>
-                Go to <strong>Configuration → Admin API</strong>, click <strong>Configure</strong>, and
-                tick: <code>read_orders, write_orders, read_fulfillments, write_fulfillments, read_products</code>{' '}
-                → Save.
-              </li>
-              <li>
-                Go to <strong>API credentials</strong>, click <strong>Install app</strong>, then click{' '}
-                <strong>Reveal token once</strong> to copy your{' '}
-                <strong>Admin API access token</strong> (starts with <code>shpat_…</code>).
-              </li>
-              <li>
-                Copy your <strong>API secret key</strong> (starts with <code>shpss_…</code>).
+                Open the app's <strong>Settings</strong> and copy the <strong>Client ID</strong> and{' '}
+                <strong>Client secret</strong> into the fields above. RescueShip exchanges them for a
+                short-lived token and renews it automatically.
               </li>
             </ol>
-            <p style={{ marginTop: 'var(--space-2)', fontSize: '0.74rem', color: 'var(--amber)' }}>
-              ⚠️ <strong>Important:</strong> Do NOT enter your 32-character Client ID in the access
-              token field. Shopify requires the Admin API access token starting with <code>shpat_</code>.
+            <p style={{ marginTop: 'var(--space-2)', fontSize: '0.74rem', color: 'var(--text-3)' }}>
+              Already have a custom app created before 2026 with an Admin API access token (
+              <code>shpat_…</code>)? Paste that token instead of the Client ID, with the app's API
+              secret key.
             </p>
           </div>
           <p className="ob-note" style={{ color: 'var(--text-3)', fontSize: '0.74rem' }}>

@@ -172,19 +172,6 @@ export const TopRiskPincodes: React.FC = () => {
           <MapPin size={16} color="var(--rose, #f43f5e)" aria-hidden="true" />
           <span className="panel__title">Top High-Risk Delivery Pincodes</span>
           <span className="top-risk-badge top-risk-badge--critical">30-Day Hotspots</span>
-          <span
-            style={{
-              fontSize: '0.72rem',
-              color: 'var(--emerald, #10b981)',
-              background: 'rgba(16, 185, 129, 0.12)',
-              padding: '2px 8px',
-              borderRadius: '12px',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-              fontWeight: 500,
-            }}
-          >
-            🛡️ Autonomous WhatsApp Guard Active
-          </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
@@ -218,9 +205,9 @@ export const TopRiskPincodes: React.FC = () => {
             <div className="top-risk-empty-icon">
               <CheckCircle2 size={24} />
             </div>
-            <p style={{ fontWeight: 600, color: 'var(--text-1)' }}>No High-Risk Pincodes Detected</p>
+            <p style={{ fontWeight: 600, color: 'var(--text-1)' }}>No high-return pincodes yet</p>
             <p style={{ fontSize: '0.82rem', marginTop: '4px' }}>
-              All delivery zones have normal completion rates with no recurring fake attempt patterns.
+              Pincodes appear here once enough of your orders to them have failed or come back.
             </p>
           </div>
         ) : (

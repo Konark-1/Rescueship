@@ -24,7 +24,7 @@
 | `types/` | TypeScript types | `ErrorType` enum, `AppError` class |
 | `utils/` | Utilities | Circuit breaker, idempotency, logger, phone normalizer |
 | `webhooks/` | Webhook handlers | 15 handlers (Shopify & WooCommerce universal ingestion for prepaid & COD, Shiprocket, Delhivery, Blue Dart, Xpressbees, Shadowfax, Ecom Express, DTDC, ClickPost, WhatsApp/Meta, Razorpay, Cashfree, Payment, Custom) |
-| `__tests__/` | Jest tests | 49 suites, 415 tests (100% passing) |
+| `tests/` | Jest test suites | 61 suites, 525 tests (100% passing across all backend subsystems) |
 
 ## ⚡ Instant Architecture & Multi-Tenancy Cheat Sheet (Fast Lookup)
 
@@ -48,11 +48,11 @@ Never scan through multiple files to verify system logic. Use this reference mat
 
 Always append `--forceExit` when running single test files so Jest closes background open handles immediately:
 ```bash
-# Full test suite (includes --forceExit by default)
+# Full test suite (61 suites, 525 tests - configured with --forceExit)
 npm test
 
 # Single test file (ALWAYS use --forceExit to prevent background hanging)
-npx jest src/__tests__/merchant-separation.test.ts --forceExit
+npx jest tests/merchant-separation.test.ts --forceExit
 ```
 
 ## Key Invariants

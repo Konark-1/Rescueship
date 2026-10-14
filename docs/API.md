@@ -173,7 +173,7 @@ Webhooks receive real-time updates from carriers, payment gateways, and WhatsApp
 
 ### Courier Partners (Multi-Carrier Logistics Hub)
 Courier webhooks accept tenant context via `?merchant_id={merchantId}` and authenticate via carrier webhook secret or `x-api-key` header.
-- `POST /webhooks/shiprocket/ndr` (`x-webhook-signature`) - Shiprocket v2 nested data schema.
+- `POST /webhooks/carrier/ndr?merchant_id=<id>` (alias of `/webhooks/shiprocket/ndr`; `x-api-key` header = the merchant webhook secret) - Shiprocket v2 nested data schema.
 - `POST /webhooks/delhivery/ndr` (`X-Hub-Signature-256`)
 - `POST /webhooks/bluedart/ndr`
 - `POST /webhooks/xpressbees/ndr`

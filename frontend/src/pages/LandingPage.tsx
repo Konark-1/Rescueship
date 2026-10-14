@@ -192,23 +192,9 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
 export default function LandingPage() {
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
 
-  const [fontsReady, setFontsReady] = useState(() => {
-    try {
-      return typeof document !== 'undefined' && 'fonts' in document ? document.fonts.status === 'loaded' : true;
-    } catch {
-      return true;
-    }
-  });
-
-  const [reduced, setReduced] = useState(() => {
-    try { return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
-  });
+  const [reduced, setReduced] = useState(false);
   const [booted, setBooted] = useState(false);
-  const [showOverlay, setShowOverlay] = useState(() => {
-    try {
-      return typeof window !== 'undefined' ? !(window.matchMedia('(prefers-reduced-motion: reduce)').matches || !!sessionStorage.getItem('rs_booted')) : true;
-    } catch { return true; }
-  });
+  const [showOverlay, setShowOverlay] = useState(false);
 
   const feedCounterRef = useRef(0);
   const [feedLines, setFeedLines] = useState<{ id: string; t: string; msg: string; cls?: string }[]>([]);
@@ -226,39 +212,40 @@ export default function LandingPage() {
 
   useEffect(() => {
     if (typeof document !== 'undefined' && 'fonts' in document) {
-      if (document.fonts.check('16px "Barlow Condensed"')) {
-        setFontsReady(true);
-        return;
-      }
-      document.fonts.ready
-        .then(() => setFontsReady(true))
-        .catch(() => setFontsReady(true));
-      const t = setTimeout(() => setFontsReady(true), 250);
-      return () => clearTimeout(t);
-    } else {
-      setFontsReady(true);
+      document.fonts.ready.catch(() => {});
     }
   }, []);
 
   useEffect(() => {
-    if (!fontsReady) return;
     let r = false;
-    try { r = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch {}
+    try {
+      r = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch {}
     setReduced(r);
+
     let seen = false;
-    try { seen = !!sessionStorage.getItem('rs_booted'); } catch {}
+    try {
+      seen = typeof window !== 'undefined' && !!sessionStorage.getItem('rs_booted');
+    } catch {}
+
     if (r || seen) {
       setShowOverlay(false);
-      const t = setTimeout(() => setBooted(true), 40);
-      return () => clearTimeout(t);
+      setBooted(true);
+      return;
     }
+
+    setShowOverlay(true);
     const t1 = setTimeout(() => setBooted(true), 1200);
-    const t2 = setTimeout(() => { setShowOverlay(false); try { sessionStorage.setItem('rs_booted', '1'); } catch {} }, 1600);
+    const t2 = setTimeout(() => {
+      setShowOverlay(false);
+      try { sessionStorage.setItem('rs_booted', '1'); } catch {}
+    }, 1600);
     return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [fontsReady]);
+  }, []);
 
   const skipBoot = () => {
-    setBooted(true); setShowOverlay(false);
+    setBooted(true);
+    setShowOverlay(false);
     try { sessionStorage.setItem('rs_booted', '1'); } catch {}
   };
 
@@ -393,9 +380,9 @@ export default function LandingPage() {
             <span className="lp-console__dot lp-console__dot--r" />
             <span className="lp-console__dot lp-console__dot--a" />
             <span className="lp-console__dot lp-console__dot--g" />
-            <span className="lp-console__title">rescue_feed — live interception</span>
+            <span className="lp-console__title">rescue_feed — sample day</span>
             <motion.span className="lp-console__live" animate={reduced ? {} : { opacity: [1, 0.78, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}>● LIVE</motion.span>
+              transition={{ duration: 2, repeat: Infinity }}>● DEMO</motion.span>
           </div>
 
           <div className="lp-console__body">
@@ -432,11 +419,11 @@ export default function LandingPage() {
           <div className="lp-console__stats">
             <div className="lp-stat">
               <span className="lp-stat__n"><CountUp target={recovered} booted={booted} prefix="₹" delay={0.6} /></span>
-              <span className="lp-stat__l">recovered today</span>
+              <span className="lp-stat__l">recovered · sample</span>
             </div>
             <div className="lp-stat">
               <span className="lp-stat__n"><CountUp target={rescuedCount} booted={booted} delay={0.7} /></span>
-              <span className="lp-stat__l">orders rescued</span>
+              <span className="lp-stat__l">orders rescued · sample</span>
             </div>
             <div className="lp-stat">
               <span className="lp-stat__n"><CountUp target={90} booted={booted} suffix="s" delay={0.8} duration={1} /></span>
@@ -517,7 +504,7 @@ export default function LandingPage() {
                 {submitting ? 'Boarding…' : 'Start rescuing →'}
               </motion.button>
               {error && <p className="lp-pass__err">⚠ {error}</p>}
-              <p className="lp-pass__fine">Free test rescue · no card · live in 4 minutes</p>
+              <p className="lp-pass__fine">3 free test rescues to your own phone · no card to start</p>
             </motion.form>
           )}
         </div>
@@ -528,7 +515,7 @@ export default function LandingPage() {
 
       <section className="lp-board">
         <motion.p className="lp-section__kicker" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }}
-          viewport={{ once: true }} transition={{ duration: 0.5 }}>Live order board</motion.p>
+          viewport={{ once: true }} transition={{ duration: 0.5 }}>Order board · sample</motion.p>
         <div className="lp-board__cols">
           <div className="lp-board__col">
             <div className="lp-board__col-h lp-board__col-h--fail">
@@ -751,7 +738,7 @@ export default function LandingPage() {
           </p>
           <div className="lp-final__actions">
             <Link to="/register" className="lp-final__btn">Board the ship →</Link>
-            <Link to="/sandbox" className="lp-final__btn lp-final__btn--secondary">or jump straight into Sandbox →</Link>
+            <Link to="/register" className="lp-final__btn lp-final__btn--secondary">or send yourself a test rescue →</Link>
           </div>
           <div className="lp-final__chips">
             <span>no credit card</span><span>no sales call</span><span>live in 4 min</span>
@@ -770,7 +757,6 @@ export default function LandingPage() {
           <Link to="/privacy">Privacy Policy</Link>
           <Link to="/terms">Terms of Service</Link>
           <Link to="/dpa">DPDP Addendum</Link>
-          <Link to="/connected-apis">Integrations</Link>
           <Link to="/login">Log in</Link>
           <Link to="/register" className="lp-foot__cta">Get started →</Link>
         </span>

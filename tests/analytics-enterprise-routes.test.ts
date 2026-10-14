@@ -32,6 +32,12 @@ jest.mock('../src/services/analytics.service', () => ({
   },
 }));
 
+// Plan gating is tested in its own suite; these tests cover the route logic for an entitled plan.
+jest.mock('../src/middleware/planGating.middleware', () => ({
+  ...jest.requireActual('../src/middleware/planGating.middleware'),
+  requireFeature: () => (_req: any, _res: any, next: any) => next(),
+}));
+
 jest.mock('../src/models/Merchant', () => ({
   Merchant: {
     findById: jest.fn().mockReturnValue({
@@ -55,7 +61,7 @@ describe('Enterprise Analytics API Routes', () => {
 
     validToken = jwt.sign(
       { merchantId, email: 'merchant@test.com', tokenVersion: 1 },
-      config.jwt.secret || 'test-jwt-secret-key-123456789012'
+      config.jwt.secret || '12345678901234567890123456789012'
     );
   });
 

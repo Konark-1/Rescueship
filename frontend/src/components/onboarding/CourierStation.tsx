@@ -124,8 +124,9 @@ const CARRIER_DEFS: CarrierDef[] = [
     badge: 'Multi-Courier Gateway',
     icon: '📡',
     desc: 'Multi-carrier tracking gateway and logistics post-purchase platform.',
-    apiGuide: 'From ClickPost Dashboard → API & Integrations → Copy your ClickPost API Key.',
+    apiGuide: 'From ClickPost Dashboard → API & Integrations → copy your ClickPost username and API key.',
     apiInputs: [
+      { field: 'username', label: 'ClickPost username', placeholder: 'Your ClickPost account username' },
       { field: 'apiKey', label: 'ClickPost API Key', placeholder: 'e.g. cp_api_key_...' },
     ],
   },
@@ -255,8 +256,12 @@ export function CourierStation({
       import.meta.env.VITE_API_URL || 'https://rescueship.onrender.com'
     ).replace(/\/$/, '');
     const mid = merchantId || '';
-    return `${base}/webhooks/${providerKey}/ndr${mid ? `?merchant_id=${encodeURIComponent(mid)}` : ''}`;
+    // Shiprocket's form rejects URLs containing "shiprocket"/"sr" → alias route.
+    const pathKey = providerKey === 'shiprocket' ? 'carrier' : providerKey;
+    return `${base}/webhooks/${pathKey}/ndr${mid ? `?merchant_id=${encodeURIComponent(mid)}` : ''}`;
   };
+  const getWebhookSecret = (providerKey: string): string | null =>
+    webhookData.find((w) => w.provider === providerKey)?.webhookSecret || null;
 
   const handleCopy = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -290,6 +295,7 @@ export function CourierStation({
   };
 
   const activeWebhookUrl = getWebhookUrl(activeCarrier);
+  const activeWebhookSecret = getWebhookSecret(activeCarrier);
 
   return (
     <div className="ob-carrier-section">
@@ -510,6 +516,32 @@ export function CourierStation({
                   </button>
                 </div>
 
+                {activeWebhookSecret && (
+                  <>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--text-2)' }}>
+                      Security token (paste as the <code>x-api-key</code> header / token):
+                    </div>
+                    <div className="ob-webhook-box">
+                      <span className="ob-webhook-code">{activeWebhookSecret}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopy(activeWebhookSecret)}
+                        style={{ background: 'none', border: 'none', color: 'var(--emerald)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        <Copy size={12} />
+                        {copiedUrl === activeWebhookSecret ? 'Copied!' : 'Copy token'}
+                      </button>
+                    </div>
+                  </>
+                )}
+                {activeCarrier === 'shiprocket' && (
+                  <ol style={{ fontSize: '0.76rem', color: 'var(--text-2)', margin: '4px 0 0', paddingLeft: '1.1rem', lineHeight: 1.6 }}>
+                    <li>In Shiprocket open <strong>Settings → API → Webhooks</strong>.</li>
+                    <li>Paste the URL above, choose the <strong>x-api-key</strong> header and paste the token.</li>
+                    <li>Turn the webhook <strong>on</strong> and save. Failed deliveries now reach RescueShip within minutes.</li>
+                  </ol>
+                )}
+
                 {/* Next steps buttons */}
                 <div style={{ display: 'flex', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
                   {selectedCarriers.some((id) => !connectedMap[id]) && (
@@ -629,12 +661,13 @@ export function CourierStation({
                       style={{ background: 'var(--emerald-06)', borderColor: 'var(--emerald-20)' }}
                     >
                       <strong style={{ color: 'var(--emerald)' }}>
-                        Instant 1-Click Connect: Zero API Keys Needed
+                        Webhook only: alerts and WhatsApp, no courier actions
                       </strong>
-                      Don’t have developer API access or not sure what keys your courier platform uses?
-                      Simply paste this Webhook URL into your {currentDef.name} tracking or webhook
-                      settings. RescueShip will receive delivery failure events and trigger WhatsApp
-                      rescue messages automatically!
+                      Paste this Webhook URL into your {currentDef.name} tracking or webhook settings.
+                      RescueShip will receive failed-delivery events and message your customer on
+                      WhatsApp. Without API keys it cannot reschedule, change the address or cancel
+                      with the courier: when a customer asks for that, you get a task in the
+                      dashboard to do it in your courier panel.
                     </div>
 
                     {activeCarrier === 'custom' && (

@@ -64,8 +64,8 @@ const RegisterPage: React.FC = () => {
       });
       const { token, merchant } = response.data;
       login(token, merchant);
-      // New signups calculate savings and lock in their plan first
-      navigate('/billing?from=auth');
+      // New accounts set up and send themselves free test rescues first; a plan is needed to go live.
+      navigate('/onboarding');
     } catch (err: unknown) {
       if (axios.isAxiosError(err)) {
         const d = err.response?.data;
@@ -93,8 +93,8 @@ const RegisterPage: React.FC = () => {
       if (merchant?.onboardingStatus === 'completed') {
         navigate('/dashboard');
       } else {
-        const hasActivePlan = merchant?.billing?.plan && merchant?.billing?.plan !== 'free_trial' && merchant?.billing?.status === 'active';
-        navigate(hasActivePlan ? '/onboarding' : '/billing?from=auth');
+        // Setup and free test rescues come before payment; the plan is chosen at "go live".
+        navigate('/onboarding');
       }
     } catch (err: any) {
       setError(err.response?.data?.error || err.response?.data?.message || 'Google registration failed');
@@ -113,7 +113,7 @@ const RegisterPage: React.FC = () => {
       </motion.div>
       <motion.div className="feature-item" variants={itemVariants}>
         <span className="feature-icon feature-icon--emerald"><ShieldCheck size={16} /></span>
-        <span className="feature-text">Prevent ₹4L+/month in RTO losses</span>
+        <span className="feature-text">3 free test rescues to your own phone before you pay</span>
       </motion.div>
     </motion.div>
   );
@@ -234,7 +234,7 @@ const RegisterPage: React.FC = () => {
           disabled={loading || !termsAccepted || !dpaAccepted}
           whileTap={{ scale: 0.98 }}
         >
-          {loading ? 'Creating account...' : 'Start Free Trial'}
+          {loading ? 'Creating account...' : 'Create account'}
         </motion.button>
       </form>
       <div className="auth-links">

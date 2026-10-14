@@ -4,14 +4,8 @@ import { Merchant } from '../models';
 import { checkSubscriptionAccess } from '../utils/subscription-guard';
 import { logger } from '../utils/logger';
 
-export const planLimits: Record<string, { orderLimit: number; features: string[] }> = {
-  free_trial: { orderLimit: 100, features: ['basic_kpi', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery'] },
-  starter: { orderLimit: 1000, features: ['basic_kpi', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery'] },
-  growth: { orderLimit: 5000, features: ['basic_kpi', 'advanced_charts', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue'] },
-  scale: { orderLimit: 12000, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'fraud_watchtower', 'storefront_sync'] },
-  fleet: { orderLimit: 25000, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'dedicated_manager', 'fraud_watchtower', 'storefront_sync'] },
-  enterprise: { orderLimit: 99999999, features: ['basic_kpi', 'advanced_charts', 'csv_export', 'address_text', 'address_location', 'address_both', 'shiprocket', 'delhivery', 'clickpost', 'custom_carrier', 'upi_qr', 'seller_notifications', 'api_docs', 'priority_queue', 'sla', 'dedicated_manager', 'fraud_watchtower', 'storefront_sync'] },
-};
+import { planLimits } from '../config/plans';
+export { planLimits };
 
 /**
  * Gate route access to merchants with an ACTIVE, non-expired subscription.
@@ -35,6 +29,17 @@ export const requireActiveSubscription = async (
     }
 
     const subCheck = checkSubscriptionAccess(merchant);
+    // An expired plan or used-up quota stops automation and new actions, not the merchant's
+    // access to their own data: reads stay open, and refunds owed to customers can still be
+    // processed.
+    const method = req.method.toUpperCase();
+    const isRead = method === 'GET' || method === 'HEAD' || method === 'OPTIONS';
+    const isRefund = /\/refund$/.test(req.path);
+    if (!subCheck.allowed && (isRead || isRefund)) {
+      res.setHeader('X-Subscription-Status', 'inactive');
+      next();
+      return;
+    }
     if (!subCheck.allowed) {
       logger.warn('Access denied: Subscription inactive or quota exceeded', {
         merchantId,
@@ -95,9 +100,10 @@ export const requireFeature = (featureName: string) => {
       if (!allowedFeatures.includes(featureName)) {
         logger.warn('Feature access denied by plan gating', { merchantId, plan: planKey, feature: featureName });
         res.status(403).json({
-          error: `The feature '${featureName}' requires a Growth or Scale subscription plan.`,
+          error: `The feature '${featureName}' is not included in your ${planKey} plan.`,
           currentPlan: planKey,
           requiredFeature: featureName,
+          upgradeRequired: true,
         });
         return;
       }

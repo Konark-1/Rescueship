@@ -141,7 +141,16 @@ export class NDRService {
       }
 
       if (merchant.billing.rescueCredits <= 0) {
-        logger.info('Insufficient rescue credits for NDR rescue', { merchantId });
+        logger.warn('Rescues paused: no rescue credits left', { merchantId });
+        await AuditLog.create({
+          merchantId: merchant._id,
+          action: 'rescues_paused_no_credits',
+          source: 'ndr_service',
+          payload: { awb: ndrData.awb },
+          status: 'failed',
+          error: 'No rescue credits left — top up or upgrade to resume rescues',
+        }).catch(() => {});
+        try { realtimeService.emitCapacityWarning(merchant._id.toString(), 0, 0); } catch { /* non-blocking */ }
         return;
       }
 
@@ -237,7 +246,10 @@ export class NDRService {
       };
 
       const updated: any = await (Order as any).findOneAndUpdate(
-        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'ndr_rescued', 'delivered', 'returned', 'cancelled', 'rto', 'lost'] } },
+        // A previously rescued order that fails AGAIN starts a new rescue cycle (attempt 2/3
+        // is exactly where blind reattempts fail). Orders still waiting on the customer
+        // (ndr_detected / ndr_rescue_sent) are not re-messaged.
+        { _id: order._id, status: { $nin: ['ndr_detected', 'ndr_rescue_sent', 'delivered', 'returned', 'cancelled', 'rto', 'lost'] } },
         {
           $set: {
             status: 'ndr_detected',
@@ -285,10 +297,20 @@ export class NDRService {
         });
       } catch (caseErr: any) {
         if (caseErr?.code === 11000 || caseErr?.name === 'MongoServerError' || caseErr?.message?.includes('E11000')) {
+          // One case per order: a repeat failure re-opens it as a new cycle.
           try {
             await NdrCase.updateOne(
               { orderId: order._id, merchantId: merchant._id },
-              { $set: { lastWebhookAt: new Date() } }
+              {
+                $set: {
+                  status: 'OPEN',
+                  failureReason: ndrData.reason,
+                  whatsappMessageSentAt: new Date(),
+                  attemptCount: order.attemptCount || 1,
+                  lastWebhookAt: new Date(),
+                },
+                $unset: { customerResponseType: 1, customerResponseAt: 1, resolutionType: 1, carrierReattemptStatus: 1 },
+              }
             );
           } catch { /* proceed */ }
         } else {
@@ -302,6 +324,12 @@ export class NDRService {
         ndrData.reason,
         isFake
       );
+
+      if (merchant.settings?.globalPause === true) {
+        // Track the failure (case + dashboard) but take no customer or courier action.
+        logger.info('NDR recorded but not actioned: merchant has paused automations', { merchantId, awb: ndrData.awb });
+        return;
+      }
 
       await this.decideAndAct(order, merchant);
 
@@ -546,7 +574,7 @@ export class NDRService {
       if (act === 'retention' || act === 'pay_retention') {
         return { action: 'pay_retention', orderId: parts[parts.length - 1]?.trim() || undefined };
       }
-      if (act === 'retention_paid' || act === 'paid_retention') {
+      if (act === 'retention_paid') {
         return { action: 'retention_paid', orderId: parts[parts.length - 1]?.trim() || undefined };
       }
       if (act === 'confirm_cancel') {
@@ -586,7 +614,7 @@ export class NDRService {
       else if (/landmark|text/i.test(t) && !/gps|pin/i.test(t)) subAction = 'text';
       return { action: 'address', subAction };
     }
-    if (/retention_paid|i'?ve paid|already paid|paid \d+|payment done|paid online/i.test(t)) return { action: 'retention_paid' };
+    if (/retention_paid|i'?ve paid|paid.*confirm|already paid|check.*payment|paid \d+/i.test(t)) return { action: 'retention_paid' };
     if (/pay_retention|convert|prepaid|pay.*online|pay.*upi/i.test(t)) return { action: 'pay_retention' };
     if (/confirm_cancel|cancel anyway|confirm.*cancel/i.test(t)) return { action: 'confirm_cancel' };
     if (/cancel|return|don'?t want|refuse/.test(t)) return { action: 'cancel' };
@@ -746,9 +774,9 @@ export class NDRService {
         mode: specificCarrierConfig.mode,
         apiToken: apiToken || apiKey,
         apiKey: apiKey || apiToken,
-        email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+        email: carrierEmail,
         username: carrierUsername,
-        password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
+        password: carrierPassword,
         customerCode,
         licenseKey,
         loginId,
@@ -906,7 +934,8 @@ export class NDRService {
         }
 
         // ─── ANTI-EXPLOIT RETENTION: Offer dynamic self-funding COD→Prepaid conversion ───
-        if (!isSerialAbuser && order.paymentMethod === 'cod' && !order.ndr?.retentionOffered) {
+        const { canOfferOnlinePayment } = require('./payment-guard');
+        if (!isSerialAbuser && !order.ndr?.retentionOffered && canOfferOnlinePayment(order, merchant).ok) {
           const codSettings = merchant.settings?.codConversion || {};
           const incentiveType = codSettings.incentiveType || 'flat';
           const incentiveAmount = codSettings.incentiveAmount !== undefined ? codSettings.incentiveAmount : 100;
@@ -971,6 +1000,12 @@ export class NDRService {
         await order.save();
 
         await this.cancelEscalationJobs(order, merchant);
+        try {
+          const { refundService } = require('./refund.service');
+          await refundService.flagIfPaid(order._id, 'customer_cancelled');
+        } catch (refundErr: any) {
+          logger.warn('Refund flag check failed', { orderId: order._id, error: refundErr?.message });
+        }
 
         if (order.carrier && order.awb) {
           try {
@@ -1015,35 +1050,51 @@ export class NDRService {
         );
         return;
       } else if (action === 'pay_retention') {
-        const codSettings = merchant.settings?.codConversion || {};
-        const incentiveType = codSettings.incentiveType || 'flat';
-        const incentiveAmount = codSettings.incentiveAmount !== undefined ? codSettings.incentiveAmount : 100;
-        const discountCap = codSettings.discountCap;
-
-        let discount = order.ndr?.retentionDiscount;
-        if (discount === undefined) {
-          if (codSettings.enabled === false || incentiveType === 'none') {
-            discount = 0;
-          } else if (incentiveType === 'percentage') {
-            discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
-            if (discountCap && discountCap > 0) {
-              discount = Math.min(discount, discountCap);
-            }
-          } else if (incentiveType === 'flat') {
-            discount = incentiveAmount;
-          } else {
-            discount = 0;
-          }
-        }
-        const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 0) - (discount || 0));
-
+        // Online payment is offered only when it is safe (payment-guard): known order value,
+        // COD order, and — after dispatch — a carrier that can amend the COD amount.
+        // The order becomes prepaid ONLY from a signature-verified gateway webhook,
+        // never from a button tap or typed text.
+        const { canOfferOnlinePayment } = require('./payment-guard');
+        const check = canOfferOnlinePayment(order, merchant, true);
         const { orderService } = require('./order.service');
-        const paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
-        const orderRef = order.externalOrderId || order._id?.toString() || 'order';
-        const baseUrl = process.env.API_PUBLIC_URL || process.env.FRONTEND_URL || 'https://rescueship.onrender.com';
-        const linkUrl = paymentLink?.shortUrl || `${baseUrl}/pay/${orderRef}`;
+        let paymentLink: { linkId: string; shortUrl: string } | null = null;
+        let discount = 0;
+        let finalAmount = 0;
 
-        const payMsg = `🎉 ₹${discount || 100} Discount Applied!\n\nPay ₹${finalAmount} securely via UPI or Card to lock in your order with priority dispatch:\n👉 ${linkUrl}\n\nOnce paid, tap below to confirm!`;
+        if (check.ok) {
+          const codSettings = merchant.settings?.codConversion || {};
+          const incentiveType = codSettings.incentiveType || 'none';
+          const incentiveAmount = Number(codSettings.incentiveAmount || 0);
+          const discountCap = codSettings.discountCap;
+          discount = order.ndr?.retentionDiscount ?? 0;
+          if (order.ndr?.retentionDiscount === undefined) {
+            if (codSettings.enabled === false || incentiveType === 'none') discount = 0;
+            else if (incentiveType === 'percentage') {
+              discount = Math.round(((order.orderValue || 0) * incentiveAmount) / 100);
+              if (discountCap && discountCap > 0) discount = Math.min(discount, discountCap);
+            } else if (incentiveType === 'flat') discount = incentiveAmount;
+          }
+          finalAmount = (order.orderValue || 0) - (discount || 0);
+          if (finalAmount > 0) {
+            paymentLink = await orderService.generateRetentionPaymentLink(order, merchant, finalAmount, discount);
+          }
+        } else {
+          logger.info('Online payment not offered for order', { orderId: order._id, reason: check.reason });
+        }
+
+        if (!paymentLink?.shortUrl) {
+          const { bodyText, buttons } = getDeliveryTimingButtons(order._id.toString());
+          await whatsAppService.sendInteractiveButtons(
+            order.customerPhone,
+            `Online payment isn't available for Order #${order.externalOrderId} right now. ${bodyText}`,
+            buttons,
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        const discountLine = discount > 0 ? `🎉 You save ₹${discount}!\n\n` : '';
+        const payMsg = `${discountLine}Pay ₹${finalAmount} securely via UPI or Card to lock in your order with priority dispatch:\n👉 ${paymentLink.shortUrl}\n\nOnce paid, tap below to confirm!`;
 
         await whatsAppService.sendInteractiveButtons(
           order.customerPhone,
@@ -1056,7 +1107,66 @@ export class NDRService {
         );
         return;
       } else if (action === 'retention_paid') {
+        const linkId = order.paymentLinkId || order.codConversion?.paymentLinkId;
         const finalAmount = order.ndr?.retentionFinalAmount || Math.max(1, (order.orderValue || 0) - (order.ndr?.retentionDiscount || 100));
+
+        let isVerifiedPaid = false;
+        let paidAmountPaise = Math.round(finalAmount * 100);
+
+        if (linkId) {
+          const pc: any = merchant.paymentConfig || {};
+          const provider: 'razorpay' | 'cashfree' = pc.provider || pc.gateway || 'razorpay';
+          let keyId: string | undefined;
+          let keySecret: string | undefined;
+          try {
+            if (pc.keyId) keyId = encryptionService.decrypt(pc.keyId);
+            if (pc.keySecret) keySecret = encryptionService.decrypt(pc.keySecret);
+          } catch {}
+
+          if (keyId && keySecret) {
+            try {
+              const { paymentService } = require('./payment.service');
+              const linkCheck = await paymentService.getPaymentLinkStatus(provider, linkId, { keyId, keySecret });
+              if (linkCheck.paid) {
+                isVerifiedPaid = true;
+                if (linkCheck.amountPaidPaise) paidAmountPaise = linkCheck.amountPaidPaise;
+              }
+            } catch (checkErr: any) {
+              logger.warn('Direct gateway check for payment link returned error', { linkId, error: checkErr.message });
+              if (process.env.NODE_ENV !== 'production') {
+                isVerifiedPaid = true; // allow developer / sandbox simulation
+              }
+            }
+          } else if (process.env.NODE_ENV !== 'production') {
+            isVerifiedPaid = true; // sandbox simulation
+          }
+        } else if (process.env.NODE_ENV !== 'production') {
+          isVerifiedPaid = true;
+        }
+
+        if (!isVerifiedPaid) {
+          const { orderService } = require('./order.service');
+          const shortUrl = order.paymentLinkUrl || order.codConversion?.shortUrl || `${(process.env.API_PUBLIC_URL || 'https://rescueship.onrender.com')}/pay/${order.externalOrderId}`;
+          await whatsAppService.sendInteractiveButtons(
+            order.customerPhone,
+            `We haven't received your payment of ₹${finalAmount} yet.\n\nPlease complete the payment here:\n👉 ${shortUrl}\n\nTap below as soon as you've paid so we can upgrade your order!`,
+            [
+              { id: `retention_paid:${order._id}`, title: `✅ Check My Payment` },
+              { id: `confirm_cancel:${order._id}`, title: '⚠️ Cancel Order' },
+            ],
+            this.getWaConfig(merchant)
+          );
+          return;
+        }
+
+        // Payment confirmed! Run order conversion and courier reattempt
+        const { orderService } = require('./order.service');
+        if (linkId) {
+          await orderService.handlePaymentConfirmation(linkId, paidAmountPaise).catch((err: any) => {
+            logger.warn('handlePaymentConfirmation warning in retention_paid', { error: err.message });
+          });
+        }
+
         order.paymentMethod = 'prepaid';
         order.status = 'ndr_rescued';
         if (!order.ndr) order.ndr = {} as any;
@@ -1158,6 +1268,10 @@ export class NDRService {
       }).sort({ updatedAt: -1 });
 
       if (!order) return;
+      if (!resolvedOrder) {
+        const { isAmbiguousAcrossMerchants } = require('../utils/phone-order-scope');
+        if (await isAmbiguousAcrossMerchants(order, normalizedPhone)) return;
+      }
 
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
@@ -1420,6 +1534,10 @@ export class NDRService {
     try {
       const merchant = await Merchant.findById(order.merchantId);
       if (!merchant) return;
+      if (merchant.settings?.globalPause === true) {
+        logger.info('Escalation skipped: merchant has paused automations', { orderId });
+        return;
+      }
 
       // Escalation reminders are also business-initiated (often with no open customer
       // window) → re-send the approved template rather than a free-form message.
@@ -1567,9 +1685,10 @@ export class NDRService {
       mode: specificCarrierConfig.mode,
       apiToken: apiToken || apiKey,
       apiKey: apiKey || apiToken,
-      email: carrierEmail || (targetCarrier === 'shiprocket' ? config.shiprocket.email : undefined),
+      // Merchant's own credentials only — never the platform's courier account.
+      email: carrierEmail,
       username: carrierUsername,
-      password: carrierPassword || (targetCarrier === 'shiprocket' ? config.shiprocket.password : undefined),
+      password: carrierPassword,
       customerCode,
       licenseKey,
       loginId,
@@ -1587,11 +1706,48 @@ export class NDRService {
       );
 
       if (!result.success) {
-        logger.warn('Carrier reschedule call returned non-success; proceeding with customer rescue confirmation', {
+        // The courier did NOT accept the instruction: don't mark the order rescued, don't
+        // credit savings, and don't tell the customer it's booked. Raise a merchant task.
+        logger.warn('Carrier reschedule failed; raising merchant task instead of marking rescued', {
           awb: order.awb,
           carrier: order.carrier,
           message: result.message,
         });
+        if (order.ndr) {
+          order.ndr.customerResponse = order.ndr.customerResponse || 'reschedule';
+          order.ndr.scheduledSlot = subChoice;
+        }
+        if (typeof (order as any).save === 'function') await (order as any).save();
+        try {
+          await NdrCase.findOneAndUpdate(
+            { orderId: order._id, merchantId: order.merchantId },
+            { $set: { customerResponseType: 'RESCHEDULE', customerResponseAt: new Date(), carrierReattemptStatus: 'FAILED' } }
+          );
+        } catch { /* non-fatal */ }
+        await AuditLog.create({
+          merchantId: order.merchantId,
+          orderId: order._id,
+          action: 'carrier_reschedule_failed',
+          source: 'ndr_service',
+          payload: { carrier: order.carrier, awb: order.awb, requestedDate: dateStr, message: result.message },
+          status: 'failed',
+          error: result.message,
+        }).catch(() => {});
+        realtimeService.broadcast({
+          type: 'merchant_action_required',
+          merchantId: order.merchantId.toString(),
+          payload: { orderId: order.externalOrderId, awb: order.awb, reason: 'courier_reschedule_failed', requestedDate: dateStr },
+          timestamp: new Date().toISOString(),
+        });
+        if (!options?.suppressMessage) {
+          await whatsAppService.sendInteractiveButtons(
+            order.customerPhone,
+            `Thanks — we've noted ${label} as your preferred delivery time for Order #${order.externalOrderId}. Our team is confirming it with the courier.`,
+            [],
+            this.getWaConfig(merchant)
+          );
+        }
+        return { success: false, dateStr, label, result };
       }
 
       order.status = 'ndr_rescued';
@@ -1628,7 +1784,7 @@ export class NDRService {
               customerResponseAt: new Date(),
               resolutionType: 'rescheduled',
               reattemptRequestedAt: new Date(),
-              carrierReattemptStatus: result.success ? 'SUCCESS' : 'CARRIER_API_PENDING',
+              carrierReattemptStatus: 'SUCCESS',
               rtoFeeSaved: rtoFee,
               estimatedLossPrevented: rtoFee,
             },
@@ -1694,12 +1850,10 @@ export class NDRService {
       try {
         token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
       } catch (err: any) {
-        if (process.env.WHATSAPP_ACCESS_TOKEN) {
-          token = process.env.WHATSAPP_ACCESS_TOKEN;
-        } else {
-          logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
-          throw new Error('WhatsApp credentials require reconnection');
-        }
+        // Never substitute the platform token: the merchant's traffic must use the merchant's own
+        // credentials (billing, identity and quality all belong to their WABA).
+        logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
+        throw new Error('WhatsApp credentials require reconnection');
       }
     }
     return {

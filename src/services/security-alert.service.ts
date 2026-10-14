@@ -9,6 +9,11 @@ import { logger } from '../utils/logger';
  * occur across the system.
  */
 export class SecurityAlertService {
+  // Unauthenticated endpoints can trigger alerts; throttle the out-of-band webhook
+  // per event so a flood of bad requests cannot spam the on-call channel.
+  private static lastSent = new Map<string, number>();
+  private static readonly THROTTLE_MS = Number(process.env.SECURITY_ALERT_THROTTLE_MS || 60_000);
+
   /**
    * Dispatches an out-of-band alert to the configured webhook.
    */
@@ -19,6 +24,12 @@ export class SecurityAlertService {
     if (!webhookUrl) {
       return;
     }
+    const now = Date.now();
+    const last = SecurityAlertService.lastSent.get(event) || 0;
+    if (now - last < SecurityAlertService.THROTTLE_MS) {
+      return;
+    }
+    SecurityAlertService.lastSent.set(event, now);
 
     const payload = {
       text: `🚨 *RESCUESHIP CRITICAL SECURITY ALERT: ${event}*`,

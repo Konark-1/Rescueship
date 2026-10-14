@@ -103,27 +103,9 @@ export class CodAdjustmentService {
       });
     }
 
-    // ─── 3. Carrier Configuration ───
-    const cc: any = merchant.carrierConfig || {};
-    let apiToken: string | undefined;
-    let carrierEmail: string | undefined;
-    let carrierPassword: string | undefined;
-
-    try {
-      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-      else if (cc.apiKey) apiToken = encryptionService.decrypt(cc.apiKey);
-      if (cc.email) carrierEmail = encryptionService.decrypt(cc.email);
-      if (cc.password) carrierPassword = encryptionService.decrypt(cc.password);
-    } catch (err: any) {
-      logger.error('Failed to decrypt carrier credentials for COD adjustment', { merchantId: merchant._id });
-    }
-
-    const carrierConfig: CarrierConfig = {
-      provider: (order.carrier as any) || cc.provider || 'shiprocket',
-      apiToken,
-      email: carrierEmail || config.shiprocket.email,
-      password: carrierPassword || config.shiprocket.password,
-    };
+    // ─── 3. Carrier Configuration (merchant's own per-carrier credentials only) ───
+    const { orderService } = require('../order.service');
+    const carrierConfig: CarrierConfig = orderService.getCarrierConfig(merchant, (order.carrier as any) || (merchant as any).carrierConfig?.provider);
 
     // ─── 4. Call Courier to Amend COD ───
     let carrierCallSuccess = false;

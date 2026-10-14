@@ -29,7 +29,32 @@ describe('TASK 3.1: Shiprocket v2 API Mock Modernization', () => {
       expect(parsed.externalOrderId).toBe('999');
       expect(parsed.status).toBe('RTO_INITIATED');
       expect(parsed.isNdr).toBe(false);
-      expect(parsed.attemptTime).toEqual(new Date('2026-10-08 14:00:00'));
+      // ETD is an estimate, never an attempt time
+      expect(parsed.attemptTime).toBeUndefined();
+    }
+  });
+
+  it('3.1.2b: attempt time comes from the latest scan and classification ignores the URL path', () => {
+    const req: any = {
+      body: {
+        awb: 'AWB_SCAN_1',
+        order_id: 'O1',
+        current_status: 'UNDELIVERED',
+        current_status_id: 21,
+        scans: [
+          { date: '2026-10-08 10:00:00', activity: 'Out for delivery' },
+          { date: '2026-10-08 14:30:00', activity: 'Customer not available' },
+        ],
+      },
+      path: '/tracking',
+      get: jest.fn(),
+    };
+    const parsed = parseShiprocketWebhook(req);
+    expect('error' in parsed).toBe(false);
+    if (!('error' in parsed)) {
+      expect(parsed.isNdr).toBe(true);
+      expect(parsed.attemptTime).toEqual(new Date('2026-10-08 14:30:00'));
+      expect(parsed.eventId).toContain('2026-10-08 14:30:00');
     }
   });
 

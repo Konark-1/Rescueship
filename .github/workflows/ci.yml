@@ -1,6 +1,8 @@
 name: CI Pipeline
 
 on:
+  push:
+    branches: [ main, master, develop ]
   pull_request:
     branches: [ main, master, develop ]
   workflow_dispatch:
@@ -11,7 +13,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18.x, 20.x]
+        node-version: [20.x, 22.x]
 
     steps:
       - name: Checkout repository
@@ -30,6 +32,7 @@ jobs:
         run: npx tsc --noEmit
 
       - name: Run unit tests (Backend)
+        # tests/setup-env.ts sets SKIP_DOTENV and local-only values: no live services needed
         run: npm test
 
       - name: Install Frontend dependencies

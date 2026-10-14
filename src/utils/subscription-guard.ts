@@ -1,5 +1,6 @@
 import { logger } from './logger';
 import { realtimeService } from '../services/realtime.service';
+import { planLimits } from '../config/plans';
 
 export interface SubscriptionAccessCheck {
   allowed: boolean;
@@ -74,18 +75,16 @@ export function checkSubscriptionAccess(merchant: any): SubscriptionAccessCheck 
     };
   }
 
-  // 3. Free Trial Fallback (when no explicit expiry date is configured)
+  // 3. No free trial: RescueShip is pay-first (90-day money-back guarantee instead).
+  // A merchant who never activated a paid plan — or was downgraded back to
+  // 'free_trial' after cancelling/expiry — gets no automation (paid time that is
+  // still running was already handled by the expiry-date branch above).
   if (plan === 'free_trial') {
-    // If merchant created > 14 days ago and still on free_trial with no expiry date
-    const createdAt = merchant.createdAt ? new Date(merchant.createdAt).getTime() : now;
-    const trialDurationMs = 14 * 24 * 60 * 60 * 1000;
-    if (now - createdAt > trialDurationMs) {
-      return {
-        allowed: false,
-        reason: 'Free trial has ended. Please upgrade to a paid plan to continue automated rescues.',
-        daysRemaining: 0,
-      };
-    }
+    return {
+      allowed: false,
+      reason: 'No active plan. Choose a plan on the Billing page to start automated rescues.',
+      daysRemaining: 0,
+    };
   }
 
   return checkQuotaLimit(billing, plan, undefined, merchant._id || merchant.id);
@@ -93,7 +92,7 @@ export function checkSubscriptionAccess(merchant: any): SubscriptionAccessCheck 
 
 function checkQuotaLimit(billing: any, plan: string, daysRemaining?: number, merchantId?: any): SubscriptionAccessCheck {
   const currentOrders = Number(billing.currentMonthOrders || 0);
-  const planLimit = Number(billing.planOrderLimit || (plan === 'free_trial' ? 100 : 1000));
+  const planLimit = Number(billing.planOrderLimit || planLimits[plan]?.orderLimit || 500);
 
   if (merchantId && plan !== 'enterprise' && planLimit > 0) {
     const pct = Math.round((currentOrders / planLimit) * 100);

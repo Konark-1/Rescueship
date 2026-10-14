@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { planAllows } from '../config/plans';
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { logger } from '../utils/logger';
@@ -45,7 +46,7 @@ export class EmailService {
     const clientId = process.env.GMAIL_CLIENT_ID;
     const clientSecret = process.env.GMAIL_CLIENT_SECRET;
     const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-    const gUser = process.env.GMAIL_USER || process.env.SMTP_USER || 'konarkofficial@gmail.com';
+    const gUser = process.env.GMAIL_USER || process.env.SMTP_USER || '';
 
     if (clientId && clientSecret && refreshToken) {
       this.oauth2Client = new OAuth2Client(clientId, clientSecret);
@@ -135,7 +136,7 @@ export class EmailService {
    * Send email using Gmail REST API (HTTPS port 443) or SMTP transport or fallback to logging.
    */
   public async sendEmail(options: EmailOptions): Promise<boolean> {
-    const from = process.env.SMTP_FROM || `"RescueShip" <${this.gmailUser || 'konarkofficial@gmail.com'}>`;
+    const from = process.env.SMTP_FROM || `"RescueShip" <${this.gmailUser || 'no-reply@rescueship.io'}>`;
 
     // 1. Gmail REST API over HTTPS (Port 443 - zero block on Render free tier)
     if (this.isGmailApiConfigured && this.oauth2Client) {
@@ -272,6 +273,21 @@ export class EmailService {
     return this.sendEmail({ to: email, subject, text, html });
   }
 
+  public async sendEmailVerification(email: string, token: string, merchantName: string = 'Merchant'): Promise<boolean> {
+    const appUrl = process.env.APP_URL || 'https://app.rescueship.io';
+    const verifyUrl = `${appUrl}/verify-email?token=${token}&email=${encodeURIComponent(email)}`;
+    const subject = 'Confirm your email - RescueShip';
+    const text = `Hello ${merchantName},\n\nPlease confirm this is your email address:\n${verifyUrl}\n\nIf you did not create a RescueShip account, ignore this email.\n\nRescueShip Team`;
+    const html = `<div style="font-family: sans-serif; line-height: 1.5;">
+      <h2>Confirm your email</h2>
+      <p>Hello <strong>${esc(merchantName)}</strong>,</p>
+      <p>Please confirm this is your email address.</p>
+      <p style="margin: 20px 0;"><a href="${verifyUrl}" style="background-color: #2563eb; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">Confirm email</a></p>
+      <p style="font-size: 12px; color: #888;">If you did not create a RescueShip account, ignore this email.</p>
+    </div>`;
+    return this.sendEmail({ to: email, subject, text, html });
+  }
+
   public async sendPasswordResetToken(email: string, token: string, merchantName?: string): Promise<boolean> {
     return this.sendPasswordResetEmail(email, token, merchantName);
   }
@@ -326,10 +342,10 @@ export class EmailService {
     email: string,
     merchantName: string,
     reportData: { totalOrders: number; rescuedOrders: number; rescueRate: number; totalRevenueSaved: number },
-    plan: string = 'starter'
+    plan: string = 'free_trial'
   ): Promise<boolean> {
-    if (plan === 'starter' || plan === 'free_trial') {
-      logger.info('Skipped monthly summary email for Starter plan merchant', { email, merchantName });
+    if (!planAllows({ billing: { plan } }, 'weekly_report')) {
+      logger.info('Skipped monthly summary email: not included in plan', { email, merchantName, plan });
       return false;
     }
 

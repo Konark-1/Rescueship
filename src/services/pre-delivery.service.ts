@@ -12,6 +12,8 @@
  *  4. Customer RTO Risk score > 0.6
  */
 
+import { redisCache } from '../utils/redis-cache';
+import { planAllows } from '../config/plans';
 import { Order, Merchant, AuditLog, BillingEvent } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { encryptionService } from './encryption.service';
@@ -49,6 +51,11 @@ export class PreDeliveryService {
   public async shouldSendPreDelivery(order: any, merchant: any): Promise<PreDeliveryEvaluation> {
     if (!order || !merchant) {
       return { shouldSend: false, reason: 'missing_order_or_merchant' };
+    }
+
+    // 0. Pre-delivery confirmation is a Scale+ feature
+    if (!planAllows(merchant, 'predelivery')) {
+      return { shouldSend: false, reason: 'plan_excludes_predelivery' };
     }
 
     // 1. Merchant global pause guard
@@ -163,7 +170,7 @@ export class PreDeliveryService {
     const lockKey = `predeliv_lock:${order._id}`;
     try {
       if (redisConnection && typeof (redisConnection as any).set === 'function') {
-        const acquired = await redisConnection.set(lockKey, '1', 'EX', 21600, 'NX');
+        const acquired = await redisCache.set(lockKey, '1', 'EX', 21600, 'NX');
         if (!acquired) {
           logger.info('Pre-delivery confirmation already in progress or dispatched', { orderId: order._id });
           return false;

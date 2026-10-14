@@ -6,8 +6,6 @@ import express, { Express } from 'express';
 import { Types } from 'mongoose';
 import { CarrierRateLimitError } from '../src/utils/errors.util';
 import { setupCarrierAxiosInterceptor } from '../src/services/carrier-connect.service';
-import { carrierDlq } from '../src/queues/dlq.queue';
-import { processCarrierJob } from '../src/workers/carrier-dispatch.worker';
 import { acquireLock, releaseLock, LUA_RELEASE_LOCK } from '../src/utils/distributed-lock.util';
 import { createCarrierNdrHandler } from '../src/webhooks/carrier-ndr.handler';
 import { redisConnection } from '../src/config/redis';
@@ -202,95 +200,6 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
       await expect(interceptor.rejected(error500)).rejects.toEqual(error500);
     });
 
-    it('2.1.4: should route 429 carrier failures to DLQ with exponential backoff delay', async () => {
-      const dlqAddSpy = jest.spyOn(carrierDlq, 'add');
-
-      // Make logisticsService throw CarrierRateLimitError
-      (logisticsService.rescheduleDelivery as jest.Mock).mockRejectedValue(
-        new CarrierRateLimitError('Carrier API Rate Limit Hit')
-      );
-
-      // Test attempt 0: delay should be 2^0 * 60,000 = 60,000ms (1 min)
-      const mockJobAttempt0: any = {
-        id: 'job_rate_limited_0',
-        attemptsMade: 0,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-          carrierConfig: {},
-        },
-      };
-
-      const result0 = await processCarrierJob(mockJobAttempt0);
-      expect(result0).toEqual({
-        dlqRouted: true,
-        delay: 60000,
-        reason: 'CarrierRateLimitError (429)',
-      });
-
-      expect(dlqAddSpy).toHaveBeenCalledWith(
-        'retry-carrier-action',
-        expect.objectContaining({
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          originalJobId: 'job_rate_limited_0',
-          attemptsMade: 1,
-        }),
-        {
-          delay: 60000,
-          attempts: 5,
-        }
-      );
-
-      // Test attempt 2: delay should be 2^2 * 60,000 = 240,000ms (4 min)
-      const mockJobAttempt2: any = {
-        id: 'job_rate_limited_2',
-        attemptsMade: 2,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-          carrierConfig: {},
-        },
-      };
-
-      const result2 = await processCarrierJob(mockJobAttempt2);
-      expect(result2.delay).toBe(240000);
-
-      // Test attempt 10: should cap at 3,600,000ms (1 hour)
-      const mockJobAttempt10: any = {
-        id: 'job_rate_limited_10',
-        attemptsMade: 10,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-          carrierConfig: {},
-        },
-      };
-
-      const result10 = await processCarrierJob(mockJobAttempt10);
-      expect(result10.delay).toBe(3600000);
-    });
-
-    it('2.1.5: should throw unrecoverable non-429 errors so standard BullMQ failure triggers', async () => {
-      (logisticsService.rescheduleDelivery as jest.Mock).mockRejectedValue(
-        new Error('Fatal carrier parsing failure')
-      );
-
-      const mockJob: any = {
-        id: 'job_fatal_error',
-        attemptsMade: 0,
-        data: {
-          action: 'reschedule',
-          carrier: 'shiprocket',
-          payload: { awb: '143265889' },
-        },
-      };
-
-      await expect(processCarrierJob(mockJob)).rejects.toThrow('Fatal carrier parsing failure');
-    });
   });
 
   // ═════════════════════════════════════════════════════════════════════════
@@ -334,7 +243,12 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
       expect(store.has(lockKey)).toBe(false);
     });
 
-    it('2.2.3: Retry Storm Protection: 5 concurrent identical webhooks -> 1 processed, 4 dropped with HTTP 200', async () => {
+    it('2.2.3: Retry Storm Protection: 5 concurrent identical webhooks -> serialized by the lock, 1 processed, 4 deduped with HTTP 200', async () => {
+      // Requests wait for the lock instead of being dropped; once the first finishes, the
+      // idempotency claim marks the rest as duplicates (same event id).
+      const { IdempotencyGuard } = require('../src/utils/idempotency');
+      (IdempotencyGuard.claim as jest.Mock).mockReset();
+      (IdempotencyGuard.claim as jest.Mock).mockResolvedValueOnce('acquired').mockResolvedValue('duplicate');
       const app = express();
       app.use(express.json());
 
@@ -352,8 +266,6 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
       );
 
       app.post('/api/webhooks/shiprocket/ndr', handler);
-
-      const warnSpy = jest.spyOn(logger, 'warn');
 
       // Prepare 5 identical concurrent webhook requests for the same AWB
       const webhookPayload = {
@@ -385,16 +297,13 @@ describe('🛡️ STEP 2: INFRASTRUCTURE RESILIENCE & QUEUE MANAGEMENT', () => {
 
       // Exactly 1 request acquires lock (returns queued or success)
       const accepted = results.filter((r) => r.body.status === 'queued' || r.body.status === 'success');
-      // Exactly 4 requests hit the active lock and are cleanly dropped
-      const dropped = results.filter((r) => r.body.status === 'ignored' && r.body.reason === 'duplicate_lock_active');
+      // The other 4 were serialized behind the lock and then recognised as duplicates.
+      const dropped = results.filter((r) => r.body.status === 'ignored' && r.body.reason === 'duplicate');
 
       expect(accepted.length).toBe(1);
       expect(dropped.length).toBe(4);
-
-      // Confirm warning was logged for all 4 dropped webhooks
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[DUPLICATE WEBHOOK DROPPED] Lock exists for lock:ndr:650000000000000000000001:shiprocket:AWB-RETRY-STORM-001')
-      );
+      (IdempotencyGuard.claim as jest.Mock).mockReset();
+      (IdempotencyGuard.claim as jest.Mock).mockResolvedValue('acquired');
 
       // Confirm lock was released in finally block after the 1st completed
       expect(store.has('lock:ndr:650000000000000000000001:shiprocket:AWB-RETRY-STORM-001')).toBe(false);

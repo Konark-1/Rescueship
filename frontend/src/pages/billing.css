@@ -1070,3 +1070,7 @@
   border-radius: 6px;
   height: 6px;
 }
+@media (max-width: 640px) {
+  .bl-cycle-wrap { display: flex; width: 100%; }
+  .bl-cycle-btn { flex: 1 1 0; min-width: 0; flex-direction: column; gap: 2px; padding: 0.55rem 0.3rem; }
+}

@@ -6,7 +6,7 @@ import { Router, Request, Response } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
-import { metaEmbeddedSignupService } from '../services/meta-embedded-signup.service';
+import { metaEmbeddedSignupService, REQUIRED_WA_SCOPES } from '../services/meta-embedded-signup.service';
 import { metaTemplateService } from '../services/meta-template.service';
 import { shopifyOAuthService } from '../services/shopify-oauth.service';
 import { woocommerceConnectService } from '../services/woocommerce-connect.service';
@@ -18,6 +18,14 @@ import { emailService } from '../services/email.service';
 import { encryptionService } from '../services/encryption.service';
 import { Merchant } from '../models';
 import { logger } from '../utils/logger';
+import {
+  reserveTestSend,
+  getTestStatus,
+  buildVerification,
+  samePhone,
+  isPayingMerchant,
+  MAX_UNPAID_PHONE_CHANGES,
+} from '../services/free-test.service';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
 import { frontendOrigin } from '../config/env';
 import { credentialValidationLimiter } from '../middleware/rateLimiter';
@@ -52,6 +60,9 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
       merchantId: req.merchant!.merchantId,
       storeName: (m as any).storeName || (m as any).shopify?.shopDomain || null,
       ownerPhone: (m as any).ownerPhone || null,
+      ownerPhoneVerified: Boolean((m as any).ownerPhone && (m as any).ownerPhoneVerifiedAt),
+      pendingOwnerPhone: (m as any).ownerPhoneVerification?.phone || null,
+      testRescues: await getTestStatus(m).catch(() => null),
       connections: {
         shopify: c.shopify || { status: 'disconnected' },
         woocommerce: c.woocommerce || { status: 'disconnected' },
@@ -59,7 +70,7 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
           ...(c.whatsapp || { status: 'disconnected' }),
           status: waStatus || c.whatsapp?.status || 'disconnected',
           phoneNumberId: (m as any).whatsappConfig?.phoneNumberId || null,
-          wabaId: (m as any).whatsappConfig?.wabaId || null,
+          wabaId: (m as any).whatsappConfig?.wabaId || (m as any).whatsappConfig?.businessAccountId || null,
         },
         carrier: c.carrier || { status: 'disconnected' },
         carriers: c.carriers || {},
@@ -114,14 +125,16 @@ router.post('/shopify/demo-connect', authenticateToken, async (req: Authenticate
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
-// Direct API token path — merchant pastes their store's Admin API access token.
-// Works everywhere (dev or prod), no Partner app required from anyone.
+// Direct path — no Partner app required. Either a Dev Dashboard app's Client ID + secret
+// (client credentials grant, the only option for apps created after 1 Jan 2026) or a legacy
+// custom app's Admin API access token + API secret key.
 router.post('/shopify/token', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { shop, accessToken, apiSecret } = req.body;
-  if (typeof shop !== 'string' || typeof accessToken !== 'string' || typeof apiSecret !== 'string') {
-    return res.status(400).json({ error: 'shop, accessToken and apiSecret required' });
+  const { shop, accessToken, apiSecret, clientId } = req.body;
+  const optStr = (v: unknown) => v === undefined || v === null || v === '' || typeof v === 'string';
+  if (typeof shop !== 'string' || typeof apiSecret !== 'string' || !optStr(accessToken) || !optStr(clientId) || (!accessToken && !clientId)) {
+    return res.status(400).json({ error: 'shop, apiSecret and either clientId or accessToken required' });
   }
-  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken, apiSecret)); }
+  try { res.json(await shopifyOAuthService.connectWithToken(req.merchant!.merchantId, shop, accessToken || undefined, apiSecret, clientId || undefined)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 // Hit by Shopify (no JWT) — verifies hmac+state, then bounces the browser to the wizard.
@@ -241,9 +254,12 @@ router.post('/woocommerce', authenticateToken, credentialValidationLimiter, stan
 // No Meta Embedded Signup / app config needed. The merchant pastes credentials they
 // already have from their own Meta Business account (WhatsApp Manager → API setup).
 router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { phoneNumberId, wabaId, accessToken } = req.body;
+  const { phoneNumberId, wabaId, accessToken, appSecret, pin } = req.body;
   if (typeof phoneNumberId !== 'string' || typeof wabaId !== 'string' || typeof accessToken !== 'string' || !phoneNumberId || !wabaId || !accessToken) {
     return res.status(400).json({ error: 'phoneNumberId, wabaId and accessToken required' });
+  }
+  if ((appSecret !== undefined && appSecret !== '' && typeof appSecret !== 'string') || (pin !== undefined && pin !== '' && !/^\d{6}$/.test(String(pin)))) {
+    return res.status(400).json({ error: 'appSecret must be a string and pin a 6-digit number' });
   }
   const phone = phoneNumberId.trim();
   const waba = wabaId.trim();
@@ -251,19 +267,31 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
   if (!/^\d{6,32}$/.test(phone)) return res.status(400).json({ error: 'Invalid phoneNumberId (numeric ID).' });
   if (!/^\d{6,32}$/.test(waba)) return res.status(400).json({ error: 'Invalid WABA ID (numeric ID).' });
 
-  // Ownership check: the token must read BOTH the phone number and its WABA, so a
-  // merchant can never claim a number they don't own (blocks inbound-routing hijack).
+  // 1. Token must be long-lived and carry the WhatsApp scopes (temporary API-setup tokens die in ~24h).
+  let platformType: string | undefined;
+  let displayPhone: string | undefined;
   try {
-    await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(phone)}`, {
-      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,display_phone_number' }, timeout: 8000,
+    const info = await metaEmbeddedSignupService.inspectToken(token);
+    if (!info.valid) return res.status(400).json({ error: 'Meta says this access token is not valid.' });
+    if (info.expiresAt && info.expiresAt.getTime() - Date.now() < 7 * 24 * 3600 * 1000) {
+      return res.status(400).json({ error: 'This is a temporary access token (expires within days). Create a System User in Meta Business Settings, give it the WhatsApp account, and generate a token that never expires.' });
+    }
+    const lacking = REQUIRED_WA_SCOPES.filter((sc) => !info.scopes.includes(sc));
+    if (lacking.length) return res.status(400).json({ error: `The token is missing permissions: ${lacking.join(', ')}.` });
+
+    // 2. Ownership: the phone number must be listed under that WABA for this token
+    //    (blocks claiming someone else's number to hijack inbound routing).
+    const { data } = await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(waba)}/phone_numbers`, {
+      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,display_phone_number,platform_type' }, timeout: 8000,
     });
-    await axios.get(`https://graph.facebook.com/v22.0/${encodeURIComponent(waba)}`, {
-      headers: { Authorization: `Bearer ${token}` }, params: { fields: 'id,name' }, timeout: 8000,
-    });
+    const match = (data?.data || []).find((p: any) => String(p.id) === phone);
+    if (!match) return res.status(400).json({ error: 'That phone number ID is not part of this WhatsApp Business Account.' });
+    platformType = match.platform_type;
+    displayPhone = match.display_phone_number;
   } catch (e: any) {
     const metaErr = e.response?.data?.error;
     const msg = metaErr?.message || e.message;
-    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, error: metaErr || e.message });
+    logger.warn('WhatsApp manual credential validation failed', { status: e.response?.status, code: metaErr?.code });
     return res.status(400).json({
       error: `Could not verify WhatsApp credentials: ${msg}. Check your Phone number ID, WABA ID, and make sure your access token has whatsapp_business_messaging permissions.`,
     });
@@ -274,17 +302,35 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
 
   const merchant = await Merchant.findById(req.merchant!.merchantId);
   if (!merchant) return res.status(404).json({ error: 'not found' });
+  // 3. Subscribe the app to the WABA's webhooks and register the number if it is not on Cloud API yet.
+  const activation = await metaEmbeddedSignupService.activateNumber(waba, phone, token, {
+    pin: pin ? String(pin) : undefined,
+    register: platformType !== undefined && platformType !== 'CLOUD_API',
+  });
+
   (merchant as any).whatsappConfig = {
     ...((merchant as any).whatsappConfig || {}),
     phoneNumberId: phone,
     wabaId: waba,
+    businessAccountId: waba,
     accessToken: encryptionService.encrypt(token),
+    ...(displayPhone ? { displayPhone } : {}),
+    connectMethod: 'manual',
+    webhooksSubscribed: activation.subscribed,
+    // A merchant using their OWN Meta app: its webhooks are signed with that app's secret.
+    ...(appSecret ? { appSecret: encryptionService.encrypt(String(appSecret).trim()) } : {}),
+    ...(activation.pin && activation.registered ? { registrationPin: encryptionService.encrypt(activation.pin) } : {}),
   };
+  const blocking = !activation.subscribed || activation.registered === false;
   (merchant as any).connections = {
     ...((merchant as any).connections || {}),
-    whatsapp: { status: 'templates_pending', connectedAt: new Date(), lastError: null },
+    whatsapp: { status: blocking ? 'error' : 'templates_pending', connectedAt: new Date(), lastError: activation.errors.length ? activation.errors.join(' ') : null },
   };
+  merchant.markModified('whatsappConfig');
   await merchant.save();
+  if (blocking) {
+    return res.status(400).json({ error: activation.errors.join(' ') || 'Could not activate the WhatsApp number.' });
+  }
 
   // fire-and-forget template submission + approval polling
   void metaTemplateService.submitAll(req.merchant!.merchantId).catch((e: any) => logger.warn('Manual WhatsApp template submit failed', { error: e.message }));
@@ -294,18 +340,23 @@ router.post('/whatsapp/manual', authenticateToken, credentialValidationLimiter, 
 
 // ── WhatsApp (Embedded Signup) ──
 router.post('/whatsapp/signup', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
-  const { code, businessId } = req.body;
-  if (!code) return res.status(400).json({ error: 'code required' });
+  const { code, businessId, wabaId, phoneNumberId, pin } = req.body;
+  if (!code || typeof code !== 'string') return res.status(400).json({ error: 'code required' });
+  const idOk = (v: unknown) => v === undefined || v === null || v === '' || (typeof v === 'string' && /^\d{5,32}$/.test(v));
+  if (!idOk(businessId) || !idOk(wabaId) || !idOk(phoneNumberId) || (pin && !/^\d{6}$/.test(String(pin)))) {
+    return res.status(400).json({ error: 'Invalid signup session data' });
+  }
   // Fail with an actionable message instead of Meta's opaque OAuth failure.
-  const metaReady = process.env.META_APP_ID && process.env.META_APP_SECRET && process.env.META_CONFIG_ID;
+  const metaReady = process.env.META_APP_ID && (process.env.META_APP_SECRET || process.env.WHATSAPP_APP_SECRET) && process.env.META_CONFIG_ID;
   if (!metaReady) {
     return res.status(400).json({
       error: 'WhatsApp one-click connect is not configured on this RescueShip deployment yet (META_APP_ID / META_APP_SECRET / META_CONFIG_ID). Contact support or use "Set it up for me" — we will connect your number with you on a call.',
     });
   }
   try {
-    const summary = await metaEmbeddedSignupService.connect(req.merchant!.merchantId, code, businessId);
-    await metaTemplateService.submitAll(req.merchant!.merchantId); // fire-and-forget approval
+    const summary = await metaEmbeddedSignupService.connect(req.merchant!.merchantId, code, { businessId, wabaId, phoneNumberId, pin: pin ? String(pin) : undefined });
+    if (summary.status === 'error') return res.status(400).json({ error: (summary as any).lastError || 'Could not activate the WhatsApp number.', ...summary });
+    await metaTemplateService.submitAll(req.merchant!.merchantId);
     res.json(summary);
   } catch (e: any) { res.status(400).json({ error: e.message }); }
 });
@@ -336,6 +387,8 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
   let decryptedToken: string;
   try { decryptedToken = encryptionService.decrypt(waCfg.accessToken); }
   catch { return res.status(400).json({ error: 'WhatsApp credentials need to be reconnected.' }); }
+  const reservation = await reserveTestSend(m);
+  if (!reservation.allowed) return res.status(429).json({ error: reservation.reason, code: reservation.code });
   try {
     const registeredName = waCfg.templateMap?.['rs_test_pulse_en'] || 'rs_test_pulse_v2_en';
     const templates: any[] = waCfg.templates || [];
@@ -357,8 +410,9 @@ router.post('/whatsapp/test-pulse', authenticateToken, standardMerchantLimiter, 
       );
     }
     await Merchant.findByIdAndUpdate(m._id, { $set: { 'onboarding.testRescueSentAt': new Date() } });
-    res.json({ ok: true, to: phone });
+    res.json({ ok: true, to: phone, remaining: reservation.remaining });
   } catch (e: any) {
+    await reservation.release();
     // Surface Meta's exact reason (often opt-in) so the merchant can self-fix.
     res.status(400).json({ error: e.message, hint: 'If Meta says the number is not opted in, send any message to your new WhatsApp Business number from this phone first, then retry.' });
   }
@@ -387,14 +441,33 @@ router.get('/carrier/webhook', authenticateToken, standardMerchantLimiter, async
 
 // ── Payment ──  (outbound credential validation → strict limiter)
 router.post('/payment', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
-  const { gateway, keyId, keySecret } = req.body;
+  const { gateway, keyId, keySecret, webhookSecret } = req.body;
   if (typeof gateway !== 'string' || typeof keyId !== 'string' || typeof keySecret !== 'string' || !gateway || !keyId || !keySecret) {
     return res.status(400).json({ error: 'gateway, keyId, keySecret required' });
+  }
+  if (webhookSecret !== undefined && webhookSecret !== null && typeof webhookSecret !== 'string') {
+    return res.status(400).json({ error: 'webhookSecret must be a string' });
   }
   if (gateway !== 'razorpay' && gateway !== 'cashfree') {
     return res.status(400).json({ error: 'Unsupported gateway' });
   }
-  try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret)); }
+  try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret, webhookSecret || undefined)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+// Live check of every connection (Shopify token, WhatsApp token, gateway keys + webhook, courier login).
+router.post('/health/check', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { checkMerchantConnections } = await import('../services/connection-health.service');
+    res.json(await checkMerchantConnections(req.merchant!.merchantId));
+  } catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+// ₹1 self-test link that proves the signed payment webhook reaches RescueShip.
+router.post('/payment/test-link', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await paymentConnectService.createWebhookTestLink(req.merchant!.merchantId)); }
+  catch (e: any) { res.status(400).json({ error: e.message }); }
+});
+router.get('/payment/webhook-status', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  try { res.json(await paymentConnectService.webhookStatus(req.merchant!.merchantId)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
 
@@ -433,7 +506,7 @@ router.post('/assisted-setup/request', authenticateToken, standardMerchantLimite
 });
 
 // ── Owner phone (for the test pulse) + finalize ──
-router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/owner-phone', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
   const { ownerPhone, storeName } = req.body;
   // MED-1 fix: Validate phone format (E.164: +countrycode followed by 7-14 digits)
   if (ownerPhone !== undefined && (typeof ownerPhone !== 'string' || !/^\+\d{7,15}$/.test(ownerPhone))) {
@@ -442,10 +515,38 @@ router.post('/owner-phone', authenticateToken, async (req: AuthenticatedRequest,
   if (storeName !== undefined && (typeof storeName !== 'string' || storeName.length > 120)) {
     return res.status(400).json({ error: 'Invalid store name' });
   }
-  await Merchant.findByIdAndUpdate(req.merchant!.merchantId, {
-    $set: { ...(ownerPhone ? { ownerPhone } : {}), ...(storeName ? { storeName: storeName.trim() } : {}) },
-  });
-  res.json({ ok: true });
+  const m: any = await Merchant.findById(req.merchant!.merchantId);
+  if (!m) return res.status(404).json({ error: 'not found' });
+
+  const $set: Record<string, unknown> = {};
+  if (storeName) $set.storeName = storeName.trim();
+
+  // A test message may only go to a phone the owner has proved is theirs: the number stays
+  // pending until a WhatsApp message with the code arrives FROM it (see whatsapp.webhook).
+  let verification: { code: string; sendTo: string | null; waLink: string | null } | null = null;
+  const alreadyVerified = ownerPhone && m.ownerPhoneVerifiedAt && samePhone(m.ownerPhone, ownerPhone);
+  if (ownerPhone && !alreadyVerified) {
+    if (!isPayingMerchant(m) && (m.ownerPhoneChanges || 0) >= MAX_UNPAID_PHONE_CHANGES) {
+      return res.status(429).json({ error: 'You have changed your test number too many times. Choose a plan or contact support to change it again.' });
+    }
+    const built = buildVerification(ownerPhone);
+    $set.ownerPhoneVerification = built.record;
+    const sendTo = String(m.whatsappConfig?.displayPhone || '').replace(/\D/g, '') || null;
+    const text = `RescueShip verify ${built.code}`;
+    verification = {
+      code: built.code,
+      sendTo,
+      waLink: sendTo ? `https://wa.me/${sendTo}?text=${encodeURIComponent(text)}` : null,
+    };
+  }
+
+  // Asking for a fresh code for the SAME pending number is not a change of number.
+  const isNewNumber = verification && !samePhone(m.ownerPhoneVerification?.phone, ownerPhone);
+  await Merchant.updateOne(
+    { _id: m._id },
+    { ...(Object.keys($set).length ? { $set } : {}), ...(isNewNumber ? { $inc: { ownerPhoneChanges: 1 } } : {}) }
+  );
+  res.json({ ok: true, verified: Boolean(alreadyVerified), verification });
 });
 router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, res: Response) => {
   const m = await Merchant.findById(req.merchant!.merchantId);

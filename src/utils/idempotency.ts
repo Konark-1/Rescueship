@@ -37,6 +37,12 @@ export class IdempotencyGuard {
    */
   public static async claim(key: string, ttlSeconds: number = this.DEFAULT_TTL_SECONDS): Promise<ClaimResult> {
     const fullKey = `${this.KEY_PREFIX}${key}`;
+    // The shared connection queues commands while disconnected (BullMQ needs
+    // maxRetriesPerRequest: null), which would hang the webhook. Fail fast instead.
+    if ((redisConnection as any).status && (redisConnection as any).status !== 'ready') {
+      logger.error('CRITICAL: Redis not ready for idempotency claim', { key, status: (redisConnection as any).status });
+      throw new IdempotencyUnavailableError();
+    }
     try {
       if (redisConnection.status === 'ready') {
         const result = await redisConnection.set(fullKey, 'processing', 'EX', ttlSeconds, 'NX');

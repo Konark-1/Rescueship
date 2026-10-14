@@ -17,6 +17,9 @@ export interface IMerchant extends Document {
   password?: string;
   /** Single-use password reset token (sha256 hash) + expiry. Never selected by default. */
   passwordReset?: { tokenHash?: string; expiresAt?: Date };
+  /** true once the merchant proved inbox ownership (verification link, reset, or verified Google). */
+  emailVerified?: boolean;
+  emailVerification?: { tokenHash?: string; expiresAt?: Date };
   googleId?: string;
   platform: 'shopify' | 'woocommerce' | 'custom';
   onboardingStatus: 'pending' | 'skipped' | 'completed';
@@ -56,6 +59,7 @@ export interface IMerchant extends Document {
       discountCap?: number;
       minOrderValue: number;
       messageLanguage?: 'en' | 'hi' | 'ta' | 'te' | 'bn' | 'mr';
+      allowPostDispatch?: boolean;
     };
     ndrRescue: {
       enabled: boolean;
@@ -90,7 +94,9 @@ export interface IMerchant extends Document {
   licenseStatus?: 'TRIAL' | 'ACTIVE' | 'APPROACHING_EXPIRY' | 'EXPIRED';
   licensePlan?: '90_day_license' | 'annual_license' | 'custom';
   billing: {
-    plan: 'free_trial' | 'starter' | 'growth' | 'scale' | 'fleet' | 'enterprise';
+    plan: 'free_trial' | 'rescue' | 'convert' | 'prevent' | 'enterprise' | 'starter' | 'growth' | 'scale' | 'fleet';
+    /** Purchased monthly order band (500 / 1000 / 2500 / 5000 / 10000). */
+    orderBand?: number;
     billingCycle?: 'quarterly' | 'semi' | 'semi_annual' | 'annual';
     status?: 'active' | 'pre_signup' | 'pending_payment' | 'paused' | 'paused_quality' | 'past_due' | 'cancelled';
     lastPaymentError?: string;
@@ -102,6 +108,7 @@ export interface IMerchant extends Document {
     totalConversions: number;
     estimatedMetaSpendMonth?: number;
     pendingTier?: string;
+    pendingBand?: number;
     pendingCycle?: string;
     introOrderId?: string;
     razorpaySubscriptionId?: string;
@@ -123,8 +130,12 @@ export interface IMerchant extends Document {
     woocommerce?: { status: 'disconnected' | 'connecting' | 'connected' | 'error'; connectedAt?: Date; url?: string; lastError?: string };
   };
   /** apiSecret: encrypted custom-app API secret (direct-token connect) used to verify webhook HMACs. */
-  shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; scope?: string; webhooksRegistered?: boolean };
+  shopify?: { shopDomain?: string; accessToken?: string; apiSecret?: string; clientId?: string; tokenExpiresAt?: Date; scope?: string; webhooksRegistered?: boolean; webhookErrors?: string[]; demo?: boolean; uninstalledAt?: Date };
   ownerPhone?: string;
+  /** Set when the owner proved the phone is theirs (inbound WhatsApp code). */
+  ownerPhoneVerifiedAt?: Date;
+  ownerPhoneVerification?: { phone: string; codeHash: string; expiresAt: Date; attempts?: number };
+  ownerPhoneChanges?: number;
   storeName?: string;
   onboarding?: {
     completedAt?: Date;
@@ -206,6 +217,12 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       required: false,
       select: false,
     },
+    emailVerified: { type: Boolean, default: false },
+    emailVerification: {
+      type: { tokenHash: { type: String }, expiresAt: { type: Date } },
+      required: false,
+      select: false,
+    },
     googleId: { type: String, required: false, unique: true, sparse: true },
     tokenVersion: { type: Number, default: 1 },
     platform: { type: String, enum: ['shopify', 'woocommerce', 'custom'], required: true },
@@ -241,6 +258,8 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         discountCap: { type: Number, default: 0 },
         minOrderValue: { type: Number, default: 0 },
         messageLanguage: { type: String, enum: ['en', 'hi', 'ta', 'te', 'bn', 'mr'], default: 'en' },
+        // Offer online payment after dispatch only when the merchant opts in (carrier COD must be amendable).
+        allowPostDispatch: { type: Boolean, default: false },
       },
       ndrRescue: {
         enabled: { type: Boolean, default: false },
@@ -300,7 +319,7 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       type: {
         plan: {
           type: String,
-          enum: ['free_trial', 'starter', 'growth', 'scale', 'fleet', 'enterprise'],
+          enum: ['free_trial', 'rescue', 'convert', 'prevent', 'enterprise', 'starter', 'growth', 'scale', 'fleet'],
           default: 'free_trial',
         },
         billingCycle: {
@@ -314,15 +333,17 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
           enum: ['active', 'pre_signup', 'pending_payment', 'paused', 'paused_quality', 'past_due', 'cancelled'],
         },
         lastPaymentError: String,
-        // Free trial gets 100 orders/mo (matches planGating planLimits + subscription-guard fallback).
-        planOrderLimit: { type: Number, default: 100 },
+        // 'free_trial' = no paid plan yet (pay-first; the guard blocks automation until activation).
+        planOrderLimit: { type: Number, default: 0 },
+        orderBand: { type: Number },
         currentMonthOrders: { type: Number, default: 0 },
         cycleStartDate: { type: Date, default: Date.now },
-        rescueCredits: { type: Number, default: 100 },
+        rescueCredits: { type: Number, default: 0 },
         totalRescues: { type: Number, default: 0 },
         totalConversions: { type: Number, default: 0 },
         estimatedMetaSpendMonth: { type: Number, default: 0 },
         pendingTier: String,
+        pendingBand: Number,
         pendingCycle: String,
         introOrderId: String,
         razorpaySubscriptionId: String,
@@ -336,10 +357,10 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
       default: () => ({
         plan: 'free_trial',
         billingCycle: 'annual',
-        planOrderLimit: 100,
+        planOrderLimit: 0,
         currentMonthOrders: 0,
         cycleStartDate: new Date(),
-        rescueCredits: 100,
+        rescueCredits: 0,
         totalRescues: 0,
         totalConversions: 0,
         estimatedMetaSpendMonth: 0,
@@ -354,8 +375,28 @@ const MerchantSchema = new Schema<IMerchant, IMerchantModel>(
         payment: { status: 'disconnected' },
       }),
     },
-    shopify: { shopDomain: { type: String, lowercase: true, trim: true }, accessToken: String, apiSecret: String, scope: String, webhooksRegistered: Boolean },
+    shopify: {
+      shopDomain: { type: String, lowercase: true, trim: true },
+      accessToken: String,
+      apiSecret: String,
+      // Dev Dashboard app (client credentials grant): token expires ~24h and is refreshed.
+      clientId: String,
+      tokenExpiresAt: Date,
+      scope: String,
+      webhooksRegistered: Boolean,
+      webhookErrors: [String],
+      demo: Boolean,
+      uninstalledAt: Date,
+    },
     ownerPhone: String,
+    ownerPhoneVerifiedAt: Date,
+    ownerPhoneVerification: {
+      phone: String,
+      codeHash: String,
+      expiresAt: Date,
+      attempts: Number,
+    },
+    ownerPhoneChanges: { type: Number, default: 0 },
     storeName: String,
     onboarding: {
       completedAt: Date,

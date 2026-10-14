@@ -44,9 +44,12 @@ DeliveryAttemptSchema.index({ merchantId: 1, awb: 1, attemptTime: -1 });
 // TTL Index: Auto-expire delivery attempts after 90 days (90 * 24 * 60 * 60 seconds)
 DeliveryAttemptSchema.index({ createdAt: 1 }, { expireAfterSeconds: 7776000, name: 'idx_attempt_ttl' });
 // Compound Unique Index: Prevent duplicate scan retries when carrier repeats delivery attempt event
+// Tenant-scoped, and only for scans that carry a real timestamp: a sparse index on a
+// field that defaults to null would treat every later timestamp-less scan of the same
+// AWB/status as a duplicate (attempt 2 silently dropped).
 DeliveryAttemptSchema.index(
-  { awb: 1, carrier: 1, carrierScanCode: 1, scanTimestamp: 1 },
-  { unique: true, sparse: true, name: 'idx_unique_carrier_scan' }
+  { merchantId: 1, awb: 1, carrier: 1, carrierScanCode: 1, scanTimestamp: 1 },
+  { unique: true, partialFilterExpression: { scanTimestamp: { $type: 'date' } }, name: 'idx_unique_carrier_scan_v2' }
 );
 
 export const DeliveryAttempt: Model<IDeliveryAttempt> = model<IDeliveryAttempt>(

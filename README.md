@@ -1,8 +1,10 @@
 # 🚢 RescueShip — Autonomous WhatsApp NDR Interception & RTO Recovery Engine
 
+> **Going live?** Follow [docs/GO_LIVE.md](docs/GO_LIVE.md) — `npm run setup`, paste two files, four dashboard clicks, then `npm run setup -- --check`.
+
 [![Production Frontend](https://img.shields.io/badge/Render-rescueship--frontend.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship-frontend.onrender.com)
 [![Production Backend](https://img.shields.io/badge/Render-rescueship.onrender.com-46E3B7?style=flat&logo=render)](https://rescueship.onrender.com)
-[![Test Suite](https://img.shields.io/badge/Tests-415%20passed%20(49%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
+[![Test Suite](https://img.shields.io/badge/Tests-525%20passed%20(61%20suites)-brightgreen?style=flat&logo=jest)](https://github.com/Konark-1/Rescueship)
 [![Meta WhatsApp API](https://img.shields.io/badge/Meta_Cloud_API-v22.0-25D366?style=flat&logo=whatsapp)](https://developers.facebook.com/docs/whatsapp/cloud-api)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-3178C6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react)](https://react.dev/)
@@ -95,7 +97,7 @@ RescueShip integrates out-of-the-box with India's top 8 logistics networks and a
 
 | Logistics Partner | Ingestion Webhook | Action Dispatching | Integration Modes |
 | :--- | :--- | :--- | :--- |
-| **Shiprocket** | `/webhooks/shiprocket/ndr` | Escalation API, Next-Day Reattempt, COD Adjustment | Direct API & Webhook-Only |
+| **Shiprocket** | `/webhooks/shiprocket/ndr` | Reattempt / address change (`/ndr/reattempt`), return (`/ndr/{awb}/action`) | Direct API & Webhook-Only |
 | **Delhivery** | `/webhooks/delhivery/ndr` | Waypoint Reattempt Slotting, Address Update API | Direct API & Webhook-Only |
 | **Blue Dart Express (DHL)** | `/webhooks/bluedart/ndr` | Waybill Rescheduling, Consignee Remarks Sync | Direct API & Webhook-Only |
 | **Xpressbees** | `/webhooks/xpressbees/ndr` | Real-Time Reattempt Dispatch, Street/Pin Rectification | Direct API & Webhook-Only |
@@ -104,6 +106,22 @@ RescueShip integrates out-of-the-box with India's top 8 logistics networks and a
 | **DTDC** | `/webhooks/dtdc/ndr` | Consignment Tracking, Address Amendment Sync | Direct API & Webhook-Only |
 | **ClickPost** | `/webhooks/clickpost/ndr` | Logistics Intelligence Parsing, Reattempt Dispatch | Direct API & Webhook-Only |
 | **Custom / Aggregators** | `/webhooks/custom/ndr` | Universal Payload Ingestion (NimbusPost, Shipway, Shyplite, India Post, Private Fleets) | Webhook-Only & Universal API |
+
+### Verified integration status (October 2026)
+
+Checked against live accounts, not just docs. "Code only" means implemented from documentation and not yet exercised against a live account.
+
+| Integration | Status | Notes |
+| :--- | :--- | :--- |
+| Shiprocket | Verified: login, orders, NDR endpoints | `POST /ndr/action` does not exist (405). No API to change COD amount after pickup. |
+| ClickPost | Code only (v2 NDR API) | Needs username + key; cp_id/account_code arrive with the first tracking webhook. No COD amendment API. |
+| Delhivery, Blue Dart, Xpressbees, Shadowfax, Ecom Express, DTDC | Code only | Use webhook-only mode until a live account is tested. |
+| Razorpay | Verified: keys, payment links, webhook listing | A webhook for `payment_link.paid` must exist; pay links stay off until a signed webhook is seen (₹1 test). |
+| Cashfree | Code only | Refunds are manual (merchant marks them done). |
+| Shopify | Verified: GraphQL Admin 2026-07 | Stored tokens can be revoked silently; the daily connection check catches it. |
+| WhatsApp Cloud API | Verified: number, WABA, templates, subscribed apps | Temporary 24h tokens are rejected; use a System User token. |
+
+Run `npm run check:connections -- <merchant email>` for a read-only live check of one merchant.
 
 ### Dual Integration Modes
 
@@ -296,7 +314,7 @@ RescueShip features a battle-hardened recovery and dispute resolution system des
 
 RescueShip maintains an exhaustive, mathematically proven testing posture across all layers:
 
-- **Backend**: **49 test suites**, **415 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), Cashfree v2023 UPI Intent & HMAC signature parity, multi-tenant merchant separation & credential isolation, anti-farming cancellation cooldowns, Nominatim IP throttling with Gemini NLP fallbacks, DPDP Act 180-day automated PII redaction, BullMQ Dead Letter Queue (`carrier-dlq`) for HTTP 429s, Redis `SET NX` concurrency locks with Lua atomic release, cross-tenant lock scoping, delayed-retry scan deduplication, Meta 24h tier limits, and graceful shutdown pipelines.
+- **Backend**: **61 test suites**, **525 tests (100% passing)** covering multi-carrier routing & parsers (all 8 carriers + custom), Cashfree v2023 UPI Intent & HMAC signature parity, multi-tenant merchant separation & credential isolation, anti-farming cancellation cooldowns, Nominatim IP throttling with Gemini NLP fallbacks, DPDP Act 180-day automated PII redaction, BullMQ Dead Letter Queue (`carrier-dlq`) for HTTP 429s, Redis `SET NX` concurrency locks with Lua atomic release, cross-tenant lock scoping, delayed-retry scan deduplication, Meta 24h tier limits, and graceful shutdown pipelines.
 - **Frontend**: **5 test suites**, **90 Playwright E2E tests (100% passing)** covering all dashboard views, onboarding, sandbox, WCAG 2.1 AA accessibility compliance, and WhatsApp customer rescue simulators.
 
 ```bash

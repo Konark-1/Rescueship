@@ -1,3 +1,4 @@
+import { requireFeature } from '../middleware/planGating.middleware';
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { credentialValidationLimiter } from '../middleware/rateLimiter';
@@ -526,7 +527,7 @@ router.post('/carrier-webhook-secret/rotate', authenticateToken, credentialValid
     res.status(200).json({
       secret,
       webhookUrls: {
-        shiprocket: `${base}/webhooks/shiprocket/ndr?merchant_id=${merchant._id}`,
+        shiprocket: `${base}/webhooks/carrier/ndr?merchant_id=${merchant._id}`,
         delhivery: `${base}/webhooks/delhivery/ndr?merchant_id=${merchant._id}`,
         clickpost: `${base}/webhooks/clickpost/ndr?merchant_id=${merchant._id}`,
       },
@@ -687,7 +688,7 @@ router.get('/pincode-rules', authenticateToken, async (req: AuthenticatedRequest
  * PUT /api/settings/pincode-rules
  * Set or update geo-risk restriction for a pincode and sync to Shopify / WooCommerce
  */
-router.put('/pincode-rules', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.put('/pincode-rules', authenticateToken, requireFeature('storefront_sync'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   if (!merchantId) {
     res.status(401).json({ error: 'Unauthorized' });

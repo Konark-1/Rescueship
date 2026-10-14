@@ -368,22 +368,11 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
             </div>
             <div>
               <div style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-1)' }}>
-                Zero Pending Delivery Exceptions
+                No failed deliveries need you
               </div>
               <div style={{ fontSize: '0.82rem', color: 'var(--text-3)', maxWidth: '420px', marginTop: '4px', lineHeight: 1.45 }}>
-                All in-flight shipments are either successfully delivered or actively engaged via WhatsApp automated re-engagement.
+                When a courier reports a failed delivery, it appears here while RescueShip waits for the buyer, and stays here if you need to step in.
               </div>
-            </div>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-              <Badge style={{ background: 'var(--emerald-15)', color: 'var(--emerald)', fontSize: '0.72rem', border: 'none' }}>
-                Delhivery 48h SLA Guarded
-              </Badge>
-              <Badge style={{ background: 'var(--indigo-15)', color: 'var(--indigo-soft)', fontSize: '0.72rem', border: 'none' }}>
-                Shiprocket Webhooks Active
-              </Badge>
-              <Badge style={{ background: 'var(--amber-15)', color: 'var(--amber)', fontSize: '0.72rem', border: 'none' }}>
-                Zero Disputed Returns
-              </Badge>
             </div>
           </div>
         ) : filteredOrders.length === 0 ? (

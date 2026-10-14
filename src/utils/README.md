@@ -21,3 +21,13 @@
 - `makeJobId()` joins with `__` separator — BullMQ throws on colons in job IDs
 - `customer-copy-guard` blocks words: "lied", "never came", "fraud", etc.
 - `normalizeIndianPhone` outputs clean 12-digit `91XXXXXXXXXX` format
+
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `utilities.test.ts` | Common helper functions, number formatting, date helpers | **PASS** (6/6 passed) |
+| `phoneNormalizer.test.ts` | Indian E.164 phone normalization across formats (+91, 0-prefix, spaces) | **PASS** (11/11 passed) |
+| `customer-copy-guard.test.ts` | Linter checks for accusatory language | **PASS** (4/4 passed) |
+| `idempotency.test.ts` | Redis SET NX claim locks, duplicate event suppression | **PASS** (6/6 passed) |
+

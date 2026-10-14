@@ -7,6 +7,7 @@
  * resolves city/zone, and computes actionable operational recommendations.
  */
 
+import { redisCache } from '../../utils/redis-cache';
 import { Types } from 'mongoose';
 import { Order } from '../../models';
 import { redisConnection } from '../../config/redis';
@@ -157,7 +158,7 @@ export class PincodeRiskService {
     const cacheKey = `pin_risk_score:${merchantId || 'global'}:${cleanPin}`;
     try {
       if (redisConnection && typeof (redisConnection as any).get === 'function') {
-        const cached = await redisConnection.get(cacheKey);
+        const cached = await redisCache.get(cacheKey);
         if (cached !== null && cached !== undefined) {
           const parsed = parseFloat(cached);
           if (!isNaN(parsed)) return parsed;
@@ -225,7 +226,7 @@ export class PincodeRiskService {
     // Cache computed score in Redis (300s TTL)
     try {
       if (redisConnection && typeof (redisConnection as any).set === 'function') {
-        await redisConnection.set(cacheKey, String(computedScore), 'EX', 300);
+        await redisCache.set(cacheKey, String(computedScore), 'EX', 300);
       }
     } catch {
       // Non-fatal cache write failure
@@ -244,7 +245,7 @@ export class PincodeRiskService {
     // 1. Try Redis Cache
     try {
       if (redisConnection && typeof (redisConnection as any).get === 'function') {
-        const cached = await redisConnection.get(cacheKey);
+        const cached = await redisCache.get(cacheKey);
         if (cached) {
           return JSON.parse(cached);
         }
@@ -400,7 +401,7 @@ export class PincodeRiskService {
     // 3. Cache in Redis (300s TTL)
     try {
       if (redisConnection && typeof (redisConnection as any).set === 'function') {
-        await redisConnection.set(cacheKey, JSON.stringify(topList), 'EX', 300);
+        await redisCache.set(cacheKey, JSON.stringify(topList), 'EX', 300);
       }
     } catch (writeErr: any) {
       logger.warn('Failed to cache pincode risk in Redis', { error: writeErr?.message });

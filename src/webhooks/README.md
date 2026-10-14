@@ -8,7 +8,7 @@
 |------|--------|----------------|
 | `shopify.webhook.ts` | Shopify | `orders/create`, `orders/updated`, `fulfillments/create` — Universal ingestion for both COD and Prepaid orders (`paymentMethod: 'prepaid'` saved to DB, phone normalized with `normalizeIndianPhone`, auto-reconciles quarantined shipments matching fulfillments) |
 | `woocommerce.webhook.ts` | WooCommerce | `order.created`, `order.updated` — Universal ingestion for both COD and Prepaid orders (`paymentMethod: 'prepaid'` saved to DB, phone normalized with `normalizeIndianPhone`, increments `billing.currentMonthOrders`, auto-reconciles quarantined shipments matching metadata) |
-| `shiprocket.webhook.ts` | Shiprocket | Delivery status updates, NDR events (`/webhooks/shiprocket/ndr`) |
+| `shiprocket.webhook.ts` | Shiprocket | Delivery status updates, NDR events (`/webhooks/carrier/ndr` — Shiprocket rejects URLs containing "shiprocket"/"sr"; `/webhooks/shiprocket/ndr` still works) |
 | `delhivery.webhook.ts` | Delhivery | Shipment tracking, NDR events (`/webhooks/delhivery/ndr`) |
 | `bluedart.webhook.ts` | Blue Dart Express | Waybill tracking, delivery failure & NDR remarks (`/webhooks/bluedart/ndr`) |
 | `xpressbees.webhook.ts` | Xpressbees | Real-time NDR status & failed delivery events (`/webhooks/xpressbees/ndr`) |
@@ -40,6 +40,18 @@
 - Courier webhooks accept tenant context via `?merchant_id={merchantId}` and authenticate via carrier secret or tenant token
 - `carrier-ndr.handler.ts` is the shared NDR entry point for all 8 carriers and custom aggregators
 - **Universal Order Ingestion Invariant**: Neither Shopify nor WooCommerce ignores prepaid orders. Storing both prepaid and COD orders preserves consignee contact numbers in MongoDB, guaranteeing 100% downstream carrier NDR rescue coverage even when carrier webhooks omit phone numbers.
+
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `universal-order-ingestion.test.ts` | Shopify + WooCommerce prepaid & COD ingestion, phone normalization, quarantined shipment linking | **PASS** (12/12 passed) |
+| `storefront-sync.test.ts` | E-commerce store webhooks, order creation, fulfillment updates | **PASS** (9/9 passed) |
+| `shopify-lifecycle.test.ts` | Shopify app install/uninstall, client credentials token exchange, GDPR compliance webhooks | **PASS** (7/7 passed) |
+| `webhook-security.test.ts` | HMAC signature validation for Shopify, Razorpay, Cashfree, Meta, Couriers | **PASS** (11/11 passed) |
+| `refund-and-gateway.test.ts` | Payment gateway webhooks, refund queue, merchant-only API keys | **PASS** (8/8 passed) |
+| `anti-exploitation.test.ts` | Webhook tampering prevention, payload manipulation defense | **PASS** (15/15 passed) |
+| `shiprocket-alias.test.ts` | Webhook alias endpoint, signature validation, idempotency | **PASS** (6/6 passed) |
 
 ## Agent Cheat Sheet
 

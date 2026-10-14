@@ -6,6 +6,7 @@ import { Merchant } from '../models/Merchant';
 import { whatsAppService } from '../services/whatsapp.service';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
+import { reserveTestSend } from '../services/free-test.service';
 
 const router = Router();
 
@@ -111,6 +112,12 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
       });
     }
 
+    // Every real message to the owner's phone counts against the test allowance.
+    const reservation = await reserveTestSend(merchant);
+    if (!reservation.allowed) {
+      return res.status(429).json({ success: false, error: reservation.reason, code: reservation.code });
+    }
+
     // Generate simulated NDR
     const simNDR = sandboxService.generateSimulatedNDR(merchantId, ownerPhone);
 
@@ -123,7 +130,7 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
       'refused_delivery': 'CUSTOMER_REFUSED',
     };
     const cat = categoryMap[simNDR.reason] || 'CUSTOMER_NOT_AVAILABLE';
-    const mapping = templateMapperService.getMappingForCategory(cat as any, 'en', waCfg?.templates);
+    const mapping = templateMapperService.getMappingForCategory(cat as any, 'en', waCfg?.templateMap);
     const templateName = mapping.templateName;
 
     // Send rescue template to self
@@ -167,6 +174,7 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
         );
         await sandboxService.recordTestRescue(merchantId, true);
       } catch (fallbackErr: any) {
+        await reservation.release();
         whatsappResult = {
           success: false,
           error: fallbackErr.message,

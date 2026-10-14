@@ -169,6 +169,16 @@ export class OrderStateMachineService {
       await this.onTerminalTransition(order._id.toString(), nextStatus);
     }
 
+    // 6. Money collected online on an order that will not be delivered → refund for approval.
+    if (['cancelled', 'rto', 'returned'].includes(nextStatus)) {
+      try {
+        const { refundService } = require('../refund.service');
+        await refundService.flagIfPaid(order._id, `order_${nextStatus}`);
+      } catch (err: any) {
+        logger.warn('Refund flag check failed', { orderId: order._id, error: err?.message });
+      }
+    }
+
     return { success: true };
   }
 

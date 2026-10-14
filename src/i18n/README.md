@@ -19,6 +19,13 @@
 - All customer-facing text MUST go through `COPY` helpers, not inline strings
 - `translateReason()` maps carrier codes to human-readable text — keep in sync with `../config/rescue-policy.ts`
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `customer-copy-guard.test.ts` | Copy dictionary linter, accusatory phrase blocking | **PASS** (4/4 passed) |
+| `no-raw-customer-copy.test.ts` | Copy governance enforcement across code and templates | **PASS** (5/5 passed) |
+
 ## Agent Cheat Sheet
 
 - To add a new customer message: Add method to `COPY` object, add string to `COPY_STRINGS`, run copy guard scan

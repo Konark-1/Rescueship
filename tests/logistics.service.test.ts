@@ -6,6 +6,20 @@ import { config } from '../src/config/env';
 jest.mock('axios');
 const mockedAxios = axios as jest.Mocked<typeof axios>;
 
+// ClickPost actions read cp_id / account_code / address from the order (tenant-scoped).
+const mockClickPostOrder = {
+  merchantId: 'm1',
+  carrierMeta: { cpId: 4, accountCode: 'ACC-1' },
+  shippingAddress: { address1: 'Plot 45', city: 'Gurugram', zip: '122002' },
+  shippingPincode: '122002',
+  customerPhone: '919876543210',
+};
+jest.mock('../src/models', () => ({
+  Order: {
+    find: jest.fn(() => ({ select: () => ({ limit: () => ({ lean: () => Promise.resolve([mockClickPostOrder]) }) }) })),
+  },
+}));
+
 jest.mock('../src/config/redis', () => ({
   redisConnection: {
     get: jest.fn(),
@@ -91,10 +105,10 @@ describe('LogisticsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://apiv2.shiprocket.in/v1/external/ndr/action',
+        // Live-verified Oct 2026: POST /ndr/reattempt exists; POST /ndr/action is 405.
+        'https://apiv2.shiprocket.in/v1/external/ndr/reattempt',
         expect.objectContaining({
           awb: 'SR_AWB_101',
-          action: 'reattempt',
           deferred_date: '2026-10-02',
         }),
         expect.objectContaining({
@@ -103,28 +117,36 @@ describe('LogisticsService', () => {
       );
     });
 
-    it('reschedules with ClickPost successfully', async () => {
+    it('reschedules with ClickPost successfully (v2 NDR API: username+key, cp_id, account_code)', async () => {
       mockedAxios.post.mockResolvedValueOnce({
-        data: { meta: { status: 'success', message: 'Action queued' } },
+        data: { meta: { status: 200, success: true, message: 'Action queued' } },
       });
 
       const res = await logisticsService.rescheduleDelivery(
         'clickpost',
         { awb: 'CP_AWB_202', newDate: '2026-10-02', reason: 'Customer available tomorrow' },
-        { apiToken: 'cp_api_token_abc' }
+        { apiKey: 'cp_api_key_abc', username: 'brand' }
       );
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.clickpost.in/v1/ndr-update/',
+        'https://www.clickpost.in/api/v2/ndr-update-api',
         expect.objectContaining({
-          awb: 'CP_AWB_202',
+          waybill: 'CP_AWB_202',
+          cp_id: 4,
+          account_code: 'ACC-1',
           action: 'REATTEMPT',
+          drop_pincode: '122002',
+          phone_number: '919876543210',
         }),
-        expect.objectContaining({
-          headers: expect.objectContaining({ Authorization: 'Bearer cp_api_token_abc' }),
-        })
+        expect.objectContaining({ params: { username: 'brand', key: 'cp_api_key_abc' } })
       );
+    });
+
+    it('refuses a ClickPost action without username', async () => {
+      const res = await logisticsService.rescheduleDelivery('clickpost', { awb: 'CP_AWB_202', reason: 'x' }, { apiToken: 'only_token' });
+      expect(res.success).toBe(false);
+      expect(mockedAxios.post).not.toHaveBeenCalled();
     });
 
     it('reschedules with Delhivery successfully', async () => {
@@ -202,12 +224,10 @@ describe('LogisticsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://apiv2.shiprocket.in/v1/external/ndr/action',
+        'https://apiv2.shiprocket.in/v1/external/ndr/reattempt',
         expect.objectContaining({
-          action: 'address_update',
           address1: 'Plot 45, Sector 18',
-          city: 'Gurugram',
-          pin_code: '122002',
+          address2: 'Gurugram 122002',
           phone: '9876543210',
         }),
         expect.any(Object)
@@ -216,22 +236,21 @@ describe('LogisticsService', () => {
 
     it('updates address with ClickPost successfully', async () => {
       mockedAxios.post.mockResolvedValueOnce({
-        data: { meta: { status: 'success', message: 'Address change accepted' } },
+        data: { meta: { status: 200, success: true, message: 'Address change accepted' } },
       });
 
       const res = await logisticsService.updateDeliveryAddress('clickpost', addressParams, {
-        apiToken: 'cp_token',
+        apiKey: 'cp_token',
+        username: 'brand',
       });
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://api.clickpost.in/v1/ndr-update/',
+        'https://www.clickpost.in/api/v2/ndr-update-api',
         expect.objectContaining({
-          action: 'ADDRESS_UPDATE',
-          meta: expect.objectContaining({
-            new_address: 'Plot 45, Sector 18',
-            new_pincode: '122002',
-          }),
+          action: 'REATTEMPT',
+          address: expect.stringContaining('Plot 45, Sector 18'),
+          drop_pincode: '122002',
         }),
         expect.any(Object)
       );
@@ -278,10 +297,9 @@ describe('LogisticsService', () => {
 
       expect(res.success).toBe(true);
       expect(mockedAxios.post).toHaveBeenCalledWith(
-        'https://apiv2.shiprocket.in/v1/external/ndr/action',
+        'https://apiv2.shiprocket.in/v1/external/ndr/AWB_CANCEL_1/action',
         expect.objectContaining({
-          awb: 'AWB_CANCEL_1',
-          action: 'rto',
+          action: 'return',
         }),
         expect.any(Object)
       );
@@ -289,15 +307,15 @@ describe('LogisticsService', () => {
   });
 
   describe('adjustCodAmount', () => {
-    it('returns successful COD amendment response', async () => {
+    it('never reports a Shiprocket COD amendment as done (no API exists after pickup)', async () => {
       const res = await logisticsService.adjustCodAmount('shiprocket', {
         awb: 'AWB_COD_1',
         newCodAmount: 0,
         reason: 'Converted to prepaid',
       });
 
-      expect(res.success).toBe(true);
-      expect(res.carrierResponse.collectable).toBe(0);
+      expect(res.success).toBe(false);
+      expect(mockedAxios.post).not.toHaveBeenCalled();
     });
   });
 });

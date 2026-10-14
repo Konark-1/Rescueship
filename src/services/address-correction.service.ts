@@ -8,6 +8,8 @@
  *   Mode 3: 📍+✏️ Both → Step 1: GPS → Step 2: Text → Combined → push
  */
 
+import { redisCache } from '../utils/redis-cache';
+import { isAmbiguousAcrossMerchants } from '../utils/phone-order-scope';
 import { Order, Merchant, AuditLog, NdrCase } from '../models';
 import { whatsAppService } from './whatsapp.service';
 import { logisticsService } from './logistics.service';
@@ -19,6 +21,7 @@ import { config } from '../config/env';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
 import { geminiService } from './gemini.service';
+import { planAllows } from '../config/plans';
 
 export type AddressMode = 'location_pin' | 'text_address' | 'both';
 
@@ -140,14 +143,14 @@ export class AddressCorrectionService {
     } else {
       order = await Order.findOne({
         customerPhone: normalizedPhone,
-        status: 'ndr_rescue_sent',
+        status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
         'ndr.addressUpdate.collectionState': { $in: ['awaiting_location', 'idle', 'address_update_started'] },
       }).sort({ updatedAt: -1 });
 
       if (!order) {
         order = await Order.findOne({
           customerPhone: normalizedPhone,
-          status: 'ndr_rescue_sent',
+          status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
         }).sort({ updatedAt: -1 });
       }
     }
@@ -156,6 +159,7 @@ export class AddressCorrectionService {
       logger.info('Location received but no order awaiting GPS', { phone });
       return false;
     }
+    if (!resolvedOrder && (await isAmbiguousAcrossMerchants(order, normalizedPhone))) return false;
 
     const merchant = await Merchant.findById(order.merchantId);
     if (!merchant) throw new Error('Merchant not found');
@@ -305,19 +309,20 @@ export class AddressCorrectionService {
     } else {
       order = await Order.findOne({
         customerPhone: normalizedPhone,
-        status: 'ndr_rescue_sent',
+        status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
         'ndr.addressUpdate.collectionState': 'awaiting_text',
       }).sort({ updatedAt: -1 });
 
       if (!order) {
         order = await Order.findOne({
           customerPhone: normalizedPhone,
-          status: 'ndr_rescue_sent',
+          status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
           'ndr.customerResponse': 'address_update_started',
         }).sort({ updatedAt: -1 });
       }
     }
 
+    if (order && !resolvedOrder && (await isAmbiguousAcrossMerchants(order, normalizedPhone))) return false;
     if (!order) {
       return false;
     }
@@ -334,7 +339,8 @@ export class AddressCorrectionService {
 
     try {
       let extracted: ExtractedAddressDetails;
-      const aiParsed = await geminiService.parseAddress(text);
+      const useAi = planAllows(merchant, 'ai_address');
+      const aiParsed = useAi ? await geminiService.parseAddress(text) : null;
 
       let fullAddress = '';
       let pincode = '';
@@ -353,7 +359,7 @@ export class AddressCorrectionService {
         (order.ndr.addressUpdate as any).aiParsed = aiParsed;
         logger.info('Gemini successfully parsed address', { orderId: order._id, confidence: aiParsed.confidence });
       } else {
-        extracted = await this.extractAddressDetails(text);
+        extracted = await this.extractAddressDetails(text, useAi);
         pincode = extracted.pincode || this.extractPincode(text) || '';
         fullAddress = extracted.cleanAddress;
         if (!order.ndr) order.ndr = {};
@@ -474,26 +480,10 @@ export class AddressCorrectionService {
       throw new Error('Tenant mismatch: order does not belong to merchant');
     }
 
-    let apiToken: string | undefined;
-    // Fail closed: an undecryptable credential must never be sent to a carrier as-is.
-    const cc: any = merchant.carrierConfig || {};
-    let email = config.shiprocket.email;
-    let password = config.shiprocket.password;
-    try {
-      if (cc.apiToken) apiToken = encryptionService.decrypt(cc.apiToken);
-      if (cc.email) email = encryptionService.decrypt(cc.email);
-      if (cc.password) password = encryptionService.decrypt(cc.password);
-    } catch (err) {
-      logger.error('Stored carrier credentials cannot be decrypted; merchant must reconnect carrier', { merchantId: merchant._id });
-      throw new Error('Carrier credentials require reconnection');
-    }
-
-    const carrierConfig = {
-      provider: order.carrier || merchant.carrierConfig?.provider,
-      apiToken,
-      email,
-      password,
-    };
+    // Same per-carrier credential resolution as every other carrier action; merchant's own
+    // credentials only (no platform fallback).
+    const { orderService } = require('./order.service');
+    const carrierConfig = orderService.getCarrierConfig(merchant, order.carrier || merchant.carrierConfig?.provider);
 
     if (order.carrier && order.awb) {
       await logisticsService.updateDeliveryAddress(
@@ -525,7 +515,7 @@ export class AddressCorrectionService {
    * Disambiguates and parses colloquial Hindi/Hinglish/English Indian residential instructions,
    * separating landmarks and rider instructions from the street address.
    */
-  public async extractAddressDetails(rawText: string): Promise<ExtractedAddressDetails> {
+  public async extractAddressDetails(rawText: string, useAi = true): Promise<ExtractedAddressDetails> {
     const pincode = this.extractPincode(rawText);
     let cleanAddress = rawText.trim();
     let landmark: string | undefined;
@@ -536,7 +526,7 @@ export class AddressCorrectionService {
     const cacheKey = `gemini_addr_cache:${textHash}`;
     try {
       if (redisConnection) {
-        const cached = await redisConnection.get(cacheKey);
+        const cached = await redisCache.get(cacheKey);
         if (cached) {
           const parsedCached = JSON.parse(cached);
           logger.info('Returning cached address extraction from Redis', { cacheKey });
@@ -553,7 +543,7 @@ export class AddressCorrectionService {
     }
 
     // 1. If Gemini AI is configured, attempt intelligent extraction
-    if (geminiService.isConfigured()) {
+    if (useAi && geminiService.isConfigured()) {
       try {
         const prompt = `You are an Indian logistics address parser. Analyze this colloquial delivery instruction message:
 "${rawText}"
@@ -573,7 +563,7 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
         const aiResult: ExtractedAddressDetails = { cleanAddress, landmark, driverNote, pincode };
         try {
           if (redisConnection && typeof redisConnection.set === 'function') {
-            await redisConnection.set(cacheKey, JSON.stringify(aiResult), 'EX', 86400); // 24 hours
+            await redisCache.set(cacheKey, JSON.stringify(aiResult), 'EX', 86400); // 24 hours
           }
         } catch (setErr: any) {
           logger.warn('Failed to write address extraction to Redis cache', { error: setErr?.message });
@@ -620,7 +610,7 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
 
     try {
       if (redisConnection) {
-        await redisConnection.set(cacheKey, JSON.stringify(heuristicResult), 'EX', 86400);
+        await redisCache.set(cacheKey, JSON.stringify(heuristicResult), 'EX', 86400);
       }
     } catch (setErr: any) {
       logger.warn('Failed to write address extraction to Redis cache', { error: setErr?.message });
@@ -658,12 +648,10 @@ Respond in strict JSON with keys: "landmark", "driverNote", "cleanAddress". No m
       try {
         token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
       } catch {
-        if (process.env.WHATSAPP_ACCESS_TOKEN) {
-          token = process.env.WHATSAPP_ACCESS_TOKEN;
-        } else {
-          logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
-          throw new Error('WhatsApp credentials require reconnection');
-        }
+        // Never substitute the platform token: the merchant's traffic must use the merchant's own
+        // credentials (billing, identity and quality all belong to their WABA).
+        logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect WhatsApp', { merchantId: merchant._id });
+        throw new Error('WhatsApp credentials require reconnection');
       }
     }
     return {

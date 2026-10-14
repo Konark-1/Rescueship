@@ -10,7 +10,7 @@
  */
 
 process.env.NODE_ENV = 'test';
-process.env.ENCRYPTION_KEY = 'this_is_a_very_secret_encryption_key_32';
+process.env.ENCRYPTION_KEY = '12345678901234567890123456789012';
 
 import { codAdjustmentService } from '../src/services/courier/cod-adjustment.service';
 import { logisticsService } from '../src/services/logistics.service';
@@ -131,6 +131,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
         status: 'ndr_rescue_sent',
       };
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         carrierConfig: { provider: 'shiprocket' },
       };
@@ -180,6 +181,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
         status: 'ndr_detected',
       };
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         carrierConfig: { provider: 'delhivery' },
       };
@@ -223,6 +225,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
         status: 'ndr_rescue_sent',
       };
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         carrierConfig: { provider: 'clickpost' },
       };
@@ -272,6 +275,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
 
     test('getWeeklyReportMetrics aggregates RescueLedger and calculates netFreightSaved', async () => {
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         storeName: 'Test Brand',
         ownerPhone: '+919876543210',
@@ -318,6 +322,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
 
     test('setupWeeklyRoiReportWorker dispatches summary to merchant owner', async () => {
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         ownerPhone: '+919876543210',
         licenseStatus: 'ACTIVE',
@@ -473,6 +478,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         settings: { ndrRescue: { rtoArrestEnabled: true } },
       };
@@ -543,6 +549,7 @@ describe('Operational Gaps & Missing Implementations Hardening', () => {
         save: jest.fn().mockResolvedValue(true),
       };
       const mockMerchant = {
+        billing: { plan: 'scale', status: 'active', activatedAt: new Date() },
         _id: merchantId,
         carrierConfig: { provider: 'shiprocket' },
       };

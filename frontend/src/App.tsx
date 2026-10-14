@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import './styles/app.css';
 import { AppLayout } from './components/AppLayout';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { BillingGate } from './components/BillingGate';
 
 // Route-level code-splitting: Heavy dashboard & ancillary pages loaded on-demand
 const LandingPage = lazy(() => import('./pages/LandingPage'));
@@ -11,6 +12,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const RegisterPage = lazy(() => import('./pages/RegisterPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
@@ -20,6 +22,7 @@ const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
 const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const ConnectedApisPage = lazy(() => import('./pages/ConnectedApisPage'));
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const ShopifyLaunchPage = lazy(() => import('./pages/ShopifyLaunchPage'));
 const SandboxPage = lazy(() => import('./pages/SandboxPage'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const TermsOfService = lazy(() => import('./pages/TermsOfService'));
@@ -32,8 +35,8 @@ const RouteLoadingFallback: React.FC = () => (
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    backgroundColor: 'var(--bg-void, #050508)',
-    color: 'var(--text-3, #9ca3af)',
+    backgroundColor: '#f4f6f8',
+    color: '#5c6370',
     fontSize: '0.9rem',
   }}>
     Loading...
@@ -76,6 +79,15 @@ const DashboardLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ child
     return <Navigate to="/onboarding" replace />;
   }
 
+  return <BillingGate><AppLayout>{children}</AppLayout></BillingGate>;
+};
+
+// Pages a merchant can use before paying: setup and free test rescues (capped server-side).
+const UnpaidOkLayoutWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (user?.onboardingStatus === 'pending') {
+    return <Navigate to="/onboarding" replace />;
+  }
   return <AppLayout>{children}</AppLayout>;
 };
 
@@ -100,9 +112,12 @@ export const App: React.FC = () => {
               <Route path="/onboard" element={<Navigate to="/register" replace />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/verify-email" element={<VerifyEmailPage />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
               <Route path="/dpa" element={<DPDPAddendum />} />
+              {/* Shopify app launch / install entry (application_url) */}
+              <Route path="/shopify" element={<ShopifyLaunchPage />} />
 
               {/* Protected Routes inside AppLayout */}
               <Route path="/dashboard" element={
@@ -163,13 +178,14 @@ export const App: React.FC = () => {
               <Route path="/docs" element={<Navigate to="/connected-apis" replace />} />
               <Route path="/sandbox" element={
                 <ProtectedRoute>
-                  <DashboardLayoutWrapper>
+                  <UnpaidOkLayoutWrapper>
                     <SandboxPage />
-                  </DashboardLayoutWrapper>
+                  </UnpaidOkLayoutWrapper>
                 </ProtectedRoute>
               } />
 
-              {/* Onboarding Wizard (not wrapped in standard layout) */}
+              {/* Onboarding Wizard (not wrapped in standard layout). Open before payment:
+                  merchants connect and send free test rescues; going live needs a plan. */}
               <Route path="/onboarding" element={
                 <ProtectedRoute>
                   <OnboardingPage />

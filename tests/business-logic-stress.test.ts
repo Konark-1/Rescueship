@@ -78,6 +78,9 @@ jest.mock('../src/models', () => {
             const orMatch = query.$or.some((sub: any) => {
               if (sub.awb && order.awb === sub.awb) return true;
               if (sub.externalOrderId && order.externalOrderId === sub.externalOrderId) return true;
+              // handlePaymentSuccess resolves by either link id
+              if (sub.paymentLinkId && order.paymentLinkId === sub.paymentLinkId) return true;
+              if (sub.depositPaymentLinkId && order.depositPaymentLinkId === sub.depositPaymentLinkId) return true;
               return false;
             });
             if (!orMatch) match = false;
@@ -313,7 +316,7 @@ describe('Phase 3: Business Logic & Edge Case Stress Tests', () => {
   it('Test 1: Aborts RTO and rescues order when payment arrives after RTO initiation', async () => {
     await Merchant.create({
       _id: merchantId,
-      billing: { rescueCredits: 10 },
+      billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 10 },
       carrierConfig: { provider: 'shiprocket', apiKey: 'plain_key' },
     });
 
@@ -355,7 +358,7 @@ describe('Phase 3: Business Logic & Edge Case Stress Tests', () => {
   it('Test 2: Aborts COD conversion and refunds credit if discount >= order value', async () => {
     await Merchant.create({
       _id: merchantId,
-      billing: { rescueCredits: 5 },
+      billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 5 },
       settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 100 } },
       paymentConfig: { provider: 'razorpay', keyId: 'plain_key', keySecret: 'plain_sec' },
     });
@@ -393,7 +396,7 @@ describe('Phase 3: Business Logic & Edge Case Stress Tests', () => {
   it('Test 3: Logs orphaned credit when DB fails during refund rollback', async () => {
     await Merchant.create({
       _id: merchantId,
-      billing: { rescueCredits: 5 },
+      billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 5 },
       settings: { codConversion: { enabled: true, incentiveType: 'flat', incentiveAmount: 20 } },
       paymentConfig: { provider: 'razorpay', keyId: 'plain_key', keySecret: 'plain_sec' },
       whatsappConfig: { accessToken: 'plain_wa_token' },
@@ -435,7 +438,7 @@ describe('Phase 3: Business Logic & Edge Case Stress Tests', () => {
   it('Test 4: Prevents duplicate NdrCase creation on simultaneous webhooks', async () => {
     await Merchant.create({
       _id: merchantId,
-      billing: { rescueCredits: 10 },
+      billing: { plan: 'growth', status: 'active', activatedAt: new Date(), rescueCredits: 10 },
       platform: 'shopify',
       settings: { ndrRescue: { enabled: true } },
     });

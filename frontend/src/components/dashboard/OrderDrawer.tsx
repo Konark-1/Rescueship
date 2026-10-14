@@ -185,10 +185,14 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
   };
 
   const handleManualReconcile = async () => {
+    const utr = window.prompt('Enter the UTR / reference number from YOUR bank or gateway statement for this payment:');
+    if (!utr) return;
+    if (!window.confirm(`Confirm you can see UTR ${utr.trim()} credited in your own account. The order will be marked prepaid and the courier COD set to ₹0.`)) return;
     setActionLoading('reconcile');
     try {
       const res = await api.post(`/api/orders/${order.id}/reconcile-utr`, {
-        utr: 'MANUAL_DASHBOARD_VERIFY',
+        utr: utr.trim(),
+        confirmReceivedInBank: true,
       });
       if (res.data?.success) {
         showNotification('Order marked as prepaid and courier COD balance cleared to ₹0', 'success');

@@ -205,6 +205,8 @@ describe('Webhook Security & Signature Verification', () => {
     });
 
     it('rejects request with invalid signature (401)', async () => {
+      // Tests no longer read the real .env; configure the platform secret explicitly.
+      (config.razorpay as any).webhookSecret = 'test_razorpay_secret_platform';
       const payload = {
         event: 'payment.captured',
         payload: { payment: { entity: { id: 'pay_123', amount: 50000 } } },

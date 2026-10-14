@@ -166,7 +166,7 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
     });
 
     it('1.1.3 - Webhook rejects invalid Cashfree HMAC with 401', async () => {
-      config.cashfree.clientSecret = 'cf_secret_prod_123';
+      config.cashfree.clientSecret = '1234567890123456';
 
       jest.spyOn(Order, 'findOne').mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -180,13 +180,13 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         .set('x-webhook-timestamp', '1690000000')
         .send({ type: 'PAYMENT_SUCCESS_WEBHOOK', order_id: 'ORD_CF_101' });
 
+      // Unknown link → no merchant secret to verify with (no platform-secret fallback).
       expect(res.status).toBe(401);
-      expect(res.body.error).toBe('Invalid Cashfree signature');
       expect(rtoArrestService.abortRtoAndReattempt).not.toHaveBeenCalled();
     });
 
-    it('1.1.4 - Webhook updates Order to paid: true and triggers RTO transit reversal ONLY after paid: true', async () => {
-      const secret = 'cf_secret_prod_123';
+    it('1.1.4 - Verified webhook only queues confirm-payment; it never writes paid/prepaid or aborts RTO directly', async () => {
+      const secret = '1234567890123456';
       config.cashfree.clientSecret = secret;
 
       const payload = {
@@ -217,11 +217,16 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         rtoArrestStatus: 'TRIGGERED',
       };
 
+      // The link belongs to a merchant whose own Cashfree secret signed the event.
+      const { encryptionService } = require('../src/services/encryption.service');
       jest.spyOn(Order, 'findOne').mockReturnValue({
         select: jest.fn().mockReturnValue({
-          populate: jest.fn().mockResolvedValue(null),
+          populate: jest.fn().mockResolvedValue({
+            merchantId: { _id: new Types.ObjectId(), paymentConfig: { provider: 'cashfree', keySecret: encryptionService.encrypt(secret) } },
+          }),
         }),
       } as any);
+      jest.spyOn(Merchant, 'updateOne').mockResolvedValue({} as any);
       const updateSpy = jest.spyOn(Order, 'findOneAndUpdate').mockResolvedValue(mockOrder as any);
 
       const res = await request(app)
@@ -232,29 +237,13 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         .send(rawBody);
 
       expect(res.status).toBe(200);
-      expect(res.body.paid).toBe(true);
+      expect(res.body.status).toBe('received');
 
-      // Proof of Order.findOneAndUpdate({ cashfreeOrderId }, { paid: true, paymentGateway: 'cashfree' })
-      expect(updateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          $or: expect.arrayContaining([{ cashfreeOrderId: 'ORD_CF_101' }]),
-        }),
-        expect.objectContaining({
-          $set: expect.objectContaining({
-            paid: true,
-            paymentGateway: 'cashfree',
-          }),
-        }),
-        { new: true }
-      );
-
-      // Proof that RTO reversal logic was triggered ONLY after paid: true confirmed
-      expect(rtoArrestService.abortRtoAndReattempt).toHaveBeenCalledWith(
-        expect.objectContaining({
-          orderId: mockOrder._id.toString(),
-          reason: expect.stringContaining('Payment confirmed via Cashfree webhook'),
-        })
-      );
+      // The order is changed only by orderService.handlePaymentSuccess (queued job),
+      // which validates the amount and runs the RTO abort. No direct write here.
+      expect(updateSpy).not.toHaveBeenCalled();
+      expect(rtoArrestService.abortRtoAndReattempt).not.toHaveBeenCalled();
+      void mockOrder;
     });
   });
 

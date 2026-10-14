@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useRealtime } from '../hooks/useRealtime';
@@ -53,6 +53,13 @@ const NAV_SECTIONS: NavSection[] = [
 ];
 
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
+  // A plan-gated API call (403 upgradeRequired) shows one dismissible upgrade prompt.
+  const [upgradeMsg, setUpgradeMsg] = useState<string | null>(null);
+  useEffect(() => {
+    const onUpgrade = (e: Event) => setUpgradeMsg((e as CustomEvent).detail?.error || 'This feature is not included in your plan.');
+    window.addEventListener('rescueship:upgrade-required', onUpgrade);
+    return () => window.removeEventListener('rescueship:upgrade-required', onUpgrade);
+  }, []);
   const { user, token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -215,7 +222,16 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         </header>
 
         <main className="app-content" id="main-content">
-          <div className="app-content__inner">{children}</div>
+          <div className="app-content__inner">
+            {upgradeMsg && (
+              <div role="status" className="action-queue-card" style={{ padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ flex: '1 1 240px' }}>{upgradeMsg}</span>
+                <Link to="/billing" className="btn btn-primary">See plans</Link>
+                <button type="button" className="btn btn-ghost" onClick={() => setUpgradeMsg(null)}>Dismiss</button>
+              </div>
+            )}
+            {children}
+          </div>
         </main>
       </div>
     </div>

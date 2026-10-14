@@ -1,29 +1,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { LEGAL } from '../legal/entity';
 import { motion, AnimatePresence } from 'motion/react';
 import {
+  Compass,
   ShieldCheck,
   Check,
-  ArrowRight,
   SlidersHorizontal,
   MapPin,
   Lock,
   CheckCircle2,
   X,
-  Compass,
   AlertTriangle,
   Loader2,
   ExternalLink,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import type { Tier, Cycle, StoreMetrics } from '../config/pricing.config';
+import { markBillingActive } from '../components/BillingGate';
+import type { PlanKey, Cycle, StoreMetrics } from '../config/pricing.config';
 import {
-  TIERS,
+  PLANS,
+  BANDS,
   CYCLES,
+  CUSTOM_ABOVE,
   DEFAULT_METRICS,
   priceFor,
-  lossFor,
-  recommendedTier,
+  estimate,
+  bandFor,
+  planByKey,
+  recommendedPlan,
   inr,
 } from '../config/pricing.config';
 import { billingApi, loadRazorpay } from '../services/billing.api';
@@ -54,16 +59,32 @@ export interface SubscriptionStatus {
 }
 
 export default function BillingPage() {
-  const { token, user } = useAuth();
+  const { token, user, logout } = useAuth();
   const nav = useNavigate();
   const [params] = useSearchParams();
 
   const [volume, setVolume] = useState<number>(() => {
-    const q = params.get('v');
-    const stored = localStorage.getItem('rs_volume');
-    return Number(q || stored || 1000);
+    try {
+      const q = params.get('v');
+      if (q) {
+        const parsed = Number(q);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+      if (typeof window !== 'undefined') {
+        const stored = localStorage.getItem('rs_volume');
+        if (stored) {
+          const parsed = Number(stored);
+          if (!isNaN(parsed) && parsed > 0) return parsed;
+        }
+      }
+    } catch {
+      // fallback
+    }
+    return 1000;
   });
-  const [tier, setTier] = useState<Tier>(() => recommendedTier(volume));
+  // Plan = what is included; the order band (from volume) = how much it costs.
+  const [plan, setPlan] = useState<PlanKey>(() => recommendedPlan(Number(params.get('v') || 1000)));
+  const [planTouched, setPlanTouched] = useState(false);
   const [cycle, setCycle] = useState<Cycle>('quarterly');
   const [paying, setPaying] = useState(false);
   const [active, setActive] = useState<SubscriptionStatus | null>(null);
@@ -79,8 +100,13 @@ export default function BillingPage() {
   const [showTuner, setShowTuner] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem('rs_volume', String(volume));
-    setTier(recommendedTier(volume));
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('rs_volume', String(volume));
+      }
+    } catch {
+      // ignore
+    }
   }, [volume]);
 
   useEffect(() => {
@@ -127,10 +153,15 @@ export default function BillingPage() {
       .catch(() => {});
   }, [token]);
 
-  const loss = useMemo(() => lossFor(volume, metrics), [volume, metrics]);
-  const price = useMemo(() => priceFor(tier, cycle), [tier, cycle]);
+  const band = bandFor(volume); // null → above the top band (custom pricing)
+  const isCustom = band === null;
+  useEffect(() => {
+    if (!planTouched) setPlan(recommendedPlan(volume, metrics));
+  }, [volume, metrics, planTouched]);
+  const est = useMemo(() => estimate(volume, metrics, plan), [volume, metrics, plan]);
+  const price = useMemo(() => priceFor(plan, band ?? 10000, cycle), [plan, band, cycle]);
   const cycleMeta = CYCLES.find((c) => c.key === cycle)!;
-  const tierMeta = TIERS.find((t) => t.key === tier)!;
+  const planMeta = planByKey(plan);
 
   const connectedCount = useMemo(() => {
     if (!onboardingState?.connections) return 0;
@@ -147,22 +178,24 @@ export default function BillingPage() {
     try {
       const ok = await loadRazorpay();
       if (!ok) throw new Error('Payment SDK failed to load. Check your internet connection.');
-      const order = await billingApi.checkout(token!, tier, cycle);
+      if (isCustom || band === null) throw new Error(`Above ${CUSTOM_ABOVE.toLocaleString('en-IN')} orders a month we set up a custom plan — write to ${LEGAL.contactEmail}.`);
+      const order = await billingApi.checkout(token!, plan, band, cycle);
       const rz = new (window as any).Razorpay({
         key: order.keyId,
         ...(order.subscriptionId ? { subscription_id: order.subscriptionId } : {}),
         order_id: order.orderId,
         name: 'RescueShip',
-        description: `${tierMeta.name} · ${cycleMeta.label} · ${inr(price.monthly)}/mo (90-Day Guarantee)`,
+        description: `${planMeta.name} · up to ${band.toLocaleString('en-IN')} orders/mo · ${cycleMeta.label}`,
         amount: order.amountInr,
         currency: order.currency || 'INR',
         prefill: { email: user?.email, contact: user?.phone },
         theme: { color: RAZORPAY_THEME_COLOR },
         handler: async (resp: any) => {
           try {
-            const verified = await billingApi.verify(token!, { ...resp, tier, cycle });
+            const verified = await billingApi.verify(token!, { ...resp, cycle });
             setActive(verified);
-            nav('/onboarding?subscribed=true');
+            markBillingActive(token);
+            nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true');
           } catch (e: any) {
             setErr(e.message);
           }
@@ -188,7 +221,7 @@ export default function BillingPage() {
 
     return (
       <div className="bl-page">
-        <div className="bl-glow" />
+      <div className="bl-glow" />
         <div className="bl-container">
           <header className="bl-nav">
             <a href="/" className="bl-nav__brand">
@@ -196,7 +229,7 @@ export default function BillingPage() {
               <span>RescueShip</span>
             </a>
             <button className="bl-nav__back" onClick={() => nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true')}>
-              ← {user?.onboardingStatus === 'completed' ? 'Dashboard' : 'Continue Onboarding'}
+              {user?.onboardingStatus === 'completed' ? 'Back to dashboard' : 'Back to setup'}
             </button>
           </header>
 
@@ -207,11 +240,11 @@ export default function BillingPage() {
             transition={{ duration: 0.4 }}
           >
             <span className="bl-receipt-card__status">
-              <CheckCircle2 size={14} /> Plan active · 90-day guarantee protected
+              <CheckCircle2 size={14} /> Plan active
             </span>
-            <h1 className="bl-receipt-card__title">{active.plan} Tier</h1>
+            <h1 className="bl-receipt-card__title">{(PLANS.find((x) => x.key === active.plan)?.name) || active.plan} plan</h1>
             <p className="bl-receipt-card__sub">
-              Your automated WhatsApp NDR rescue service is active and monitoring store logistics.
+              Rescues can run for your real buyers once every connection is green.
             </p>
 
             <div className="bl-receipt-card__table">
@@ -232,8 +265,8 @@ export default function BillingPage() {
                 <span>{formattedEndDate}</span>
               </div>
               <div className="bl-receipt-card__row">
-                <span>Meta WhatsApp API Surcharges</span>
-                <span className="bl-text-emerald">100% Paid by RescueShip</span>
+                <span>WhatsApp message fees</span>
+                <span>Billed by Meta to your WhatsApp account</span>
               </div>
             </div>
 
@@ -245,11 +278,11 @@ export default function BillingPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink size={15} /> Book Free 15-Min Guided Setup Call
+                  <ExternalLink size={15} /> Book a free 15-minute setup call
                 </a>
               )}
               <button className="bl-btn-primary bl-btn-full" onClick={() => nav(user?.onboardingStatus === 'completed' ? '/dashboard' : '/onboarding?subscribed=true')}>
-                {user?.onboardingStatus === 'completed' ? 'Open Dashboard →' : 'Continue to Onboarding →'}
+                {user?.onboardingStatus === 'completed' ? 'Open dashboard' : 'Continue setup'}
               </button>
             </div>
           </motion.div>
@@ -270,14 +303,17 @@ export default function BillingPage() {
         <header className="bl-nav">
           <a href="/" className="bl-nav__brand">
             <span className="bl-nav__logo-icon"><Compass size={16} /></span>
-            <span>RescueShip</span>
+              <span>RescueShip</span>
           </a>
           <div className="bl-nav__meta">
             <span className="bl-nav__step-pill">
-              Step 1 of 2 · Plan & Guarantee
+              Choose a plan to go live
             </span>
             <button className="bl-nav__back" onClick={() => nav('/onboarding')}>
-              ← Back to Onboarding
+              Back to setup
+            </button>
+            <button className="bl-nav__back" onClick={() => { logout(); nav('/login'); }}>
+              Log out
             </button>
           </div>
         </header>
@@ -286,13 +322,13 @@ export default function BillingPage() {
         <section className="bl-hero">
           <div className="bl-hero__badge">
             <ShieldCheck size={14} />
-            <span>90-Day &ldquo;Pays-For-Itself&rdquo; Guarantee · Zero Risk</span>
+            <span>{LEGAL.guaranteeDays}-day money-back guarantee</span>
           </div>
           <h1 className="bl-hero__title">
-            Stop losing capital on courier delivery failures.
+            Choose your protection. Pay for your size.
           </h1>
           <p className="bl-hero__sub">
-            Select an order volume tier for your D2C brand. Scale up or pause anytime with guaranteed ROI.
+            Every plan works for every brand size — smaller brands pay less for the same features. Rescues for real buyers switch on once a plan is active. Prices are per month, before GST, paid for the whole period up front.
           </p>
 
           {/* Billing Cycle Switcher */}
@@ -353,19 +389,18 @@ export default function BillingPage() {
                   id="bl-vol-slider"
                   aria-label="Your monthly order volume"
                   className="bl-vol-slider"
-                  min={500}
-                  max={25000}
-                  step={500}
+                  min={100}
+                  max={15000}
+                  step={100}
                   value={volume}
                   onChange={(e) => setVolume(+e.target.value)}
                 />
                 <div className="bl-vol-chips">
-                  {[
-                    { label: 'Up to 1k', target: 1000, active: volume <= 1000 },
-                    { label: '1k – 5k', target: 5000, active: volume > 1000 && volume <= 5000 },
-                    { label: '5k – 12k', target: 12000, active: volume > 5000 && volume <= 12000 },
-                    { label: '12k – 25k', target: 25000, active: volume > 12000 },
-                  ].map((chip) => (
+                  {BANDS.map((b): { label: string; target: number; active: boolean } => ({
+                    label: `≤ ${b >= 1000 ? `${b / 1000}k` : b}`,
+                    target: b,
+                    active: band === b,
+                  })).concat([{ label: '10k+', target: 15000, active: isCustom }]).map((chip) => (
                     <button
                       key={chip.target}
                       type="button"
@@ -382,29 +417,32 @@ export default function BillingPage() {
               <div className="bl-econ-grid">
                 <div className="bl-econ-cell bl-econ-cell--loss">
                   <div className="bl-econ-label">
-                    <span>Estimated RTO Loss</span>
+                    <span>Monthly RTO burn today</span>
                   </div>
-                  <div className="bl-econ-value">₹{loss.loss.toLocaleString('en-IN')}</div>
+                  <div className="bl-econ-value">{inr(est.burn)}</div>
                   <p className="bl-econ-desc">
-                    ~{loss.failedDeliveries} failed shipments without real-time rescue
+                    ~{est.rtos} COD parcels come back ({Math.round(metrics.codRtoRate * 100)}% of {est.codOrders} COD orders)
                   </p>
                 </div>
 
                 <div className="bl-econ-cell bl-econ-cell--saved">
                   <div className="bl-econ-label">
-                    <span>Projected Recovery</span>
+                    <span>Expected saving with {planMeta.name}</span>
                   </div>
-                  <div className="bl-econ-value">₹{loss.saved.toLocaleString('en-IN')}</div>
+                  <div className="bl-econ-value">{inr(est.saved)}</div>
                   <p className="bl-econ-desc">
-                    ~<strong>{loss.rescuesPerMonth} rescued</strong> /month (~{loss.rescuesPerWeek}/wk)
+                    ~<strong>{est.rtosAvoided} fewer RTOs</strong> /month (≈{Math.round(est.reduction * 100)}% of returns)
                   </p>
                 </div>
               </div>
 
               <div className="bl-econ-foot">
-                <span>Cost basis: ₹{loss.costPerFailed}/return (Courier + Packaging)</span>
-                <span>Net ROI: <strong>{+(loss.saved / price.monthly).toFixed(1)}x Plan Value</strong></span>
+                <span>Cost basis: {inr(est.costPerRto)} per RTO (freight + packaging + ad spend)</span>
+                <span>{isCustom ? 'Custom plan above 10k orders' : <>About <strong>{+(est.saved / price.monthly).toFixed(1)}×</strong> the plan price</>}</span>
               </div>
+              <p className="bl-econ-desc" style={{ marginTop: '0.5rem' }}>
+                Estimates from Indian D2C benchmarks, kept conservative. After 30 days your dashboard shows the rupees actually recovered.
+              </p>
             </div>
 
             {/* Feature Spotlight: Address Correction */}
@@ -415,7 +453,6 @@ export default function BillingPage() {
                 </div>
                 <div>
                   <h3 className="bl-spotlight__title">Automated WhatsApp Address Correction</h3>
-                  <span className="bl-spotlight__badge">Rescues up to 38% of NDR cases</span>
                 </div>
               </div>
               <p className="bl-spotlight__body">
@@ -424,15 +461,15 @@ export default function BillingPage() {
               <div className="bl-spotlight__steps">
                 <div className="bl-spotlight__step">
                   <span className="bl-spotlight__step-num">1</span>
-                  <span><strong>Instant WhatsApp Ping:</strong> Shopper receives automated WhatsApp message within 60s of courier NDR.</span>
+                  <span><strong>WhatsApp message:</strong> the buyer hears from your brand soon after the courier reports the failed delivery.</span>
                 </div>
                 <div className="bl-spotlight__step">
                   <span className="bl-spotlight__step-num">2</span>
-                  <span><strong>Live GPS Pin Drop:</strong> Customer drops WhatsApp location pin without typing long confusing instructions.</span>
+                  <span><strong>Location pin:</strong> the buyer shares their location or types a landmark, in English or Hinglish.</span>
                 </div>
                 <div className="bl-spotlight__step">
                   <span className="bl-spotlight__step-num">3</span>
-                  <span><strong>Carrier API Push:</strong> Validated coordinates sync directly into Shiprocket &amp; Delhivery for immediate reattempt.</span>
+                  <span><strong>Back to the courier:</strong> the corrected address goes to your courier with a re-attempt request.</span>
                 </div>
               </div>
             </div>
@@ -441,9 +478,10 @@ export default function BillingPage() {
             <div className="bl-guarantee-card">
               <ShieldCheck size={24} className="bl-guarantee-card__icon" />
               <div>
-                <h4 className="bl-guarantee-card__title">The 90-Day &ldquo;Pays-For-Itself&rdquo; Commitment</h4>
+                <h4 className="bl-guarantee-card__title">{LEGAL.guaranteeDays}-day money-back guarantee</h4>
                 <p className="bl-guarantee-card__text">
-                  Use RescueShip for 90 days. If your documented RTO savings do not exceed what you spent on our platform fee, our support team will refund your entire subscription immediately. Zero risk.
+                  If the savings recorded in your dashboard in the first {LEGAL.guaranteeDays} days of your first plan are less than the fees you paid for that period, we refund those fees.{' '}
+                  <a href="/terms#guarantee" className="pp-link">Conditions</a>
                 </p>
               </div>
             </div>
@@ -452,10 +490,11 @@ export default function BillingPage() {
           {/* ── RIGHT: TIERS & CHECKOUT ── */}
           <main className="bl-plans-pane">
             <div className="bl-tiers-list">
-              {TIERS.map((t) => {
-                const isSelected = t.key === tier;
-                const isRec = t.key === recommendedTier(volume);
-                const p = priceFor(t.key, cycle);
+              {PLANS.map((t) => {
+                const isSelected = t.key === plan;
+                const isRec = t.key === recommendedPlan(volume, metrics);
+                const p = priceFor(t.key, band ?? 10000, cycle);
+                const e = estimate(volume, metrics, t.key);
 
                 return (
                   <div
@@ -463,8 +502,8 @@ export default function BillingPage() {
                     role="button"
                     tabIndex={0}
                     className={`bl-tier-card ${isSelected ? 'is-selected' : ''}`}
-                    onClick={() => setTier(t.key)}
-                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setTier(t.key); }}
+                    onClick={() => { setPlan(t.key); setPlanTouched(true); }}
+                    onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') { setPlan(t.key); setPlanTouched(true); } }}
                   >
                     <div className="bl-tier-card__left">
                       <div className="bl-tier-card__radio">
@@ -475,23 +514,35 @@ export default function BillingPage() {
                           <span className="bl-tier-card__name">{t.name}</span>
                           {isRec && <span className="bl-tier-card__badge">Recommended for you</span>}
                         </div>
+                        <p className="bl-tier-card__volume">{t.tagline} {t.actsWhen}.</p>
                         <p className="bl-tier-card__volume">
-                          Up to {t.orders.toLocaleString('en-IN')} orders/mo · {t.blurb}
+                          Covers {t.coverage} · expected <strong>≈{Math.round(t.reduction * 100)}% fewer RTOs</strong> · saves ~{inr(e.saved)}/mo
                         </p>
+                        {isSelected && (
+                          <ul style={{ margin: '6px 0 0', paddingLeft: '1.1rem', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            {t.features.map((f) => <li key={f}>{f}</li>)}
+                          </ul>
+                        )}
                       </div>
                     </div>
 
                     <div className="bl-tier-card__right">
-                      <span className="bl-tier-card__price">
-                        {inr(p.monthly)}<small>/mo</small>
-                      </span>
-                      <span className="bl-tier-card__subtext">
-                        {cycle === 'quarterly'
-                          ? `Billed ${inr(p.upfront)} / 3 mos`
-                          : cycle === 'semi'
-                          ? `Billed ${inr(p.upfront)} / 6 mos`
-                          : `Billed ${inr(p.upfront)} annually`}
-                      </span>
+                      {isCustom ? (
+                        <span className="bl-tier-card__price">Custom</span>
+                      ) : (
+                        <>
+                          <span className="bl-tier-card__price">
+                            {inr(p.monthly)}<small>/mo</small>
+                          </span>
+                          <span className="bl-tier-card__subtext">
+                            {cycle === 'quarterly'
+                              ? `Billed ${inr(p.upfront)} / 3 mos`
+                              : cycle === 'semi'
+                              ? `Billed ${inr(p.upfront)} / 6 mos`
+                              : `Billed ${inr(p.upfront)} annually`}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 );
@@ -504,16 +555,16 @@ export default function BillingPage() {
 
               <div className="bl-checkout-summary">
                 <div className="bl-summary-row">
-                  <span>Selected Tier</span>
-                  <span>{tierMeta.name} Plan ({tierMeta.orders.toLocaleString('en-IN')} orders/mo)</span>
+                  <span>Selected plan</span>
+                  <span>{planMeta.name} · up to {(band ?? CUSTOM_ABOVE).toLocaleString('en-IN')} orders/mo</span>
                 </div>
                 <div className="bl-summary-row">
                   <span>Billing Commitment</span>
                   <span>{cycleMeta.label} ({cycleMeta.months} months)</span>
                 </div>
-                <div className="bl-summary-row is-free">
-                  <span>Meta WhatsApp API Platform Fees</span>
-                  <span>100% Paid by RescueShip</span>
+                <div className="bl-summary-row">
+                  <span>WhatsApp message fees</span>
+                  <span>Billed by Meta to your WhatsApp account</span>
                 </div>
                 <div className="bl-summary-row is-free">
                   <span>Platform Setup &amp; Onboarding Support</span>
@@ -524,7 +575,7 @@ export default function BillingPage() {
               <div className="bl-checkout-total">
                 <div className="bl-checkout-total__label">
                   <span>Due today</span>
-                  <small>Protected by 90-Day Money-Back Guarantee</small>
+                  <small>{LEGAL.guaranteeDays}-day money-back guarantee applies</small>
                 </div>
                 <span className="bl-checkout-total__amount">{inr(price.upfront)}</span>
               </div>
@@ -543,9 +594,10 @@ export default function BillingPage() {
                 ) : (
                   <>
                     {allGreen
-                      ? `Subscribe & Activate (${inr(price.upfront)})`
-                      : `Lock In ${tierMeta.name} (${inr(price.upfront)}) & Connect Store`}
-                    <ArrowRight size={18} />
+                      ? `Pay ${inr(price.upfront)} and go live`
+                      : isCustom
+                      ? 'Write to us for a custom plan'
+                      : `Pay ${inr(price.upfront)} for ${planMeta.name}`}
                   </>
                 )}
               </button>
@@ -642,6 +694,25 @@ export default function BillingPage() {
                     onChange={(e) => setMetrics((m) => ({ ...m, codPct: +e.target.value }))}
                   />
                   <p className="bl-field__sub">COD orders experience the highest incidence of courier return attempts.</p>
+                </div>
+
+                <div className="bl-field">
+                  <div className="bl-field__label">
+                    <span>COD Orders That Come Back (RTO)</span>
+                    <span className="bl-field__val">{Math.round(metrics.codRtoRate * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    className="bl-field__slider"
+                    min={0.05}
+                    max={0.5}
+                    step={0.01}
+                    value={metrics.codRtoRate}
+                    aria-label="COD return to origin rate"
+                    aria-valuetext={`${Math.round(metrics.codRtoRate * 100)}%`}
+                    onChange={(e) => setMetrics((m) => ({ ...m, codRtoRate: +e.target.value }))}
+                  />
+                  <p className="bl-field__sub">Indian COD orders typically come back 30–40% of the time (fashion is higher).</p>
                 </div>
 
                 <div className="bl-field">

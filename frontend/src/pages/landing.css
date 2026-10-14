@@ -520,7 +520,7 @@ section[id] {
   mask-image: linear-gradient(to bottom, transparent, #000 10%);
   -webkit-mask-image: linear-gradient(to bottom, transparent, #000 10%);
 }
-.lp-wa__spacer { flex: 1 1 auto; min-height: 0; }
+.lp-wa__spacer { flex: 1 1 auto; min-height: 0; pointer-events: none; }
 .lp-wa__idle { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); margin: auto; color: var(--text-3); }
 .lp-wa__idle span { font-size: 1.4rem; opacity: 0.5; }
 .lp-wa__idle p { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.08em; }

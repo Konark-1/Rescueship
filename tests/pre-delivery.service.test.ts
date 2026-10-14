@@ -56,7 +56,7 @@ describe('PreDeliveryService', () => {
     accessExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     billing: {
       rescueCredits: 50,
-      plan: 'growth',
+      plan: 'scale',
     },
     settings: {
       globalPause: false,

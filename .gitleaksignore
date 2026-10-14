@@ -1,0 +1,8 @@
+# Reviewed false positives (gitleaks fingerprints). Real secrets must be rotated, never ignored.
+# Test-only placeholder values used by the Jest environment:
+83261f42a2db687535954f0dca828c81adcd0ce3:tests/setup-env.ts:generic-api-key:7
+85fd2cb9d60866f9da61c4dc50c993600c628d3a:tests/auth-and-access.test.ts:generic-api-key:62
+85fd2cb9d60866f9da61c4dc50c993600c628d3a:tests/auth-and-access.test.ts:generic-api-key:63
+# Razorpay TEST-mode key_id (a public, browser-side identifier) in an old inline checkout page;
+# that page was removed from src/index.ts in a later commit.
+393cbbe307bfdb4fe90715d4737ad557b4df82c4:src/index.ts:generic-api-key:319

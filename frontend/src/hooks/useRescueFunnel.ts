@@ -16,9 +16,10 @@ export const DEFAULT_FUNNEL_DATA: RescueFunnelData = {
   rescued: 0,
   overallRescueRate: 0,
   aiTelemetry: {
-    parserSuccessRate: 95.4,
-    sampleBefore: 'peeli kothi ke peeche ram lal dukan ke paas sec 12 noida call on arrival',
-    sampleAfter: 'H-12, Near Peeli Kothi, Opp. Ram Lal Store, Sector 12, Noida 201301. Note: Call on arrival',
+    // No numbers until the API reports real parsed addresses.
+    parserSuccessRate: 0,
+    sampleBefore: '',
+    sampleAfter: '',
     addressesParsedCount: 0,
   },
   period: {

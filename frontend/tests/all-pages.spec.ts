@@ -315,7 +315,9 @@ async function mockBackend(page: Page) {
     if (path === '/api/billing/status') {
       return route.fulfill(
         json({
-          active: false,
+          active: true,
+          plan: 'growth',
+          status: 'active',
         }),
       );
     }
@@ -336,10 +338,10 @@ async function mockBackend(page: Page) {
       return route.fulfill(
         json({
           active: true,
-          plan: 'Growth',
-          cycle: 'Annual',
-          limit: 10000,
-          renewMonthly: 4999,
+          plan: 'convert',
+          cycle: 'annual',
+          limit: 2500,
+          renewMonthly: 3199,
           nextInvoice: new Date(Date.now() + 30 * 86400000).toISOString(),
           activatedAt: new Date().toISOString(),
         }),
@@ -585,7 +587,7 @@ test.describe('Public pages', () => {
     for (const checkbox of await page.getByRole('checkbox').all()) {
       await checkbox.check();
     }
-    await page.getByRole('button', { name: /Start Free Trial/i }).click();
+    await page.getByRole('button', { name: /Start Free Trial|Create account/i }).click();
 
     await expect(page).toHaveURL(/\/(billing|onboarding)/);
     await expect(page.locator('body')).toContainText(/Setup|Economics|Pick the line|Plan|Guarantee/i);
@@ -618,7 +620,7 @@ test.describe('Protected app pages', () => {
   const protectedPages = [
     {
       path: '/dashboard',
-      text: /Saved This Month|Rescue Telemetry|Total Orders|Recovery Rate/i,
+      text: /Net Money Saved|Rescue Rate|saved: last 30 days|Orders Rescued|Saved This Month|Recovery Rate/i,
     },
     {
       path: '/orders',
@@ -645,8 +647,8 @@ test.describe('Protected app pages', () => {
       text: /Audit Logs|Audit ledger/i,
     },
     {
-      path: '/docs',
-      text: /API Sandbox|Test Request|Copy Code/i,
+      path: '/connected-apis',
+      text: /Connected APIs|Credentials|Shiprocket/i,
     },
     {
       path: '/sandbox',
@@ -669,8 +671,8 @@ test.describe('Protected app pages', () => {
   test('Dashboard renders mocked analytics', async ({ page }) => {
     await page.goto('/dashboard');
 
-    await expect(page.locator('body')).toContainText(/Saved This Month|Total Orders|Revenue/i);
-    await expect(page.locator('body')).toContainText(/Orders Rescued|COD→Prepaid|RTO Arrests|Orders Needing Attention/i);
+    await expect(page.locator('body')).toContainText(/Net Money Saved|Saved This Month|Total Orders|Revenue|saved/i);
+    await expect(page.locator('body')).toContainText(/Orders Rescued|COD Prepaid|COD→Prepaid|RTO Arrests|Orders Needing Attention/i);
   });
 
   test('Orders page supports search, row details modal, and close', async ({ page }) => {
@@ -717,12 +719,13 @@ test.describe('Protected app pages', () => {
   });
 
   test('Billing page opens checkout drawer', async ({ page }) => {
+    await page.route('**/api/billing/status', (route) => route.fulfill(json({ active: false })));
     await page.goto('/billing');
 
     await expect(page.locator('body')).toContainText(/Monthly order/i);
     await expect(page.locator('body')).toContainText(/Due today/i);
 
-    await page.getByRole('button', { name: /Lock In|Subscribe/i }).click();
+    await page.getByRole('button', { name: /Lock In|Subscribe|Pay ₹/i }).click();
 
     await expect(page.locator('body')).toContainText(/Opening secure Razorpay checkout|Razorpay/i);
   });
@@ -744,15 +747,11 @@ test.describe('Protected app pages', () => {
     await expect(page.locator('pre')).toBeVisible();
   });
 
-  test('Docs page API sandbox test request works', async ({ page }) => {
+  test('Docs route redirects to /connected-apis and renders integration dashboard', async ({ page }) => {
     await page.goto('/docs');
 
-    await expect(page.locator('body')).toContainText(/API Sandbox/i);
-
-    await page.getByRole('button', { name: /Test Request/i }).click();
-
-    await expect(page.locator('body')).toContainText(/200 OK · RESPONSE/i);
-    await expect(page.locator('body')).toContainText(/queued/i);
+    await expect(page).toHaveURL(/\/connected-apis/);
+    await expect(page.locator('body')).toContainText(/Connected APIs/i);
   });
 
   test('Sandbox page toggles sandbox and simulates NDR', async ({ page }) => {
@@ -781,7 +780,7 @@ test.describe('Onboarding page', () => {
   test('Onboarding renders setup route and Shopify station', async ({ page }) => {
     await page.goto('/onboarding');
 
-    await expect(page.locator('body')).toContainText(/Setup route/i);
+    await expect(page.locator('body')).toContainText(/Setup|Step 1 of 4/i);
     await expect(page.locator('body')).toContainText(/Store address/i);
     await expect(page.getByPlaceholder('your-brand.myshopify.com')).toBeVisible();
     await expect(page.getByRole('button', { name: /Connect.*Shopify/i })).toBeDisabled();
@@ -831,7 +830,7 @@ test.describe('WCAG 2.1 AA scans for all pages', () => {
     '/templates',
     '/billing',
     '/audit-logs',
-    '/docs',
+    '/connected-apis',
     '/sandbox',
   ];
 

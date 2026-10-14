@@ -16,24 +16,15 @@
 | `liveops-watchtower.ts` | LiveOps telemetry & watchtower checks | `npx ts-node scripts/liveops-watchtower.ts [dlq\|waba\|webhooks\|all]` |
 | `tunnel.js` | Dev webhook tunnel | `node scripts/tunnel.js` (localtunnel :3000) |
 | `generate-design-md.cjs` | Design token extractor | `node scripts/generate-design-md.cjs` |
+| `check-connections.ts` | Read-only live check of a merchant's Shopify / WhatsApp / gateway / courier credentials | `npm run check:connections -- <email> [--save]` |
+| `setup.ts` | Interactive setup script for initial merchant onboarding | `npx ts-node scripts/setup.ts` |
+| `smoke-deploy.ts` | Post-deploy smoke test checking /health, auth, and webhook routes | `npx ts-node scripts/smoke-deploy.ts` |
+| `submit-templates.ts` | Batch submit Meta WhatsApp templates for approval | `npx ts-node scripts/submit-templates.ts` |
 
 ## Note on Test Scripts
-All test runners, simulated flow verification scripts, and adversarial probes have been cleanly separated into [`tests/scripts/`](../tests/scripts/):
-- `tests/scripts/verify-adversarial-fixes.ts`
-- `tests/scripts/master-e2e-test.ts`
-- `tests/scripts/simulate-all-possibilities.ts`
-- `tests/scripts/run-50-irregular-live-tests.ts`
-- `tests/scripts/e2e-verification.ts`
-- `tests/scripts/advanced-edge-cases-test.ts`
-- `tests/scripts/verify-phase5-identity-ops.ts`
-- `tests/scripts/execute-50-live-tests.ts`
-- `tests/scripts/simulate-50-scenarios.ts`
-- `tests/scripts/simulate_flow.ts`
-- `tests/scripts/test-2pm-vs-830pm.ts`
-- `tests/scripts/test-infra.ts`
-- `tests/scripts/test-shiprocket.ts`
-- `tests/scripts/load-test.js`
+Ad-hoc test scripts and scratch files have been removed from `scripts/` and consolidated into official Jest unit test suites (`tests/`) and the CI adversarial probe runner (`tests/scripts/verify-adversarial-fixes.ts`).
 
 ## Key Invariants
 - Scripts connect directly to MongoDB/Redis — use only in dev or with explicit admin intent
 - Production services and controllers import business logic from `src/services/`
+

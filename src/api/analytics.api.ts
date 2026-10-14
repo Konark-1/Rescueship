@@ -1,3 +1,5 @@
+import { requireFeature } from '../middleware/planGating.middleware';
+import { planAllows } from '../config/plans';
 import { Router, Response } from 'express';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth';
 import { analyticsService } from '../services/analytics.service';
@@ -27,15 +29,15 @@ router.get('/dashboard', authenticateToken, async (req: AuthenticatedRequest, re
 
   try {
     const merchant = await Merchant.findById(merchantId);
-    const plan = merchant?.billing?.plan || 'starter';
+    const plan = merchant?.billing?.plan || 'free_trial';
 
     logger.info('Fetching dashboard analytics', { merchantId, startDate, endDate, plan });
     const stats = await analyticsService.getMerchantDashboard(merchantId, { startDate, endDate });
 
-    if (plan === 'starter' || plan === 'free_trial') {
+    if (!planAllows(merchant, 'advanced_charts')) {
       res.status(200).json({
         totalOrders: stats.totalOrders,
-        message: 'Upgrade to Growth plan for full revenue analytics and conversion tracking.',
+        message: 'Upgrade to the Convert plan for full revenue analytics and conversion tracking.',
         isBasic: true,
       });
       return;
@@ -67,10 +69,8 @@ router.get('/carriers', authenticateToken, async (req: AuthenticatedRequest, res
 
   try {
     const merchant = await Merchant.findById(merchantId);
-    const plan = merchant?.billing?.plan || 'starter';
-
-    if (plan === 'starter' || plan === 'free_trial') {
-      res.status(403).json({ error: 'Carrier performance reports require Growth plan or above.' });
+    if (!planAllows(merchant, 'advanced_charts')) {
+      res.status(403).json({ error: 'Carrier performance reports are included from the Convert plan.' });
       return;
     }
 
@@ -151,7 +151,7 @@ router.get('/roi', authenticateToken, async (req: AuthenticatedRequest, res: Res
  * Expose Courier Fraud Index:
  * Aggregate fake delivery attempts grouped by Carrier Name with disputed freight calculations.
  */
-router.get('/fraud-index', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/fraud-index', authenticateToken, requireFeature('fraud_watchtower'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const startDateStr = req.query.startDate as string;
   const endDateStr = req.query.endDate as string;
@@ -213,7 +213,7 @@ router.get('/funnel', authenticateToken, async (req: AuthenticatedRequest, res: 
  * Export CSV containing disputed fake delivery attempts:
  * AWB, Courier Remark, WhatsApp Customer Reply Timestamp, Proof of Fake Attempt
  */
-router.get('/fraud-disputes/export', authenticateToken, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+router.get('/fraud-disputes/export', authenticateToken, requireFeature('fraud_watchtower'), async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   const merchantId = req.merchant?.merchantId;
   const carrier = req.query.carrier as string;
   const startDateStr = req.query.startDate as string;

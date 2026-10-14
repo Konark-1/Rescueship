@@ -15,22 +15,24 @@ interface Metrics {
 
 export const RescueMetrics: React.FC = () => {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     api.get('/api/metrics/my')
       .then(r => {
-        if (!cancelled && r.data?.success) {
-          setMetrics(r.data.metrics);
-        }
+        if (cancelled) return;
+        if (r.data?.success && r.data.metrics) setMetrics(r.data.metrics);
+        else setFailed(true);
       })
-      .catch(() => {});
+      .catch(() => { if (!cancelled) setFailed(true); });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  if (!metrics) return <div className="metrics-loading">Loading metrics…</div>;
+  if (failed) return <div className="metrics-loading">Rescue numbers could not be loaded. Refresh the page to try again.</div>;
+  if (!metrics) return <div className="metrics-loading">Loading rescue numbers…</div>;
 
   const ratePct = (metrics.rescueRate * 100).toFixed(1);
   const rateClass = metrics.rescueRate >= 0.3 ? 'is-ok'

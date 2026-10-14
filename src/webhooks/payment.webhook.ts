@@ -1,13 +1,17 @@
 import { Router, Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
+import { Queue } from 'bullmq';
+import { redisConnection } from '../config/redis';
 import { paymentService } from '../services/payment.service';
-import { rtoArrestService } from '../services/rto-arrest.service';
-import { config } from '../config/env';
-import { Order } from '../models';
+import { Merchant, Order } from '../models';
 import { encryptionService } from '../services/encryption.service';
 import { SecurityAlertService } from '../services/security-alert.service';
+import { IdempotencyGuard, IdempotencyUnavailableError } from '../utils/idempotency';
+import { makeJobId } from '../utils/job-id';
 import { logger } from '../utils/logger';
 
 const router = Router();
+const codConversionQueue = new Queue('cod-conversion', { connection: redisConnection as any });
 
 function str(v: unknown, max = 128): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v.slice(0, max) : undefined;
@@ -15,123 +19,135 @@ function str(v: unknown, max = 128): string | undefined {
 
 /**
  * POST /webhooks/payment
- * Unified payment webhook endpoint supporting Razorpay and Cashfree.
- * Enforces strict HMAC verification before any business logic or RTO abort can execute.
+ * Unified payment-link webhook for merchants' own Razorpay / Cashfree accounts.
+ *
+ * Tenant safety: the order is resolved ONLY from the gateway link id that RescueShip
+ * created, and the signature must verify with THAT order's merchant secret. A body
+ * signed with merchant A's secret can never act on merchant B's order. The order
+ * state change itself happens only in orderService.handlePaymentSuccess (queued),
+ * which validates the amount.
  */
 router.post('/', async (req: Request, res: Response): Promise<void> => {
   const rzpSig = req.get('X-Razorpay-Signature');
   const cfSig = req.get('x-webhook-signature');
   const cfTs = req.get('x-webhook-timestamp');
   const rawBuf: Buffer | undefined = (req as any).rawBody;
-  const rawBody = rawBuf ? rawBuf.toString('utf8') : (typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {}));
 
-  // 1. Signature check: reject if missing signature
-  if (!rzpSig && !cfSig) {
-    logger.warn('Payment webhook rejected: missing signature header');
-    res.status(401).json({ error: 'Missing payment webhook signature' });
-    return;
-  }
-
-  const body = req.body ?? {};
-  let isValid = false;
-
-  if (rzpSig) {
-    const candidates: string[] = [];
-    const paymentLinkId = str(body.payload?.payment_link?.entity?.id || body.paymentLinkId);
-    if (paymentLinkId) {
-      try {
-        const order = await Order.findOne({ paymentLinkId }).select('merchantId').populate('merchantId', 'paymentConfig');
-        const merchant: any = order?.merchantId;
-        const pc = merchant?.paymentConfig;
-        if (pc && (pc.provider || pc.gateway) === 'razorpay') {
-          for (const field of ['webhookSecret', 'keySecret'] as const) {
-            if (pc[field]) {
-              try { candidates.push(encryptionService.decrypt(pc[field])); } catch { /* skip */ }
-            }
-          }
-        }
-      } catch (err: any) {
-        logger.warn('Failed resolving merchant secret for Razorpay webhook', { error: err.message });
-      }
-    }
-    if (config.razorpay.webhookSecret) candidates.push(config.razorpay.webhookSecret);
-
-    if (candidates.length > 0) {
-      isValid = candidates.some((s) => paymentService.verifyRazorpayWebhook(rawBody, rzpSig, s));
-    }
-  } else if (cfSig) {
-    const candidates: string[] = [];
-    const linkId = str(body.data?.link_id || body.link_id || body.data?.order?.order_id || body.order_id);
-    if (linkId) {
-      try {
-        const order = await Order.findOne({ paymentLinkId: linkId }).select('merchantId').populate('merchantId', 'paymentConfig');
-        const merchant: any = order?.merchantId;
-        const pc = merchant?.paymentConfig;
-        if (pc && (pc.provider || pc.gateway) === 'cashfree') {
-          for (const field of ['webhookSecret', 'keySecret'] as const) {
-            if (pc[field]) {
-              try { candidates.push(encryptionService.decrypt(pc[field])); } catch { /* skip */ }
-            }
-          }
-        }
-      } catch (err: any) {
-        logger.warn('Failed resolving merchant secret for Cashfree webhook', { error: err.message });
-      }
-    }
-    if (config.cashfree.clientSecret) candidates.push(config.cashfree.clientSecret);
-
-    if (candidates.length > 0) {
-      isValid = candidates.some((s) => paymentService.verifyCashfreeWebhook(rawBody, cfSig, s, cfTs));
-    }
-  }
-
-  // 2. Reject if HMAC invalid
-  if (!isValid) {
-    logger.warn('Payment webhook rejected: invalid HMAC signature', {
-      ip: req.ip,
-      hasRazorpaySig: !!rzpSig,
-      hasCashfreeSig: !!cfSig,
-    });
+  const reject = (error: string, provider?: string) => {
+    logger.warn('Payment webhook rejected', { error, provider, ip: req.ip });
     SecurityAlertService.sendCriticalAlert('INVALID_PAYMENT_HMAC_SIGNATURE', {
-      ip: req.ip,
-      path: req.originalUrl,
-      hasRazorpaySig: !!rzpSig,
-      hasCashfreeSig: !!cfSig,
-    }).catch((err) => {
-      logger.warn('Failed to dispatch security alert for payment HMAC failure', { error: err?.message });
-    });
-    res.status(401).json({ error: 'Invalid HMAC signature' });
+      ip: req.ip, path: req.originalUrl, provider, reason: error,
+      hasRazorpaySig: Boolean(rzpSig), hasCashfreeSig: Boolean(cfSig),
+    }).catch((err) => logger.warn('Failed to dispatch security alert', { error: err?.message }));
+    res.status(401).json({ error });
+  };
+
+  if ((!rzpSig && !cfSig) || !rawBuf) {
+    reject('Missing payment webhook signature');
+    return;
+  }
+  const rawBody = rawBuf.toString('utf8');
+  const body = req.body ?? {};
+  const provider: 'razorpay' | 'cashfree' = rzpSig ? 'razorpay' : 'cashfree';
+
+  const linkId = provider === 'razorpay'
+    ? str(body.payload?.payment_link?.entity?.id)
+    : str(body.data?.link_id || body.link_id);
+  if (!linkId) {
+    // Without a link id we minted, there is no merchant secret to verify against.
+    reject('Invalid HMAC signature (unknown payment link)', provider);
     return;
   }
 
-  // 3. Process payment only after verified
-  try {
-    const status = str(body.status || body.event || body.type || body.data?.link_status || body.payload?.payment?.entity?.status);
-    const isCaptured = status === 'captured' || status === 'PAID' || status === 'payment.captured' || status === 'payment_link.paid';
-
-    if (isCaptured) {
-      const orderId = str(body.orderId || body.order_id || body.payload?.payment?.entity?.order_id || body.data?.order?.order_id);
-      const paymentLinkId = str(body.paymentLinkId || body.linkId || body.data?.link_id || body.payload?.payment_link?.entity?.id);
-
-      let order: any = null;
-      if (orderId) {
-        order = await Order.findOne({ $or: [{ _id: orderId }, { externalOrderId: orderId }] });
-      }
-      if (!order && paymentLinkId) {
-        order = await Order.findOne({ paymentLinkId });
-      }
-
-      if (order && (order.status === 'rto_initiated' || order.status === 'rto' || order.rtoArrestStatus === 'TRIGGERED')) {
-        await rtoArrestService.abortRtoAndReattempt({
-          orderId: order._id.toString(),
-          reason: 'Verified payment captured via webhook',
-        });
+  const order = await Order.findOne({ $or: [{ paymentLinkId: linkId }, { depositPaymentLinkId: linkId }] })
+    .select('merchantId')
+    .populate('merchantId', 'paymentConfig');
+  // A ₹1 self-test link created from onboarding has no order: resolve its merchant directly.
+  let testMerchant: any = null;
+  if (!order) {
+    try { testMerchant = await Merchant.findOne({ 'paymentConfig.testLinkId': linkId }).select('paymentConfig'); } catch { testMerchant = null; }
+  }
+  const merchant: any = order?.merchantId || testMerchant;
+  const pc = merchant?.paymentConfig;
+  const secrets: string[] = [];
+  if (pc && (pc.provider || pc.gateway) === provider) {
+    for (const field of ['webhookSecret', 'keySecret'] as const) {
+      if (pc[field]) {
+        try { secrets.push(encryptionService.decrypt(pc[field])); } catch { /* fail closed */ }
       }
     }
+  }
 
-    res.status(200).json({ status: 'success' });
+  const isValid = secrets.length > 0 && secrets.some((s) => provider === 'razorpay'
+    ? paymentService.verifyRazorpayWebhook(rawBody, rzpSig!, s)
+    : paymentService.verifyCashfreeWebhook(rawBody, cfSig!, s, cfTs));
+
+  if (!isValid) {
+    reject('Invalid HMAC signature', provider);
+    return;
+  }
+  markWebhookSeen('PAYMENT');
+
+
+  // First correctly signed event proves the merchant's webhook + secret are set up.
+  if (!pc?.webhookVerifiedAt) {
+    try {
+      await Merchant.updateOne({ _id: merchant._id }, { $set: { 'paymentConfig.webhookVerifiedAt': new Date() } });
+    } catch (err: any) {
+      logger.warn('Could not record payment webhook verification', { error: err?.message });
+    }
+  }
+  if (testMerchant) {
+    logger.info('Payment webhook self-test verified', { merchantId: String(merchant._id), provider });
+    res.status(200).json({ status: 'verified' });
+    return;
+  }
+
+  const status = str(body.event || body.type || body.data?.link_status);
+  const isPaid = provider === 'razorpay'
+    ? status === 'payment_link.paid'
+    : (status === 'PAID' || status === 'PAYMENT_SUCCESS_WEBHOOK' || status === 'LINK_PAID' || String(body.data?.link_status || '').toUpperCase() === 'PAID');
+  if (!isPaid) {
+    res.status(200).json({ status: 'ignored', reason: 'event_not_handled' });
+    return;
+  }
+
+  const rawAmount = provider === 'razorpay'
+    ? Number(body.payload?.payment_link?.entity?.amount_paid ?? body.payload?.payment?.entity?.amount)
+    : Math.round(Number(body.data?.link_amount_paid ?? body.data?.payment?.payment_amount) * 100);
+  const amountPaidPaise = Number.isFinite(rawAmount) && rawAmount > 0 ? rawAmount : undefined;
+  // Gateway payment id (needed to refund).
+  const paymentId = provider === 'razorpay'
+    ? str(body.payload?.payment?.entity?.id)
+    : str(body.data?.payment?.cf_payment_id);
+
+  const eventId = req.get('x-razorpay-event-id') || req.get('x-webhook-id') || `${linkId}_${status}`;
+  const idemKey = IdempotencyGuard.key(`payment-${provider}`, String(merchant?._id), eventId);
+  try {
+    const claim = await IdempotencyGuard.claim(idemKey);
+    if (claim === 'duplicate') {
+      res.status(200).json({ status: 'ignored', reason: 'duplicate' });
+      return;
+    }
+  } catch (err) {
+    if (err instanceof IdempotencyUnavailableError) {
+      res.status(503).json({ error: 'Temporarily unavailable, retry later' });
+      return;
+    }
+    throw err;
+  }
+
+  try {
+    await codConversionQueue.add(
+      'confirm-payment',
+      { action: 'payment_confirmed', paymentLinkId: linkId, provider, amountPaidPaise, paymentId },
+      { jobId: makeJobId('pay', provider, linkId), attempts: 3, backoff: { type: 'exponential', delay: 5000 }, removeOnComplete: true, removeOnFail: false }
+    );
+    await IdempotencyGuard.markProcessed(idemKey);
+    res.status(200).json({ status: 'received' });
   } catch (err: any) {
-    logger.error('Error handling verified payment webhook', { error: err.message });
+    await IdempotencyGuard.release(idemKey);
+    logger.error('Error queueing verified payment webhook', { error: err.message });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

@@ -4,12 +4,12 @@
  * Eliminates un-intercepted raw fetch() calls and ensures automatic 401 redirection and retry backoff.
  */
 import api from './api';
-import type { Tier, Cycle } from '../config/pricing.config';
+import type { PlanKey, Band, Cycle } from '../config/pricing.config';
 
 export const billingApi = {
   /** Returns { orderId, subscriptionId, amountInr, currency, keyId } to open Razorpay. */
-  checkout: async (_token?: string, tier?: Tier, cycle?: Cycle) => {
-    const res = await api.post('/api/billing/checkout', { tier, cycle });
+  checkout: async (_token?: string, plan?: PlanKey, band?: Band, cycle?: Cycle) => {
+    const res = await api.post('/api/billing/checkout', { plan, band, cycle });
     return res.data;
   },
 

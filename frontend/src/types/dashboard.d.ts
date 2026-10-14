@@ -4,6 +4,9 @@ export type StorePlatform = 'shopify' | 'woocommerce' | 'custom';
 
 export type OrderStatus =
   | 'new'
+  | 'awaiting_deposit'
+  | 'awaiting_prepaid_conversion'
+  | 'confirmed'
   | 'cod_conversion_sent'
   | 'converted_to_prepaid'
   | 'shipped'

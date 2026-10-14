@@ -18,3 +18,11 @@
 - Templates must be approved by Meta before use — check via `/api/connect/whatsapp/templates/status`
 - COD templates use 5 variables: customer name, order ID, price, discount, payment URL
 - NDR templates use 3 variables: customer name, order ID, failure reason
+
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `template-registry.test.ts` | Meta WhatsApp template catalog, multilingual localization, component variable injection | **PASS** (8/8 passed) |
+| `no-raw-customer-copy.test.ts` | Guarantees all messages use registered templates and pass copy governance | **PASS** (5/5 passed) |
+

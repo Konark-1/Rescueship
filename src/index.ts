@@ -3,7 +3,9 @@ import path from 'path';
 import fs from 'fs';
 
 // Load .env at the absolute beginning
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
+if (process.env.SKIP_DOTENV !== 'true') {
+  dotenv.config({ path: path.resolve(__dirname, '../.env') });
+}
 
 import express from 'express';
 import helmet from 'helmet';
@@ -42,6 +44,7 @@ import settingsRouter from './api/settings.api';
 import templatesRouter from './api/templates.api';
 import billingRouter from './api/billing.api';
 import auditLogsRouter from './api/auditlogs.api';
+import { checkAllMerchants } from './services/connection-health.service';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -88,12 +91,12 @@ const allowedOrigins = Array.from(
 
 const isOriginAllowed = (origin: string): boolean => {
   if (allowedOrigins.includes(origin)) return true;
-  // Allow all Netlify deployments (*.netlify.app)
-  if (/^https:\/\/([a-zA-Z0-9_-]+\.)?netlify\.app$/.test(origin)) return true;
-  // Allow Render deployments (*.onrender.com)
-  if (/^https:\/\/([a-zA-Z0-9_-]+\.)?onrender\.com$/.test(origin)) return true;
-  // Allow Cloudflare tunnels
-  if (/^https:\/\/([a-zA-Z0-9_-]+\.)?trycloudflare\.com$/.test(origin)) return true;
+  // Only RescueShip's own deployments — never every tenant of a shared host
+  // (anyone can deploy to *.netlify.app or *.onrender.com).
+  if (/^https:\/\/([a-zA-Z0-9-]+--)?rescueship\.netlify\.app$/.test(origin)) return true;
+  if (/^https:\/\/rescueship(-frontend)?\.onrender\.com$/.test(origin)) return true;
+  // Dev tunnels only when explicitly enabled.
+  if (process.env.ALLOW_DEV_TUNNEL_ORIGINS === 'true' && /^https:\/\/([a-zA-Z0-9_-]+\.)?trycloudflare\.com$/.test(origin)) return true;
   return false;
 };
 
@@ -431,12 +434,9 @@ app.get('/r/pay/:id', async (req, res) => {
   }
   try {
     const { Order, Merchant } = await import('./models');
-    const { Types } = await import('mongoose');
-    const order = await Order.findOne(
-      Types.ObjectId.isValid(linkId)
-        ? { $or: [{ paymentLinkId: linkId }, { _id: linkId }] }
-        : { paymentLinkId: linkId }
-    );
+    // Only ids we minted at the gateway (never the order _id: that would let anyone
+    // enumerate orders and trigger new payment links). Deposit links resolve too.
+    const order = await Order.findOne({ $or: [{ paymentLinkId: linkId }, { depositPaymentLinkId: linkId }] });
 
     if (!order) {
       res.status(404).send('Payment link not found or expired');
@@ -444,14 +444,14 @@ app.get('/r/pay/:id', async (req, res) => {
     }
 
     // If order has already been paid and converted
-    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued') {
+    if (order.status === 'converted_to_prepaid' || order.status === 'ndr_rescued' || order.status === 'confirmed' || (order as any).paid) {
       res.status(200).send('<html><body style="font-family:sans-serif;text-align:center;padding:50px 20px;"><h2>✅ Payment Already Received</h2><p>This order has already been paid and confirmed prepaid. Your delivery is being prioritized!</p></body></html>');
       return;
     }
 
     // Check if link is expired and order is COD
     const isExpired = order.paymentLinkExpiresAt && new Date(order.paymentLinkExpiresAt).getTime() < Date.now();
-    if (isExpired && order.paymentMethod === 'cod') {
+    if (isExpired && order.paymentMethod === 'cod' && order.paymentLinkId === linkId) {
       try {
         const merchant = await Merchant.findById(order.merchantId);
         if (merchant) {
@@ -482,6 +482,9 @@ app.get('/r/pay/:id', async (req, res) => {
 app.use('/webhooks/shopify', webhookLimiter, shopifyRouter);
 app.use('/webhooks/woocommerce', webhookLimiter, woocommerceRouter);
 app.use('/webhooks/shiprocket', webhookLimiter, shiprocketRouter);
+// Shiprocket's webhook form rejects URLs containing "shiprocket", "kartrocket", "sr" or "kr",
+// so merchants paste this alias instead: /webhooks/carrier/ndr?merchant_id=<id> + x-api-key header.
+app.use('/webhooks/carrier', webhookLimiter, shiprocketRouter);
 app.use('/webhooks/clickpost', webhookLimiter, clickpostRouter);
 app.use('/webhooks/delhivery', webhookLimiter, delhiveryRouter);
 app.use('/webhooks/bluedart', webhookLimiter, bluedartRouter);
@@ -523,8 +526,8 @@ import { requireActiveSubscription } from './middleware/planGating.middleware';
 // the router level blocks expired/past-due/cancelled merchants from the
 // product (orders, analytics, realtime, AI, templates, exports, metrics, audit
 // logs) while keeping /api/billing, /api/settings, /api/auth and /api/connect
-// reachable for renewal, account access and onboarding (trial merchants pass
-// the guard via the 14-day trial fallback in subscription-guard).
+// reachable for renewal, account access and onboarding. There is no free trial:
+// merchants without an activated plan are blocked by the guard.
 for (const gatedRouter of [
   ordersRouter,
   analyticsRouter,
@@ -601,6 +604,17 @@ async function bootstrap() {
     await connectDatabase();
     await ensureIndexes();
 
+    // Autonomous connection verification & self-healing on boot
+    checkAllMerchants()
+      .then((res) => logger.info('✅ Initial merchant connection auto-verification complete', res))
+      .catch((err) => logger.warn('⚠️ Initial merchant connection auto-verification error', { error: err.message }));
+
+    // Periodic watchdog: auto-verify connections every 30 minutes in background
+    const autoVerifyInterval = setInterval(() => {
+      checkAllMerchants().catch((err) => logger.warn('⚠️ Periodic connection auto-verification error', { error: err.message }));
+    }, 30 * 60 * 1000);
+    autoVerifyInterval.unref();
+
     // 3. Connect Redis
     const redisHealthy = await connectRedis();
 
@@ -630,6 +644,8 @@ async function bootstrap() {
       forceExitTimer.unref();
 
       try {
+        clearInterval(autoVerifyInterval);
+
         // 1. Stop accepting new incoming HTTP connections
         await new Promise<void>((resolve) => {
           server.close((err) => {
@@ -645,15 +661,6 @@ async function bootstrap() {
         } catch (workerErr: any) {
           logger.warn('[SHUTDOWN] Error stopping BullMQ workers', { error: workerErr.message });
         }
-
-        // 3. Stop carrier dispatch & DLQ workers if active
-        try {
-          const { carrierDispatchWorker, carrierDlqWorker } = await import('./workers/carrier-dispatch.worker');
-          await Promise.all([
-            carrierDispatchWorker?.close(),
-            carrierDlqWorker?.close(),
-          ]);
-        } catch {}
 
         // 4. Teardown SSE Realtime connections
         try {

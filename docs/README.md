@@ -17,6 +17,9 @@
 | `GOOGLE_OAUTH_DOMAIN_SETUP.md` | Google OAuth 2.0 production setup for custom domains |
 | `PARTIAL_PAY_AND_FUTURE_PLANS.md` | Partial pay architecture & deferred roadmap strategy |
 | `PROJECT_DOCUMENTATION_REPORT.md` | Comprehensive technical & operational architecture report |
+| `FRONTEND_MCP.md` | Frontend MCP and UI developer workflow instructions |
+| `GO_LIVE.md` | Production go-live checklists and domain verification |
+| `TEST_SCRIPTS_VERIFICATION_REPORT.md` | Operational verification and test script security audit |
 
 ## Agent Cheat Sheet
 
@@ -25,3 +28,12 @@
 - **Architecture overview**: Read `PROJECT_DOCUMENTATION_REPORT.md`
 - **Sales/pitch context**: Read `CLIENT_MEETING_NOTES.md`
 - **Note**: `PROJECT_DOCUMENTATION_REPORT.md` here is identical to the root copy
+
+## 🧪 Verified Tests & Status
+
+| Test Suite | Scope | Status |
+| :--- | :--- | :---: |
+| `tests/pricing-consistency.test.ts` | Verification of pricing and value model documentation against code implementation | `PASS` ✅ |
+| `tests/scripts/verify-adversarial-fixes.ts` | Security compliance and adversarial attack verification script | `PASS` ✅ |
+| `frontend/tests/all-pages.spec.ts` | Route rendering and documentation redirection links | `PASS` ✅ |
+

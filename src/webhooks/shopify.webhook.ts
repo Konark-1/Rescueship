@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { markWebhookSeen } from '../utils/webhook-heartbeat';
 import { Queue } from 'bullmq';
 import crypto from 'crypto';
 import { redisConnection } from '../config/redis';
@@ -41,6 +42,177 @@ function verifyShopifyHmacForMerchant(rawBody: Buffer, headerSig: string, mercha
   return false;
 }
 
+const COMPLIANCE_TOPICS = new Set(['customers/data_request', 'customers/redact', 'shop/redact']);
+const TERMINAL_STATUSES = ['delivered', 'returned', 'rto', 'cancelled'] as const;
+const PRE_SHIP_STATUSES = ['new', 'confirmed', 'converted_to_prepaid'] as const;
+
+function trackingNumbersOf(f: any): string[] {
+  const out = new Set<string>();
+  if (f?.tracking_number) out.add(String(f.tracking_number).trim());
+  if (Array.isArray(f?.tracking_numbers)) f.tracking_numbers.forEach((t: unknown) => t && out.add(String(t).trim()));
+  return [...out].filter((t) => t && t.length <= 64);
+}
+
+/** Store order name (#1001) and number so carrier webhooks that send the channel order id still match. */
+function orderIdentity(body: any) {
+  return {
+    externalOrderName: body?.name ? String(body.name).slice(0, 64) : null,
+    externalOrderNumber: body?.order_number !== undefined && body?.order_number !== null ? String(body.order_number).slice(0, 32) : null,
+  };
+}
+
+/**
+ * Link Shopify fulfillments (tracking numbers) to our order so carrier NDR events can be
+ * matched by AWB, and un-quarantine shipments that arrived before the order.
+ */
+async function linkFulfillments(merchantId: any, externalOrderId: string, orderNumber: string | null, fulfillments: any[]): Promise<number> {
+  let linked = 0;
+  for (const f of fulfillments || []) {
+    if (f?.status && ['cancelled', 'error', 'failure'].includes(String(f.status))) continue;
+    for (const awb of trackingNumbersOf(f)) {
+      try {
+        const res = await Order.updateOne(
+          { merchantId, externalOrderId, $or: [{ awb: null }, { awb: { $exists: false } }] },
+          { $set: { awb } }
+        );
+        if (res.modifiedCount) {
+          linked++;
+          await Order.updateOne({ merchantId, externalOrderId, status: { $in: [...PRE_SHIP_STATUSES] } }, { $set: { status: 'shipped' } });
+        }
+      } catch (err: any) {
+        // 11000: this AWB already belongs to another order of the merchant; leave both untouched.
+        logger.warn('Could not link Shopify fulfillment AWB to order', { merchantId, externalOrderId, awb, error: err?.code || err?.message });
+      }
+      try {
+        const { Shipment } = require('../models');
+        const quarantined = await Shipment.findOne({ merchantId, awbNumber: awb });
+        if (quarantined) {
+          quarantined.shopifyOrderId = externalOrderId;
+          quarantined.orderNumber = String(orderNumber || externalOrderId);
+          const order = await Order.findOne({ merchantId, externalOrderId }, { _id: 1 });
+          if (order && !quarantined.orderId) quarantined.orderId = order._id;
+          if (quarantined.isQuarantined) {
+            quarantined.isQuarantined = false;
+            quarantined.quarantineReason = null;
+          }
+          await quarantined.save();
+          logger.info('Auto-reconciled quarantined shipment from Shopify fulfillment', { awb, externalOrderId });
+        }
+      } catch (shipmentReconcileErr: any) {
+        logger.warn('Failed to auto-reconcile quarantined shipment', { error: shipmentReconcileErr?.message });
+      }
+    }
+  }
+  return linked;
+}
+
+async function cancelOrder(merchantId: any, externalOrderId: string, reason: string): Promise<boolean> {
+  const res = await Order.updateOne(
+    { merchantId, externalOrderId, status: { $nin: [...TERMINAL_STATUSES] } },
+    { $set: { status: 'cancelled' } }
+  );
+  if (res.modifiedCount) {
+    await AuditLog.create({ merchantId, action: 'order_cancelled_on_platform', source: 'shopify', payload: { externalOrderId, reason }, status: 'success' });
+    try {
+      const order: any = await Order.findOne({ merchantId, externalOrderId }, { _id: 1 });
+      if (order?._id) {
+        const { refundService } = require('../services/refund.service');
+        await refundService.flagIfPaid(order._id, 'cancelled_on_shopify');
+      }
+    } catch (err: any) {
+      logger.warn('Refund flag check failed after Shopify cancellation', { externalOrderId, error: err?.message });
+    }
+  }
+  return res.modifiedCount > 0;
+}
+
+async function redactOrders(filter: Record<string, unknown>): Promise<number> {
+  const res = await Order.updateMany({ ...filter, piiAnonymized: { $ne: true } }, {
+    $set: {
+      customerPhone: 'REDACTED',
+      customerName: 'REDACTED',
+      shippingAddress: 'REDACTED',
+      'customer.phone': 'REDACTED',
+      'customer.name': 'REDACTED',
+      'customer.address': 'REDACTED',
+      piiAnonymized: true,
+    },
+  } as any);
+  return res.modifiedCount || 0;
+}
+
+/**
+ * Non-order topics: fulfillments, cancellations, uninstall and GDPR compliance.
+ * Returns the JSON body to send (always 200 once verified).
+ */
+async function handleLifecycleTopic(topic: string, merchant: any, body: any, shopDomain: string): Promise<Record<string, unknown>> {
+  const merchantId = merchant._id;
+  switch (topic) {
+    case 'orders/updated': {
+      const externalOrderId = String(body.id ?? '');
+      if (!externalOrderId) return { status: 'ignored', reason: 'no_order_id' };
+      if (body.cancelled_at) {
+        const cancelled = await cancelOrder(merchantId, externalOrderId, String(body.cancel_reason || 'cancelled'));
+        return { status: cancelled ? 'cancelled' : 'ignored' };
+      }
+      const identity = orderIdentity(body);
+      await Order.updateOne({ merchantId, externalOrderId, externalOrderName: null }, { $set: identity });
+      const linked = await linkFulfillments(merchantId, externalOrderId, identity.externalOrderNumber, body.fulfillments || []);
+      return { status: 'updated', linked };
+    }
+    case 'orders/cancelled': {
+      const cancelled = await cancelOrder(merchantId, String(body.id ?? ''), String(body.cancel_reason || 'cancelled'));
+      return { status: cancelled ? 'cancelled' : 'ignored' };
+    }
+    case 'fulfillments/create':
+    case 'fulfillments/update': {
+      const externalOrderId = String(body.order_id ?? '');
+      if (!externalOrderId) return { status: 'ignored', reason: 'no_order_id' };
+      const linked = await linkFulfillments(merchantId, externalOrderId, null, [body]);
+      return { status: 'fulfillment_linked', linked };
+    }
+    case 'app/uninstalled': {
+      await Merchant.updateOne({ _id: merchantId }, {
+        $set: {
+          'shopify.uninstalledAt': new Date(),
+          'shopify.webhooksRegistered': false,
+          'connections.shopify.status': 'disconnected',
+          'connections.shopify.lastError': 'RescueShip was uninstalled from the Shopify store',
+        },
+        // Keep apiSecret so the follow-up shop/redact webhook can still be verified.
+        $unset: { 'shopify.accessToken': 1, 'shopify.tokenExpiresAt': 1 },
+      });
+      await AuditLog.create({ merchantId, action: 'shopify_app_uninstalled', source: 'shopify', payload: { shopDomain }, status: 'success' });
+      return { status: 'uninstalled' };
+    }
+    case 'customers/data_request': {
+      // The merchant must send the customer their data; record the request for follow-up.
+      await AuditLog.create({
+        merchantId, action: 'gdpr_customer_data_request', source: 'shopify',
+        payload: { shopDomain, customerId: body.customer?.id, ordersRequested: body.orders_requested, dataRequestId: body.data_request?.id, requiresMerchantAction: true },
+        status: 'success',
+      });
+      return { status: 'recorded' };
+    }
+    case 'customers/redact': {
+      const ids: string[] = Array.isArray(body.orders_to_redact) ? body.orders_to_redact.map((x: unknown) => String(x)) : [];
+      const or: Record<string, unknown>[] = [];
+      if (ids.length) or.push({ externalOrderId: { $in: ids } });
+      if (body.customer?.phone) or.push({ customerPhone: normalizeIndianPhone(String(body.customer.phone)) });
+      const redacted = or.length ? await redactOrders({ merchantId, $or: or }) : 0;
+      await AuditLog.create({ merchantId, action: 'gdpr_customer_redact', source: 'shopify', payload: { shopDomain, customerId: body.customer?.id, orders: ids.length, redacted }, status: 'success' });
+      return { status: 'redacted', redacted };
+    }
+    case 'shop/redact': {
+      const redacted = await redactOrders({ merchantId });
+      await AuditLog.create({ merchantId, action: 'gdpr_shop_redact', source: 'shopify', payload: { shopDomain, redacted }, status: 'success' });
+      return { status: 'redacted', redacted };
+    }
+    default:
+      return { status: 'ignored', reason: 'topic_not_handled' };
+  }
+}
+
 /**
  * POST /webhooks/shopify
  *
@@ -68,6 +240,12 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
     $or: [{ 'shopify.shopDomain': shopDomain }, { 'platformConfig.shopifyDomain': shopDomain }],
   }).select('_id shopify.apiSecret shopify.shopDomain platformConfig.shopifyDomain');
 
+  if (!merchant && COMPLIANCE_TOPICS.has(topic) && verifyShopifyHmacForMerchant(rawBody, headerSig, null)) {
+    // Store already removed from RescueShip: nothing left to redact, but Shopify needs a 200.
+    logger.info('Shopify compliance webhook for unknown store acknowledged', { shopDomain, topic });
+    res.status(200).json({ status: 'ignored', reason: 'unknown_store' });
+    return;
+  }
   if (!merchant) {
     logger.warn('Shopify webhook rejected: unknown store', { shopDomain });
     res.status(401).json({ error: 'Unknown Shopify store' });
@@ -80,6 +258,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
     res.status(401).json({ error: 'Invalid HMAC signature' });
     return;
   }
+  markWebhookSeen('SHOPIFY');
 
   const merchantId = merchant._id;
   const body = req.body ?? {};
@@ -105,9 +284,11 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
   }
 
   try {
-    // Only order creation drives COD conversion. Other topics are acknowledged.
+    // Only order creation drives COD conversion; lifecycle topics keep our copy in sync.
     if (!topic.startsWith('orders/create')) {
-      res.status(200).json({ status: 'ignored', reason: 'topic_not_handled' });
+      const result = await handleLifecycleTopic(topic, merchant, body, shopDomain);
+      await IdempotencyGuard.markProcessed(idemKey);
+      res.status(200).json(result);
       return;
     }
 
@@ -147,37 +328,14 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           shippingCity: city,
           shippingState: province,
           shippingAddress: body.shipping_address || body.billing_address || null,
+          ...orderIdentity(body),
           failureSource: 'NONE',
           attemptCount: 0,
           status: 'new',
         });
         await Merchant.updateOne({ _id: merchantId }, { $inc: { 'billing.currentMonthOrders': 1 } });
       } catch { /* already exists */ }
-
-      // Auto-reconcile any quarantined shipments matching fulfillments in this order
-      if (Array.isArray(body.fulfillments)) {
-        for (const f of body.fulfillments) {
-          const awb = f.tracking_number || (f.tracking_numbers && f.tracking_numbers[0]);
-          if (awb) {
-            try {
-              const { Shipment } = require('../models');
-              const quarantined = await Shipment.findOne({ merchantId, awbNumber: awb });
-              if (quarantined) {
-                quarantined.shopifyOrderId = externalOrderId;
-                quarantined.orderNumber = String(body.order_number || body.name || externalOrderId);
-                if (quarantined.isQuarantined) {
-                  quarantined.isQuarantined = false;
-                  quarantined.quarantineReason = null;
-                }
-                await quarantined.save();
-                logger.info('Auto-reconciled quarantined shipment on Shopify prepaid order arrival', { awb, externalOrderId });
-              }
-            } catch (shipmentReconcileErr: any) {
-              logger.warn('Failed to auto-reconcile quarantined shipment for prepaid order', { error: shipmentReconcileErr?.message });
-            }
-          }
-        }
-      }
+      await linkFulfillments(merchantId, externalOrderId, orderIdentity(body).externalOrderNumber, body.fulfillments || []);
 
       try {
         await WebhookEvent.create({
@@ -221,31 +379,6 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
 
     const externalOrderId = String(body.id);
 
-    // Auto-reconcile any quarantined shipments matching fulfillments in this order
-    if (Array.isArray(body.fulfillments)) {
-      for (const f of body.fulfillments) {
-        const awb = f.tracking_number || (f.tracking_numbers && f.tracking_numbers[0]);
-        if (awb) {
-          try {
-            const { Shipment } = require('../models');
-            const quarantined = await Shipment.findOne({ merchantId, awbNumber: awb });
-            if (quarantined) {
-              quarantined.shopifyOrderId = externalOrderId;
-              quarantined.orderNumber = String(body.order_number || body.name || externalOrderId);
-              if (quarantined.isQuarantined) {
-                quarantined.isQuarantined = false;
-                quarantined.quarantineReason = null;
-              }
-              await quarantined.save();
-              logger.info('Auto-reconciled quarantined shipment on Shopify order arrival', { awb, externalOrderId });
-            }
-          } catch (shipmentReconcileErr: any) {
-            logger.warn('Failed to auto-reconcile quarantined shipment', { error: shipmentReconcileErr?.message });
-          }
-        }
-      }
-    }
-
     await codConversionQueue.add(
       'convert-cod',
       {
@@ -262,6 +395,7 @@ router.post(['/', '/order-created'], async (req: Request, res: Response): Promis
           city: body.shipping_address?.city || body.billing_address?.city || undefined,
           state: body.shipping_address?.province || body.billing_address?.province || undefined,
           shippingAddress: body.shipping_address || body.billing_address || undefined,
+          ...orderIdentity(body),
         },
       },
       {

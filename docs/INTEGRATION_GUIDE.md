@@ -75,7 +75,7 @@ RescueShip supports India's top 8 logistics networks and aggregators (Shiprocket
 
 1. **Webhook Endpoint Template**:
    `https://rescueship.onrender.com/webhooks/<carrier>/ndr?merchant_id=<your_merchant_id>`
-   *(e.g., `/webhooks/shiprocket/ndr?merchant_id=650000000000000000000001`)*
+   *(e.g., `/webhooks/carrier/ndr?merchant_id=650000000000000000000001`)*
 2. **Authentication**:
    Configure the webhook secret in your carrier dashboard and pass either:
    - Header `x-api-key: <merchant_carrier_secret>`, or

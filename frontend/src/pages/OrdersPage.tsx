@@ -540,14 +540,11 @@ export const OrdersPage: React.FC = () => {
 
               <div className="modal__foot" style={{ marginTop: 'var(--space-4)', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
                 <button className="btn btn-ghost" onClick={closeModal}>Close</button>
-                <button
-                  className="btn btn-primary"
-                  disabled={metaTier.isLimitReached}
-                  title={metaTier.isLimitReached ? "Daily Meta Tier Limit Reached. Rescues paused until 00:00 IST to protect your WABA reputation." : undefined}
-                  onClick={() => alert('Re-triggering WhatsApp Bot for ' + selectedOrder.orderId)}
-                >
-                  {metaTier.isLimitReached ? 'Rescue Bot Paused (Tier Limit)' : 'Re-trigger rescue bot'}
-                </button>
+                {metaTier.isLimitReached && (
+                  <span style={{ color: 'var(--text-3)', fontSize: '0.8rem', alignSelf: 'center' }}>
+                    Rescues paused until 00:00 IST (daily Meta tier limit).
+                  </span>
+                )}
               </div>
             </DialogContent>
           )}

@@ -276,10 +276,10 @@ describe('🛡️ 5 INVISIBLE ENTERPRISE VECTORS VERIFICATION SUITE', () => {
       expect(mockQueuedJobs[1].data.merchantId).toBe('650000000000000000000002');
     });
 
-    it('1.2: should drop duplicate retry storm webhooks for the same merchant and AWB', async () => {
+    it('1.2: asks the carrier to retry (503) while another worker holds the same merchant+AWB lock', async () => {
       const awb = 'AWB-STORM-SAME-TENANT';
 
-      // Simulate active lock already held for this merchant + AWB
+      // Simulate an active lock that stays held for this merchant + AWB
       const activeLockKey = `lock:ndr:650000000000000000000001:shiprocket:${awb}`;
       redisStore.set(activeLockKey, 'worker-token-active');
 
@@ -288,14 +288,10 @@ describe('🛡️ 5 INVISIBLE ENTERPRISE VECTORS VERIFICATION SUITE', () => {
         .set('x-api-key', 'secret_alpha')
         .send({ awb, order_id: 'ORD-A-2' });
 
-      expect(res.status).toBe(200);
-      expect(res.body).toEqual({
-        status: 'ignored',
-        reason: 'duplicate_lock_active',
-        lockKey: activeLockKey,
-      });
-      // No job queued
+      // Never ack with 200 an event we did not process: the carrier retries later.
+      expect(res.status).toBe(503);
       expect(mockQueuedJobs.length).toBe(0);
+      redisStore.delete(activeLockKey);
     });
   });
 

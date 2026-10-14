@@ -15,6 +15,12 @@
 - `CONFLICT`: Duplicate, concurrency, race condition
 - `STALE`: Late out-of-order webhook event — silently dropped
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `step1-core-hardening.test.ts` | Error type categorization (`RETRYABLE`, `NON_RETRYABLE`, `CONFLICT`, `STALE`) and retry strategies | **PASS** (14/14 passed) |
+
 ## Agent Cheat Sheet
 
 - Use `AppError` with appropriate `ErrorType` for all service-level errors

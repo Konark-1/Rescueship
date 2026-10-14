@@ -1,5 +1,5 @@
 import { useState, useId } from 'react';
-import { AVG_RESCUE_VALUE, tierForOrders } from '../../config/pricing.config';
+import { estimate, recommendedPlan, planByKey } from '../../config/pricing.config';
 import { Calculator } from 'lucide-react';
 
 export interface RoiCalculatorProps {
@@ -15,10 +15,12 @@ export function RoiCalculator({ orders, onOrdersChange }: RoiCalculatorProps) {
   const codSliderId = useId();
   const rtoSliderId = useId();
 
-  const failures = Math.round(orders * (codShare / 100) * (rtoRate / 100));
-  const rescued = Math.round(failures * 0.6);
-  const savings = rescued * AVG_RESCUE_VALUE;
-  const plan = tierForOrders(orders);
+  const metrics = { codPct: codShare / 100, codRtoRate: rtoRate / 100 };
+  const plan = planByKey(recommendedPlan(orders, metrics));
+  const e = estimate(orders, metrics, plan.key);
+  const failures = e.rtos;
+  const rescued = e.rtosAvoided;
+  const savings = e.saved;
 
   return (
     <section id="calculator" className="roi" aria-labelledby="roi-heading">
@@ -111,19 +113,19 @@ export function RoiCalculator({ orders, onOrdersChange }: RoiCalculatorProps) {
             <div className="roi__out-stats">
               <div className="roi__out-row">
                 <span className="roi__out-metric">~{failures}</span>
-                <span className="roi__out-label">failed deliveries intercepted / month</span>
+                <span className="roi__out-label">COD parcels coming back / month (≈ ₹{e.burn.toLocaleString('en-IN')} burnt)</span>
               </div>
 
               <div className="roi__out-row">
                 <span className="roi__out-metric">~{rescued}</span>
-                <span className="roi__out-label">rescued at a typical 60% rescue rate</span>
+                <span className="roi__out-label">fewer RTOs with {plan.name} (≈{Math.round(plan.reduction * 100)}%, conservative)</span>
               </div>
             </div>
 
             <div className="roi__out-savings">
               <span className="roi__out-curr">₹</span>
               <span className="roi__out-amount">{savings.toLocaleString('en-IN')}</span>
-              <span className="roi__out-subtext">freight saved / month</span>
+              <span className="roi__out-subtext">saved / month (freight + packaging + ad spend)</span>
             </div>
 
             <div className="roi__out-plan">

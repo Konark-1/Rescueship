@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, AlertTriangle, Activity } from 'lucide-react';
+import { ShieldCheck, AlertTriangle } from 'lucide-react';
 
 interface SystemHealthRibbonProps {
   metaTier: {
@@ -39,7 +39,7 @@ export const SystemHealthRibbon: React.FC<SystemHealthRibbonProps> = ({
           aria-hidden="true"
         />
         <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-          <ShieldCheck size={14} /> WABA Quality: {isCritical ? 'Throttled' : isWarning ? 'Warning' : 'Healthy'}
+          <ShieldCheck size={14} /> Daily WhatsApp limit: {isCritical ? 'Paused' : isWarning ? 'Near limit' : 'OK'}
         </span>
       </div>
 
@@ -73,11 +73,7 @@ export const SystemHealthRibbon: React.FC<SystemHealthRibbonProps> = ({
           <span style={{ color: 'var(--amber)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             <AlertTriangle size={14} /> DLQ: {dlqFailedCount} anomalous jobs
           </span>
-        ) : (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--text-3)' }}>
-            <Activity size={14} /> Queues Active · 0 DLQ
-          </span>
-        )}
+        ) : null}
       </div>
     </aside>
   );

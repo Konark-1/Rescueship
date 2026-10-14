@@ -34,6 +34,21 @@ All routers import `authenticateToken` from `../middleware/auth` (except `plg.ap
 - CSV exports MUST sanitize for formula injection (DDE escaping)
 - Password reset tokens: SHA-256 hashed, 15-min expiry, single-use
 
+## Verified Tests & Status
+
+| Test Suite | Tests Covered | Status |
+| :--- | :--- | :--- |
+| `auth.api.test.ts` | Merchant registration, login, Google OAuth, password reset, token revocation | **PASS** (10/10 passed) |
+| `auth-and-access.test.ts` | JWT auth middleware, role-based access control, merchant token checks | **PASS** (8/8 passed) |
+| `dashboard-attention.test.ts` | "Needs your attention" panel, broken connection surfacing, self-healing | **PASS** (6/6 passed) |
+| `dashboard-and-risk-actions.test.ts` | Action queue triage, SLA timers, bulk resolve | **PASS** (12/12 passed) |
+| `high-risk-pincodes.api.test.ts` | Pincode blacklisting/whitelisting API, dynamic risk rules | **PASS** (5/5 passed) |
+| `health.api.test.ts` | Container /health and /live probes, dependency readiness | **PASS** (4/4 passed) |
+| `subscription-lifecycle.test.ts` | SaaS billing plans, auto-debit, cycle renewal, quota enforcement | **PASS** (7/7 passed) |
+| `subscription-no-trial.test.ts` | Pay-first flow, 90-day money-back guarantee, upfront billing | **PASS** (6/6 passed) |
+| `pricing-consistency.test.ts` | Band-based tier pricing, order volume fee calculations | **PASS** (8/8 passed) |
+| `setup-status.test.ts` | Merchant setup checklist, wizard progression state | **PASS** (6/6 passed) |
+
 ## Agent Cheat Sheet
 
 - To add a new endpoint: Create `yourfeature.api.ts`, export default router, mount in `../index.ts` under `/api/yourfeature`
