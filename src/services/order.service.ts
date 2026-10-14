@@ -1011,7 +1011,7 @@ export class OrderService {
     discount?: number
   ): Promise<{ linkId: string; shortUrl: string } | null> {
     const { canOfferOnlinePayment } = require('./payment-guard');
-    const guard = canOfferOnlinePayment(order, merchant);
+    const guard = canOfferOnlinePayment(order, merchant, true);
     if (!guard.ok) {
       logger.info('Retention payment link not generated (payment guard)', { orderId: order?._id, reason: guard.reason });
       return null;
@@ -1111,10 +1111,16 @@ export class OrderService {
 
       if (paymentLink?.linkId) {
         order.paymentLinkId = paymentLink.linkId;
+        order.paymentLinkUrl = paymentLink.shortUrl;
         if (!order.codConversion) order.codConversion = {} as any;
         order.codConversion.paymentLinkId = paymentLink.linkId;
+        order.codConversion.shortUrl = paymentLink.shortUrl;
         order.codConversion.incentiveOffered = computedDiscount;
+        if (!order.ndr) order.ndr = {} as any;
+        order.ndr.retentionFinalAmount = computedFinalAmount;
+        order.ndr.retentionDiscount = computedDiscount;
         if (typeof order.save === 'function') await order.save();
+        else await Order.findByIdAndUpdate(order._id, { $set: order });
       }
 
       return paymentLink;

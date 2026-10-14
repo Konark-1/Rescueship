@@ -143,14 +143,14 @@ export class AddressCorrectionService {
     } else {
       order = await Order.findOne({
         customerPhone: normalizedPhone,
-        status: 'ndr_rescue_sent',
+        status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
         'ndr.addressUpdate.collectionState': { $in: ['awaiting_location', 'idle', 'address_update_started'] },
       }).sort({ updatedAt: -1 });
 
       if (!order) {
         order = await Order.findOne({
           customerPhone: normalizedPhone,
-          status: 'ndr_rescue_sent',
+          status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
         }).sort({ updatedAt: -1 });
       }
     }
@@ -309,14 +309,14 @@ export class AddressCorrectionService {
     } else {
       order = await Order.findOne({
         customerPhone: normalizedPhone,
-        status: 'ndr_rescue_sent',
+        status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
         'ndr.addressUpdate.collectionState': 'awaiting_text',
       }).sort({ updatedAt: -1 });
 
       if (!order) {
         order = await Order.findOne({
           customerPhone: normalizedPhone,
-          status: 'ndr_rescue_sent',
+          status: { $in: ['ndr_rescue_sent', 'ndr_rescued'] },
           'ndr.customerResponse': 'address_update_started',
         }).sort({ updatedAt: -1 });
       }

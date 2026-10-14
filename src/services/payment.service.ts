@@ -346,6 +346,52 @@ export class PaymentService {
       return false;
     }
   }
+
+  /**
+   * Directly queries the gateway API to check payment link status.
+   * Enables 100% autonomous payment verification using ONLY the merchant's onboarding keys,
+   * without requiring the merchant to have configured webhooks in their gateway dashboard.
+   */
+  public async getPaymentLinkStatus(
+    provider: 'razorpay' | 'cashfree',
+    linkId: string,
+    merchantConfig?: PaymentConfig
+  ): Promise<{ paid: boolean; status: string; amountPaidPaise?: number }> {
+    if (provider === 'razorpay') {
+      const keyId = merchantConfig?.keyId;
+      const keySecret = merchantConfig?.keySecret;
+      if (!keyId || !keySecret) {
+        throw new Error('Merchant Razorpay credentials not configured');
+      }
+      const auth = Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+      const { data } = await axios.get(`https://api.razorpay.com/v1/payment_links/${encodeURIComponent(linkId)}`, {
+        headers: { Authorization: `Basic ${auth}` },
+        timeout: 10000,
+      });
+      const isPaid = data?.status === 'paid';
+      const amountPaidPaise = data?.amount_paid || (isPaid ? data?.amount : 0);
+      return { paid: isPaid, status: data?.status || 'unknown', amountPaidPaise };
+    } else {
+      const clientId = merchantConfig?.clientId;
+      const clientSecret = merchantConfig?.clientSecret;
+      if (!clientId || !clientSecret) {
+        throw new Error('Merchant Cashfree credentials not configured');
+      }
+      const env = process.env.CASHFREE_ENV || (config.server.nodeEnv === 'production' ? 'production' : 'sandbox');
+      const base = env === 'production' ? 'https://api.cashfree.com/pg' : 'https://sandbox.cashfree.com/pg';
+      const { data } = await axios.get(`${base}/links/${encodeURIComponent(linkId)}`, {
+        headers: {
+          'x-client-id': clientId,
+          'x-client-secret': clientSecret,
+          'x-api-version': config.cashfree.apiVersion || '2023-08-01',
+        },
+        timeout: 10000,
+      });
+      const isPaid = data?.link_status === 'PAID';
+      const amountPaidPaise = Math.round((Number(data?.link_amount_paid || data?.link_amount) || 0) * 100);
+      return { paid: isPaid, status: data?.link_status || 'unknown', amountPaidPaise };
+    }
+  }
 }
 
 export const paymentService = PaymentService.getInstance();

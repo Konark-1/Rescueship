@@ -256,7 +256,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     const activeCase = await NdrCase.findOne({
       merchantId: merchant._id,
       customerPhone: { $in: fromCandidates },
-      status: { $in: ['OPEN', 'WAITING_CUSTOMER', 'CUSTOMER_RESPONDED'] },
+      status: { $in: ['OPEN', 'WAITING_CUSTOMER', 'CUSTOMER_RESPONDED', 'ADDRESS_RECEIVED', 'LOCATION_RECEIVED', 'REATTEMPT_REQUESTED'] },
     }).sort({ createdAt: -1 });
 
     // Save inbound message log
@@ -277,7 +277,7 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
       const hasActiveOrder = await Order.exists({
         merchantId: merchant._id,
         customerPhone: { $in: fromCandidates },
-        status: { $in: ['ndr_rescue_sent', 'cod_conversion_sent', 'out_for_delivery'] },
+        status: { $in: ['ndr_rescue_sent', 'ndr_detected', 'ndr_rescued', 'cod_conversion_sent', 'awaiting_deposit', 'awaiting_prepaid_conversion', 'out_for_delivery', 'shipped'] },
       });
 
       if (!hasActiveOrder) {
@@ -313,33 +313,56 @@ router.post('/', async (req: Request, res: Response): Promise<void> => {
     }
 
     // ─── 7. Resolve Order and Dispatch ───
-    const result = await rescueMatchingService.resolveInbound(merchantId, parsed.from);
+    let resolvedOrder: any = null;
 
-    if (result.ambiguous) {
-      const waConfig = {
-        phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
-        accessToken: merchant.whatsappConfig?.accessToken ? encryptionService.decrypt(merchant.whatsappConfig.accessToken) : undefined,
-        businessAccountId: merchant.whatsappConfig?.businessAccountId,
-      };
-      await whatsAppService.sendText(parsed.from, rescueMatchingService.disambiguationMessage(result.candidates!), waConfig);
-      await redisConnection.set(`wa_disambig:${merchantId}:${normalizedFrom}`, JSON.stringify(result.candidates), 'EX', 600);
-      return;
-    }
-
-    if (!result.matched) {
-      const pending = await redisConnection.get(`wa_disambig:${merchantId}:${normalizedFrom}`);
-      if (pending && /^\d+$/.test((parsed.text || '').trim())) {
-        const frozen = JSON.parse(pending) as MatchCandidate[];
-        const r2 = await rescueMatchingService.resolveByReference(merchantId, parsed.from, parsed.text!.trim(), frozen);
-        if (r2.matched) {
-          await dispatchOrder(r2.order, parsed);
-          return;
+    if (parsed.type === 'button' && parsed.buttonPayload) {
+      const parsedBtn = ndrService.parseButtonPayload(parsed.buttonPayload);
+      if (parsedBtn?.orderId) {
+        try {
+          resolvedOrder = await Order.findOne({
+            $or: [{ _id: parsedBtn.orderId }, { externalOrderId: parsedBtn.orderId }],
+            merchantId: merchant._id,
+          });
+          if (resolvedOrder) {
+            logger.info('Resolved order directly from button payload', { orderId: resolvedOrder._id, buttonPayload: parsed.buttonPayload });
+          }
+        } catch {
+          // Fall back to heuristic phone matching
         }
       }
-      return;
     }
 
-    await dispatchOrder(result.order, parsed);
+    if (!resolvedOrder) {
+      const result = await rescueMatchingService.resolveInbound(merchantId, parsed.from);
+
+      if (result.ambiguous) {
+        const waConfig = {
+          phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
+          accessToken: merchant.whatsappConfig?.accessToken ? encryptionService.decrypt(merchant.whatsappConfig.accessToken) : undefined,
+          businessAccountId: merchant.whatsappConfig?.businessAccountId,
+        };
+        await whatsAppService.sendText(parsed.from, rescueMatchingService.disambiguationMessage(result.candidates!), waConfig);
+        await redisConnection.set(`wa_disambig:${merchantId}:${normalizedFrom}`, JSON.stringify(result.candidates), 'EX', 600);
+        return;
+      }
+
+      if (!result.matched) {
+        const pending = await redisConnection.get(`wa_disambig:${merchantId}:${normalizedFrom}`);
+        if (pending && /^\d+$/.test((parsed.text || '').trim())) {
+          const frozen = JSON.parse(pending) as MatchCandidate[];
+          const r2 = await rescueMatchingService.resolveByReference(merchantId, parsed.from, parsed.text!.trim(), frozen);
+          if (r2.matched) {
+            await dispatchOrder(r2.order, parsed);
+            return;
+          }
+        }
+        return;
+      }
+
+      resolvedOrder = result.order;
+    }
+
+    await dispatchOrder(resolvedOrder, parsed);
   } catch (err: any) {
     logger.error('Error handling incoming WhatsApp webhook event', { error: err.message, merchantId });
     await IdempotencyGuard.release(idempotencyKey);

@@ -19,7 +19,7 @@ import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { logger } from '../utils/logger';
 
 const SESSION_WINDOW_MS = 24 * 60 * 60 * 1000;
-const ACTIVE_STATUSES: ('new' | 'cod_conversion_sent' | 'converted_to_prepaid' | 'shipped' | 'ndr_detected' | 'ndr_rescue_sent' | 'ndr_rescued' | 'out_for_delivery' | 'delivered' | 'rto')[] = ['ndr_rescue_sent', 'cod_conversion_sent', 'out_for_delivery'];
+const ACTIVE_STATUSES: ('new' | 'cod_conversion_sent' | 'converted_to_prepaid' | 'shipped' | 'ndr_detected' | 'ndr_rescue_sent' | 'ndr_rescued' | 'out_for_delivery' | 'delivered' | 'rto')[] = ['ndr_rescue_sent', 'ndr_detected', 'ndr_rescued', 'cod_conversion_sent', 'out_for_delivery', 'shipped'];
 
 export interface MatchCandidate { orderId: string; externalOrderId: string; productHint: string; }
 export interface MatchResult { matched: boolean; ambiguous: boolean; order?: any; candidates?: MatchCandidate[]; }

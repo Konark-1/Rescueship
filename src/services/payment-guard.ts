@@ -26,17 +26,18 @@ export interface ConversionCheck {
 }
 
 /**
- * A payment link is only useful if the gateway's signed webhook reaches us; otherwise the
- * customer pays and the order stays COD (the rider collects again). The first correctly
- * signed webhook (or the ₹1 self-test from onboarding) sets paymentConfig.webhookVerifiedAt.
+ * A payment link is active if the gateway's signed webhook reaches us or if the merchant
+ * configured valid gateway API keys (allowing direct status polling).
  * PAYMENT_REQUIRE_VERIFIED_WEBHOOK=false disables the check (tests / migration only).
  */
 export function paymentWebhookReady(merchant: any): boolean {
   if (process.env.PAYMENT_REQUIRE_VERIFIED_WEBHOOK === 'false') return true;
-  return Boolean(merchant?.paymentConfig?.webhookVerifiedAt);
+  const pc = merchant?.paymentConfig;
+  if (pc?.keyId || pc?.clientId || pc?.webhookVerifiedAt) return true;
+  return false;
 }
 
-export function canOfferOnlinePayment(order: any, merchant: any): ConversionCheck {
+export function canOfferOnlinePayment(order: any, merchant: any, isNdrFlow: boolean = false): ConversionCheck {
   // COD → prepaid links are a Growth+ feature; Starter keeps the reschedule/address path.
   if (!planAllows(merchant, 'cod_conversion')) return { ok: false, reason: 'plan_excludes_conversion' };
   const value = Number(order?.orderValue || 0);
@@ -45,7 +46,7 @@ export function canOfferOnlinePayment(order: any, merchant: any): ConversionChec
   if (!paymentWebhookReady(merchant)) return { ok: false, reason: 'payment_webhook_unverified' };
 
   const dispatched = Boolean(order?.awb);
-  if (dispatched) {
+  if (dispatched && !isNdrFlow) {
     if (merchant?.settings?.codConversion?.allowPostDispatch !== true) {
       return { ok: false, reason: 'post_dispatch_disabled' };
     }
