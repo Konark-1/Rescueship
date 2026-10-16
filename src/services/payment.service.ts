@@ -60,13 +60,13 @@ export class PaymentService {
    * Razorpay Link Generation
    */
   private async createRazorpayLink(params: PaymentLinkParams, merchantConfig?: PaymentConfig): Promise<PaymentLinkResult> {
-    // Customer payments go ONLY to the merchant's own gateway account. Never fall back to
-    // platform keys: that would collect the merchant's money into RescueShip's account.
-    const keyId = merchantConfig?.keyId;
-    const keySecret = merchantConfig?.keySecret;
+    // If merchant brought their own keys, use them (Direct Gateway).
+    // Otherwise, fall back to RescueShip master gateway for Managed Settlement.
+    const keyId = merchantConfig?.keyId || config.razorpay?.keyId;
+    const keySecret = merchantConfig?.keySecret || config.razorpay?.keySecret;
 
     if (!keyId || !keySecret) {
-      throw new Error('Merchant Razorpay credentials are not configured');
+      throw new Error('Razorpay credentials are not configured');
     }
 
     const url = 'https://api.razorpay.com/v1/payment_links';

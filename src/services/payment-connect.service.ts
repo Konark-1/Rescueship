@@ -119,5 +119,83 @@ export class PaymentConnectService {
     const at = merchant?.paymentConfig?.webhookVerifiedAt;
     return { verified: Boolean(at), ...(at ? { verifiedAt: at } : {}) };
   }
+
+  /**
+   * Save merchant UPI ID or Bank Account for Managed Settlement through RescueShip.
+   * No merchant Razorpay account or KYC needed.
+   */
+  async validateAndSaveManaged(
+    merchantId: string,
+    params: {
+      type: 'upi' | 'bank_account';
+      upiId?: string;
+      accountNumber?: string;
+      ifscCode?: string;
+      accountHolderName?: string;
+    }
+  ) {
+    const { type, upiId, accountNumber, ifscCode, accountHolderName } = params;
+    if (type === 'upi') {
+      if (!upiId || !/^[\w.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId.trim())) {
+        throw new Error('Please enter a valid UPI ID (e.g. storename@okaxis or 9876543210@paytm)');
+      }
+    } else if (type === 'bank_account') {
+      if (!accountNumber || !/^\d{9,18}$/.test(accountNumber.trim())) {
+        throw new Error('Please enter a valid Bank Account Number (9 to 18 digits)');
+      }
+      if (!ifscCode || !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode.trim().toUpperCase())) {
+        throw new Error('Please enter a valid 11-character IFSC code (e.g. HDFC0001234)');
+      }
+      if (!accountHolderName || accountHolderName.trim().length < 3) {
+        throw new Error('Please enter the Account Holder Name matching your bank records');
+      }
+    } else {
+      throw new Error('Invalid payout destination type. Must be "upi" or "bank_account"');
+    }
+
+    const merchant = await Merchant.findById(merchantId);
+    if (!merchant) throw new Error('Merchant not found');
+
+    const existing: any = (merchant as any).paymentConfig || {};
+    (merchant as any).paymentConfig = {
+      ...existing,
+      mode: 'managed',
+      provider: 'managed',
+      gateway: 'managed',
+      settlementDetails: {
+        type,
+        upiId: type === 'upi' ? upiId?.trim().toLowerCase() : undefined,
+        accountNumber: type === 'bank_account' ? encryptionService.encrypt(accountNumber!.trim()) : undefined,
+        accountNumberMasked: type === 'bank_account' ? `••••••••${accountNumber!.trim().slice(-4)}` : undefined,
+        ifscCode: type === 'bank_account' ? ifscCode!.trim().toUpperCase() : undefined,
+        accountHolderName: type === 'bank_account' ? accountHolderName!.trim() : undefined,
+        savedAt: new Date(),
+      },
+      webhookVerifiedAt: new Date(), // Managed path is verified via RescueShip platform
+    };
+    merchant.markModified('paymentConfig');
+    (merchant as any).connections = {
+      ...((merchant as any).connections || {}),
+      payment: {
+        status: 'connected',
+        connectedAt: new Date(),
+        gateway: 'managed',
+        mode: 'managed',
+        payoutType: type,
+        lastError: null,
+      },
+    };
+    merchant.markModified('connections');
+    await merchant.save();
+    logger.info('Merchant payment settlement configured (Managed path)', { merchantId, payoutType: type });
+
+    return {
+      status: 'connected',
+      gateway: 'managed',
+      mode: 'managed',
+      payoutType: type,
+      destination: type === 'upi' ? upiId : `Bank A/C ending in ${accountNumber!.trim().slice(-4)}`,
+    };
+  }
 }
 export const paymentConnectService = new PaymentConnectService();

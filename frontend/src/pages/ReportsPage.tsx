@@ -5,6 +5,7 @@ import { TabPill } from '../components/motion/TabPill';
 import { TopRiskPincodes } from '../components/TopRiskPincodes';
 import { FraudWatchtower } from '../components/reports/FraudWatchtower';
 import { AuditLogViewer } from '../components/audit/AuditLogViewer';
+import { TransactionsViewer } from '../components/reports/TransactionsViewer';
 
 const RescueFunnel = lazy(() => import('../components/reports/RescueFunnel'));
 
@@ -21,6 +22,7 @@ interface CarrierStat {
 }
 
 const REPORT_TABS = [
+  { id: 'transactions', label: 'Doorstep Settlements' },
   { id: 'pincodes', label: 'Top Risk Pincodes' },
   { id: 'fraud', label: 'Carrier Fraud Watchtower' },
   { id: 'funnel', label: 'AI Rescue Funnel' },
@@ -228,6 +230,13 @@ export const ReportsPage: React.FC = () => {
           {activeTab === 'audit' && (
             <div className="fade-in-up">
               <AuditLogViewer pageSize={30} />
+            </div>
+          )}
+
+          {/* TAB: Doorstep Settlements */}
+          {activeTab === 'transactions' && (
+            <div className="fade-in-up">
+              <TransactionsViewer />
             </div>
           )}
         </div>

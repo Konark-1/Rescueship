@@ -2,32 +2,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2 } from 'lucide-react';
-import type { VerificationInfo } from '../components/onboarding/TestRescuePanel';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
 import { billingApi } from '../services/billing.api';
 import { takePendingShop } from '../lib/shopify-launch';
 import SetupGuide from '../components/SetupGuide';
 import StoreStation from '../components/onboarding/StoreStation';
-import WhatsAppStation from '../components/onboarding/WhatsAppStation';
 import CourierStation from '../components/onboarding/CourierStation';
 import PaymentStation from '../components/onboarding/PaymentStation';
 import './onboarding.css';
 
-type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
+type Key = 'shopify' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; title: string; hint: string }[] = [
-  { key: 'shopify',  label: 'Your store',       verb: 'connect', title: 'Connect your store',          hint: 'So RescueShip sees each order, its buyer and its courier.' },
-  { key: 'whatsapp', label: 'WhatsApp number',  verb: 'verify',  title: 'Connect your WhatsApp number', hint: 'Messages to buyers go out from this number, under your brand name. Meta bills this WhatsApp account per message.' },
-  { key: 'carrier',  label: 'Courier',          verb: 'link',    title: 'Connect your courier',         hint: 'So RescueShip hears about failed deliveries and can send the buyer’s answer back.' },
-  { key: 'payment',  label: 'Payments',         verb: 'enable',  title: 'Connect payments',             hint: 'Lets buyers pay online instead of cash on delivery. Uses your own Razorpay or Cashfree account.' },
+  { key: 'shopify',  label: 'Your store', verb: 'connect', title: 'Connect your store',  hint: 'So RescueShip sees each order, its buyer and its courier.' },
+  { key: 'carrier',  label: 'Courier',    verb: 'link',    title: 'Connect your courier', hint: 'So RescueShip hears about failed deliveries and can send the buyer’s answer back.' },
+  { key: 'payment',  label: 'Payments',   verb: 'enable',  title: 'Set up payments',      hint: 'Choose how you collect online payments when buyers convert COD orders.' },
 ];
-
-declare global { interface Window { FB: any; fbAsyncInit?: () => void; } }
-const META_CONFIG_ID = import.meta.env.VITE_META_CONFIG_ID || '';
-const META_APP_ID = import.meta.env.VITE_META_APP_ID || '';
-// Embedded Signup UI must never fire without both — an undefined appId fails
-// silently inside Meta's SDK and the merchant sees "nothing happened".
-const META_SIGNUP_READY = Boolean(META_APP_ID && META_CONFIG_ID);
 
 export default function OnboardingPage() {
   const { token, user, logout } = useAuth();
@@ -49,7 +39,6 @@ export default function OnboardingPage() {
   const [assist, setAssist] = useState<'idle' | 'busy' | 'done'>('idle');
   const [wcManual, setWcManual] = useState<{ webhookUrl: string; webhookSecret: string } | null>(null);
   const [planInfo, setPlanInfo] = useState<any>(null);
-  const pollRef = useRef<any>(null);
 
   const userManuallyNavigatedRef = useRef(false);
   const autoRoutedOnMountRef = useRef(false);
@@ -125,10 +114,6 @@ export default function OnboardingPage() {
   const isStationDone = useCallback((k: Key, conns?: any) => {
     const c = conns || state?.connections;
     if (k === 'shopify') return c?.shopify?.status === 'connected' || c?.woocommerce?.status === 'connected';
-    if (k === 'whatsapp') {
-      const ws = c?.whatsapp?.status;
-      return ws === 'connected' || ws === 'templates_pending';
-    }
     return c?.[k]?.status === 'connected';
   }, [state?.connections]);
 
@@ -161,7 +146,6 @@ export default function OnboardingPage() {
       }
     });
     return () => {
-      clearInterval(pollRef.current);
       if (advanceTimerRef.current) clearTimeout(advanceTimerRef.current);
     };
   }, [token, refresh, isStationDone, goToStation]);
@@ -177,44 +161,6 @@ export default function OnboardingPage() {
     }
     if (params.get('error')) setErr('Store connection was cancelled or failed.');
   }, [params, refresh, advanceToNext]);
-
-  // poll template approval while pending
-  useEffect(() => {
-    if (state?.connections?.whatsapp?.status === 'templates_pending') {
-      pollRef.current = setInterval(async () => {
-        try {
-          const s = await connectApi.whatsappTemplates(token!);
-          if (s?.templates?.length) {
-            setState((prev: any) => prev ? {
-              ...prev,
-              templates: s.templates,
-              connections: {
-                ...prev.connections,
-                whatsapp: {
-                  ...prev.connections?.whatsapp,
-                  status: s.status,
-                }
-              }
-            } : prev);
-          }
-          if (s.status === 'connected') {
-            push('✓ all templates approved');
-            clearInterval(pollRef.current);
-            refresh();
-          } else if (s.status === 'templates_rejected') {
-            push('⚠ a template was rejected — click Fix & Resubmit below');
-            clearInterval(pollRef.current);
-            refresh();
-          } else if (s.status === 'token_expired') {
-            push('⚠ WhatsApp token expired — please update your token');
-            clearInterval(pollRef.current);
-            refresh();
-          }
-        } catch { /* ignore */ }
-      }, 4000);
-    }
-    return () => clearInterval(pollRef.current);
-  }, [state?.connections?.whatsapp?.status, token, refresh]);
 
   const storeDone = () => state?.connections?.shopify?.status === 'connected' || state?.connections?.woocommerce?.status === 'connected';
   const done = (k: Key) => isStationDone(k);
@@ -262,85 +208,6 @@ export default function OnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, token]);
 
-  const loadFbSdk = () => new Promise<void>((res) => {
-    if (window.FB) return res();
-    window.fbAsyncInit = () => res();
-    const id = 'facebook-jssdk'; if (document.getElementById(id)) return;
-    const s = document.createElement('script'); s.id = id; s.src = 'https://connect.facebook.net/en_US/sdk.js'; s.async = true; s.defer = true; document.body.appendChild(s);
-  });
-  const connectWhatsApp = async () => {
-    setBusy('whatsapp'); setErr(null); push('› opening Meta Embedded Signup…');
-    // Embedded Signup posts the WABA + phone the merchant picked as a window message
-    // ("session info"); the backend verifies these ids against the token before using them.
-    const session: { businessId?: string; wabaId?: string; phoneNumberId?: string } = {};
-    const onMessage = (event: MessageEvent) => {
-      if (!/^https:\/\/([a-z0-9-]+\.)?facebook\.com$/.test(event.origin)) return;
-      try {
-        const msg = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-        if (msg?.type === 'WA_EMBEDDED_SIGNUP' && msg?.data) {
-          if (msg.data.waba_id) session.wabaId = String(msg.data.waba_id);
-          if (msg.data.phone_number_id) session.phoneNumberId = String(msg.data.phone_number_id);
-          if (msg.data.business_id) session.businessId = String(msg.data.business_id);
-        }
-      } catch { /* non-JSON messages from the SDK */ }
-    };
-    window.addEventListener('message', onMessage);
-    const done = () => window.removeEventListener('message', onMessage);
-    try {
-      await loadFbSdk();
-      window.FB.init({ appId: import.meta.env.VITE_META_APP_ID, version: 'v22.0' });
-      window.FB.login((resp: any) => {
-        const code = resp?.authResponse?.code || resp?.code;
-        if (!code) { done(); setErr('Signup was cancelled.'); setBusy(null); return; }
-        push('› activating your WhatsApp number…');
-        // The session message can arrive just after the login callback; give it a moment.
-        setTimeout(() => {
-          done();
-          connectApi.whatsappSignup(token!, code, { businessId: session.businessId || resp?.authResponse?.business_id, wabaId: session.wabaId, phoneNumberId: session.phoneNumberId }).then(async () => {
-            push('✓ WhatsApp connected · submitting templates');
-            await refresh();
-            advanceToNext('whatsapp');
-            setBusy(null);
-          }).catch((e: any) => { setErr(e.message); setBusy(null); });
-        }, 800);
-      }, { config_id: META_CONFIG_ID, response_type: 'code', override_default_response_type: true, extras: { setup: {}, sessionInfoVersion: '3' } });
-    } catch (e: any) { done(); setErr(e.message); setBusy(null); }
-  };
-  const connectWhatsAppManual = async (phoneNumberId: string, wabaId: string, accessToken: string, appSecret?: string) => {
-    setBusy('whatsapp'); setErr(null); push('› validating WhatsApp credentials…');
-    try {
-      await connectApi.whatsappManual(token!, phoneNumberId, wabaId, accessToken, appSecret);
-      push('✓ WhatsApp connected · submitting templates');
-      await refresh();
-      advanceToNext('whatsapp');
-      setBusy(null);
-    }
-    catch (e: any) { setErr(e.message); push('✗ credentials rejected — nothing saved'); setBusy(null); }
-  };
-  const handleResubmitTemplates = async () => {
-    setBusy('resubmit_templates');
-    setErr(null);
-    push('› syncing templates with Meta…');
-    try {
-      await connectApi.resubmitWhatsAppTemplates(token!);
-      push('✓ templates synchronized with Meta — awaiting approval');
-      await refresh();
-      setBusy(null);
-    } catch (e: any) {
-      const rawMsg = e.message || '';
-      let cleanMsg = rawMsg;
-      if (/max requests|quota|limit exceeded|redis/i.test(rawMsg)) {
-        cleanMsg = 'Templates submitted to Meta. Awaiting review.';
-      } else if (/expired|oauthexception|code 190/i.test(rawMsg)) {
-        cleanMsg = 'Meta Access Token Expired. Temporary test tokens expire after 24 hours. Paste a fresh token from your Meta App Dashboard or use a permanent System User token to resume.';
-      } else if (/deletion|wait|minute/i.test(rawMsg)) {
-        cleanMsg = 'Meta is updating your templates. Please wait a moment.';
-      }
-      setErr(cleanMsg);
-      push(`✗ resubmission: ${cleanMsg}`);
-      setBusy(null);
-    }
-  };
   const connectCarrier = async (creds: any, shouldAdvance = false) => {
     const provider = creds.provider;
     const name = creds.carrierName || provider;
@@ -401,33 +268,27 @@ export default function OnboardingPage() {
     }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
-  const pulse = async () => {
-    setBusy('pulse');
+  const connectPaymentManaged = async (payout: {
+    type: 'upi' | 'bank_account';
+    upiId?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    accountHolderName?: string;
+  }) => {
+    setBusy('payment');
     setErr(null);
-    push('Sending a test rescue to your phone…');
+    push(`› saving managed settlement details (${payout.type === 'upi' ? 'UPI' : 'Bank A/C'})…`);
     try {
-      await connectApi.testPulse(token!);
-      push('Test rescue sent. Check WhatsApp on your phone.');
+      const result: any = await connectApi.paymentManaged(token!, payout);
+      push(`✓ managed settlement configured (${result.destination})`);
+      setPaymentSetup(result);
       await refresh();
+      advanceToNext('payment');
       setBusy(null);
     } catch (e: any) {
       setErr(e.message);
+      push('✗ settlement details rejected');
       setBusy(null);
-    }
-  };
-  // Starts owner-phone verification; the phone is confirmed when its WhatsApp message arrives.
-  const startVerify = async (rawPhone: string, storeName: string): Promise<VerificationInfo | null> => {
-    setErr(null);
-    let phone = rawPhone.replace(/[^\d+]/g, '');
-    if (/^\d{10}$/.test(phone)) phone = `+91${phone}`;
-    else if (/^\d{11,15}$/.test(phone)) phone = `+${phone}`;
-    try {
-      const r = await connectApi.ownerPhone(token!, phone, storeName || undefined);
-      await refresh();
-      return r?.verification || null;
-    } catch (e: any) {
-      setErr(e.message);
-      return null;
     }
   };
   const goLive = async () => {
@@ -542,7 +403,7 @@ export default function OnboardingPage() {
                   </span>
                   <span className="ob-node__text">
                     <strong>{s.label}</strong>
-                    <em>{isDone ? 'Connected' : pending ? (s.key === 'whatsapp' ? 'Templates in Meta review' : 'Connecting') : 'Not connected yet'}</em>
+                    <em>{isDone ? 'Connected' : pending ? 'Connecting' : 'Not connected yet'}</em>
                   </span>
                 </button>
               );
@@ -600,12 +461,23 @@ export default function OnboardingPage() {
 
         {/* ── active station card ── */}
         <main className="ob-stage">
+          {/* Autonomous WhatsApp Delivery Desk Active Banner */}
+          <div className="ob-wa-banner">
+            <div className="ob-wa-banner__badge">
+              <CheckCircle2 size={16} /> Autonomous WhatsApp Delivery Desk: Active (Included)
+            </div>
+            <p className="ob-wa-banner__desc">
+              Automatic NDR rescues and COD confirmations dispatch instantly via RescueShip's verified logistics gateway on behalf of{' '}
+              <strong>{state?.storeName || 'your store'}</strong>. Zero Meta developer setup or WABA approvals required.
+            </p>
+          </div>
+
           <section key={active} className="ob-card">
             <div className="ob-card__header">
                 <div className="ob-card__topline">
                   <h1 className="ob-card__title">{STATIONS[currentIndex].title}</h1>
                   <SetupGuide
-                    station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : active === 'payment' ? 'payments' : 'whatsapp'}
+                    station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : 'payments'}
                     storeUrl={state?.connections?.shopify?.shopDomain}
                   />
                 </div>
@@ -635,27 +507,7 @@ export default function OnboardingPage() {
                   shop={state?.connections?.shopify?.shopDomain}
                   wcUrl={state?.connections?.woocommerce?.url}
                   wcManual={wcManual}
-                  onNext={() => goToStation('whatsapp')}
-                />
-              )}
-              {active === 'whatsapp' && (
-                <WhatsAppStation
-                  onConnect={connectWhatsApp}
-                  onManualConnect={connectWhatsAppManual}
-                  onPulse={pulse}
-                  onResubmitTemplates={handleResubmitTemplates}
-                  busy={busy}
-                  status={statusOf('whatsapp')}
-                  templates={state?.templates}
-                  ownerPhone={state?.ownerPhone}
-                  ownerPhoneVerified={state?.ownerPhoneVerified}
-                  pendingOwnerPhone={state?.pendingOwnerPhone}
-                  testRescues={state?.testRescues}
-                  onStartVerify={startVerify}
-                  onRefresh={refresh}
-                  metaReady={META_SIGNUP_READY}
                   onNext={() => goToStation('carrier')}
-                  connectionDetails={state?.connections?.whatsapp}
                 />
               )}
               {active === 'carrier' && (
@@ -673,11 +525,13 @@ export default function OnboardingPage() {
               {active === 'payment' && (
                 <PaymentStation
                   onConnect={connectPayment}
+                  onConnectManaged={connectPaymentManaged}
                   setup={paymentSetup}
                   onTestLink={() => connectApi.paymentTestLink(token!)}
                   busy={busy === 'payment'}
                   done={done('payment')}
                   gateway={state?.connections?.payment?.gateway}
+                  paymentDetails={state?.connections?.payment}
                 />
               )}
 

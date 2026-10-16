@@ -13,3 +13,4 @@ export * from './WebhookEvent';
 export * from './Shipment';
 export * from './SuppressedPhone';
 export * from './TrialUsage';
+export * from './MerchantTransaction';

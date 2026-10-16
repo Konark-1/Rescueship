@@ -140,13 +140,25 @@ Every carrier can be operated in one of two modes depending on merchant infrastr
      ```
    - The carrier or aggregator posts delivery failure events to this URL. RescueShip intercepts the failure, engages the buyer via WhatsApp, captures address corrections or UPI conversions, and updates the merchant dashboard—bypassing carrier API integration complexity.
 
-### Multi-Select & Sub-Tab Onboarding (Station 3)
+### Multi-Select & Sub-Tab Onboarding (Station 2)
 
-The onboarding wizard (`CarrierForm`) allows merchants to:
+The onboarding wizard (`CourierStation`) allows merchants to:
 - **Multi-Select Carriers**: Select any combination of delivery partners simultaneously from an interactive grid.
 - **Independent Configuration Sub-Tabs**: Configure each chosen carrier with dedicated credentials or webhook URLs without context loss.
 - **Isolated Connection Management**: Test, connect, or disconnect individual carriers without overwriting or disrupting other active integrations.
 - **Custom Courier Name Labeling**: Support custom or private courier fleets with merchant-defined labels and universal payload ingestion.
+
+### Dual-Mode Payments & Managed Settlement (Station 3)
+
+RescueShip resolves merchant payment setup friction by providing two flexible payment collection models:
+- **⚡ Simple: Managed Settlement (Recommended for SMBs)**:
+  - **Zero KYC & Zero Setup Costs**: Merchants enter their UPI ID (`store@okaxis`) or Bank Account Details (Account Number + IFSC + Account Holder Name). Eliminates Razorpay's ₹200 verification fee.
+  - **Automated Routing**: Doorstep COD conversions are collected via RescueShip's master Razorpay gateway and routed automatically to the merchant's account via Razorpay Route.
+  - **Transparent Fee Structure**: ~2.65% total fee (2.0% gateway + 0.25% route transfer + 18% GST on fees).
+  - **Independent Merchant Ledger**: Tracked in real-time under `/reports` with customer name, phone, order number, amount collected, fees, and payout status.
+- **🔑 Advanced: Direct Gateway (For Established Brands)**:
+  - Merchants supply their own Razorpay Key ID/Secret or Cashfree Client ID/Secret.
+  - 100% direct transfer to merchant gateway account; 0% platform fee from RescueShip.
 
 ---
 
@@ -363,10 +375,11 @@ All developers and agents modifying this codebase must adhere to the rules in [D
 | **Credentials Vault** | [`src/models/Merchant.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/models/Merchant.ts)<br>[`src/services/encryption.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/encryption.service.ts) | Encrypted at rest via AES-256-GCM. Redacted as `********` via `toSettingsDto()` on GET. |
 | **Phone Collision Guard** | [`src/api/settings.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/settings.api.ts#L314) | Checks `Merchant.findOne({ _id: { $ne: merchant._id }, 'whatsappConfig.phoneNumberId' })` -> throws **409 Conflict**. |
 | **COD Conversion Logic** | [`src/services/order.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/order.service.ts#L214) | Evaluates discounts strictly using `merchant.settings.codConversion` of the owning store. Zero cross-tenant leakage. |
-| **Outbound WhatsApp** | [`src/services/whatsapp.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/whatsapp.service.ts#L86)<br>[`src/services/whatsapp/whatsapp-dispatcher.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/whatsapp/whatsapp-dispatcher.service.ts) | Decrypts and dispatches using the owning merchant's token only. Explicitly refuses platform fallback for customers. |
+| **Outbound WhatsApp** | [`src/services/whatsapp.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/whatsapp.service.ts#L86)<br>[`src/services/whatsapp/whatsapp-dispatcher.service.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/services/whatsapp/whatsapp-dispatcher.service.ts) | Seamless dual routing: Uses custom merchant WABA if provided; automatically falls back to RescueShip's verified platform logistics WABA (`config.whatsapp`) for SMB merchants. |
 | **Inbound WhatsApp** | [`src/webhooks/whatsapp.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/whatsapp.webhook.ts#L130) | Resolves merchant from `metadata.phone_number_id` sent by Meta; scopes all message logs to that tenant. |
 | **Store Webhooks** | [`src/webhooks/shopify.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/shopify.webhook.ts)<br>[`src/webhooks/woocommerce.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/woocommerce.webhook.ts) | Shopify derives tenant from signed shop domain. WooCommerce verifies per-merchant HMAC with `merchant_id`. |
-| **Payment Webhooks** | [`src/webhooks/razorpay.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/razorpay.webhook.ts)<br>[`src/webhooks/cashfree.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/cashfree.webhook.ts) | Resolves owning merchant via `paymentLinkId` on `Order`, then validates against that merchant's gateway secret. |
+| **Payment Webhooks** | [`src/webhooks/razorpay.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/razorpay.webhook.ts)<br>[`src/webhooks/cashfree.webhook.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/cashfree.webhook.ts) | Resolves owning merchant via `paymentLinkId` on `Order`, validates signature, records ledger entry into `MerchantTransaction`, and triggers Razorpay Route settlement. |
+| **Settlement Ledger** | [`src/models/MerchantTransaction.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/models/MerchantTransaction.ts)<br>[`src/api/transactions.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/transactions.api.ts) | Queries strictly isolated by authenticated `merchantId`. Immutable tracking of customer payment amount, ~2.65% fees, and net settlement destination. |
 | **Carrier Webhooks** | [`src/webhooks/carrier-auth.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/webhooks/carrier-auth.ts) | Authenticates inbound NDR using per-tenant `carrierConfig.webhookSecret`. |
 | **Orders & Dispute Chats** | [`src/api/orders.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/orders.api.ts) | `Order.find({ merchantId })` & `MessageLog.find({ merchantId })`. Cross-tenant queries return 404. |
 | **Templates Sandbox** | [`src/api/templates.api.ts`](file:///c:/Users/Konark%20Parihar/Desktop/wa/rescueship/src/api/templates.api.ts) | Every CRUD operation scoped by `{ merchantId }`. Merchants cannot read, modify, or delete foreign playbooks. |

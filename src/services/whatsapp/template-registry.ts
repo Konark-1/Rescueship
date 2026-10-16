@@ -145,12 +145,12 @@ export const TEMPLATE_DEFS: TplDef[] = [
     name: 'ndr_deposit_request_en',
     category: 'UTILITY',
     language: 'en',
-    body: 'Hi {{1}}, to confirm Order #{{2}} for express delivery, please pay a ₹{{3}} advance deposit via UPI. Remaining ₹{{4}} payable on delivery.',
+    body: 'Hi {{1}}, to confirm Order #{{2}} for re-delivery, pay online now via UPI to save ₹{{3}} instantly! Remaining ₹{{4}} payable on delivery.',
     bodyExample: ['John', 'ORD-1001', '50', '450'],
     buttons: [
       {
         type: 'URL',
-        text: 'Pay Deposit',
+        text: 'Pay & Save Discount',
         url: `${PAY_REDIRECT_BASE}{{1}}`,
         example: [`${PAY_REDIRECT_BASE}plink_example123`],
       },

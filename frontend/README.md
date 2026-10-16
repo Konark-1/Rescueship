@@ -23,21 +23,21 @@
 | `/` | `LandingPage.tsx` | High-converting PLG landing page: boot sequence, scroll story, AI decoder, carrier marquee, and ROI calculator. |
 | `/login` | `LoginPage.tsx` | Merchant authentication via email/password and Google OAuth 2.0. |
 | `/register` | `RegisterPage.tsx` | Merchant onboarding registration with e-commerce platform selection. |
-| `/onboarding` | `OnboardingPage.tsx` | 4-Station interactive setup wizard: Store, WhatsApp, Carrier Hub, and Payment. |
+| `/onboarding` | `OnboardingPage.tsx` | 3-Station streamlined setup wizard: Store, Carrier Hub, and Dual-Mode Payments, with Autonomous Platform-Managed WhatsApp active by default. |
 | `/dashboard` | `DashboardPage.tsx` | Real-time Command Deck: 7 analytical zones (System Health Ribbon, Financial ROI, Smart Action Queue with keyboard triage [`/`, `j`/`k`, `Enter`, `Esc`] & 24/48h SLA clocks, AI Funnel & Trends, Carrier Matrix, Pre-Dispatch RTO Watchtower, Top Risk Pincodes) + WCAG 2.4.3 Order Triage Drawer. |
 | `/orders` | `OrdersPage.tsx` | Order ledger: multi-carrier search, status filters, and interactive NDR resolution modal. |
 | `/sandbox` | `SandboxPage.tsx` | Interactive test environment: simulate carrier NDRs, test WhatsApp customer flows, and pass graduation gate. |
 | `/settings` | `SettingsPage.tsx` | Credentials vault, multi-carrier hub, webhook endpoints, and single-select COD conversion incentive rules (none, flat, percentage with rupee margin cap). |
 | `/templates` | `TemplatesPage.tsx` | Recovery Flows & Customer Experience Hub: Tab 1 (Turnkey Playbooks & Flow Simulator with dynamic pricing), Tab 2 (Real Customer Chat Audit & Dispute Resolution with 1-click UTR reconciliation). |
 | `/billing` | `BillingPage.tsx` | SaaS tier selection (Rescue, Convert, Prevent), usage meters, and Razorpay checkout. |
-| `/reports` | `ReportsPage.tsx` | Comprehensive RTO and NDR performance reports, fraud analysis, and funnel drilldowns. |
+| `/reports` | `ReportsPage.tsx` | Comprehensive reports: Doorstep Settlements & Transaction Ledger, Top Risk Pincodes, Carrier Fraud Watchtower, AI Rescue Funnel, Carrier Performance, and Audit Logs. |
 | `/audit-logs` | `AuditLogsPage.tsx` | SOC-2 compliant immutable audit trail viewer with formatted JSON event inspector. |
 
 ---
 
-## 🚚 Station 3: Multi-Carrier Logistics Integration Hub
+## 🚚 Station 2: Multi-Carrier Logistics Integration Hub
 
-The onboarding wizard's **Station 3 (`CarrierForm`)** provides a resilient multi-carrier configuration workflow:
+The onboarding wizard's **Station 2 (`CourierStation`)** provides a resilient multi-carrier configuration workflow:
 
 ### 1. Interactive Multi-Carrier Selection Grid
 Merchants can select any combination of top logistics providers simultaneously:
@@ -73,6 +73,24 @@ For every carrier, merchants can toggle between two operating modes:
 - Allows typing a custom carrier name (e.g., "NimbusPost", "Private Fleet North").
 - Provides a universal NDR webhook endpoint (`/webhooks/custom/ndr?merchant_id=...`).
 - Handles unstructured failure payloads with fallback heuristics.
+
+---
+
+## 💳 Station 3: Dual-Mode Payments & Managed Settlement
+
+RescueShip resolves merchant payment setup friction by providing two flexible settlement models:
+
+1. **⚡ Simple: Managed Settlement (Recommended for SMBs)**:
+   - **Zero KYC & Zero Setup Costs**: Eliminates the ₹200 Razorpay business verification fee and multi-day KYC hurdles.
+   - **Direct Payout Destination**: Merchants enter their UPI ID (`store@okaxis`) or Bank Account Details (Account Number + IFSC + Account Holder Name).
+   - **Automated Routing**: Doorstep COD conversions are collected via RescueShip's master Razorpay gateway and routed automatically to the merchant's account via Razorpay Route.
+   - **Transparent Fee Structure**: ~2.65% total fee (2.0% gateway + 0.25% route transfer + 18% GST on fees). Zero hidden charges.
+   - **Independent Merchant Ledger**: Every transaction is tracked independently in `/reports` under "Doorstep Settlements" with customer name, phone, order number, amount collected, fees, and payout status.
+
+2. **🔑 Advanced: Direct Gateway (For Established Brands)**:
+   - Merchants paste their own Razorpay Key ID/Secret or Cashfree Client ID/Secret.
+   - 100% direct customer funds transfer into the merchant's own gateway account.
+   - 0% platform fee charged by RescueShip.
 
 ---
 

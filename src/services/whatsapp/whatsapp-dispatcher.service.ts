@@ -370,20 +370,21 @@ export class WhatsAppDispatcherService {
     }
   }
 
-  private resolveMerchantWaConfig(merchant: any): WhatsAppConfig {
+  private resolveMerchantWaConfig(merchant: any): WhatsAppConfig | undefined {
+    if (!merchant.whatsappConfig?.phoneNumberId || !merchant.whatsappConfig?.accessToken) {
+      return undefined; // Uses RescueShip platform-managed WABA
+    }
     let token: string | undefined;
-    if (merchant.whatsappConfig?.accessToken) {
-      try {
-        token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
-      } catch (err: any) {
-        logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect', { merchantId: merchant._id });
-        throw new Error('WhatsApp credentials require reconnection');
-      }
+    try {
+      token = encryptionService.decrypt(merchant.whatsappConfig.accessToken);
+    } catch (err: any) {
+      logger.error('Stored WhatsApp token cannot be decrypted; merchant must reconnect', { merchantId: merchant._id });
+      throw new Error('WhatsApp credentials require reconnection');
     }
     return {
-      phoneNumberId: merchant.whatsappConfig?.phoneNumberId,
+      phoneNumberId: merchant.whatsappConfig.phoneNumberId,
       accessToken: token,
-      businessAccountId: merchant.whatsappConfig?.businessAccountId,
+      businessAccountId: merchant.whatsappConfig.businessAccountId,
     };
   }
 }

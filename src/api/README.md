@@ -22,6 +22,7 @@
 | `sandbox.api.ts` | Test environment | `POST /simulate-ndr`, `/toggle`, `/graduate` |
 | `settings.api.ts` | Configuration | `GET /`, `PUT /` (single-select COD incentive strategy with rupee cap), `POST /custom-api-secret/rotate` |
 | `templates.api.ts` | WhatsApp recovery playbooks | CRUD, `POST /:id/submit`, `POST /sync-meta`, `POST /test-send` |
+| `transactions.api.ts` | Payment & settlement ledger | `GET /` (paginated, search, status filter), `GET /summary` (aggregate metrics) |
 
 ## Architecture & Data Flow
 

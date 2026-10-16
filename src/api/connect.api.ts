@@ -53,9 +53,14 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
     }
 
     // The "store" requirement is platform-agnostic: Shopify OR WooCommerce (either path
-    // counts as the store being wired). The other three stations are always required.
+    // counts as the store being wired). Carrier and Payment are the required stations;
+    // WhatsApp is managed by RescueShip and active out-of-the-box.
     const storeConnected = c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected';
-    const allGreen = storeConnected && ['whatsapp', 'carrier', 'payment'].every((k) => (k === 'whatsapp' ? waStatus === 'connected' : c[k]?.status === 'connected'));
+    const carrierConnected = c.carrier?.status === 'connected';
+    const paymentConnected = c.payment?.status === 'connected';
+    const allGreen = storeConnected && carrierConnected && paymentConnected;
+    const waMode = (m as any).whatsappConfig?.phoneNumberId ? 'custom' : 'platform_managed';
+
     res.json({
       merchantId: req.merchant!.merchantId,
       storeName: (m as any).storeName || (m as any).shopify?.shopDomain || null,
@@ -67,14 +72,21 @@ router.get('/state', authenticateToken, async (req: AuthenticatedRequest, res: R
         shopify: c.shopify || { status: 'disconnected' },
         woocommerce: c.woocommerce || { status: 'disconnected' },
         whatsapp: {
-          ...(c.whatsapp || { status: 'disconnected' }),
-          status: waStatus || c.whatsapp?.status || 'disconnected',
+          status: 'connected',
+          mode: waMode,
           phoneNumberId: (m as any).whatsappConfig?.phoneNumberId || null,
           wabaId: (m as any).whatsappConfig?.wabaId || (m as any).whatsappConfig?.businessAccountId || null,
         },
         carrier: c.carrier || { status: 'disconnected' },
         carriers: c.carriers || {},
-        payment: c.payment || { status: 'disconnected' },
+        payment: {
+          ...(c.payment || { status: 'disconnected' }),
+          mode: (m as any).paymentConfig?.mode || ((m as any).paymentConfig?.keyId ? 'direct' : 'managed'),
+          payoutType: (m as any).paymentConfig?.settlementDetails?.type || null,
+          destination: (m as any).paymentConfig?.settlementDetails?.type === 'upi'
+            ? (m as any).paymentConfig?.settlementDetails?.upiId
+            : (m as any).paymentConfig?.settlementDetails?.accountNumberMasked || null,
+        },
       },
       templates,
       onboarding: (m as any).onboarding || { completedAt: null },
@@ -454,6 +466,23 @@ router.post('/payment', authenticateToken, credentialValidationLimiter, async (r
   try { res.json(await paymentConnectService.validateAndSave(req.merchant!.merchantId, gateway, keyId, keySecret, webhookSecret || undefined)); }
   catch (e: any) { res.status(400).json({ error: e.message }); }
 });
+
+// ── Managed Payment Settlement (UPI ID or Bank Account via RescueShip) ──
+router.post('/payment/managed', authenticateToken, standardMerchantLimiter, async (req: AuthenticatedRequest, res: Response) => {
+  const { type, upiId, accountNumber, ifscCode, accountHolderName } = req.body;
+  try {
+    const result = await paymentConnectService.validateAndSaveManaged(req.merchant!.merchantId, {
+      type,
+      upiId,
+      accountNumber,
+      ifscCode,
+      accountHolderName,
+    });
+    res.json(result);
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
 // Live check of every connection (Shopify token, WhatsApp token, gateway keys + webhook, courier login).
 router.post('/health/check', authenticateToken, credentialValidationLimiter, async (req: AuthenticatedRequest, res: Response) => {
   try {
@@ -554,9 +583,12 @@ router.post('/finalize', authenticateToken, async (req: AuthenticatedRequest, re
   const plan = (m as any).billing?.plan;
   const paid = !!plan && plan !== 'free_trial';
 
-  if (!(c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected') ||
-      !['whatsapp', 'carrier', 'payment'].every((k) => c[k]?.status === 'connected'))
-    return res.status(400).json({ error: 'All four connections must be green to go live.' });
+  const storeConnected = c.shopify?.status === 'connected' || c.woocommerce?.status === 'connected';
+  const carrierConnected = c.carrier?.status === 'connected';
+  const paymentConnected = c.payment?.status === 'connected';
+
+  if (!storeConnected || !carrierConnected || !paymentConnected)
+    return res.status(400).json({ error: 'Store, courier, and payment connections must be active to go live.' });
   if (!paid)
     return res.status(400).json({ error: 'Subscribe to a plan to go live.', next: '/billing' });
 

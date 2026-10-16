@@ -137,6 +137,49 @@ These resources will follow the standard CRUD API structure and require `Authori
 
 **Platform subscriptions are Razorpay-only.** Cashfree is used exclusively for per-merchant COD-conversion payment links.
 
+## Payment Transactions & Settlement Ledger (`/transactions`)
+Headers required: `Authorization: Bearer <token>`
+
+- `GET /transactions` - Retrieve paginated payment transactions for the authenticated merchant.
+  - **Query Params**: `page` (default 1), `limit` (default 20, max 100), `status` (`settled`, `collected`, `transfer_pending`, `refunded`, `failed`), `search` (customer name, phone, order number, or payment ID), `from` (ISO date), `to` (ISO date).
+  - **Response**:
+    ```json
+    {
+      "transactions": [
+        {
+          "id": "67...",
+          "orderNumber": "#1042",
+          "customerName": "Pooja Verma",
+          "customerPhone": "+919876543210",
+          "amountCollected": 1250,
+          "platformFee": 33.13,
+          "amountSettled": 1216.87,
+          "currency": "INR",
+          "status": "settled",
+          "settlementMode": "managed_route",
+          "payoutDestination": { "type": "upi", "upiId": "store@okaxis" },
+          "collectedAt": "2026-10-16T12:00:00.000Z",
+          "settledAt": "2026-10-16T12:00:05.000Z",
+          "paymentId": "pay_xyz123"
+        }
+      ],
+      "pagination": { "page": 1, "limit": 20, "total": 1, "totalPages": 1 }
+    }
+    ```
+- `GET /transactions/summary` - Aggregate metrics for merchant settlement reporting:
+  - **Response**: `{ "totalVolume": 125000, "totalPlatformFees": 3312.5, "totalSettled": 121687.5, "totalCount": 100, "settledCount": 98, "pendingCount": 2 }`
+
+## Onboarding & Connection Hub (`/connect`)
+Headers required: `Authorization: Bearer <token>`
+
+- `GET /connect/state` - Fetch current onboarding and connection status across store, courier, payment, and WhatsApp.
+- `POST /connect/payment/managed` - Configure Zero-KYC Managed Settlement destination.
+  - **Body Schema (UPI)**: `{ "type": "upi", "upiId": "store@okaxis" }`
+  - **Body Schema (Bank Account)**: `{ "type": "bank_account", "accountNumber": "123456789012", "ifscCode": "HDFC0001234", "accountHolderName": "Store Enterprises" }`
+  - **Response**: `{ "status": "connected", "mode": "managed", "destination": "store@okaxis" }`
+- `POST /connect/payment` - Connect direct payment gateway with merchant's own API keys (Razorpay / Cashfree).
+- `POST /connect/finalize` - Verify ready status across Store, Courier, and Payments, marking merchant onboarding completed.
+
 ## Sandbox & Testing (`/sandbox`)
 Headers required: `Authorization: Bearer <token>`
 

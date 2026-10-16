@@ -27,6 +27,7 @@ import {
   RescueLedger,
   DeliveryAttempt,
   WebhookEvent,
+  MerchantTransaction,
 } from './index';
 import { logger } from '../utils/logger';
 
@@ -246,6 +247,15 @@ export async function ensureIndexes(): Promise<void> {
       await run(WebhookEvent.collection as any, [
         { keys: { source: 1, eventId: 1, createdAt: -1 }, options: { name: 'idx_webhook_source_event_created' } },
         { keys: { createdAt: 1 }, options: { name: 'idx_webhook_ttl', expireAfterSeconds: 30 * 24 * 60 * 60 } },
+      ]);
+    }
+
+    // ─── MerchantTransaction ───
+    if (MerchantTransaction?.collection) {
+      await run(MerchantTransaction.collection as any, [
+        { keys: { merchantId: 1, collectedAt: -1 }, options: { name: 'idx_merchant_txn_collected' } },
+        { keys: { razorpayPaymentId: 1 }, options: { name: 'idx_merchant_txn_razorpay_payment_id', unique: true } },
+        { keys: { merchantId: 1, status: 1 }, options: { name: 'idx_merchant_txn_status' } },
       ]);
     }
 

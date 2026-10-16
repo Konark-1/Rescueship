@@ -91,15 +91,10 @@ export class WhatsAppService {
    * (internal/ops sends such as owner alerts).
    */
   private resolveCredentials(merchantConfig?: WhatsAppConfig): { phoneNumberId: string; accessToken: string } {
-    if (merchantConfig) {
-      const phoneNumberId = merchantConfig.phoneNumberId;
-      const accessToken = merchantConfig.accessToken;
-      if (!phoneNumberId || !accessToken) {
-        if (this.shouldSimulate(accessToken)) return { phoneNumberId: phoneNumberId || 'simulated', accessToken: accessToken || 'dummy_sim' };
-        throw new Error('WhatsApp is not connected for this merchant (missing phoneNumberId or accessToken)');
-      }
-      return { phoneNumberId, accessToken };
+    if (merchantConfig?.phoneNumberId && merchantConfig?.accessToken) {
+      return { phoneNumberId: merchantConfig.phoneNumberId, accessToken: merchantConfig.accessToken };
     }
+    // Platform-managed mode: fall back to RescueShip official WABA credentials
     if (!this.defaultPhoneNumberId || !this.defaultAccessToken || this.defaultAccessToken.startsWith('your-')) {
       if (this.shouldSimulate(this.defaultAccessToken)) return { phoneNumberId: 'simulated', accessToken: 'dummy_sim' };
       throw new Error('Platform WhatsApp credentials are not configured');

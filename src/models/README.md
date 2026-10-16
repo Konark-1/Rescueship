@@ -23,6 +23,7 @@
 | `Invoice.ts` | Merchant invoices | `Invoice` model — subscription payment receipts, GST breakdown, download URLs |
 | `SuppressedPhone.ts` | Anti-abuse suppression | `SuppressedPhone` model — repeated RTO offenders & blacklisted phone numbers |
 | `TrialUsage.ts` | Free simulation tracker | `TrialUsage` model — track free trial test rescue quota limits |
+| `MerchantTransaction.ts` | Payment & settlement ledger | `MerchantTransaction` model — doorstep customer payments, platform fees, UPI/Bank settlements, unique payment IDs |
 
 ## Key Invariants
 

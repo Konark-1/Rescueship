@@ -42,6 +42,16 @@ export const connectApi = {
   carrierWebhooks: (t: string) => call(t, '/carrier/webhook'),
   payment: (t: string, gateway: string, keyId: string, keySecret: string, webhookSecret?: string) =>
     call(t, '/payment', { gateway, keyId, keySecret, ...(webhookSecret ? { webhookSecret } : {}) }),
+  paymentManaged: (
+    t: string,
+    payout: {
+      type: 'upi' | 'bank_account';
+      upiId?: string;
+      accountNumber?: string;
+      ifscCode?: string;
+      accountHolderName?: string;
+    }
+  ) => call(t, '/payment/managed', payout),
   paymentTestLink: (t: string) => call(t, '/payment/test-link', {}),
   ownerPhone: (t: string, ownerPhone: string, storeName?: string) => call(t, '/owner-phone', { ownerPhone, storeName }),
   finalize: (t: string) => call(t, '/finalize', {}),

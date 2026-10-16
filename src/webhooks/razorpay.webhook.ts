@@ -76,11 +76,13 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
   // Build candidate secrets. For payment-link events, the owning merchant's secret first.
   const candidates: string[] = [];
   let ownerMerchantId: string | undefined;
+  let matchedOrder: any;
+  let matchedMerchant: any;
   if (event === 'payment_link.paid' && paymentLinkId) {
-    const order = await Order.findOne({ paymentLinkId }).select('merchantId').populate('merchantId', 'paymentConfig');
-    const merchant: any = order?.merchantId;
-    ownerMerchantId = merchant?._id?.toString();
-    const pc = merchant?.paymentConfig;
+    matchedOrder = await Order.findOne({ paymentLinkId }).select('merchantId orderNumber name customer').populate('merchantId', 'paymentConfig');
+    matchedMerchant = matchedOrder?.merchantId;
+    ownerMerchantId = matchedMerchant?._id?.toString();
+    const pc = matchedMerchant?.paymentConfig;
     if ((pc?.provider || pc?.gateway) === 'razorpay') {
       for (const field of ['webhookSecret', 'keySecret'] as const) {
         if (pc[field]) { try { candidates.push(encryptionService.decrypt(pc[field])); } catch { /* skip undecryptable */ } }
@@ -133,6 +135,49 @@ router.post('/payment', async (req: Request, res: Response): Promise<void> => {
         }
         const linkEntity = body.payload?.payment_link?.entity;
         const amountPaid = Number(linkEntity?.amount_paid ?? paymentEntity?.amount ?? linkEntity?.amount);
+        const paymentId = str(paymentEntity?.id) || `pay_${paymentLinkId}`;
+
+        // Record individual transaction for the merchant
+        if (ownerMerchantId && paymentId) {
+          try {
+            const { MerchantTransaction } = await import('../models/MerchantTransaction');
+            const totalCollectedPaise = Number.isFinite(amountPaid) ? amountPaid : 0;
+            const platformFeePaise = Math.round(totalCollectedPaise * 0.02655); // ~2% gateway + 0.25% route + GST
+            const amountSettledPaise = Math.max(0, totalCollectedPaise - platformFeePaise);
+
+            await MerchantTransaction.findOneAndUpdate(
+              { razorpayPaymentId: paymentId },
+              {
+                $setOnInsert: {
+                  merchantId: ownerMerchantId,
+                  orderId: matchedOrder?._id,
+                  orderNumber: matchedOrder?.orderNumber || matchedOrder?.name || 'N/A',
+                  razorpayPaymentId: paymentId,
+                  razorpayPaymentLinkId: paymentLinkId,
+                  amountCollectedPaise: totalCollectedPaise,
+                  platformFeePaise,
+                  amountSettledPaise,
+                  customerName: linkEntity?.customer?.name || matchedOrder?.customer?.name,
+                  customerPhone: linkEntity?.customer?.contact || matchedOrder?.customer?.phone,
+                  customerEmail: linkEntity?.customer?.email || matchedOrder?.customer?.email,
+                  status: 'collected',
+                  settlementMode: matchedMerchant?.paymentConfig?.mode === 'direct' ? 'direct_gateway' : 'managed_route',
+                  payoutDestination: matchedMerchant?.paymentConfig?.settlementDetails ? {
+                    type: matchedMerchant.paymentConfig.settlementDetails.type,
+                    upiId: matchedMerchant.paymentConfig.settlementDetails.upiId,
+                    accountNumberMasked: matchedMerchant.paymentConfig.settlementDetails.accountNumberMasked,
+                    ifscCode: matchedMerchant.paymentConfig.settlementDetails.ifscCode,
+                  } : undefined,
+                  collectedAt: new Date(),
+                },
+              },
+              { upsert: true, new: true }
+            );
+          } catch (mTxErr: any) {
+            logger.warn('Failed to record MerchantTransaction', { error: mTxErr.message });
+          }
+        }
+
         await codConversionQueue.add(
           'confirm-payment',
           { action: 'payment_confirmed', paymentLinkId, provider: 'razorpay', amountPaidPaise: Number.isFinite(amountPaid) ? amountPaid : undefined },
