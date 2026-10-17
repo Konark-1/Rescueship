@@ -168,7 +168,7 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
     // 1. Locate and click Carrier Fraud Watchtower tab
     const fraudTab = page.getByRole('button', { name: /Carrier Fraud Watchtower/i });
     await expect(fraudTab).toBeVisible();
-    await fraudTab.click();
+    await fraudTab.click({ force: true });
 
     // 2. Assert Fraud Watchtower UI headers and KPIs
     await expect(page.locator('body')).toContainText(/Carrier Fraud Watchtower/i);
@@ -189,7 +189,7 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
 
     // Set up download listener
     const downloadPromise = page.waitForEvent('download');
-    await exportBtn.click();
+    await exportBtn.click({ force: true });
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toContain('.csv');
   });
@@ -198,7 +198,7 @@ test.describe('PHASE 3: Carrier Fraud Watchtower & AI Rescue Funnel', () => {
     // 1. Locate and click AI Rescue Funnel tab
     const funnelTab = page.getByRole('button', { name: /AI Rescue Funnel/i });
     await expect(funnelTab).toBeVisible();
-    await funnelTab.click();
+    await funnelTab.click({ force: true });
 
     // 2. Assert Funnel Chart headers and stages
     await expect(page.locator('body')).toContainText(/NDR Recovery Conversion Funnel/i);

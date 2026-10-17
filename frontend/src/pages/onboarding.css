@@ -329,6 +329,41 @@
   gap: var(--space-3);
 }
 
+.ob-trust-card--waybill {
+  position: relative;
+  border-color: var(--border-color);
+}
+
+.ob-waybill-stub {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-1);
+  border-bottom: 1px dashed var(--waybill-red-border);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ob-waybill-stub__serial {
+  font-weight: 700;
+  color: var(--waybill-red-dark);
+}
+
+.ob-waybill-stub__tear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-2);
+  font-size: 0.6rem;
+}
+
+.ob-trust-card:hover .waybill-scissors {
+  transform: translateX(3px) rotate(-8deg);
+}
+
 .ob-trust-card__title {
   font-size: 0.84rem;
   font-weight: 700;
@@ -440,6 +475,52 @@
   flex-direction: column;
   gap: var(--space-4);
   min-width: 0;
+}
+
+/* ── Station OS Window Chrome (.ob-window-head) ── */
+.ob-window-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: calc(-1 * clamp(1.75rem, 3.5vw, 2.75rem)) calc(-1 * clamp(1.75rem, 3.5vw, 2.75rem)) var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  border-top-left-radius: var(--radius-xl);
+  border-top-right-radius: var(--radius-xl);
+  font-family: var(--font-mono);
+}
+
+.ob-window-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ob-window-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.ob-window-dot--r { background: var(--danger); }
+.ob-window-dot--a { background: var(--amber); }
+.ob-window-dot--g { background: var(--emerald); }
+
+.ob-window-file {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.ob-window-badge {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: var(--indigo-soft);
+  background: var(--indigo-10);
+  border: 1px solid var(--indigo-20);
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
 }
 
 .ob-card {

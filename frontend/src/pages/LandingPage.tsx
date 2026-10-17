@@ -428,14 +428,12 @@ export default function LandingPage() {
             <div className="lp-ab-path__mid">
               <svg className="lp-ab-path__svg" viewBox="0 0 160 20" fill="none" preserveAspectRatio="none">
                 <line x1="0" y1="10" x2="160" y2="10" stroke="var(--border-hover)" strokeWidth="2" strokeDasharray="5 5" />
-                <motion.circle
-                  cx="0"
-                  cy="10"
-                  r="4"
-                  fill="var(--emerald)"
-                  animate={reduced ? { cx: 160 } : { cx: [0, 160] }}
+                <motion.g
+                  animate={reduced ? { x: 160 } : { x: [0, 160] }}
                   transition={reduced ? { duration: 0 } : { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                />
+                >
+                  <circle cx="0" cy="10" r="4" fill="var(--emerald)" />
+                </motion.g>
               </svg>
               <span className="lp-ab-path__label">90s WhatsApp Intercept</span>
             </div>

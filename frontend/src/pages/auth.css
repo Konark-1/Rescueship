@@ -268,6 +268,107 @@
   margin-left: var(--space-2);
 }
 
+/* ── Tactile Courier Waybill Boarding Pass (.auth-pass) ── */
+.auth-pass__waybill-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-2-5);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px dashed var(--waybill-red-border);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.auth-pass__serial {
+  font-weight: 700;
+  color: var(--waybill-red-dark);
+}
+
+.auth-pass__tear {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-2);
+  font-size: 0.62rem;
+}
+
+.auth-glass-container:hover .waybill-scissors {
+  transform: translateX(4px) rotate(-8deg);
+}
+
+/* ── Neutomni Directional Flow Motif (.auth-ab-path) ── */
+.auth-ab-path {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-5) 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+}
+
+.auth-ab-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.auth-ab-node__tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+}
+
+.auth-ab-node__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.auth-ab-node--a .auth-ab-node__title {
+  color: var(--rose-light);
+}
+
+.auth-ab-node--b .auth-ab-node__title {
+  color: var(--emerald-light);
+}
+
+.auth-ab-beam {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  justify-content: center;
+}
+
+.auth-ab-beam__line {
+  flex: 1;
+  height: 1px;
+  border-bottom: 1px dashed var(--indigo-30);
+}
+
+.auth-ab-beam__badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--indigo-soft);
+  background: var(--indigo-10);
+  border: 1px solid var(--indigo-20);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  white-space: nowrap;
+}
+
+.auth-ab-beam__arrow {
+  color: var(--indigo-soft);
+  font-size: 0.75rem;
+}
+
 .auth-glass-container h2 {
   font-family: var(--font-display);
   font-size: 1.5rem;
@@ -380,7 +481,7 @@
 }
 
 .auth-button:hover:not(:disabled) {
-  background: #5558e6;
+  background: var(--indigo-hover);
   transform: translateY(-1px);
   box-shadow: 0 8px 24px var(--indigo-35);
 }
@@ -453,8 +554,8 @@
 
 /* ── Google account warning card ── */
 .google-warning-card {
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: var(--amber-06);
+  border: 1px solid var(--amber-30);
   border-radius: var(--radius-sm);
   padding: var(--space-4);
   margin-bottom: var(--space-5);

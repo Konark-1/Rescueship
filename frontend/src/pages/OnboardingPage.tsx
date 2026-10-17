@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { Anchor, ShieldCheck, Phone, AlertTriangle, CheckCircle2, Scissors } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { connectApi } from '../lib/connect';
 import { billingApi } from '../services/billing.api';
@@ -10,11 +10,13 @@ import SetupGuide from '../components/SetupGuide';
 import StoreStation from '../components/onboarding/StoreStation';
 import CourierStation from '../components/onboarding/CourierStation';
 import PaymentStation from '../components/onboarding/PaymentStation';
+import { WhatsAppStation } from '../components/onboarding/WhatsAppStation';
 import './onboarding.css';
 
-type Key = 'shopify' | 'carrier' | 'payment';
+type Key = 'shopify' | 'whatsapp' | 'carrier' | 'payment';
 const STATIONS: { key: Key; label: string; verb: string; title: string; hint: string }[] = [
   { key: 'shopify',  label: 'Your store', verb: 'connect', title: 'Connect your store',  hint: 'So RescueShip sees each order, its buyer and its courier.' },
+  { key: 'whatsapp', label: 'WhatsApp',   verb: 'connect', title: 'Connect WhatsApp number', hint: 'Connect your WhatsApp Cloud API or use RescueShip autonomous delivery gateway.' },
   { key: 'carrier',  label: 'Courier',    verb: 'link',    title: 'Connect your courier', hint: 'So RescueShip hears about failed deliveries and can send the buyer’s answer back.' },
   { key: 'payment',  label: 'Payments',   verb: 'enable',  title: 'Set up payments',      hint: 'Choose how you collect online payments when buyers convert COD orders.' },
 ];
@@ -254,6 +256,36 @@ export default function OnboardingPage() {
     }
     catch (e: any) { setErr(e.message); push('✗ keys rejected — nothing saved'); setBusy(null); }
   };
+  const connectWhatsAppManual = async (phoneId: string, wabaId: string, accessToken: string, appSecret?: string) => {
+    setBusy('whatsapp'); setErr(null); push('› validating WhatsApp credentials…');
+    try {
+      await connectApi.whatsappManual(token!, phoneId, wabaId, accessToken, appSecret);
+      push('✓ WhatsApp credentials verified');
+      await refresh();
+      advanceToNext('whatsapp');
+      setBusy(null);
+    } catch (e: any) { setErr(e.message); push('✗ credentials rejected'); setBusy(null); }
+  };
+  const pulse = async () => {
+    setBusy('pulse'); setErr(null); push('Sending test rescue to your phone…');
+    try {
+      await connectApi.testPulse(token!);
+      push('Test rescue sent. Check WhatsApp on your phone.');
+      await refresh();
+      setBusy(null);
+    } catch (e: any) { setErr(e.message); setBusy(null); }
+  };
+  const startVerify = async (rawPhone: string, storeName: string) => {
+    setErr(null);
+    let phone = rawPhone.replace(/[^\d+]/g, '');
+    if (/^\d{10}$/.test(phone)) phone = `+91${phone}`;
+    else if (/^\d{11,15}$/.test(phone)) phone = `+${phone}`;
+    try {
+      const r = await connectApi.ownerPhone(token!, phone, storeName || undefined);
+      await refresh();
+      return r?.verification || null;
+    } catch (e: any) { setErr(e.message); return null; }
+  };
   const connectPayment = async (gateway: string, keyId: string, keySecret: string, webhookSecret?: string) => {
     setBusy('payment'); setErr(null); push(`› validating ${gateway} keys…`);
     try {
@@ -416,8 +448,15 @@ export default function OnboardingPage() {
             </div>
           )}
 
-          {/* Data Safety & Guarantee Card */}
-          <div className="ob-trust-card">
+          {/* Data Safety & Guarantee Card with SEC/SAFE.01 Security Stub */}
+          <div className="ob-trust-card ob-trust-card--waybill">
+            <div className="ob-waybill-stub" aria-hidden="true">
+              <span className="ob-waybill-stub__serial">SEC/SAFE.01 // ENCRYPTION SPEC</span>
+              <span className="ob-waybill-stub__tear">
+                <Scissors size={10} className="waybill-scissors" />
+                VERIFIED ISOLATION
+              </span>
+            </div>
             <p className="ob-trust-card__title">
               <ShieldCheck size={16} className="ob-trust-card__icon" aria-hidden="true" />
               Nothing goes live yet
@@ -473,11 +512,30 @@ export default function OnboardingPage() {
           </div>
 
           <section key={active} className="ob-card">
+            {/* Station OS Window Chrome */}
+            <div className="ob-window-head" aria-hidden="true">
+              <div className="ob-window-dots">
+                <span className="ob-window-dot ob-window-dot--r" />
+                <span className="ob-window-dot ob-window-dot--a" />
+                <span className="ob-window-dot ob-window-dot--g" />
+              </div>
+              <span className="ob-window-file">
+                {active === 'shopify'
+                  ? 'station_01_store.cfg'
+                  : active === 'whatsapp'
+                  ? 'station_02_whatsapp.cfg'
+                  : active === 'carrier'
+                  ? 'station_03_carrier.cfg'
+                  : 'station_04_payments.cfg'}
+              </span>
+              <span className="ob-window-badge">AUTONOMOUS SYS.v2</span>
+            </div>
+
             <div className="ob-card__header">
                 <div className="ob-card__topline">
                   <h1 className="ob-card__title">{STATIONS[currentIndex].title}</h1>
                   <SetupGuide
-                    station={active === 'shopify' ? 'store' : active === 'carrier' ? 'courier' : 'payments'}
+                    station={active === 'shopify' ? 'store' : active === 'whatsapp' ? 'whatsapp' : active === 'carrier' ? 'courier' : 'payments'}
                     storeUrl={state?.connections?.shopify?.shopDomain}
                   />
                 </div>
@@ -507,7 +565,32 @@ export default function OnboardingPage() {
                   shop={state?.connections?.shopify?.shopDomain}
                   wcUrl={state?.connections?.woocommerce?.url}
                   wcManual={wcManual}
+                  onNext={() => goToStation('whatsapp')}
+                />
+              )}
+              {active === 'whatsapp' && (
+                <WhatsAppStation
+                  onConnect={() => {}}
+                  onManualConnect={connectWhatsAppManual}
+                  onPulse={pulse}
+                  onStartVerify={startVerify}
+                  onRefresh={refresh}
+                  onResubmitTemplates={async () => {
+                    setBusy('resubmit_templates');
+                    try {
+                      await connectApi.resubmitWhatsAppTemplates(token!);
+                      push('✓ Templates resubmitted to Meta');
+                      await refresh();
+                    } catch (e: any) { setErr(e.message); }
+                    setBusy(null);
+                  }}
+                  busy={busy}
+                  status={statusOf('whatsapp')}
+                  templates={state?.templates}
+                  ownerPhone={state?.ownerPhone}
+                  metaReady={false}
                   onNext={() => goToStation('carrier')}
+                  connectionDetails={state?.connections?.whatsapp}
                 />
               )}
               {active === 'carrier' && (

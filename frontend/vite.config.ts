@@ -8,6 +8,9 @@ export default defineConfig({
   server: {
     // Allow Cloudflare quick-tunnel hostnames to reach the dev server
     allowedHosts: ['.trycloudflare.com'],
+    watch: {
+      ignored: ['**/playwright-report/**', '**/test-results/**', '**/.git/**'],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

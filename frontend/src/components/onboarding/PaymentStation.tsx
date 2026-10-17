@@ -255,7 +255,8 @@ export function PaymentStation({
             </p>
             <ul style={{ fontSize: '0.74rem', color: 'var(--text-muted)', paddingLeft: '16px', margin: 0 }}>
               <li>✓ 0% platform fee from RescueShip</li>
-              <li>⚠ Requires active Razorpay account + KYC</li>
+              <li>✓ Connect your gateway Key / Client ID & Secret</li>
+              <li>⚠ Requires active Razorpay or Cashfree account + KYC</li>
               <li>⚠ Requires webhook configuration</li>
             </ul>
           </div>
@@ -383,7 +384,7 @@ export function PaymentStation({
             ))}
           </div>
 
-          <Field label={g === 'cashfree' ? 'Cashfree App ID (Client ID)' : 'Razorpay Key ID'}>
+          <Field label={g === 'cashfree' ? 'Cashfree App ID (Key / Client ID)' : 'Razorpay Key ID (Key / Client ID)'}>
             <input
               className="ob-input"
               autoComplete="off"
@@ -399,7 +400,7 @@ export function PaymentStation({
             )}
           </Field>
 
-          <Field label={g === 'cashfree' ? 'Cashfree Secret Key' : 'Razorpay Key Secret'}>
+          <Field label={g === 'cashfree' ? 'Cashfree Secret Key (Secret)' : 'Razorpay Key Secret (Secret)'}>
             <input
               className="ob-input"
               type="password"
