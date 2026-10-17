@@ -85,7 +85,7 @@ test.describe('Landing Page PLG Lead Capture & Telemetry Feed', () => {
     const canvasBg = await page.locator('.lp').evaluate((el) => {
       return window.getComputedStyle(el).backgroundColor;
     });
-    expect(canvasBg).toBe('rgb(5, 5, 8)'); // --bg-void (#050508)
+    expect(canvasBg).toBe('rgb(14, 14, 13)'); // --bg-void (#0e0e0d)
   });
 
   test('LCP should be under 2.5 seconds (Vercel Standard)', async ({ page }) => {

@@ -127,6 +127,7 @@ test.describe('Landing Page v2 Specifications', () => {
   });
 
   test('5. FAQ: renders 6 items and accordion expands/collapses with correct aria-expanded state', async ({ page }) => {
+    await page.click('[data-testid="os-tab-faq"]');
     const faqSection = page.locator('.faq');
     await expect(faqSection).toBeVisible();
 

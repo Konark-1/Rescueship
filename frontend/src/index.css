@@ -46,56 +46,60 @@
 }
 
 :root {
-  /* ── Core Backgrounds & Surfaces ── */
-  --bg-void: #050508;
-  --bg-deep: #0a0a10;
-  --bg-sidebar: #08080e;
-  --bg-surface: #0d0f15;
-  --bg-card: rgba(255,255,255,0.03);
-  --bg-card-hover: rgba(255,255,255,0.06);
-  --bg-glass: rgba(10,10,16,0.72);
-  --border: rgba(255,255,255,0.06);
-  --border-hover: rgba(255,255,255,0.12);
-  --border-color: rgba(255,255,255,0.08);
+  /* ── 1. Neutomni Matte Carbon Dark Theme (Zero Purple/Space Tints) ── */
+  --bg-void: #0e0e0d; /* Matte industrial carbon black */
+  --bg-deep: #141413; /* Elevated carbon console surface */
+  --bg-sidebar: #121211;
+  --bg-surface: #1a1917; /* Card & OS window dark surface */
+  --bg-card: #181715; /* Solid tactile dark ticket surface */
+  --bg-card-hover: #22211e; /* Hover state */
+  --bg-glass: rgba(20, 20, 19, 0.72);
+  --border: rgba(244, 241, 234, 0.12); /* Exposed 1px warm-stone architectural grid hairline */
+  --border-hover: rgba(244, 241, 234, 0.28); /* Active grid hairline */
+  --border-color: rgba(244, 241, 234, 0.12);
 
-  /* ── Hybrid Contrast Editorial Paper Tokens (Neutomni Inspiration) ── */
-  --bg-paper: #f6f4ee;
-  --bg-paper-elevated: #ffffff;
-  --bg-paper-subtle: #ebe7dc;
-  --bg-paper-tint: rgba(17, 18, 22, 0.035);
-  --border-paper: rgba(17, 18, 22, 0.12);
-  --border-paper-strong: rgba(17, 18, 22, 0.24);
-  --text-paper-1: #111216; /* 16.8:1 on #f6f4ee */
-  --text-paper-2: #383b43; /* 9.8:1 on #f6f4ee */
-  --text-paper-3: #5e626e; /* 5.4:1 on #f6f4ee */
-  --waybill-red: #b91c1c; /* 6.0:1 on #f6f4ee and #feeaed */
-  --waybill-red-dark: #f87171; /* 6.6:1 on #0d0f15 and #050508 */
-  --waybill-red-soft: rgba(220, 38, 38, 0.09);
-  --waybill-red-border: rgba(220, 38, 38, 0.35);
-  --waybill-emerald: #065f46; /* 6.25:1 on #ebe7dc and #f6f4ee */
+  /* ── 2. Neutomni Warm Editorial Alabaster Paper Theme ── */
+  --bg-paper: #f4f1ea; /* Warm Swiss newsprint / alabaster */
+  --bg-paper-elevated: #ffffff; /* Crisp white waybill ticket surface */
+  --bg-paper-subtle: #e8e4da; /* OS file tab header & muted cell fill */
+  --bg-paper-tint: rgba(17, 17, 16, 0.04);
+  --border-paper: rgba(17, 17, 16, 0.14);
+  --border-paper-strong: rgba(17, 17, 16, 0.32);
+  --text-paper-1: #111110; /* Deep carbon ink */
+  --text-paper-2: #3d3c38; /* Warm graphite body ink */
+  --text-paper-3: #6e6c65; /* Monospace metadata ink */
+  --waybill-red: #ff3b1d; /* Signal Vermilion */
+  --waybill-red-dark: #ff6b52;
+  --waybill-red-soft: rgba(255, 59, 29, 0.12);
+  --waybill-red-border: rgba(255, 59, 29, 0.40);
+  --waybill-emerald: #065f46;
   --waybill-emerald-soft: rgba(6, 95, 70, 0.10);
   --waybill-emerald-border: rgba(6, 95, 70, 0.30);
-  --waybill-indigo: #3730a3; /* 8.75:1 on #f6f4ee */
-  --waybill-indigo-soft: rgba(55, 48, 163, 0.09);
-  --waybill-indigo-border: rgba(55, 48, 163, 0.28);
-  --waybill-amber: #92400e; /* 5.8:1 on #f6f4ee and #ebe7dc */
+  --waybill-indigo: #ff3b1d;
+  --waybill-indigo-soft: rgba(255, 59, 29, 0.10);
+  --waybill-indigo-border: rgba(255, 59, 29, 0.32);
+  --waybill-amber: #92400e;
   --waybill-amber-soft: rgba(180, 83, 9, 0.12);
   --waybill-amber-border: rgba(180, 83, 9, 0.30);
-  --indigo-hover: #5558e6;
 
-  /* ── Brand Colors ── */
-  --indigo: #4f46e5;
-  --indigo-dark: #3730a3;
-  --indigo-soft: #818cf8;
-  --violet: #a78bfa;
-  --emerald: #10b981;
+  /* ── 3. Primary Brand Accents (Signal Vermilion + Verification Emerald) ── */
+  --signal: #ff3b1d; /* Neutomni signature vermilion red-orange */
+  --signal-hover: #e02e12;
+  --signal-soft: rgba(255, 59, 29, 0.12);
+  --signal-border: rgba(255, 59, 29, 0.40);
+  --emerald: #10b981; /* WhatsApp verification & recovered INR green */
   --amber: #f59e0b;
   --amber-light: #fef08a;
-  --rose: #f43f5e;
-  --rose-light: #fecdd3;
+  --rose: #fb7185;
+  --rose-light: #fca5a5;
   --danger: #ef4444;
   --emerald-light: #a7f3d0;
   --cyan: #38bdf8;
+  --indigo: #4f46e5;
+  --indigo-hover: #4338ca;
+  --indigo-soft: #818cf8;
+  --indigo-dark: #4338ca;
+  --violet: #8b5cf6;
 
   /* ── Semantic Brand Opacities (Zero Raw RGBA in Page Styles) ── */
   --indigo-04: rgba(99, 102, 241, 0.04);
@@ -200,13 +204,13 @@
   --shadow-32: rgba(0, 0, 0, 0.32);
 
   /* ── Typography & Foregrounds (WCAG 2.1 AA Compliant) ── */
-  --text-1: #f4f4f5;
-  --text-2: #d4d4d8;
-  --text-3: #9ca3af;
-  --text-4: #6b7280;
-  --text-primary: #f4f4f5;
-  --text-secondary: #d4d4d8;
-  --text-muted: #9ca3af;
+  --text-1: #f4f1ea; /* Warm ivory headline ink */
+  --text-2: #c7c3b8; /* Warm stone secondary copy */
+  --text-3: #9e9a90; /* Muted industrial caption (> 5.7:1 WCAG contrast) */
+  --text-4: #605d56;
+  --text-primary: #f4f1ea;
+  --text-secondary: #c7c3b8;
+  --text-muted: #9e9a90;
 
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-display: 'Space Grotesk', -apple-system, sans-serif;

@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+import { motion, useScroll, useTransform, useReducedMotion } from 'motion/react';
 import { Zap, MapPin, CreditCard, ShieldCheck, SearchCheck, LineChart } from 'lucide-react';
 import { SpotlightCard } from '../SpotlightCard';
 
@@ -8,7 +10,7 @@ const FEATURES = [
     icon: Zap,
     title: 'Autonomous NDR Rescue',
     desc: 'Every failed attempt gets a WhatsApp response inside 90 seconds.',
-    color: 'rgba(99, 102, 241, 0.15)',
+    color: 'var(--signal-soft)',
     sla: '< 90s SLA',
   },
   {
@@ -17,7 +19,7 @@ const FEATURES = [
     icon: MapPin,
     title: '2-Step AI Address Fix',
     desc: 'GPS pin + Hinglish landmark merged and pushed to the driver app.',
-    color: 'rgba(56, 189, 248, 0.15)',
+    color: 'var(--amber-10)',
     sla: 'GEO-RESOLVE',
   },
   {
@@ -26,7 +28,7 @@ const FEATURES = [
     icon: CreditCard,
     title: 'COD → UPI Conversion',
     desc: 'Doorstep & cancel-time UPI links with self-funding discounts.',
-    color: 'rgba(16, 185, 129, 0.15)',
+    color: 'var(--emerald-15)',
     sla: 'INSTANT UPI',
   },
   {
@@ -35,7 +37,7 @@ const FEATURES = [
     icon: ShieldCheck,
     title: 'Payment-Gated RTO Arrest',
     desc: 'Return transit halts only when money is actually captured.',
-    color: 'rgba(244, 63, 94, 0.15)',
+    color: 'var(--signal-soft)',
     sla: 'GATE LOCKED',
   },
   {
@@ -44,7 +46,7 @@ const FEATURES = [
     icon: SearchCheck,
     title: 'Fake Remark Detection',
     desc: 'Odd-hour scans and 4-minute attempts auto-escalate to carrier supervisors.',
-    color: 'rgba(251, 191, 36, 0.15)',
+    color: 'var(--amber-10)',
     sla: 'AUTO-ESCALATE',
   },
   {
@@ -53,22 +55,42 @@ const FEATURES = [
     icon: LineChart,
     title: 'Pincode Intelligence',
     desc: 'Every pincode scored by real outcomes: courier vs customer vs address.',
-    color: 'rgba(168, 85, 247, 0.15)',
+    color: 'var(--emerald-15)',
     sla: 'TELEMETRY LIVE',
   },
 ];
 
 export function FeaturesGrid() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const reduced = !!useReducedMotion();
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ['start end', 'end start'],
+  });
+
+  const marqueeX = useTransform(scrollYProgress, [0, 1], ['0%', '-25%']);
+
   return (
-    <div className="fgrid" aria-labelledby="features-heading">
+    <div ref={containerRef} className="fgrid" id="features" aria-labelledby="features-heading">
+      {/* ── Scroll-Linked Parallax Marquee Header ── */}
+      <div className="nt-fgrid__marquee-wrap" aria-hidden="true">
+        <motion.div
+          className="nt-fgrid__marquee"
+          style={reduced ? { transform: 'none' } : { x: marqueeX }}
+        >
+          AUTONOMOUS NDR ENGINE // ZERO HUMANS // 90s SLA // OVERRIDE FAKE SCANS // AUTOMATED RE-DELIVERY // GPS PIN GEO-RESOLUTION //
+        </motion.div>
+      </div>
+
       <div className="fgrid__container">
         <div className="fgrid__header">
-          <span className="fgrid__eyebrow">FEATURES</span>
-          <h2 id="features-heading" className="fgrid__heading">
-            Built for conversion. Engineered for zero friction.
+          <span className="fgrid__eyebrow">CHAPTER 04 // 01–06 AUTONOMOUS SYSTEMS</span>
+          <h2 id="features-heading" className="fgrid__heading nt-display">
+            Six engines. <em className="nt-serif">Zero human delay.</em>
           </h2>
           <p className="fgrid__sub">
-            Six automated systems working continuously so you never lose revenue to couriers or bad addresses.
+            Built for instantaneous execution so you never bleed freight or lose customers to fraudulent delivery remarks.
           </p>
         </div>
 
@@ -78,9 +100,14 @@ export function FeaturesGrid() {
             return (
               <SpotlightCard
                 key={feat.title}
-                className="fgrid__card"
+                className="fgrid__card nt-bento-card"
                 spotlightColor={feat.color}
               >
+                <svg className="nt-bento-numeral" aria-hidden="true" width="90" height="70" viewBox="0 0 90 70">
+                  <text x="10" y="60" fill="none" stroke="currentColor" strokeWidth="1.5" fontSize="64" fontFamily="monospace" fontWeight="800">
+                    {feat.index}
+                  </text>
+                </svg>
                 <div className="fgrid__card-head">
                   <span className="fgrid__card-index">{feat.index}</span>
                   <span className="fgrid__card-code">{feat.code}</span>
@@ -102,3 +129,5 @@ export function FeaturesGrid() {
     </div>
   );
 }
+
+export default FeaturesGrid;

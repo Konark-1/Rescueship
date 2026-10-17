@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useSpring } from 'motion/react';
 
-export function StickyNav() {
+interface StickyNavProps {
+  onNavigate?: (anchor: string) => void;
+}
+
+export function StickyNav({ onNavigate }: StickyNavProps) {
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, {
     stiffness: 140,
@@ -35,6 +39,10 @@ export function StickyNav() {
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     const targetId = href.replace('#', '');
+    onNavigate?.(targetId);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('rs:navigate', { detail: targetId }));
+    }
     const el = document.getElementById(targetId);
     if (el) {
       e.preventDefault();

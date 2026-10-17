@@ -78,10 +78,7 @@ section[id] {
 }
 
 /* ═══ AMBIENT LAYERS ═══ */
-.lp-orb { position: fixed; border-radius: var(--radius-full); pointer-events: none; z-index: 0; filter: blur(90px); }
-.lp-orb--1 { top: -12%; left: -8%; width: 520px; height: 520px; background: radial-gradient(circle, var(--indigo-18), transparent 70%); }
-.lp-orb--2 { top: 38%; right: -10%; width: 560px; height: 560px; background: radial-gradient(circle, var(--rose-12), transparent 70%); }
-.lp-orb--3 { bottom: 2%; left: 16%; width: 480px; height: 480px; background: radial-gradient(circle, var(--emerald-09), transparent 70%); }
+.lp-orb { display: none !important; }
 .lp-grid-bg {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background-image:
@@ -161,7 +158,7 @@ section[id] {
 .lp-console__dot--g { background: var(--emerald); }
 .lp-console__title {
   font-family: var(--font-mono); font-size: 0.72rem;
-  color: var(--text-3); margin-left: var(--space-2); letter-spacing: 0.02em;
+  color: var(--text-2); margin-left: var(--space-2); letter-spacing: 0.02em;
 }
 .lp-console__live {
   margin-left: auto; font-family: var(--font-mono); font-size: 0.62rem;
@@ -175,7 +172,7 @@ section[id] {
 }
 .lp-console__watch {
   font-family: var(--font-mono); font-size: 0.6rem; letter-spacing: 0.12em;
-  text-transform: uppercase; color: var(--text-3); margin-right: var(--space-1);
+  text-transform: uppercase; color: var(--text-2); margin-right: var(--space-1);
 }
 .lp-console__chip {
   display: inline-flex; align-items: center; gap: var(--space-1-5);
@@ -237,7 +234,7 @@ section[id] {
 }
 .lp-stat__l {
   font-family: var(--font-mono); font-size: 0.62rem;
-  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3);
+  letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-2);
 }
 
 /* intent */
@@ -1335,19 +1332,19 @@ section[id] {
   justify-content: center;
   padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-full);
-  background: var(--indigo);
-  color: #fff;
+  background: var(--signal);
+  color: var(--bg-void);
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   text-decoration: none;
-  box-shadow: 0 4px 16px var(--indigo-30);
+  box-shadow: 0 4px 16px var(--signal-soft);
   transition: all 0.2s ease;
 }
 
 .lnav__cta:hover {
-  background: var(--indigo-dark);
+  background: var(--signal-hover);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px var(--indigo-50);
+  box-shadow: 0 6px 20px var(--signal-border);
 }
 
 /* ── 2. CARRIER ACCOUNTABILITY (.account) ── */
@@ -3616,4 +3613,721 @@ section[id] {
   *, *::before, *::after {
     animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   NEUTOMNI V3 MAJOR REFACTOR: EDITORIAL, HORIZONTAL TRACK & OS WORKSPACE
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Editorial Typography & Slot Counters ── */
+.nt-display {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 6.8vw, 5.8rem);
+  font-weight: 700;
+  line-height: 0.94;
+  letter-spacing: -0.045em;
+}
+
+.nt-serif, em.nt-serif {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 400;
+  color: var(--signal);
+  padding: 0 0.06em;
+}
+
+.nt-slot-counter {
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  align-items: center;
+}
+
+.nt-slot-digit {
+  height: 1em;
+  line-height: 1em;
+  overflow: hidden;
+  vertical-align: top;
+  position: relative;
+  display: inline-block;
+}
+
+/* ── 2. Sleek 1-Line Hero Command Bar ── */
+.nt-hero-cmd {
+  display: flex;
+  align-items: center;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 6px;
+  width: 100%;
+  max-width: 580px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  margin-top: var(--space-5);
+}
+
+.nt-hero-cmd:focus-within {
+  border-color: var(--signal);
+  box-shadow: 0 0 0 3px var(--signal-soft);
+}
+
+.nt-hero-cmd__input-wrap {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  padding: 0 12px;
+}
+
+.nt-hero-cmd__icon {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-3);
+  margin-right: 8px;
+  user-select: none;
+}
+
+.nt-hero-cmd__input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-1);
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+}
+
+.nt-hero-cmd__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--signal);
+  color: var(--bg-void);
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+  white-space: nowrap;
+}
+
+.nt-hero-cmd__btn:hover {
+  background: var(--signal-hover);
+  transform: translateY(-1px);
+}
+
+/* ── 3. Chapter 02: Warm Alabaster Manifesto Reveal ── */
+.nt-manifesto {
+  padding: clamp(var(--space-12), 10vh, var(--space-20)) var(--space-4);
+  max-width: 1120px;
+  margin: 0 auto;
+}
+
+.nt-manifesto__inner {
+  position: relative;
+}
+
+.nt-manifesto__p {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.18;
+  letter-spacing: -0.035em;
+  color: var(--text-paper-1);
+}
+
+.nt-manifesto-word {
+  display: inline-block;
+  will-change: opacity, transform;
+}
+
+.nt-manifesto-word--highlight .nt-serif {
+  color: var(--signal-hover);
+}
+
+/* ── 4. Chapter 03: Pinned Horizontal Scrollytelling Track ── */
+.nt-hscroll {
+  position: relative;
+  height: 380vh;
+  background: var(--bg-void);
+}
+
+.nt-hscroll__stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.nt-hscroll__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-8);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-deep);
+  z-index: 20;
+}
+
+.nt-hscroll__chapter-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nt-hscroll__tag-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+.nt-hscroll__quick-nav {
+  display: flex;
+  gap: 8px;
+}
+
+.nt-hscroll__jump-btn {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.nt-hscroll__jump-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-1);
+  border-color: var(--border-hover);
+}
+
+.nt-hscroll__ribbon {
+  display: flex;
+  width: 400vw;
+  height: calc(100vh - 120px);
+  will-change: transform;
+}
+
+.nt-hscroll__panel {
+  width: 100vw;
+  height: 100%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6) var(--space-8);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.nt-panel-content {
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.nt-panel-content--wide {
+  max-width: 1360px;
+}
+
+.nt-panel-kicker {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  color: var(--signal);
+  margin-bottom: var(--space-2);
+  text-transform: uppercase;
+}
+
+.nt-panel-h2 {
+  font-size: clamp(2.2rem, 4.4vw, 3.6rem);
+  margin-bottom: var(--space-3);
+  color: var(--text-1);
+}
+
+.nt-panel-sub {
+  font-size: 1.05rem;
+  color: var(--text-2);
+  max-width: 720px;
+  margin-bottom: var(--space-6);
+  line-height: 1.55;
+}
+
+/* Panel 01: Typographic Equation */
+.nt-equation-block {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin: var(--space-6) 0;
+  overflow-x: auto;
+}
+
+.nt-equation-part {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.nt-equation-label {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+}
+
+.nt-equation-val {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.nt-equation-val--signal {
+  color: var(--signal);
+}
+
+.nt-equation-op {
+  font-family: var(--font-mono);
+  font-size: 1.6rem;
+  color: var(--text-3);
+}
+
+.nt-bleed-bars {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+  max-width: 780px;
+}
+
+.nt-bleed-row {
+  display: grid;
+  grid-template-columns: 240px 1fr 60px;
+  align-items: center;
+  gap: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.nt-bleed-label {
+  color: var(--text-2);
+}
+
+.nt-bleed-track {
+  height: 8px;
+  background: var(--white-04);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.nt-bleed-fill {
+  height: 100%;
+  background: var(--signal);
+  border-radius: var(--radius-full);
+}
+
+.nt-bleed-amount {
+  color: var(--text-1);
+  text-align: right;
+  font-weight: 600;
+}
+
+/* Panel 02: Heuristics */
+.nt-accountability-wrap {
+  margin-bottom: var(--space-6);
+}
+
+.nt-heuristics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-4);
+  margin-top: var(--space-5);
+}
+
+.nt-heuristic-card {
+  padding: var(--space-5);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.nt-heuristic-tag {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.nt-heuristic-card h4 {
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin-bottom: var(--space-2);
+}
+
+.nt-heuristic-card p {
+  font-size: 0.82rem;
+  color: var(--text-2);
+  line-height: 1.45;
+}
+
+/* Panel 03: Split Simulator & Order Board */
+.nt-intercept-split {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+.nt-simulator-badge {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--emerald);
+  margin-bottom: var(--space-3);
+  letter-spacing: 0.08em;
+}
+
+/* Panel 04: Rail & Beats */
+.nt-rail-wrapper {
+  margin: var(--space-6) 0;
+}
+
+.nt-reel-beats-horizontal {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+  margin: var(--space-6) 0 0 0;
+}
+
+.nt-reel-parcel-horizontal {
+  position: absolute;
+  top: -12px;
+  font-size: 1.2rem;
+}
+
+.nt-trust-wrap {
+  margin-top: var(--space-6);
+}
+
+.nt-hscroll__foot {
+  padding: var(--space-3) var(--space-8);
+  border-top: 1px solid var(--border);
+  background: var(--bg-deep);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 20;
+}
+
+.nt-hscroll__progress-track {
+  width: 100%;
+  height: 4px;
+  background: var(--white-04);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.nt-hscroll__progress-bar {
+  height: 100%;
+  background: var(--signal);
+  transform-origin: left;
+}
+
+.nt-hscroll__progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-3);
+}
+
+/* ── 5. Chapter 04: Parallax Bento Cards ── */
+.nt-fgrid__marquee-wrap {
+  overflow: hidden;
+  white-space: nowrap;
+  padding: var(--space-4) 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-deep);
+  margin-bottom: var(--space-8);
+}
+
+.nt-fgrid__marquee {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.nt-bento-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.nt-bento-numeral {
+  position: absolute;
+  top: 10px;
+  right: 16px;
+  color: var(--border-hover);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* ── 6. Chapter 05: Studio OS Workspace ── */
+.nt-os-workspace {
+  width: 100%;
+  max-width: 1260px;
+  margin: 0 auto;
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 20px 48px var(--black-10);
+  overflow: hidden;
+  position: relative;
+}
+
+.nt-anchor-target {
+  position: absolute;
+  top: -90px;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
+}
+
+.nt-os-window__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-paper-subtle);
+  border-bottom: 1px solid var(--border-paper);
+}
+
+.nt-os-window__dots {
+  display: flex;
+  gap: 6px;
+}
+
+.nt-os-window__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.nt-os-window__dot--r { background: var(--signal); }
+.nt-os-window__dot--y { background: var(--amber); }
+.nt-os-window__dot--g { background: var(--emerald); }
+
+.nt-os-window__tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.nt-os-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-paper-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  position: relative;
+}
+
+.nt-os-tab.is-active {
+  color: var(--text-paper-1);
+  font-weight: 600;
+}
+
+.nt-os-tab__indicator {
+  position: absolute;
+  inset: 0;
+  background: var(--bg-paper-elevated);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-paper);
+  z-index: -1;
+}
+
+.nt-os-window__status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nt-os-window__pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emerald);
+}
+
+.nt-os-window__badge {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-paper-2);
+}
+
+.nt-os-window__body {
+  padding: var(--space-8);
+  min-height: 540px;
+}
+
+.nt-pricing-roi-block {
+  margin-bottom: var(--space-8);
+}
+
+/* ── 7. Reduced Motion Fallback for Horizontal Track ── */
+@media (prefers-reduced-motion: reduce) {
+  .nt-hscroll {
+    height: auto !important;
+  }
+  .nt-hscroll__stage {
+    position: relative !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .nt-hscroll__ribbon {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    transform: none !important;
+    height: auto !important;
+  }
+  .nt-hscroll__panel {
+    width: 100% !important;
+    height: auto !important;
+    padding: var(--space-8) var(--space-4) !important;
+    overflow-y: visible !important;
+  }
+  .nt-hscroll__head,
+  .nt-hscroll__foot {
+    display: none !important;
+  }
+  .nt-reel-beats-horizontal {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  }
+  .nt-intercept-split {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* ── 8. Keyboard Accessibility & WCAG 2.1 AA Paper Contrast Overrides ── */
+.nt-hscroll__panel:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: -2px;
+}
+
+.lp-chapter--paper .roi__eyebrow,
+.lp-chapter--paper .pricing__eyebrow {
+  color: var(--signal-hover);
+}
+
+.lp-chapter--paper .plan-picker__chip,
+.lp-chapter--paper .bl-chip {
+  color: var(--text-paper-2);
+  background: var(--bg-paper-elevated);
+  border-color: var(--border-paper);
+}
+
+.lp-chapter--paper .plan-picker__chip:hover,
+.lp-chapter--paper .bl-chip:hover {
+  background: var(--bg-paper-subtle);
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .plan-picker__chip.is-active,
+.lp-chapter--paper .bl-chip.is-active {
+  background: var(--signal);
+  color: var(--bg-void);
+  border-color: var(--signal);
+  font-weight: 700;
+}
+
+.lp-chapter--paper .plan-picker__chip.is-active .plan-picker__chip-label {
+  color: var(--bg-void);
+}
+
+.plan-picker__chip.is-active .plan-picker__chip-label {
+  color: var(--text-1);
+}
+
+.lp-chapter--paper .bl-tier-card,
+.lp-chapter--paper .plan-picker__card {
+  background: var(--bg-paper-elevated);
+  border-color: var(--border-paper);
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .bl-tier-card__serial {
+  color: var(--signal-hover);
+}
+
+.lp-chapter--paper .bl-tier-card__subtext {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .bl-tier-card__name,
+.lp-chapter--paper .bl-tier-card__price {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .bl-tier-card__volume,
+.lp-chapter--paper .bl-tier-card__price small {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .bl-tier-card__badge {
+  background: var(--signal-soft);
+  color: var(--indigo-dark);
+  border-color: var(--signal-border);
+}
+
+.lp-chapter--paper .bl-tier-card.is-selected,
+.lp-chapter--paper .plan-picker__card.is-selected {
+  background: var(--bg-paper-elevated);
+  border-color: var(--signal);
+  box-shadow: 0 4px 20px var(--signal-soft);
+}
+
+.lp-chapter--paper .bl-tier-card.is-selected .bl-tier-card__name,
+.lp-chapter--paper .bl-tier-card.is-selected .bl-tier-card__price {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .bl-tier-card.is-selected .bl-tier-card__serial {
+  color: var(--signal-hover);
+}
+
+.lp-chapter--paper .bl-tier-card.is-selected .bl-tier-card__subtext {
+  color: var(--waybill-emerald);
 }

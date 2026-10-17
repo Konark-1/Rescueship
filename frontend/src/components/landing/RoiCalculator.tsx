@@ -26,7 +26,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
   const savings = e.saved;
 
   return (
-    <section id="calculator" className="roi" aria-labelledby="roi-heading">
+    <section className="roi" aria-labelledby="roi-heading">
       <div className="roi__container">
         <div className="roi__header">
           <span className="roi__eyebrow">
