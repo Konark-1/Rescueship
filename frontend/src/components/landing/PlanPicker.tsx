@@ -1,6 +1,8 @@
 import { useState, useId } from 'react';
+import { motion } from 'motion/react';
 import { PLANS, BANDS, bandFor, priceFor, estimate, recommendedPlan, inr, type PlanKey } from '../../config/pricing.config';
-import { SlidersHorizontal } from 'lucide-react';
+import { SlidersHorizontal, Scissors } from 'lucide-react';
+import { springSnappy } from '../../lib/motion';
 
 export interface PlanPickerProps {
   value?: number;
@@ -10,6 +12,12 @@ export interface PlanPickerProps {
   cycleLabel?: string;
   hideSlider?: boolean;
 }
+
+const PLAN_WAYBILL_CODES: Record<string, string> = {
+  rescue: 'RS/PKG.01-RES',
+  convert: 'RS/PKG.02-CNV',
+  prevent: 'RS/PKG.03-PRV',
+};
 
 /**
  * Landing plan picker: the plan sets the features, the monthly order volume sets the price.
@@ -72,7 +80,14 @@ export function PlanPicker({
                   className={`bl-chip plan-picker__chip ${isActive ? 'is-active' : ''}`}
                   onClick={() => setVolume(b)}
                 >
-                  {label}
+                  {isActive && (
+                    <motion.span
+                      layoutId="vol-preset-pill"
+                      className="plan-picker__chip-pill"
+                      transition={springSnappy}
+                    />
+                  )}
+                  <span className="plan-picker__chip-label">{label}</span>
                 </button>
               );
             })}
@@ -86,6 +101,7 @@ export function PlanPicker({
           const isRec = plan.key === recommended;
           const e = estimate(volume, {}, plan.key);
           const p = band ? priceFor(plan.key, band, 'quarterly') : null;
+          const waybillCode = PLAN_WAYBILL_CODES[plan.key] || 'RS/PKG.00';
 
           return (
             <div
@@ -102,27 +118,37 @@ export function PlanPicker({
                 }
               }}
             >
-              <div className="bl-tier-card__left">
-                <div className="bl-tier-card__radio" aria-hidden="true">
-                  {isSelected ? <div className="bl-tier-card__radio-dot" /> : null}
-                </div>
-                <div className="bl-tier-card__info">
-                  <div className="bl-tier-card__title-row">
-                    <span className="bl-tier-card__name">{plan.name}</span>
-                    {isRec && <span className="bl-tier-card__badge">Recommended for you</span>}
-                  </div>
-                  <p className="bl-tier-card__volume">{plan.tagline}</p>
-                  <p className="bl-tier-card__volume">
-                    Covers {plan.coverage} · ≈{Math.round(plan.reduction * 100)}% fewer RTOs · saves ~{inr(e.saved)}/mo
-                  </p>
-                </div>
+              <div className="bl-tier-card__waybill-bar">
+                <span className="bl-tier-card__serial">{waybillCode} // WAYBILL SPEC</span>
+                <span className="bl-tier-card__tear">
+                  <Scissors size={10} className="waybill-scissors" aria-hidden="true" />
+                  TEAR ALONG LINE
+                </span>
               </div>
 
-              <div className="bl-tier-card__right">
-                <span className="bl-tier-card__price">
-                  {p ? <>{inr(p.monthly)}<small>/mo</small></> : 'Custom'}
-                </span>
-                <span className="bl-tier-card__subtext">{p ? cycleLabel || 'Billed quarterly' : 'Above 10k orders'}</span>
+              <div className="bl-tier-card__body">
+                <div className="bl-tier-card__left">
+                  <div className="bl-tier-card__radio" aria-hidden="true">
+                    {isSelected ? <div className="bl-tier-card__radio-dot" /> : null}
+                  </div>
+                  <div className="bl-tier-card__info">
+                    <div className="bl-tier-card__title-row">
+                      <span className="bl-tier-card__name">{plan.name}</span>
+                      {isRec && <span className="bl-tier-card__badge">Recommended for you</span>}
+                    </div>
+                    <p className="bl-tier-card__volume">{plan.tagline}</p>
+                    <p className="bl-tier-card__volume">
+                      Covers {plan.coverage} · ≈{Math.round(plan.reduction * 100)}% fewer RTOs · saves ~{inr(e.saved)}/mo
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bl-tier-card__right">
+                  <span className="bl-tier-card__price">
+                    {p ? <>{inr(p.monthly)}<small>/mo</small></> : 'Custom'}
+                  </span>
+                  <span className="bl-tier-card__subtext">{p ? cycleLabel || 'Billed quarterly' : 'Above 10k orders'}</span>
+                </div>
               </div>
             </div>
           );

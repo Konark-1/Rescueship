@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring } from 'motion/react';
+import { Link, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import {
   DeliveryTruckIcon,
@@ -12,7 +12,7 @@ import {
 } from '../components/icons';
 import { CarrierMarquee } from '../components/CarrierMarquee';
 import { SpotlightCard } from '../components/SpotlightCard';
-import { BellRing, ShieldCheck, RotateCcw } from 'lucide-react';
+import { BellRing, ShieldCheck, RotateCcw, Scissors } from 'lucide-react';
 import { StickyNav } from '../components/landing/StickyNav';
 import { AccountabilityScene } from '../components/landing/AccountabilityScene';
 import { RescueScene } from '../components/story/RescueScene';
@@ -23,6 +23,7 @@ import { PricingSection } from '../components/landing/PricingSection';
 import { TrustStrip } from '../components/landing/TrustStrip';
 import { FaqSection } from '../components/landing/FaqSection';
 import type { PlanKey } from '../config/pricing.config';
+import { springScroll } from '../lib/motion';
 import './landing.css';
 
 /* ═══ BOOT SEQUENCE ═══ */
@@ -161,19 +162,21 @@ function SpawnWords({ text, booted, baseDelay = 0, className = '' }: {
   );
 }
 
-function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, delay = 0 }: {
-  target: number; booted: boolean; prefix?: string; suffix?: string; duration?: number; delay?: number;
+function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.4, delay = 0, className = '' }: {
+  target: number; booted: boolean; prefix?: string; suffix?: string; duration?: number; delay?: number; className?: string;
 }) {
-  const [val, setVal] = useState(0);
-  const prevTargetRef = useRef(0);
+  const [val, setVal] = useState(target);
+  const prevTargetRef = useRef(target);
+  const [slotKey, setSlotKey] = useState(0);
 
   useEffect(() => {
     if (!booted) return;
-    let raf = 0, start = 0;
     const startVal = prevTargetRef.current;
     const diff = target - startVal;
     prevTargetRef.current = target;
+    setSlotKey((k) => k + 1);
 
+    let raf = 0, start = 0;
     const timer = setTimeout(() => {
       const step = (ts: number) => {
         if (!start) start = ts;
@@ -186,11 +189,23 @@ function CountUp({ target, booted, prefix = '', suffix = '', duration = 1.6, del
     }, delay * 1000);
     return () => { clearTimeout(timer); cancelAnimationFrame(raf); };
   }, [booted, target, duration, delay]);
-  return <>{prefix}{val.toLocaleString('en-IN')}{suffix}</>;
+
+  return (
+    <motion.span
+      key={slotKey}
+      className={`lp-slot-num ${className}`}
+      initial={{ y: 8, opacity: 0.35 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+    >
+      {prefix}{val.toLocaleString('en-IN')}{suffix}
+    </motion.span>
+  );
 }
 
-/* ═══ MAIN ═══ */
+/* ═══ MAIN LANDING PAGE ═══ */
 export default function LandingPage() {
+  const navigate = useNavigate();
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | undefined>(undefined);
 
@@ -293,31 +308,32 @@ export default function LandingPage() {
     return () => clearInterval(iv);
   }, [booted]);
 
-  /* ── Scroll reel: desktop gate + scroll‑scrubbed parcel ── */
+  /* ── Scroll reel: spring-damped parcel and timeline scrubbing ── */
   const trackRef = useRef<HTMLDivElement>(null);
-
   const { scrollYProgress } = useScroll({ target: trackRef, offset: ['start start', 'end end'] });
-  const reelTop = useTransform(scrollYProgress, [0, 1], ['6.25%', '93.75%']);
+  const smoothScroll = useSpring(scrollYProgress, springScroll);
+  const activeProgress = reduced ? scrollYProgress : smoothScroll;
+  const reelTop = useTransform(activeProgress, [0, 1], ['6.25%', '93.75%']);
 
   /* Beat reveal — 8 steps transforms */
-  const bo0 = useTransform(scrollYProgress, [0, 1], [1, 1]);
-  const bo1 = useTransform(scrollYProgress, [0, 0.05, 0.12, 1], [0, 0, 1, 1]);
-  const bo2 = useTransform(scrollYProgress, [0, 0.19, 0.26, 1], [0, 0, 1, 1]);
-  const bo3 = useTransform(scrollYProgress, [0, 0.33, 0.40, 1], [0, 0, 1, 1]);
-  const bo4 = useTransform(scrollYProgress, [0, 0.47, 0.54, 1], [0, 0, 1, 1]);
-  const bo5 = useTransform(scrollYProgress, [0, 0.61, 0.68, 1], [0, 0, 1, 1]);
-  const bo6 = useTransform(scrollYProgress, [0, 0.75, 0.82, 1], [0, 0, 1, 1]);
-  const bo7 = useTransform(scrollYProgress, [0, 0.89, 0.96, 1], [0, 0, 1, 1]);
+  const bo0 = useTransform(activeProgress, [0, 1], [1, 1]);
+  const bo1 = useTransform(activeProgress, [0, 0.05, 0.12, 1], [0, 0, 1, 1]);
+  const bo2 = useTransform(activeProgress, [0, 0.19, 0.26, 1], [0, 0, 1, 1]);
+  const bo3 = useTransform(activeProgress, [0, 0.33, 0.40, 1], [0, 0, 1, 1]);
+  const bo4 = useTransform(activeProgress, [0, 0.47, 0.54, 1], [0, 0, 1, 1]);
+  const bo5 = useTransform(activeProgress, [0, 0.61, 0.68, 1], [0, 0, 1, 1]);
+  const bo6 = useTransform(activeProgress, [0, 0.75, 0.82, 1], [0, 0, 1, 1]);
+  const bo7 = useTransform(activeProgress, [0, 0.89, 0.96, 1], [0, 0, 1, 1]);
   const beatO = [bo0, bo1, bo2, bo3, bo4, bo5, bo6, bo7];
 
-  const by0 = useTransform(scrollYProgress, [0, 1], [0, 0]);
-  const by1 = useTransform(scrollYProgress, [0, 0.05, 0.12, 1], [24, 24, 0, 0]);
-  const by2 = useTransform(scrollYProgress, [0, 0.19, 0.26, 1], [24, 24, 0, 0]);
-  const by3 = useTransform(scrollYProgress, [0, 0.33, 0.40, 1], [24, 24, 0, 0]);
-  const by4 = useTransform(scrollYProgress, [0, 0.47, 0.54, 1], [24, 24, 0, 0]);
-  const by5 = useTransform(scrollYProgress, [0, 0.61, 0.68, 1], [24, 24, 0, 0]);
-  const by6 = useTransform(scrollYProgress, [0, 0.75, 0.82, 1], [24, 24, 0, 0]);
-  const by7 = useTransform(scrollYProgress, [0, 0.89, 0.96, 1], [24, 24, 0, 0]);
+  const by0 = useTransform(activeProgress, [0, 1], [0, 0]);
+  const by1 = useTransform(activeProgress, [0, 0.05, 0.12, 1], [24, 24, 0, 0]);
+  const by2 = useTransform(activeProgress, [0, 0.19, 0.26, 1], [24, 24, 0, 0]);
+  const by3 = useTransform(activeProgress, [0, 0.33, 0.40, 1], [24, 24, 0, 0]);
+  const by4 = useTransform(activeProgress, [0, 0.47, 0.54, 1], [24, 24, 0, 0]);
+  const by5 = useTransform(activeProgress, [0, 0.61, 0.68, 1], [24, 24, 0, 0]);
+  const by6 = useTransform(activeProgress, [0, 0.75, 0.82, 1], [24, 24, 0, 0]);
+  const by7 = useTransform(activeProgress, [0, 0.89, 0.96, 1], [24, 24, 0, 0]);
   const beatY = [by0, by1, by2, by3, by4, by5, by6, by7];
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -371,8 +387,122 @@ export default function LandingPage() {
       <div className="lp-grain" aria-hidden="true" />
       <div className="lp-scan" aria-hidden="true" />
 
-      {/* 3. HERO */}
+      {/* ═══ CHAPTER 01: HERO SECTION (Dark Obsidian Mission Control) ═══ */}
       <section id="product" className="lp-hero">
+        <div className="lp-intent">
+          <motion.p className="lp-intent__kicker"
+            initial={reduced ? false : { opacity: 0, y: 16 }}
+            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
+            transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}>
+            For D2C brands shipping on WhatsApp
+          </motion.p>
+
+          <h1 className="lp-intent__h1">
+            <span className="lp-intent__line">
+              <SpawnWords text="He never" booted={booted} baseDelay={0.35} />{' '}
+              <SpawnWords text="knocked." booted={booted} baseDelay={0.58} className="lp-intent__accent" />
+            </span>
+            <span className="lp-intent__line">
+              <SpawnWords text="You lost" booted={booted} baseDelay={0.78} />{' '}
+              <SpawnWords text="the sale." booted={booted} baseDelay={1.0} className="lp-intent__accent" />
+            </span>
+          </h1>
+
+          <motion.p className="lp-intent__sub"
+            initial={reduced ? false : { opacity: 0, y: 14 }}
+            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
+            transition={{ duration: 0.6, delay: 1.15, ease: [0.16, 1, 0.3, 1] }}>
+            Every failed delivery is a wound — forward freight, reverse freight,
+            repackaging, wasted ad spend. RescueShip intercepts the NDR, rescues
+            the order on WhatsApp, and syncs the fix back to the carrier.
+            In 90 seconds. Without a human.
+          </motion.p>
+
+          {/* Neutomni Animated A → B Interception Path */}
+          <div className="lp-ab-path" aria-label="Autonomous interception path">
+            <div className="lp-ab-node lp-ab-node--a">
+              <span className="lp-ab-node__tag">NODE A</span>
+              <span className="lp-ab-node__title">Fake NDR Scan</span>
+              <span className="lp-ab-node__time">11:47:02</span>
+            </div>
+            <div className="lp-ab-path__mid">
+              <svg className="lp-ab-path__svg" viewBox="0 0 160 20" fill="none" preserveAspectRatio="none">
+                <line x1="0" y1="10" x2="160" y2="10" stroke="var(--border-hover)" strokeWidth="2" strokeDasharray="5 5" />
+                <motion.circle
+                  cx="0"
+                  cy="10"
+                  r="4"
+                  fill="var(--emerald)"
+                  animate={reduced ? { cx: 160 } : { cx: [0, 160] }}
+                  transition={reduced ? { duration: 0 } : { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              </svg>
+              <span className="lp-ab-path__label">90s WhatsApp Intercept</span>
+            </div>
+            <div className="lp-ab-node lp-ab-node--b">
+              <span className="lp-ab-node__tag">NODE B</span>
+              <span className="lp-ab-node__title">Re-Delivery Locked</span>
+              <span className="lp-ab-node__time">11:48:32</span>
+            </div>
+          </div>
+
+          {submitted ? (
+            <motion.div className="lp-pass lp-pass--done"
+              initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}>
+              <CheckmarkIcon className="lp-pass__check" />
+              <p className="lp-pass__done-t">Integration request received!</p>
+              <p className="lp-pass__done-s">Check your inbox — our team will contact you within 24–48 hours to set up your store.</p>
+            </motion.div>
+          ) : (
+            <motion.form className="lp-pass" onSubmit={handleSignup}
+              initial={reduced ? false : { opacity: 0, x: -30, y: 10 }}
+              animate={booted ? { opacity: 1, x: 0, y: 0 } : { opacity: 0, x: -30, y: 10 }}
+              transition={{ duration: 0.65, delay: 1.25, ease: [0.16, 1, 0.3, 1] }}
+              style={{ willChange: 'transform, opacity' }}>
+              <div className="lp-pass__waybill-bar">
+                <span className="lp-pass__serial">RS/PASS.01 // SANDBOX MANIFEST</span>
+                <span className="lp-pass__tear">
+                  <Scissors size={11} className="waybill-scissors" aria-hidden="true" />
+                  TEAR ALONG LINE
+                </span>
+              </div>
+              <div className="lp-pass__grid-2">
+                <div className="lp-pass__row">
+                  <label className="lp-pass__label">Full name</label>
+                  <input className="lp-pass__input" type="text" placeholder="John Doe"
+                    autoComplete="name" spellCheck={false}
+                    value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <div className="lp-pass__row">
+                  <label className="lp-pass__label">Work email</label>
+                  <input className="lp-pass__input" type="email" placeholder="founder@yourbrand.com"
+                    autoComplete="email" spellCheck={false}
+                    value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+              </div>
+              <div className="lp-pass__row">
+                <label className="lp-pass__label">Shopify / WooCommerce store domain</label>
+                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com (or yourstore.com)"
+                  autoComplete="url" spellCheck={false}
+                  value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
+              </div>
+              <motion.button
+                className="lp-pass__btn"
+                type="submit"
+                disabled={submitting}
+                whileHover={reduced ? {} : { scale: 1.015 }}
+                whileTap={reduced ? {} : { scale: 0.985 }}
+                transition={{ duration: 0.15 }}
+              >
+                {submitting ? 'Boarding…' : 'Start rescuing →'}
+              </motion.button>
+              {error && <p className="lp-pass__err">⚠ {error}</p>}
+              <p className="lp-pass__fine">3 free test rescues to your own phone · no card to start</p>
+            </motion.form>
+          )}
+        </div>
+
         <motion.div className="lp-console"
           initial={reduced ? false : { opacity: 0, y: 50, scale: 0.95 }}
           animate={booted ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: 50, scale: 0.95 }}
@@ -433,83 +563,6 @@ export default function LandingPage() {
             </div>
           </div>
         </motion.div>
-
-        <div className="lp-intent">
-          <motion.p className="lp-intent__kicker"
-            initial={reduced ? false : { opacity: 0, y: 16 }}
-            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 16 }}
-            transition={{ duration: 0.5, delay: 0.25, ease: [0.16, 1, 0.3, 1] }}>
-            For D2C brands shipping on WhatsApp
-          </motion.p>
-
-          <h1 className="lp-intent__h1">
-            <span className="lp-intent__line">
-              <SpawnWords text="He never" booted={booted} baseDelay={0.35} />{' '}
-              <SpawnWords text="knocked." booted={booted} baseDelay={0.58} className="lp-intent__accent" />
-            </span>
-            <span className="lp-intent__line">
-              <SpawnWords text="You lost" booted={booted} baseDelay={0.78} />{' '}
-              <SpawnWords text="the sale." booted={booted} baseDelay={1.0} className="lp-intent__accent" />
-            </span>
-          </h1>
-
-          <motion.p className="lp-intent__sub"
-            initial={reduced ? false : { opacity: 0, y: 14 }}
-            animate={booted ? { opacity: 1, y: 0 } : { opacity: 0, y: 14 }}
-            transition={{ duration: 0.6, delay: 1.15, ease: [0.16, 1, 0.3, 1] }}>
-            Every failed delivery is a wound — forward freight, reverse freight,
-            repackaging, wasted ad spend. RescueShip intercepts the NDR, rescues
-            the order on WhatsApp, and syncs the fix back to the carrier.
-            In 90 seconds. Without a human.
-          </motion.p>
-
-          {submitted ? (
-            <motion.div className="lp-pass lp-pass--done"
-              initial={{ opacity: 0, scale: 0.94 }} animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.45, ease: [0.34, 1.56, 0.64, 1] }}>
-              <CheckmarkIcon className="lp-pass__check" />
-              <p className="lp-pass__done-t">Integration request received!</p>
-              <p className="lp-pass__done-s">Check your inbox — our team will contact you within 24–48 hours to set up your store.</p>
-            </motion.div>
-          ) : (
-            <motion.form className="lp-pass" onSubmit={handleSignup}
-              initial={reduced ? false : { opacity: 0, x: 48, y: 10 }}
-              animate={booted ? { opacity: 1, x: 0, y: 0 } : { opacity: 0, x: 48, y: 10 }}
-              transition={{ duration: 0.65, delay: 1.25, ease: [0.16, 1, 0.3, 1] }}
-              style={{ willChange: 'transform, opacity' }}>
-              <div className="lp-pass__row">
-                <label className="lp-pass__label">Full name</label>
-                <input className="lp-pass__input" type="text" placeholder="John Doe"
-                  autoComplete="name" spellCheck={false}
-                  value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-              <div className="lp-pass__row">
-                <label className="lp-pass__label">Work email</label>
-                <input className="lp-pass__input" type="email" placeholder="founder@yourbrand.com"
-                  autoComplete="email" spellCheck={false}
-                  value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-              <div className="lp-pass__row">
-                <label className="lp-pass__label">Shopify / WooCommerce store domain</label>
-                <input className="lp-pass__input" type="text" placeholder="yourbrand.myshopify.com (or yourstore.com)"
-                  autoComplete="url" spellCheck={false}
-                  value={storeUrl} onChange={(e) => setStoreUrl(e.target.value)} required />
-              </div>
-              <motion.button
-                className="lp-pass__btn"
-                type="submit"
-                disabled={submitting}
-                whileHover={reduced ? {} : { scale: 1.015 }}
-                whileTap={reduced ? {} : { scale: 0.985 }}
-                transition={{ duration: 0.15 }}
-              >
-                {submitting ? 'Boarding…' : 'Start rescuing →'}
-              </motion.button>
-              {error && <p className="lp-pass__err">⚠ {error}</p>}
-              <p className="lp-pass__fine">3 free test rescues to your own phone · no card to start</p>
-            </motion.form>
-          )}
-        </div>
       </section>
 
       {/* 5. CARRIER & COMMERCE INTERCEPT MESH & ORDER BOARD */}
@@ -592,161 +645,273 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 6. COST / LEDGER */}
-      <section className="lp-cost">
-        <p className="lp-section__kicker">The anatomy of a lost order</p>
-        <div className="lp-cost__shell">
-          <div className="lp-cost__total">
-            <div className="lp-cost__val">
-              <span className="lp-cost__cur">₹</span>
-              <span className="lp-cost__n">430</span>
+      {/* ═══ CHAPTER 02: COST & ACCOUNTABILITY (Warm Editorial Paper) ═══ */}
+      <div className="lp-chapter lp-chapter--paper">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 02 // FINANCIAL BLEED AUDIT</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
+        </div>
+
+        {/* 6. COST / LEDGER */}
+        <section className="lp-cost">
+          <p className="lp-section__kicker">The anatomy of a lost order</p>
+
+          {/* Typographic Visual Equation */}
+          <div className="lp-equation" aria-label="Equation: cost of RTO breakdown">
+            <div className="lp-equation__item">
+              <span className="lp-equation__term">CAC</span>
+              <span className="lp-equation__val">₹230</span>
             </div>
-            <span className="lp-cost__lbl">average cost per failed delivery — your currency, your math</span>
+            <span className="lp-equation__op">+</span>
+            <div className="lp-equation__item">
+              <span className="lp-equation__term">Forward</span>
+              <span className="lp-equation__val">₹80</span>
+            </div>
+            <span className="lp-equation__op">+</span>
+            <div className="lp-equation__item">
+              <span className="lp-equation__term">Reverse</span>
+              <span className="lp-equation__val">₹80</span>
+            </div>
+            <span className="lp-equation__op">+</span>
+            <div className="lp-equation__item">
+              <span className="lp-equation__term">Repack</span>
+              <span className="lp-equation__val">₹40</span>
+            </div>
+            <span className="lp-equation__op">=</span>
+            <div className="lp-equation__item lp-equation__item--total">
+              <span className="lp-equation__term">Bleed / RTO</span>
+              <span className="lp-equation__val">₹430</span>
+            </div>
           </div>
-          <div className="lp-cost__bars">
-            {LOSS_PARTS.map((p) => (
-              <div key={p.label} className="lp-cost__row">
-                <span className="lp-cost__row-l">{p.label}</span>
-                <div className="lp-cost__bar-track">
-                  <div className="lp-cost__bar-fill" style={{ width: `${(p.amount / 230) * 100}%` }} />
-                </div>
-                <span className="lp-cost__row-n">₹{p.amount}</span>
+
+          <div className="lp-cost__shell">
+            <div className="lp-cost__total">
+              <div className="lp-cost__val">
+                <span className="lp-cost__cur">₹</span>
+                <span className="lp-cost__n">430</span>
               </div>
-            ))}
-          </div>
-        </div>
-        <p className="lp-cost__note">
-          At 7,500 orders/mo with a 15% failure rate, that’s 1,125 lost orders.
-          Multiply by <strong>your</strong> cost per failure.{' '}
-          <em>Modelled projection — your numbers replace these when you connect.</em>
-        </p>
-        <p className="lp-cost__teaser">
-          …and in 4 out of 10 of these &apos;failures&apos;, the courier never knocked.
-        </p>
-      </section>
-
-      {/* 7. ACCOUNTABILITY SCENE */}
-      <AccountabilityScene />
-
-      {/* 8. RESCUE LOOP — spine + interactive WhatsApp proof */}
-      <section className="lp-how">
-        <div className="lp-how__main">
-          <p className="lp-section__kicker">The rescue loop</p>
-          <h2 className="lp-how__h2">
-            Four stations. <em>Zero humans.</em>
-          </h2>
-          <div className="lp-spine">
-            {SPINE_STEPS.map((s, i) => (
-              <div key={s.n} className="lp-spine__node">
-                <div className="lp-spine__rail">
-                  <span className="lp-spine__dot">{s.n}</span>
-                  {i < SPINE_STEPS.length - 1 && <span className="lp-spine__line" />}
+              <span className="lp-cost__lbl">average cost per failed delivery — your currency, your math</span>
+            </div>
+            <div className="lp-cost__bars">
+              {LOSS_PARTS.map((p) => (
+                <div key={p.label} className="lp-cost__row">
+                  <span className="lp-cost__row-l">{p.label}</span>
+                  <div className="lp-cost__bar-track">
+                    <motion.div
+                      className="lp-cost__bar-fill"
+                      initial={reduced ? false : { width: 0 }}
+                      whileInView={{ width: `${(p.amount / 230) * 100}%` }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                    />
+                  </div>
+                  <span className="lp-cost__row-n">₹{p.amount}</span>
                 </div>
-                <div className="lp-spine__content">
-                  <h3>{s.t}</h3>
-                  <p>{s.d}</p>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className="lp-how__aside">
-          <p className="lp-section__kicker">
-            <span className="lp-console__live">● LIVE DEMO</span>
-            Autonomous WhatsApp rescue
+          <p className="lp-cost__note">
+            At 7,500 orders/mo with a 15% failure rate, that’s 1,125 lost orders.
+            Multiply by <strong>your</strong> cost per failure.{' '}
+            <em>Modelled projection — your numbers replace these when you connect.</em>
           </p>
-          <RescueScene active={booted} reduced={reduced} />
-          <p className="lp-how__aside-note">The customer taps. The carrier syncs. No one on your team lifts a finger.</p>
-        </div>
-      </section>
+          <p className="lp-cost__teaser">
+            …and in 4 out of 10 of these &apos;failures&apos;, the courier never knocked.
+          </p>
+        </section>
 
-      {/* 9. SCROLL REEL — 8-step timeline told in motion */}
-      <section className={`lp-reel${reduced ? ' lp-reel--static' : ''}`} aria-label="How a single rescue plays out">
-        <div className="lp-reel__track" ref={trackRef}>
-          <div className="lp-reel__stage">
-            <p className="lp-section__kicker lp-reel__kicker">The same order, in motion</p>
-            <div className="lp-reel__grid">
-              <div className="lp-reel__route" aria-hidden="true">
-                <span className="lp-reel__line" />
-                {REEL_BEATS.map((b, i) => (
-                  <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
-                ))}
-                <motion.span
-                  className="lp-reel__parcel"
-                  style={reduced ? undefined : { top: reelTop }}
-                  role="img"
-                  aria-label="Delivery parcel"
-                >📦</motion.span>
-              </div>
-              <ol className="lp-reel__beats">
-                {REEL_BEATS.map((b, i) => (
-                  <motion.li
-                    key={i}
-                    className={`lp-reel__beat lp-reel__beat--${b.role}`}
-                    style={reduced ? { opacity: 1 } : { opacity: beatO[i], y: beatY[i] }}
-                  >
-                    <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
-                      {REEL_ICONS[i]}
-                    </span>
-                    <span className="lp-reel__beat-txt">
-                      <span className="lp-reel__beat-tag">{b.tag}</span>
-                      <span className="lp-reel__beat-t">{b.t}</span>
-                      <span className="lp-reel__beat-d">{b.d}</span>
-                    </span>
-                  </motion.li>
-                ))}
-              </ol>
+        {/* 7. ACCOUNTABILITY SCENE */}
+        <AccountabilityScene />
+      </div>
+
+      {/* ═══ CHAPTER 03: AUTONOMOUS RESCUE ENGINE (Dark Obsidian) ═══ */}
+      <div className="lp-chapter lp-chapter--dark">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 03 // AUTONOMOUS RESCUE MESH</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
+        </div>
+
+        {/* 8. RESCUE LOOP — spine + interactive WhatsApp proof */}
+        <section className="lp-how">
+          <div className="lp-how__main">
+            <p className="lp-section__kicker">The rescue loop</p>
+            <h2 className="lp-how__h2">
+              Four stations. <em>Zero humans.</em>
+            </h2>
+            <div className="lp-spine">
+              {SPINE_STEPS.map((s, i) => (
+                <div key={s.n} className="lp-spine__node">
+                  <div className="lp-spine__rail">
+                    <span className="lp-spine__dot">{s.n}</span>
+                    {i < SPINE_STEPS.length - 1 && <span className="lp-spine__line" />}
+                  </div>
+                  <div className="lp-spine__content">
+                    <h3>{s.t}</h3>
+                    <p>{s.d}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
+
+          <div className="lp-how__aside">
+            <p className="lp-section__kicker">
+              <span className="lp-console__live">● LIVE DEMO</span>
+              Autonomous WhatsApp rescue
+            </p>
+            <RescueScene active={booted} reduced={reduced} />
+            <p className="lp-how__aside-note">The customer taps. The carrier syncs. No one on your team lifts a finger.</p>
+          </div>
+        </section>
+
+        {/* 9. SCROLL REEL — 8-step timeline told in motion */}
+        <section className={`lp-reel${reduced ? ' lp-reel--static' : ''}`} aria-label="How a single rescue plays out">
+          <div className="lp-reel__track" ref={trackRef}>
+            <div className="lp-reel__stage">
+              <p className="lp-section__kicker lp-reel__kicker">The same order, in motion</p>
+              <div className="lp-reel__grid">
+                <div className="lp-reel__route" aria-hidden="true">
+                  <span className="lp-reel__line" />
+                  {REEL_BEATS.map((b, i) => (
+                    <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
+                  ))}
+                  <motion.span
+                    className="lp-reel__parcel"
+                    style={reduced ? undefined : { top: reelTop }}
+                    role="img"
+                    aria-label="Delivery parcel"
+                  >📦</motion.span>
+                </div>
+                <ol className="lp-reel__beats">
+                  {REEL_BEATS.map((b, i) => (
+                    <motion.li
+                      key={i}
+                      className={`lp-reel__beat lp-reel__beat--${b.role}`}
+                      style={reduced ? { opacity: 1 } : { opacity: beatO[i], y: beatY[i] }}
+                    >
+                      <span className={`lp-reel__tile lp-reel__tile--${b.role}`}>
+                        {REEL_ICONS[i]}
+                      </span>
+                      <span className="lp-reel__beat-txt">
+                        <span className="lp-reel__beat-tag">{b.tag}</span>
+                        <span className="lp-reel__beat-t">{b.t}</span>
+                        <span className="lp-reel__beat-d">{b.d}</span>
+                      </span>
+                    </motion.li>
+                  ))}
+                </ol>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {/* ═══ CHAPTER 04: PINCODE INTELLIGENCE & FEATURES (Warm Editorial Paper) ═══ */}
+      <div className="lp-chapter lp-chapter--paper">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 04 // PINCODE INTELLIGENCE & PLATFORM SPECS</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
         </div>
-      </section>
 
-      {/* 10. INTELLIGENCE CARD */}
-      <IntelligenceCard />
+        {/* 10. INTELLIGENCE CARD */}
+        <IntelligenceCard />
 
-      {/* 11. FEATURES GRID */}
-      <section id="features">
-        <FeaturesGrid />
-      </section>
+        {/* 11. FEATURES GRID */}
+        <section id="features">
+          <FeaturesGrid />
+        </section>
+      </div>
 
-      {/* 12. ROI CALCULATOR */}
-      <RoiCalculator
-        orders={monthlyOrders}
-        onOrdersChange={setMonthlyOrders}
-        selectedPlan={selectedPlan}
-      />
+      {/* ═══ CHAPTER 05: ROI CALCULATOR & PRICING (Dark Obsidian) ═══ */}
+      <div className="lp-chapter lp-chapter--dark">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 05 // ECONOMIC RETURN & TARIFF SPECIFICATION</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
+        </div>
 
-      {/* 13. PRICING SECTION */}
-      <section id="pricing">
-        <PricingSection
+        {/* 12. ROI CALCULATOR */}
+        <RoiCalculator
           orders={monthlyOrders}
           onOrdersChange={setMonthlyOrders}
           selectedPlan={selectedPlan}
-          onSelectPlan={setSelectedPlan}
         />
-      </section>
 
-      {/* 14. TRUST STRIP */}
-      <TrustStrip />
+        {/* 13. PRICING SECTION */}
+        <section id="pricing">
+          <PricingSection
+            orders={monthlyOrders}
+            onOrdersChange={setMonthlyOrders}
+            selectedPlan={selectedPlan}
+            onSelectPlan={setSelectedPlan}
+          />
+        </section>
+      </div>
 
-      {/* 15. FAQ SECTION */}
-      <section id="faq">
-        <FaqSection />
-      </section>
+      {/* ═══ CHAPTER 06: TRUST & FAQ (Warm Editorial Paper) ═══ */}
+      <div className="lp-chapter lp-chapter--paper">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 06 // ENTERPRISE COMPLIANCE & PROTOCOL SPEC</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
+        </div>
 
-      {/* 16. FINAL CTA SECTION */}
+        {/* 14. TRUST STRIP */}
+        <TrustStrip />
+
+        {/* 15. FAQ SECTION */}
+        <section id="faq">
+          <FaqSection />
+        </section>
+      </div>
+
+      {/* ═══ CHAPTER 07: BOARDING GATE (Dark Obsidian) ═══ */}
       <section className="lp-final">
         <motion.div className="lp-final__panel"
           initial={{ opacity: 0, y: 40 }} whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }} transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}>
           <div className="lp-final__glow" aria-hidden="true" />
+          
+          <div className="lp-final__ticket-bar">
+            <span className="lp-final__ticket-code">RS/GATE.07 // BOARDING MANIFEST</span>
+            <span className="lp-final__ticket-tag">&lt; DRAG TO INTERCEPT &gt;</span>
+          </div>
+
           <span className="lp-final__kicker">ready when you are</span>
           <h2 className="lp-final__h2">Stop losing revenue<br /><em>every single time.</em></h2>
           <p className="lp-final__sub">
             Connect your store, verify WhatsApp, link your carrier.
             Live in four minutes — no sales call, no demo.
           </p>
+
+          {/* Interactive Drag to Intercept Slider */}
+          {!reduced && (
+            <div className="lp-drag-gate" aria-label="Slide to board RescueShip">
+              <div className="lp-drag-gate__track">
+                <motion.div
+                  className="lp-drag-gate__handle"
+                  drag="x"
+                  dragConstraints={{ left: 0, right: 180 }}
+                  dragElastic={0.08}
+                  onDragEnd={(_, info) => {
+                    if (info.offset.x > 120) {
+                      navigate('/register');
+                    }
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span className="lp-drag-gate__icon">⚓</span>
+                  <span className="lp-drag-gate__text">DRAG TO INTERCEPT →</span>
+                </motion.div>
+                <span className="lp-drag-gate__hint">SLIDE TO REGISTER MANIFEST</span>
+              </div>
+            </div>
+          )}
+
           <div className="lp-final__actions">
             <Link to="/register" className="lp-final__btn">Board the ship →</Link>
             <Link to="/register" className="lp-final__btn lp-final__btn--secondary">or send yourself a test rescue →</Link>

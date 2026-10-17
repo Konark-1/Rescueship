@@ -1,6 +1,8 @@
 import { useState, useId } from 'react';
+import { motion } from 'motion/react';
 import { estimate, recommendedPlan, planByKey, type PlanKey } from '../../config/pricing.config';
-import { Calculator } from 'lucide-react';
+import { Calculator, Scissors } from 'lucide-react';
+import { springSnappy } from '../../lib/motion';
 
 export interface RoiCalculatorProps {
   orders: number;
@@ -37,6 +39,11 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
           <p className="roi__sub">
             Drag the sliders to match your monthly store metrics and see immediate recovery projections.
           </p>
+        </div>
+
+        <div className="roi__deck-bar">
+          <span className="roi__deck-tag">SIMULATOR // RS-ROI-V2</span>
+          <span className="roi__deck-status">● LIVE RECOVERY ENGINE</span>
         </div>
 
         <div className="roi__grid">
@@ -109,8 +116,16 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
             </div>
           </div>
 
-          {/* Results Output Panel */}
+          {/* Results Output Panel (Waybill Perforated Ticket) */}
           <div className="roi__out" aria-live="polite" role="region" aria-label="Projected recovery math">
+            <div className="roi__out-ticket-top">
+              <span className="roi__out-serial">RS/SIM.01-OUT // WAYBILL LEDGER</span>
+              <span className="roi__out-tear">
+                <Scissors size={12} className="waybill-scissors" aria-hidden="true" />
+                TEAR ALONG LINE
+              </span>
+            </div>
+
             <div className="roi__out-stats">
               <div className="roi__out-row">
                 <span className="roi__out-metric">~{failures}</span>
@@ -125,7 +140,15 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
 
             <div className="roi__out-savings">
               <span className="roi__out-curr">₹</span>
-              <span className="roi__out-amount">{savings.toLocaleString('en-IN')}</span>
+              <motion.span
+                key={savings}
+                className="roi__out-amount"
+                initial={{ scale: 0.96, opacity: 0.8 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={springSnappy}
+              >
+                {savings.toLocaleString('en-IN')}
+              </motion.span>
               <span className="roi__out-subtext">saved / month (freight + packaging + ad spend)</span>
             </div>
 

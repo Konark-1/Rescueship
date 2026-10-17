@@ -58,6 +58,31 @@
   --border-hover: rgba(255,255,255,0.12);
   --border-color: rgba(255,255,255,0.08);
 
+  /* ── Hybrid Contrast Editorial Paper Tokens (Neutomni Inspiration) ── */
+  --bg-paper: #f6f4ee;
+  --bg-paper-elevated: #ffffff;
+  --bg-paper-subtle: #ebe7dc;
+  --bg-paper-tint: rgba(17, 18, 22, 0.035);
+  --border-paper: rgba(17, 18, 22, 0.12);
+  --border-paper-strong: rgba(17, 18, 22, 0.24);
+  --text-paper-1: #111216; /* 16.8:1 on #f6f4ee */
+  --text-paper-2: #383b43; /* 9.8:1 on #f6f4ee */
+  --text-paper-3: #5e626e; /* 5.4:1 on #f6f4ee */
+  --waybill-red: #b91c1c; /* 6.0:1 on #f6f4ee and #feeaed */
+  --waybill-red-dark: #f87171; /* 6.6:1 on #0d0f15 and #050508 */
+  --waybill-red-soft: rgba(220, 38, 38, 0.09);
+  --waybill-red-border: rgba(220, 38, 38, 0.35);
+  --waybill-emerald: #065f46; /* 6.25:1 on #ebe7dc and #f6f4ee */
+  --waybill-emerald-soft: rgba(6, 95, 70, 0.10);
+  --waybill-emerald-border: rgba(6, 95, 70, 0.30);
+  --waybill-indigo: #3730a3; /* 8.75:1 on #f6f4ee */
+  --waybill-indigo-soft: rgba(55, 48, 163, 0.09);
+  --waybill-indigo-border: rgba(55, 48, 163, 0.28);
+  --waybill-amber: #92400e; /* 5.8:1 on #f6f4ee and #ebe7dc */
+  --waybill-amber-soft: rgba(180, 83, 9, 0.12);
+  --waybill-amber-border: rgba(180, 83, 9, 0.30);
+  --indigo-hover: #5558e6;
+
   /* ── Brand Colors ── */
   --indigo: #4f46e5;
   --indigo-dark: #3730a3;

@@ -3,40 +3,58 @@ import { SpotlightCard } from '../SpotlightCard';
 
 const FEATURES = [
   {
+    index: '01',
+    code: 'SYS/NDR.90S',
     icon: Zap,
     title: 'Autonomous NDR Rescue',
     desc: 'Every failed attempt gets a WhatsApp response inside 90 seconds.',
     color: 'rgba(99, 102, 241, 0.15)',
+    sla: '< 90s SLA',
   },
   {
+    index: '02',
+    code: 'SYS/ADR.FIX',
     icon: MapPin,
     title: '2-Step AI Address Fix',
     desc: 'GPS pin + Hinglish landmark merged and pushed to the driver app.',
     color: 'rgba(56, 189, 248, 0.15)',
+    sla: 'GEO-RESOLVE',
   },
   {
+    index: '03',
+    code: 'SYS/UPI.CNV',
     icon: CreditCard,
     title: 'COD → UPI Conversion',
     desc: 'Doorstep & cancel-time UPI links with self-funding discounts.',
     color: 'rgba(16, 185, 129, 0.15)',
+    sla: 'INSTANT UPI',
   },
   {
+    index: '04',
+    code: 'SYS/RTO.GTE',
     icon: ShieldCheck,
     title: 'Payment-Gated RTO Arrest',
     desc: 'Return transit halts only when money is actually captured.',
     color: 'rgba(244, 63, 94, 0.15)',
+    sla: 'GATE LOCKED',
   },
   {
+    index: '05',
+    code: 'SYS/NDR.DEC',
     icon: SearchCheck,
     title: 'Fake Remark Detection',
     desc: 'Odd-hour scans and 4-minute attempts auto-escalate to carrier supervisors.',
     color: 'rgba(251, 191, 36, 0.15)',
+    sla: 'AUTO-ESCALATE',
   },
   {
+    index: '06',
+    code: 'SYS/PIN.IDX',
     icon: LineChart,
     title: 'Pincode Intelligence',
     desc: 'Every pincode scored by real outcomes: courier vs customer vs address.',
     color: 'rgba(168, 85, 247, 0.15)',
+    sla: 'TELEMETRY LIVE',
   },
 ];
 
@@ -63,11 +81,19 @@ export function FeaturesGrid() {
                 className="fgrid__card"
                 spotlightColor={feat.color}
               >
+                <div className="fgrid__card-head">
+                  <span className="fgrid__card-index">{feat.index}</span>
+                  <span className="fgrid__card-code">{feat.code}</span>
+                </div>
                 <div className="fgrid__icon-wrap">
                   <Icon size={22} className="fgrid__icon" aria-hidden="true" />
                 </div>
                 <h3 className="fgrid__card-title">{feat.title}</h3>
                 <p className="fgrid__card-desc">{feat.desc}</p>
+                <div className="fgrid__card-foot">
+                  <span className="fgrid__card-status">● AUTONOMOUS GATE</span>
+                  <span className="fgrid__card-sla">{feat.sla}</span>
+                </div>
               </SpotlightCard>
             );
           })}

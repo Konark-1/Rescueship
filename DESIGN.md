@@ -1,51 +1,59 @@
 # 🎨 RescueShip Design System (DESIGN.md)
 
-> **Auto-Generated Design Specification**
-> Single source of truth derived from `frontend/src/index.css`.
-> Generated: 2026-08-29T10:34:20.467Z
+> **Neutomni Hybrid Contrast & Fluent Motion Edition**
+> Single source of truth derived from `frontend/src/index.css`, `frontend/src/lib/motion.ts`, and `frontend/src/pages/landing.css`.
+> Last Updated: 2026-10-17
 
 ---
 
 ## 1. Aesthetic Vision & Brand Archetype
-- **Theme Concept:** Developer Console / Mission Control / Telemetry Terminal
-- **Mood:** Precise, high-contrast, atmospheric dark canvas with rich phosphor accents
-- **Core Value Proposition:** Autonomous NDR rescue and revenue recovery for D2C brands
+- **Concept:** Neutomni-Inspired Hybrid Contrast Architecture fusing High-Precision Obsidian Mission Control with Warm Editorial Alabaster Paper.
+- **Mood:** Tactile, mathematical, editorial, and industrial. Every metric feels audit-grade; every transition feels spring-driven, tactile, and physical.
+- **Core Metaphors:**
+  1. **Tactile Courier Waybill / Ticket Metaphor:** Perforated thermal waybill tickets with `✂ TEAR ALONG LINE` dashed red dividers, monospace serial badges (`RS/PASS.01`, `RS/PKG.01-RES`, `RS/SIM.01`), and interactive scissors.
+  2. **Visual Equations & Directional Flows:** Mathematical arithmetic ribbons (`CAC ₹230 + Forward ₹80 + Reverse ₹80 + Repack ₹40 = ₹430 Bleed`) and laser-guided A → B directional intercept paths.
+  3. **Desktop OS / File Window Chrome:** Tabular intelligence styled as `pincode_watchtower.csv` and expandable documentation styled as a line-numbered `FAQ.md` markdown workspace.
 
 ---
 
 ## 2. Canvas & Surface Hierarchy
 
-| Token | Value | Purpose / Role |
+### A. Obsidian Mission Control Chapters (`.lp-chapter--dark`)
+| Token | Hex / Value | Semantic Role |
 | :--- | :--- | :--- |
-| `--bg-void` | `#050508` | Deep space root canvas background |
-| `--bg-card` | `rgba(255,255,255,0.03)` | Primary container & dashboard card background |
-| `--bg-input` | `#12121a` | Form field and interactive input fill |
-| `--border-color` | `rgba(255,255,255,0.08)` | Subtle structural border boundary |
-| `--border-hover` | `rgba(255,255,255,0.12)` | Active hover boundary highlight |
+| `--bg-void` | `#050508` | Deep void root canvas background |
+| `--bg-deep` | `#0a0a10` | Secondary surface background |
+| `--bg-surface` | `#0d0f15` | Elevated dark card and pricing ticket surface |
+| `--bg-card` | `rgba(255,255,255,0.03)` | Frosted telemetry and terminal containers |
+| `--border` | `rgba(255,255,255,0.06)` | Exposed 1px Swiss structural grid border |
+| `--border-hover` | `rgba(255,255,255,0.12)` | Interactive card hover outline |
+
+### B. Warm Editorial Paper Chapters (`.lp-chapter--paper`)
+| Token | Hex / Value | Semantic Role |
+| :--- | :--- | :--- |
+| `--bg-paper` | `#f6f4ee` | Warm alabaster editorial chapter canvas |
+| `--bg-paper-elevated` | `#ffffff` | Elevated paper card, CSV table, and FAQ window |
+| `--bg-paper-subtle` | `#ebe7dc` | Gutter, window title bar, and table header fill |
+| `--bg-paper-tint` | `rgba(17,18,22,0.035)` | Subtle paper drop-shadow tone |
+| `--border-paper` | `rgba(17,18,22,0.12)` | Exposed 1px Swiss hairline border on paper |
+| `--border-paper-strong` | `rgba(17,18,22,0.24)` | High-emphasis paper boundary and open accordion stroke |
 
 ---
 
 ## 3. Brand & Status Palette (WCAG 2.1 AA Compliant)
 
-| Token | Hex / Value | Semantic Role |
+| Token | Value | Role |
 | :--- | :--- | :--- |
 | `--indigo` | `#4f46e5` | Primary brand accent & high-priority CTAs |
-| `--indigo-vivid` | `#6366f1` | Vivid indigo brand glow and focus halos |
 | `--indigo-soft` | `#818cf8` | Secondary interactive highlights & prefixes |
-| `--emerald` | `#10b981` | Successful order rescues, recovered revenue, online status |
+| `--emerald` | `#10b981` | Successful order rescues, recovered revenue |
 | `--amber` | `#f59e0b` | Warnings, pending attempts, delayed delivery states |
 | `--rose` | `#f43f5e` | Intercepted NDR alerts, failed delivery remarks |
-| `--danger` | `#ef4444` | Critical errors and cancellation states |
-
-### Extended Tint & Semantic Aliases
-| Semantic Token | Source / Mapping | Role |
-| :--- | :--- | :--- |
-| `--crimson`, `--crimson-06`, `--crimson-15` | `var(--rose)` / `var(--rose-03)` / `var(--rose-12)` | High-urgency alert highlights |
-| `--blue`, `--sky` | `var(--indigo)` / `var(--indigo-soft)` | Courier logistics badges |
-| `--teal`, `--emerald-04..40` | `var(--emerald)` alpha ramp | Conversion badges, confidence fills |
-| `--purple` | `var(--indigo-vivid)` | Advanced ML scoring tags |
-| `--card-bg`, `--input-bg` | `var(--bg-surface)` / `var(--bg-void)` | Form and container component aliases |
-| `--border-subtle`, `--border-high` | `var(--border-color)` / `rgba(255,255,255,0.20)` | Structural boundary hierarchy |
+| `--waybill-red` | `#b91c1c` | Physical courier waybill stamp red on paper (6:1 contrast) |
+| `--waybill-red-dark` | `#f87171` | High-visibility waybill red on dark canvas (6.6:1 contrast) |
+| `--waybill-emerald` | `#065f46` | Editorial deep forest green on paper (6.25:1 contrast) |
+| `--waybill-indigo` | `#3730a3` | Deep editorial indigo for icons and hashes on paper (8.75:1 contrast) |
+| `--waybill-amber` | `#92400e` | Deep editorial amber for warnings on paper (5.8:1 contrast) |
 
 ---
 
@@ -53,48 +61,59 @@
 
 | Token | Value | Hierarchy / Contrast |
 | :--- | :--- | :--- |
-| `--text-1` | `#f4f4f5` | Primary high-emphasis headings & titles |
-| `--text-2` | `#d4d4d8` | Secondary body text & telemetry feed (10:1 contrast) |
-| `--text-3` | `#9ca3af` | Muted captions, timestamps, subtle labels (> 6.8:1 contrast) |
-| `--font-body` | `'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif` | General interface & body typography |
-| `--font-display` | `'Space Grotesk', -apple-system, sans-serif` | Hero headings & statement typography |
-| `--font-mono` | `'JetBrains Mono', 'Fira Code', monospace` | Telemetry logs, AWBs, order IDs, currency figures |
+| `--text-1` | `#f4f4f5` | Dark canvas high-emphasis headings & titles |
+| `--text-2` | `#d4d4d8` | Dark canvas body & telemetry (10:1 contrast) |
+| `--text-3` | `#9ca3af` | Dark canvas muted captions, timestamps, labels |
+| `--text-paper-1` | `#111216` | Paper canvas high-emphasis headings & titles (16.8:1 contrast) |
+| `--text-paper-2` | `#383b43` | Paper canvas body, descriptions, table cells (9.8:1 contrast) |
+| `--text-paper-3` | `#5e626e` | Paper canvas captions, indices, file tags (5.4:1 contrast) |
+| `--font-body` | `'Inter', sans-serif` | General interface & body typography |
+| `--font-display` | `'Space Grotesk', sans-serif` | Hero headings & statement typography |
+| `--font-mono` | `'JetBrains Mono', monospace` | Telemetry logs, AWBs, order IDs, currency, equations |
 
 ---
 
-## 5. Spatial System (4px Base Grid)
+## 5. Fluent Motion & Spring Physics Architecture
 
-| Token | Pixel Equivalent | Standard Usage |
-| :--- | :--- | :--- |
-| `--space-05` | 2px | Micro padding & tight icon alignment |
-| `--space-1` | 4px | Inline icon gaps & compact badge padding |
-| `--space-2` | 8px | Button inline gaps, input inner spacing |
-| `--space-3` | 12px | Card internal element separation |
-| `--space-4` | 16px | Standard component padding & layout gutters |
-| `--space-6` | 24px | Section gaps & card margins |
-| `--space-8` | 32px | Sub-section vertical rhythm |
-| `--space-12` | 48px | Page section spacing |
-| `--space-16` | 64px | Hero container vertical breathing room |
+Derived from `frontend/src/lib/motion.ts` and `motion/react` v12:
+
+### Spring Physics Presets
+```ts
+// 1. springDefault: Natural, tactile response for interactive cards & dialogs
+export const springDefault = { type: 'spring', stiffness: 280, damping: 28, mass: 0.8 };
+
+// 2. springSnappy: Rapid response for toggles, tabs, chips, and quick-replies
+export const springSnappy = { type: 'spring', stiffness: 400, damping: 32, mass: 0.6 };
+
+// 3. springBouncy: Energetic response for success badges & conversion counters
+export const springBouncy = { type: 'spring', stiffness: 320, damping: 18, mass: 0.9 };
+
+// 4. springScroll: Inertial dampening for scroll-linked telemetry reel & nav progress
+export const springScroll = { stiffness: 140, damping: 26, restDelta: 0.001 };
+```
+
+### Micro-Interactions
+1. **SpotlightCard 3D Micro-Perspective:**
+   Mouse movement relative to card center computes subtle `rotateX` (±2.2deg) and `rotateY` (±2.2deg) with a 420px radial cursor follow glow. Automatically disabled under `prefers-reduced-motion: reduce`.
+2. **Waybill Scissors Interaction:**
+   Hovering over any courier waybill card rotates and slides the `✂` scissors indicator (`transform: translateX(6px) rotate(-8deg)`).
+3. **Interactive `< DRAG TO INTERCEPT >` Gate:**
+   Allows the user to physically drag a spring-bound slider across the track to simulate an instant WhatsApp NDR rescue.
+4. **Laser Progress Bar:**
+   `StickyNav` features a spring-smoothed laser progress hairline tracking `scrollYProgress` with zero layout jitter.
 
 ---
 
-## 6. Radius Scale
+## 6. Accessibility & Testing Guardrails
 
-| Token | Value | Component Application |
-| :--- | :--- | :--- |
-| `--radius-xs` | `4px` | Small badges, log pills, feed tags |
-| `--radius-sm` | `8px` | Inputs, sub-buttons, dropdown items |
-| `--radius-md` | `12px` | Primary buttons, alert containers |
-| `--radius-lg` | `16px` | Dashboard cards, station panels |
-| `--radius-xl` | `20px` | Hero containers, terminal windows |
-| `--radius-2xl` | `24px` | Outer modal shells |
-| `--radius-full` | `9999px` | Pill badges, round avatar buttons |
-
----
-
-## 7. Accessibility & Code Standards
-1. **WCAG 2.1 AA Compliance:** All foreground text must achieve at least 4.5:1 contrast against its background.
-2. **Zero Raw RGBA:** All component CSS must reference CSS variables defined in `index.css`.
-3. **Stylelint Enforcement:** CI automatically verifies CSS token compliance via `npm run lint:css`.
-4. **Automated E2E:** Visual regressions and Axe accessibility scans are tested via `npm run test:e2e`.
-5. **Shape Lock Rule:** Pill CTAs + chips (`--radius-full`), 16-20px containers (`--radius-lg` / `--radius-xl`), 8px inputs and sub-buttons (`--radius-sm`). Matches app-wide `.btn` and `.form-control`.
+1. **Strict Stylelint Variable Enforcement:**
+   Every CSS property ending in `color` must reference a CSS custom property `var(--...)`. Raw hex outside `:root` is strictly prohibited.
+2. **Root Canvas Invariant:**
+   `.lp` maintains `background: var(--bg-void)` (`#050508`). Light paper chapters are scoped via `<div className="lp-chapter lp-chapter--paper">`.
+3. **Motion Accessibility (Instant Settlement):**
+   When `prefers-reduced-motion: reduce` is detected:
+   - Hero elements pass `initial={false}` and settle within 1 animation frame (< 30ms).
+   - Spring interpolation on `.lp-reel` is bypassed.
+   - Background grid pulses and cursor blinks are disabled via CSS.
+4. **Dual-Theme Contrast Validation:**
+   Both dark `#050508` and light `#f6f4ee` chapters maintain >= 4.5:1 WCAG 2.1 AA color contrast across all badges, tables, and waybill tickets. Tested via `@axe-core/playwright`.

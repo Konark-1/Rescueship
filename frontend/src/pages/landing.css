@@ -6,6 +6,12 @@ html {
   scroll-behavior: smooth;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+}
+
 section[id] {
   scroll-margin-top: 84px;
 }
@@ -126,7 +132,7 @@ section[id] {
   background: var(--indigo); padding: var(--space-2) var(--space-4); border-radius: var(--radius-full);
   transition: background 0.25s, box-shadow 0.25s;
 }
-.lp-top__cta:hover { background: #5558e6; box-shadow: 0 6px 20px var(--indigo-30); }
+.lp-top__cta:hover { background: var(--indigo-hover); box-shadow: 0 6px 20px var(--indigo-30); }
 
 /* ═══ HERO ═══ */
 .lp-hero {
@@ -265,8 +271,8 @@ section[id] {
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .lp-pass:hover {
-  border-color: rgba(99, 102, 241, 0.3);
-  box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.7), 0 0 30px -10px rgba(99, 102, 241, 0.2);
+  border-color: var(--indigo-30);
+  box-shadow: 0 20px 50px -20px var(--black-70), 0 0 30px -10px var(--indigo-20);
 }
 .lp-pass::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
@@ -305,7 +311,7 @@ section[id] {
   transition: left 0.6s var(--ease-out);
 }
 .lp-pass__btn:hover:not(:disabled) {
-  background: #5558e6; transform: translateY(-1px); box-shadow: 0 8px 28px var(--indigo-35);
+  background: var(--indigo-hover); transform: translateY(-1px); box-shadow: 0 8px 28px var(--indigo-35);
 }
 .lp-pass__btn:hover:not(:disabled)::after { left: 140%; }
 .lp-pass__btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -629,7 +635,7 @@ section[id] {
   background: linear-gradient(100deg, transparent, var(--white-25), transparent);
   transition: left 0.6s var(--ease-out);
 }
-.lp-final__btn:hover { background: #5558e6; transform: translateY(-2px); box-shadow: 0 14px 44px var(--indigo-50); }
+.lp-final__btn:hover { background: var(--indigo-hover); transform: translateY(-2px); box-shadow: 0 14px 44px var(--indigo-50); }
 .lp-final__btn:hover::after { left: 140%; }
 .lp-final__actions {
   display: flex;
@@ -1192,6 +1198,17 @@ section[id] {
   align-items: center;
 }
 
+.lnav__progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--indigo), var(--emerald));
+  transform-origin: 0%;
+  z-index: 10;
+}
+
 .lnav__inner {
   width: 100%;
   max-width: 1220px;
@@ -1200,6 +1217,12 @@ section[id] {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.lnav__brand-group {
+  display: flex;
+  align-items: center;
   gap: var(--space-4);
 }
 
@@ -1221,6 +1244,65 @@ section[id] {
 
 .lnav__name {
   letter-spacing: -0.01em;
+}
+
+.lnav__telemetry {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.lnav__time-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--white-04);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.lnav__clock-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--emerald);
+}
+
+.lnav__time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.lnav__tz {
+  font-size: 0.62rem;
+  color: var(--text-3);
+}
+
+.lnav__sla-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: var(--emerald-09);
+  border: 1px solid var(--emerald-30);
+  color: var(--emerald);
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+}
+
+.lnav__sla-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--emerald);
+  animation: lp-pulse 1.8s infinite;
 }
 
 .lnav__links {
@@ -2572,6 +2654,897 @@ section[id] {
 
 .faq__a p {
   margin: 0;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NEUTOMNI HYBRID CONTRAST & FLUENT MOTION STYLES
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── 1. Hybrid Contrast Chapter Engine ── */
+.lp-chapter {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.3s ease;
+}
+
+.lp-chapter--dark {
+  background: var(--bg-void);
+  color: var(--text-1);
+}
+
+.lp-chapter--paper {
+  background: var(--bg-paper);
+  color: var(--text-paper-1);
+}
+
+.lp-chapter__header {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: var(--space-3) clamp(1rem, 4vw, 3rem);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  user-select: none;
+}
+
+.lp-chapter--paper .lp-chapter__header {
+  border-bottom-color: var(--border-paper);
+  color: var(--text-paper-3);
+}
+
+.lp-chapter--dark .lp-chapter__header {
+  color: var(--text-3);
+}
+
+.lp-chapter__mark {
+  font-family: var(--font-mono);
+  font-size: 0.95rem;
+  line-height: 1;
+  display: inline-block;
+  transition: transform 0.4s ease;
+  cursor: default;
+}
+
+.lp-chapter:hover .lp-chapter__mark {
+  transform: rotate(90deg);
+}
+
+.lp-chapter__meta {
+  font-weight: 600;
+}
+
+/* ── 2. Editorial Paper Scoped Styles ── */
+.lp-chapter--paper h2,
+.lp-chapter--paper h3,
+.lp-chapter--paper .account__heading,
+.lp-chapter--paper .intel__heading,
+.lp-chapter--paper .fgrid__heading,
+.lp-chapter--paper .faq__heading {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper p,
+.lp-chapter--paper .account__sub,
+.lp-chapter--paper .intel__sub,
+.lp-chapter--paper .fgrid__sub,
+.lp-chapter--paper .faq__sub,
+.lp-chapter--paper .lp-cost__note {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .lp-section__kicker,
+.lp-chapter--paper .account__eyebrow,
+.lp-chapter--paper .intel__eyebrow,
+.lp-chapter--paper .fgrid__eyebrow,
+.lp-chapter--paper .faq__eyebrow {
+  color: var(--waybill-indigo);
+}
+
+.lp-chapter--paper .lp-section__kicker::before {
+  background: var(--waybill-indigo);
+}
+
+.lp-chapter--paper .lp-cost__total {
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  box-shadow: 0 4px 20px var(--bg-paper-tint);
+}
+
+.lp-chapter--paper .lp-cost__cur,
+.lp-chapter--paper .lp-cost__n {
+  color: var(--waybill-red);
+  text-shadow: none;
+}
+
+.lp-chapter--paper .lp-cost__lbl {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .lp-cost__row-l {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .lp-cost__row-n {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .lp-cost__bar-track {
+  background: var(--bg-paper-subtle);
+  border: 1px solid var(--border-paper);
+}
+
+.lp-chapter--paper .lp-cost__bar-fill {
+  background: var(--waybill-red);
+}
+
+.lp-chapter--paper .lp-cost__teaser {
+  color: var(--waybill-amber);
+}
+
+.lp-chapter--paper .lp-cost__note strong {
+  color: var(--waybill-red);
+}
+
+.lp-chapter--paper .lp-cost__note em {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .account__chip {
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  color: var(--text-paper-1);
+  box-shadow: 0 2px 8px var(--bg-paper-tint);
+}
+
+.lp-chapter--paper .account__chip-text {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .account__chip-icon {
+  color: var(--waybill-red);
+}
+
+.lp-chapter--paper .account__log-window {
+  background: var(--bg-deep);
+  border: 1px solid var(--border-high);
+  box-shadow: 0 16px 48px var(--shadow-28);
+}
+
+/* ── Pincode Intelligence Paper Styling ── */
+.lp-chapter--paper .intel__card {
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  box-shadow: 0 8px 30px var(--bg-paper-tint);
+}
+
+.lp-chapter--paper .intel__footnote {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .intel__table th {
+  background: var(--bg-paper-subtle);
+  color: var(--text-paper-2);
+  border-bottom: 1px solid var(--border-paper);
+}
+
+.lp-chapter--paper .intel__table td {
+  border-bottom: 1px solid var(--border-paper);
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .intel__cell-pincode,
+.lp-chapter--paper .intel__cell-city {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .intel__cell-verdict {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .intel__file-status {
+  color: var(--waybill-emerald);
+  font-weight: 700;
+}
+
+.lp-chapter--paper .intel__badge--danger {
+  background: var(--waybill-red-soft);
+  color: var(--waybill-red);
+  border: 1px solid var(--waybill-red-border);
+}
+
+.lp-chapter--paper .intel__badge--warning {
+  background: var(--waybill-amber-soft);
+  color: var(--waybill-amber);
+  border: 1px solid var(--waybill-amber-border);
+}
+
+.lp-chapter--paper .intel__badge--success {
+  background: var(--waybill-emerald-soft);
+  color: var(--waybill-emerald);
+  border: 1px solid var(--waybill-emerald-border);
+}
+
+/* ── Features Grid Paper Styling ── */
+.lp-chapter--paper .fgrid__card {
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  box-shadow: 0 4px 16px var(--bg-paper-tint);
+}
+
+.lp-chapter--paper .fgrid__card-title {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .fgrid__card-desc {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .fgrid__card-code {
+  color: var(--waybill-indigo);
+}
+
+.lp-chapter--paper .fgrid__icon-wrap {
+  background: var(--bg-paper-subtle);
+  border-color: var(--border-paper);
+}
+
+.lp-chapter--paper .fgrid__icon {
+  color: var(--waybill-indigo);
+}
+
+/* ── Trust Strip Paper Styling ── */
+.lp-chapter--paper .trust {
+  background: var(--bg-paper);
+  border-top: 1px solid var(--border-paper);
+  border-bottom: 1px solid var(--border-paper);
+}
+
+.lp-chapter--paper .trust__item {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .trust__text {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .trust__icon {
+  color: var(--waybill-indigo);
+}
+
+/* ── FAQ Paper Styling ── */
+.lp-chapter--paper .faq__item {
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+}
+
+.lp-chapter--paper .faq__item.is-open {
+  border-color: var(--border-paper-strong);
+}
+
+.lp-chapter--paper .faq__q {
+  color: var(--text-paper-1);
+}
+
+.lp-chapter--paper .faq__q:hover {
+  color: var(--waybill-indigo);
+}
+
+.lp-chapter--paper .faq__a {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .faq__a p {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .faq__chevron {
+  color: var(--text-paper-3);
+}
+
+.lp-chapter--paper .faq__chevron.is-rotated {
+  color: var(--waybill-indigo);
+}
+
+.lp-chapter--paper .faq__gutter {
+  color: var(--text-paper-2);
+}
+
+.lp-chapter--paper .faq__hash {
+  color: var(--waybill-indigo);
+}
+
+/* ── 3. Typographic Visual Equation (.lp-equation) ── */
+.lp-equation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+  box-shadow: 0 2px 10px var(--bg-paper-tint);
+}
+
+.lp-equation__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.lp-equation__term {
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-paper-3);
+}
+
+.lp-equation__val {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-paper-1);
+}
+
+.lp-equation__op {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--waybill-red);
+  padding: 0 var(--space-1);
+}
+
+.lp-equation__item--total .lp-equation__val {
+  color: var(--waybill-red);
+  font-size: 1.05rem;
+}
+
+/* ── 4. Animated A → B Interception Beam (.lp-ab-path) ── */
+.lp-ab-path {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-4) 0 var(--space-6);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-mono);
+}
+
+.lp-ab-node {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.lp-ab-node__tag {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+}
+
+.lp-ab-node__title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.lp-ab-node--a .lp-ab-node__title {
+  color: var(--rose);
+}
+
+.lp-ab-node--b .lp-ab-node__title {
+  color: var(--emerald);
+}
+
+.lp-ab-node__time {
+  font-size: 0.68rem;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-ab-path__mid {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  padding: 0 var(--space-2);
+}
+
+.lp-ab-path__svg {
+  width: 100%;
+  height: 20px;
+  overflow: visible;
+}
+
+.lp-ab-path__label {
+  font-size: 0.68rem;
+  color: var(--indigo-soft);
+  margin-top: 2px;
+  letter-spacing: 0.04em;
+}
+
+/* ── 5. Tactile Courier Waybill Headers & Scissors ── */
+.lp-pass__waybill-bar,
+.roi__out-ticket-top,
+.bl-tier-card__waybill-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: var(--space-2);
+  margin-bottom: var(--space-3);
+  border-bottom: 1px dashed var(--waybill-red-border);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lp-pass__serial,
+.roi__out-serial,
+.bl-tier-card__serial {
+  font-weight: 700;
+  color: var(--waybill-red-dark);
+}
+
+.lp-chapter--paper .lp-pass__serial,
+.lp-chapter--paper .roi__out-serial,
+.lp-chapter--paper .bl-tier-card__serial {
+  color: var(--waybill-red);
+}
+
+.lp-pass__tear,
+.roi__out-tear,
+.bl-tier-card__tear {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-2);
+  font-size: 0.62rem;
+}
+
+.lp-chapter--paper .lp-pass__tear,
+.lp-chapter--paper .roi__out-tear,
+.lp-chapter--paper .bl-tier-card__tear {
+  color: var(--text-paper-3);
+}
+
+.waybill-scissors {
+  color: var(--waybill-red-dark);
+  display: inline-block;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lp-chapter--paper .waybill-scissors {
+  color: var(--waybill-red);
+}
+
+.lp-pass:hover .waybill-scissors,
+.roi__out:hover .waybill-scissors,
+.bl-tier-card:hover .waybill-scissors {
+  transform: translateX(6px) rotate(-8deg);
+}
+
+.lp-pass__grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+/* ── 6. Feature Card Details & Intelligence Table ── */
+.fgrid__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  font-family: var(--font-mono);
+}
+
+.fgrid__card-index {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+.lp-chapter--paper .fgrid__card-index {
+  color: var(--text-paper-2);
+}
+
+.fgrid__card-code {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--indigo-soft);
+}
+
+.lp-chapter--paper .fgrid__card-code {
+  color: var(--waybill-indigo);
+}
+
+.fgrid__card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--text-3);
+}
+
+.lp-chapter--paper .fgrid__card-foot {
+  border-top-color: var(--border-paper);
+  color: var(--text-paper-3);
+}
+
+.fgrid__card-status {
+  color: var(--emerald);
+  font-weight: 600;
+}
+
+.lp-chapter--paper .fgrid__card-status {
+  color: var(--waybill-emerald);
+}
+
+.intel__file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2-5) var(--space-4);
+  background: var(--bg-paper-subtle);
+  border-bottom: 1px solid var(--border-paper);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.intel__file-name {
+  font-weight: 700;
+  color: var(--text-paper-1);
+}
+
+.intel__file-status {
+  color: var(--waybill-emerald);
+  font-weight: 700;
+}
+
+.intel__file-tag {
+  color: var(--text-paper-3);
+  font-size: 0.65rem;
+}
+
+.intel__cell-idx {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-paper-3);
+}
+
+.intel__cell-playbook {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--waybill-emerald);
+  font-weight: 600;
+}
+
+/* ── 7. FAQ Markdown Window Chrome ── */
+.faq__md-window {
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 8px 30px var(--bg-paper-tint);
+}
+
+.faq__md-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-paper-subtle);
+  border-bottom: 1px solid var(--border-paper);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.faq__md-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.faq__md-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+}
+
+.faq__md-dot--r { background: var(--waybill-red); }
+.faq__md-dot--y { background: var(--waybill-amber); }
+.faq__md-dot--g { background: var(--waybill-emerald); }
+
+.faq__md-file {
+  font-weight: 700;
+  color: var(--text-paper-1);
+}
+
+.faq__md-badge {
+  font-size: 0.65rem;
+  color: var(--text-paper-3);
+}
+
+.faq__gutter {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--text-paper-3);
+  margin-right: var(--space-2);
+}
+
+.faq__hash {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--waybill-indigo);
+  margin-right: var(--space-1);
+}
+
+.faq__md-divider {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--border-paper-strong);
+  letter-spacing: 0.2em;
+  padding: var(--space-1) var(--space-5);
+  user-select: none;
+}
+
+/* ── 8. Pricing Window Bar & Prevent Callout ── */
+.pricing__window-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2-5) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.pricing__window-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pricing__window-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: var(--radius-full);
+}
+
+.pricing__window-dot--r { background: var(--danger); }
+.pricing__window-dot--y { background: var(--amber); }
+.pricing__window-dot--g { background: var(--emerald); }
+
+.pricing__window-title {
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.pricing__window-tag {
+  color: var(--emerald);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+}
+
+.pricing__prevent-callout {
+  margin: var(--space-4) 0;
+  padding: 12px 18px;
+  background: linear-gradient(90deg, var(--indigo-10) 0%, var(--emerald-09) 100%);
+  border: 1px solid var(--indigo-25);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.pricing__prevent-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pricing__prevent-icon {
+  font-size: 1.1rem;
+}
+
+.pricing__prevent-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-1);
+}
+
+.pricing__prevent-sub {
+  font-size: 0.78rem;
+  color: var(--text-3);
+}
+
+.pricing__prevent-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--emerald);
+  background: var(--emerald-15);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--emerald-30);
+}
+
+.bl-tier-card__body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* ── 9. ROI Deck Bar & Live Feed Number Slot Reel ── */
+.roi__deck-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 900px;
+  margin: 0 auto var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.roi__deck-tag {
+  color: var(--text-3);
+}
+
+.roi__deck-status {
+  color: var(--emerald);
+  font-weight: 600;
+}
+
+.lp-slot-num {
+  font-variant-numeric: tabular-nums;
+  display: inline-block;
+}
+
+/* ── 10. Carrier Marquee Serials & Partner Glyphs ── */
+.rs-badge__serial {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--indigo-soft);
+  margin-right: var(--space-1);
+}
+
+.rs-badge__glyph {
+  color: var(--text-1);
+  flex-shrink: 0;
+}
+
+/* ── 11. PlanPicker Shared Layout Pills ── */
+.plan-picker__chip {
+  position: relative;
+  overflow: hidden;
+}
+
+.plan-picker__chip-pill {
+  position: absolute;
+  inset: 0;
+  background: var(--indigo-15);
+  border: 1px solid var(--indigo);
+  border-radius: var(--radius-sm);
+  z-index: 1;
+}
+
+.plan-picker__chip-label {
+  position: relative;
+  z-index: 2;
+}
+
+/* ── 12. Final Boarding Gate Ticket Bar & Drag Slider ── */
+.lp-final__ticket-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px dashed var(--waybill-red-border);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lp-final__ticket-code {
+  color: var(--waybill-red);
+  font-weight: 700;
+}
+
+.lp-final__ticket-tag {
+  color: var(--text-3);
+}
+
+.lp-drag-gate {
+  margin: var(--space-5) auto var(--space-4);
+  max-width: 380px;
+  width: 100%;
+}
+
+.lp-drag-gate__track {
+  position: relative;
+  height: 48px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-hover);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  padding: 3px;
+  user-select: none;
+  overflow: hidden;
+}
+
+.lp-drag-gate__handle {
+  position: relative;
+  z-index: 2;
+  height: 42px;
+  padding: 0 16px;
+  background: var(--indigo);
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: grab;
+  box-shadow: 0 4px 14px var(--indigo-30);
+}
+
+.lp-drag-gate__handle:active {
+  cursor: grabbing;
+}
+
+.lp-drag-gate__icon {
+  font-size: 0.85rem;
+}
+
+.lp-drag-gate__text {
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.lp-drag-gate__hint {
+  position: absolute;
+  right: 18px;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+  pointer-events: none;
 }
 
 /* ═══ RESPONSIVE ═══ */

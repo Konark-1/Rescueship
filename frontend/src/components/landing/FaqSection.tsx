@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 
 interface FaqItem {
   id: string;
+  line: string;
   q: string;
   a: string;
 }
@@ -10,31 +11,37 @@ interface FaqItem {
 const FAQS: FaqItem[] = [
   {
     id: 'faq-1',
+    line: '01',
     q: 'Will this spam my customers?',
     a: 'No. Max 3 messages per failed-delivery episode, a 60-second cooldown between messages, and only Meta-approved Utility templates — no marketing blasts, no quiet-hour violations. If a customer ever asks to stop, that number is permanently suppressed.',
   },
   {
     id: 'faq-2',
+    line: '14',
     q: 'How long does setup take?',
     a: 'About 3 minutes. Connect your Shopify or WooCommerce store and your courier account — Shiprocket, Delhivery, or ClickPost. You start in Sandbox mode, where test rescues go to your own phone, and go live only when you\'re ready.',
   },
   {
     id: 'faq-3',
+    line: '28',
     q: "What if the customer doesn't respond?",
     a: "Reminders go out at 4, 12, and 24 hours. If there's still silence before the return window closes, the order follows your courier's normal return process — and the full cost of that silence appears in your ROI ledger.",
   },
   {
     id: 'faq-4',
+    line: '42',
     q: 'What if a re-attempt fails again?',
     a: "Reschedule dates are written straight into your courier's system via API. If the re-attempt still fails, the case re-opens automatically and moves to the next rescue path — address fix, UPI conversion, or RTO arrest. Nothing is left hanging.",
   },
   {
     id: 'faq-5',
+    line: '56',
     q: 'What data do you store?',
     a: 'Only what a rescue needs: order ID, phone number, pincode, delivery outcome, and the WhatsApp conversation for that order. Courier and payment credentials are encrypted with AES-256-GCM; audit logs and delivery attempts auto-delete after 90 days. Full details in our Privacy Policy and Data Processor Addendum.',
   },
   {
     id: 'faq-6',
+    line: '71',
     q: "What if it doesn't pay for itself?",
     a: "Every rescue is logged with its rupee value in your ROI ledger. If, by the end of your 90-day license, the ledger doesn't show savings above what you paid — we refund the difference. No arguments, no fine print.",
   },
@@ -65,42 +72,57 @@ export function FaqSection() {
           </p>
         </div>
 
-        <div className="faq__list" role="region" aria-label="Frequently Asked Questions">
-          {FAQS.map((item) => {
-            const isOpen = !!openIds[item.id];
-            const contentId = `${item.id}-answer`;
+        <div className="faq__md-window">
+          <div className="faq__md-bar">
+            <span className="faq__md-dots" aria-hidden="true">
+              <span className="faq__md-dot faq__md-dot--r" />
+              <span className="faq__md-dot faq__md-dot--y" />
+              <span className="faq__md-dot faq__md-dot--g" />
+            </span>
+            <span className="faq__md-file">📄 FAQ.md · UTF-8 · MARKDOWN SPEC</span>
+            <span className="faq__md-badge">6 SECTIONS // LINE 01–71</span>
+          </div>
 
-            return (
-              <div key={item.id} className={`faq__item ${isOpen ? 'is-open' : ''}`}>
-                <h3>
-                  <button
-                    type="button"
-                    className="faq__q"
-                    aria-expanded={isOpen}
-                    aria-controls={contentId}
-                    id={item.id}
-                    onClick={() => toggle(item.id)}
+          <div className="faq__list" role="region" aria-label="Frequently Asked Questions">
+            {FAQS.map((item, index) => {
+              const isOpen = !!openIds[item.id];
+              const contentId = `${item.id}-answer`;
+
+              return (
+                <div key={item.id} className={`faq__item ${isOpen ? 'is-open' : ''}`}>
+                  {index > 0 && <div className="faq__md-divider" aria-hidden="true">---</div>}
+                  <h3>
+                    <button
+                      type="button"
+                      className="faq__q"
+                      aria-expanded={isOpen}
+                      aria-controls={contentId}
+                      id={item.id}
+                      onClick={() => toggle(item.id)}
+                    >
+                      <span className="faq__gutter" aria-hidden="true">{item.line}</span>
+                      <span className="faq__hash" aria-hidden="true"># </span>
+                      <span className="faq__q-text">{item.q}</span>
+                      <ChevronDown
+                        size={18}
+                        className={`faq__chevron ${isOpen ? 'is-rotated' : ''}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  </h3>
+                  <div
+                    id={contentId}
+                    role="region"
+                    aria-labelledby={item.id}
+                    className="faq__a"
+                    hidden={!isOpen}
                   >
-                    <span className="faq__q-text">{item.q}</span>
-                    <ChevronDown
-                      size={18}
-                      className={`faq__chevron ${isOpen ? 'is-rotated' : ''}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                </h3>
-                <div
-                  id={contentId}
-                  role="region"
-                  aria-labelledby={item.id}
-                  className="faq__a"
-                  hidden={!isOpen}
-                >
-                  <p>{item.a}</p>
+                    <p>{item.a}</p>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

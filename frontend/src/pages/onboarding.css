@@ -33,7 +33,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #22c55e;
+  color: var(--emerald);
 }
 
 .ob-wa-banner__desc {

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 32" fill="none">
+  <path d="M4 8L16 16L4 24L10 16L4 8Z" fill="#1D4ED8" />
+  <path d="M12 8L24 16L12 24L18 16L12 8Z" fill="#2563EB" />
+  <text x="32" y="21" fill="currentColor" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" letter-spacing="-0.02em">Blue Dart</text>
+</svg>

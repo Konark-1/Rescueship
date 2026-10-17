@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 32" fill="none">
+  <rect x="4" y="6" width="20" height="20" rx="6" fill="#7822E6" />
+  <text x="8" y="21" fill="#FFFFFF" font-family="system-ui, sans-serif" font-size="14" font-weight="900">CF</text>
+  <text x="32" y="21" fill="currentColor" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" letter-spacing="-0.02em">Cashfree</text>
+</svg>
