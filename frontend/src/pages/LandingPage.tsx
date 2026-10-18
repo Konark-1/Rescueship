@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { CarrierMarquee } from '../components/CarrierMarquee';
 import { StickyNav } from '../components/landing/StickyNav';
 import { SlotCounter } from '../components/landing/SlotCounter';
 import { ScrollRevealText } from '../components/landing/ScrollRevealText';
-import { HorizontalScrollytelling } from '../components/landing/HorizontalScrollytelling';
+import { AccountabilityScene } from '../components/landing/AccountabilityScene';
+import { RescueScene } from '../components/story/RescueScene';
+import { TrustStrip } from '../components/landing/TrustStrip';
+import { SpotlightCard } from '../components/SpotlightCard';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
 import { Scissors } from 'lucide-react';
@@ -83,9 +86,26 @@ const ORDER_BOARD: OrderCard[] = [
   { id: '#89467', awb: '8812903112', amount: '₹740', status: 'pending' },
 ];
 
+const LOSS_PARTS = [
+  { label: 'Customer acquisition cost (CAC)', amount: 230 },
+  { label: 'Forward freight committed', amount: 80 },
+  { label: 'Reverse RTO freight penalty', amount: 80 },
+  { label: 'Repackaging, QA & restocking', amount: 40 },
+];
+
+const REEL_BEATS = [
+  { time: '11:20', role: 'gate', title: 'Risk gate', desc: 'Order #89421 cleared · COD verified · address risk normal.' },
+  { time: '11:43', role: 'ofd', title: 'Dispatched OFD', desc: 'Driver marks Out For Delivery from Gurugram hub.' },
+  { time: '11:47', role: 'ndr', title: 'Fake NDR scan', desc: 'Driver logs "Customer Unavailable". No call, no doorbell.' },
+  { time: '11:47:30', role: 'rescue', title: 'Rescue dispatched', desc: 'Webhook fires · RescueShip contacts customer on WhatsApp inside 30s.' },
+  { time: '11:48:15', role: 'reply', title: 'Customer replies', desc: 'Customer taps "I am home" · shares live location pin.' },
+  { time: '11:49', role: 'carrier', title: 'Carrier sync', desc: 'Escalation raised · attempt flagged · next-day slot committed to carrier.' },
+  { time: '14:30', role: 'redeliv', title: 'Re-delivery', desc: 'Out for delivery again — driver receives supervisor notification.' },
+  { time: '15:20', role: 'ok', title: 'Delivered · Saved', desc: 'Cash collected · ₹1,240 saved from RTO return transit.' },
+];
+
 /* ═══ MAIN LANDING PAGE ═══ */
 export default function LandingPage() {
-  const navigate = useNavigate();
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
   const [selectedPlan, setSelectedPlan] = useState<PlanKey | undefined>(undefined);
   const [osTab, setOsTab] = useState<'pricing' | 'watchtower' | 'faq'>('pricing');
@@ -281,10 +301,10 @@ export default function LandingPage() {
       <div className="lp-scan" aria-hidden="true" />
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 01: HERO & COMMAND CENTER (Matte Carbon Surface)
+          SECTION 01: HERO & COMMAND CENTER (#hero)
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="lp-chapter lp-chapter--dark">
-        <section className="lp-hero" aria-label="RescueShip overview">
+      <section id="hero" className="nt-snap-section nt-snap-section--hero lp-chapter lp-chapter--dark" aria-label="RescueShip overview">
+        <div className="lp-hero">
           <div className="lp-hero__content">
             <motion.div
               className="lp-hero__kicker"
@@ -329,36 +349,11 @@ export default function LandingPage() {
                 onClick={() => {
                   const passEl = document.querySelector('.lp-pass');
                   passEl?.scrollIntoView({ behavior: 'smooth' });
+                  (document.getElementById('hero-name') as HTMLElement)?.focus();
                 }}
               >
                 Start Rescuing →
               </button>
-            </div>
-
-            {/* Neutomni Directional A → B Path */}
-            <div className="lp-ab-path" aria-label="Autonomous interception path">
-              <div className="lp-ab-node lp-ab-node--a">
-                <span className="lp-ab-node__tag">NODE A</span>
-                <span className="lp-ab-node__title">Fake NDR Scan</span>
-                <span className="lp-ab-node__time">11:47:02</span>
-              </div>
-              <div className="lp-ab-path__mid">
-                <svg className="lp-ab-path__svg" viewBox="0 0 160 20" fill="none" preserveAspectRatio="none">
-                  <line x1="0" y1="10" x2="160" y2="10" stroke="var(--border-hover)" strokeWidth="2" strokeDasharray="5 5" />
-                  <motion.g
-                    animate={reduced ? { x: 160 } : { x: [0, 160] }}
-                    transition={reduced ? { duration: 0 } : { duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <circle cx="0" cy="10" r="4" fill="var(--emerald)" />
-                  </motion.g>
-                </svg>
-                <span className="lp-ab-path__label">90s WhatsApp Intercept</span>
-              </div>
-              <div className="lp-ab-node lp-ab-node--b">
-                <span className="lp-ab-node__tag">NODE B</span>
-                <span className="lp-ab-node__title">Re-Delivery Locked</span>
-                <span className="lp-ab-node__time">11:48:32</span>
-              </div>
             </div>
 
             {/* Perforated Waybill Boarding Ticket / Lead Capture Form */}
@@ -402,7 +397,7 @@ export default function LandingPage() {
               <form onSubmit={handleSignup} className="lp-pass" aria-label="Lead capture boarding pass">
                 <div className="lp-pass__waybill-bar">
                   <span className="lp-pass__serial">RS/PASS.01 // BOARDING SPEC</span>
-                  <span className="lp-pass__tear">
+                  <span className="lp-pass__tear" style={{ whiteSpace: 'nowrap' }}>
                     <Scissors size={12} aria-hidden="true" /> TEAR ALONG LINE
                   </span>
                 </div>
@@ -476,13 +471,15 @@ export default function LandingPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="lp-console__header">
-              <span className="lp-console__dot" />
-              <span className="lp-console__title">rescueship://telemetry/live-feed</span>
+            <div className="lp-console__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="lp-console__dot" />
+                <span className="lp-console__title">rescueship://telemetry/live-feed</span>
+              </div>
               <span className="lp-console__tag">AUTONOMOUS SYS.v3</span>
             </div>
 
-            <div className="lp-console__mesh">
+            <div className="lp-console__mesh" style={{ paddingLeft: '4px' }}>
               <span className="lp-console__watch">watching</span>
               {WATCHED.map((c, i) => (
                 <span key={c} className="lp-console__chip">
@@ -517,67 +514,263 @@ export default function LandingPage() {
 
             <div className="lp-console__stats">
               <div className="lp-stat">
-                <span className="lp-stat__n">
+                <span className="lp-stat__n" style={{ whiteSpace: 'nowrap' }}>
                   ₹<SlotCounter value={recovered} />
                 </span>
                 <span className="lp-stat__l">recovered · sample</span>
               </div>
               <div className="lp-stat">
-                <span className="lp-stat__n">
+                <span className="lp-stat__n" style={{ whiteSpace: 'nowrap' }}>
                   <SlotCounter value={rescuedCount} />
                 </span>
                 <span className="lp-stat__l">orders rescued · sample</span>
               </div>
               <div className="lp-stat">
-                <span className="lp-stat__n">
+                <span className="lp-stat__n" style={{ whiteSpace: 'nowrap' }}>
                   <SlotCounter value="90s" />
                 </span>
                 <span className="lp-stat__l">avg intercept</span>
               </div>
             </div>
           </motion.div>
-        </section>
+        </div>
 
-        {/* Carrier Intercept Mesh Marquee */}
+        {/* Carrier Intercept Mesh Marquee folded into bottom of Hero */}
         <CarrierMarquee />
-      </div>
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 02: THE FAKE ATTEMPT MANIFESTO (Warm Alabaster Paper)
+          SECTION 02: THE FAKE ATTEMPT MANIFESTO & ₹430 BLEED (#manifesto)
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="lp-chapter lp-chapter--paper">
+      <section id="manifesto" className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The fake attempt manifesto">
         <div className="lp-chapter__header" aria-hidden="true">
           <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 02 // THE FAKE ATTEMPT MANIFESTO</span>
+          <span className="lp-chapter__meta">CHAPTER 02 // THE FAKE ATTEMPT MANIFESTO &amp; ₹430 BLEED</span>
           <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
         </div>
 
-        <ScrollRevealText />
-      </div>
+        <div className="nt-manifesto-wrap">
+          <ScrollRevealText />
+
+          {/* Integrated ₹430 Bleed Equation Strip on Alabaster Paper */}
+          <div className="nt-equation-paper-block" aria-label="Financial bleed breakdown">
+            <div className="nt-equation-paper-tag">
+              <span>RECEIPT SPECIFICATION // RS-BLD.430 // COST OF A FAKE REMARK</span>
+            </div>
+
+            <div className="nt-equation-block nt-equation-block--paper" tabIndex={0} aria-label="Financial bleed breakdown equation">
+              <div className="nt-equation-part">
+                <span className="nt-equation-label">CAC (Ad Spend)</span>
+                <span className="nt-equation-val">₹230</span>
+              </div>
+              <span className="nt-equation-op">+</span>
+              <div className="nt-equation-part">
+                <span className="nt-equation-label">Forward Freight</span>
+                <span className="nt-equation-val">₹80</span>
+              </div>
+              <span className="nt-equation-op">+</span>
+              <div className="nt-equation-part">
+                <span className="nt-equation-label">Reverse Penalty</span>
+                <span className="nt-equation-val">₹80</span>
+              </div>
+              <span className="nt-equation-op">+</span>
+              <div className="nt-equation-part">
+                <span className="nt-equation-label">Repack &amp; Restock</span>
+                <span className="nt-equation-val">₹40</span>
+              </div>
+              <span className="nt-equation-op">=</span>
+              <div className="nt-equation-part">
+                <span className="nt-equation-label">Bleed / RTO</span>
+                <span className="nt-equation-val nt-equation-val--signal">₹430</span>
+              </div>
+            </div>
+
+            <div className="nt-bleed-bars nt-bleed-bars--paper">
+              {LOSS_PARTS.map((item) => (
+                <div key={item.label} className="nt-bleed-row">
+                  <span className="nt-bleed-label">{item.label}</span>
+                  <div className="nt-bleed-track">
+                    <div
+                      className="nt-bleed-fill"
+                      style={{ width: `${(item.amount / 230) * 100}%` }}
+                    />
+                  </div>
+                  <span className="nt-bleed-amount">₹{item.amount}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 03: HORIZONTAL SCROLLYTELLING (Matte Carbon Surface)
+          SECTION 03: CARRIER ACCOUNTABILITY & LIVE INTERCEPT (#product)
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="lp-chapter lp-chapter--dark">
-        <HorizontalScrollytelling
-          booted={booted}
-          failedOrders={failedOrders}
-          rescuedOrders={rescuedOrders}
-          cancelledOrders={cancelledOrders}
-        />
-      </div>
+      <section id="product" className="nt-snap-section nt-snap-section--product lp-chapter lp-chapter--dark" aria-label="Carrier accountability and live intercept">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 03 // CARRIER ACCOUNTABILITY &amp; LIVE INTERCEPT</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
+        </div>
+
+        <div className="nt-product-wrap">
+          {/* Deduplicated Carrier Accountability log card */}
+          <AccountabilityScene />
+
+          {/* Live Interception: WhatsApp Simulator + Order Board Split */}
+          <div className="nt-intercept-section">
+            <div className="nt-intercept-header">
+              <span className="nt-panel-kicker">AUTONOMOUS INTERCEPTION // 90-SECOND SLA</span>
+              <h2 className="nt-panel-h2 nt-display">
+                Automated rescue. <em className="nt-serif">Direct to driver app.</em>
+              </h2>
+            </div>
+
+            <div className="nt-intercept-split">
+              {/* Left: Interactive 5-Scenario WhatsApp Simulator */}
+              <div className="nt-intercept-simulator">
+                <div className="nt-simulator-badge">
+                  <span>● INTERACTIVE PHONE SIMULATOR</span>
+                </div>
+                <RescueScene active={booted} reduced={reduced} />
+              </div>
+
+              {/* Right: Live 3-Column Order Board */}
+              <div className="nt-intercept-board">
+                <div className="lp-board">
+                  <p className="lp-section__kicker">Order board · sample</p>
+                  <div className="lp-board__cols">
+                    <div className="lp-board__col">
+                      <div className="lp-board__col-h lp-board__col-h--fail">
+                        <span>NDR In-Flight</span>
+                        <span className="lp-board__col-count">{failedOrders.length}</span>
+                      </div>
+                      <AnimatePresence mode="popLayout">
+                        {failedOrders.map((o) => (
+                          <motion.div
+                            key={o.id}
+                            layout
+                            exit={{ opacity: 0, x: 50, scale: 0.94 }}
+                            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                          >
+                            <SpotlightCard className="lp-order lp-order--fail" spotlightColor="var(--signal-soft)">
+                              <span className="lp-order__id">{o.id}</span>
+                              <span className="lp-order__awb">AWB {o.awb}</span>
+                              <span className="lp-order__amt">{o.amount}</span>
+                            </SpotlightCard>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                      {failedOrders.length === 0 && (
+                        <div className="lp-order lp-order--ghost">all NDRs resolved</div>
+                      )}
+                    </div>
+
+                    <div className="lp-board__arrow" aria-hidden="true">→</div>
+
+                    <div className="lp-board__col">
+                      <div className="lp-board__col-h lp-board__col-h--ok">
+                        <span>Rescued &amp; Accepted</span>
+                        <span className="lp-board__col-count">{rescuedOrders.length}</span>
+                      </div>
+                      <AnimatePresence mode="popLayout">
+                        {rescuedOrders.map((o) => (
+                          <motion.div
+                            key={o.id}
+                            layout
+                            initial={reduced ? false : { opacity: 0, scale: 0.92, y: 12 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                          >
+                            <SpotlightCard className="lp-order lp-order--ok" spotlightColor="var(--emerald-15)">
+                              <span className="lp-order__id">{o.id}</span>
+                              <span className="lp-order__awb">AWB {o.awb}</span>
+                              <span className="lp-order__amt">{o.amount}</span>
+                              <span className="lp-order__tag">✓ rescued</span>
+                            </SpotlightCard>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                      {rescuedOrders.length === 0 && (
+                        <div className="lp-order lp-order--ghost">watching stream…</div>
+                      )}
+                    </div>
+
+                    <div className="lp-board__col">
+                      <div className="lp-board__col-h lp-board__col-h--cancel">
+                        <span style={{ whiteSpace: 'nowrap' }}>RESTORED / RTO</span>
+                        <span className="lp-board__col-count">{cancelledOrders.length}</span>
+                      </div>
+                      <AnimatePresence mode="popLayout">
+                        {cancelledOrders.map((o) => (
+                          <motion.div
+                            key={o.id}
+                            layout
+                            initial={reduced ? false : { opacity: 0, scale: 0.92, y: 12 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                          >
+                            <SpotlightCard className="lp-order lp-order--cancel" spotlightColor="var(--amber-10)">
+                              <span className="lp-order__id">{o.id}</span>
+                              <span className="lp-order__awb">AWB {o.awb}</span>
+                              <span className="lp-order__amt">{o.amount}</span>
+                              <span className="lp-order__tag">✕ restocked</span>
+                            </SpotlightCard>
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
+                      {cancelledOrders.length === 0 && (
+                        <div className="lp-order lp-order--ghost">watching stream…</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Vertically-stable cost container for Playwright invariant */}
+                <div className="lp-cost">
+                  <span className="lp-cost__lbl">Active NDR pipeline: 90s response SLA active</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 8-Beat Closed Loop Reel & TrustStrip */}
+          <div className="nt-loop-wrap">
+            <div className="nt-loop-header">
+              <span className="nt-panel-kicker">8-BEAT CLOSED LOOP // AUDITED AUDIT LOG</span>
+              <h3 className="nt-panel-h3 nt-display">
+                From fake scan to re-delivery <em className="nt-serif">in 90 seconds.</em>
+              </h3>
+            </div>
+
+            <div className="nt-reel-beats-grid">
+              {REEL_BEATS.map((beat) => (
+                <div key={beat.time} className="lp-reel__beat">
+                  <span className="lp-reel__time">{beat.time}</span>
+                  <strong className="lp-reel__title">{beat.title}</strong>
+                  <p className="lp-reel__desc">{beat.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="nt-trust-wrap">
+              <TrustStrip />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 04: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)
+          SECTION 04: AUTONOMOUS SYSTEMS BENTO (#features)
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="lp-chapter lp-chapter--dark">
+      <section id="features" className="nt-snap-section nt-snap-section--features lp-chapter lp-chapter--dark" aria-label="Six autonomous engines">
         <FeaturesGrid />
-      </div>
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 05: STUDIO OS WORKSPACE (Warm Alabaster Paper Surface)
+          SECTION 05: STUDIO OS WORKSPACE (#workspace)
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="lp-chapter lp-chapter--paper">
+      <section id="workspace" className="nt-snap-section nt-snap-section--workspace lp-chapter lp-chapter--paper" aria-label="Studio OS workspace">
         <div className="lp-chapter__header" aria-hidden="true">
           <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
           <span className="lp-chapter__meta">CHAPTER 05 // STUDIO OS WORKSPACE</span>
@@ -592,10 +785,10 @@ export default function LandingPage() {
           activeTab={osTab}
           onTabChange={setOsTab}
         />
-      </div>
+      </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 06: BOARDING GATE & WAYBILL FOOTER (Matte Carbon)
+          SECTION 06: BOARDING GATE & EDITORIAL CTA
           ═══════════════════════════════════════════════════════════════ */}
       <section className="lp-final">
         <motion.div
@@ -607,7 +800,7 @@ export default function LandingPage() {
         >
           <div className="lp-final__ticket-bar">
             <span className="lp-final__ticket-code">RS/GATE.07 // BOARDING MANIFEST</span>
-            <span className="lp-final__ticket-tag">&lt; DRAG TO INTERCEPT &gt;</span>
+            <span className="lp-final__ticket-tag">AUTONOMOUS DISPATCH</span>
           </div>
 
           <span className="lp-final__kicker">ready when you are</span>
@@ -620,34 +813,9 @@ export default function LandingPage() {
             Live in four minutes — no sales call, no demo.
           </p>
 
-          {/* Interactive Drag to Intercept Slider */}
-          {!reduced && (
-            <div className="lp-drag-gate" aria-label="Slide to board RescueShip">
-              <div className="lp-drag-gate__track">
-                <motion.div
-                  className="lp-drag-gate__handle"
-                  drag="x"
-                  dragConstraints={{ left: 0, right: 180 }}
-                  dragElastic={0.08}
-                  onDragEnd={(_, info) => {
-                    if (info.offset.x > 120) {
-                      navigate('/register');
-                    }
-                  }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span className="lp-drag-gate__icon">⚓</span>
-                  <span className="lp-drag-gate__text">DRAG TO INTERCEPT →</span>
-                </motion.div>
-                <span className="lp-drag-gate__hint">SLIDE TO REGISTER MANIFEST</span>
-              </div>
-            </div>
-          )}
-
           <div className="lp-final__actions">
-            <Link to="/register" className="lp-final__btn">Board the ship →</Link>
-            <Link to="/register" className="lp-final__btn lp-final__btn--secondary">or send yourself a test rescue →</Link>
+            <Link to="/register" className="lp-final__btn">Start Free — 3 Live Test Rescues →</Link>
+            <Link to="/register" className="lp-final__btn lp-final__btn--secondary">or configure store settings →</Link>
           </div>
           <div className="lp-final__chips">
             <span>no credit card</span><span>no sales call</span><span>live in 4 min</span>

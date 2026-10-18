@@ -120,7 +120,7 @@ export function PlanPicker({
             >
               <div className="bl-tier-card__waybill-bar">
                 <span className="bl-tier-card__serial">{waybillCode} // WAYBILL SPEC</span>
-                <span className="bl-tier-card__tear">
+                <span className="bl-tier-card__tear" style={{ whiteSpace: 'nowrap' }}>
                   <Scissors size={10} className="waybill-scissors" aria-hidden="true" />
                   TEAR ALONG LINE
                 </span>
@@ -128,9 +128,6 @@ export function PlanPicker({
 
               <div className="bl-tier-card__body">
                 <div className="bl-tier-card__left">
-                  <div className="bl-tier-card__radio" aria-hidden="true">
-                    {isSelected ? <div className="bl-tier-card__radio-dot" /> : null}
-                  </div>
                   <div className="bl-tier-card__info">
                     <div className="bl-tier-card__title-row">
                       <span className="bl-tier-card__name">{plan.name}</span>

@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useSpring } from 'motion/react';
 
@@ -13,29 +12,6 @@ export function StickyNav({ onNavigate }: StickyNavProps) {
     damping: 28,
     mass: 0.25,
   });
-
-  const [istTime, setIstTime] = useState('');
-
-  useEffect(() => {
-    const updateTime = () => {
-      try {
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-        });
-        setIstTime(timeStr);
-      } catch {
-        setIstTime('12:00:00');
-      }
-    };
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     const targetId = href.replace('#', '');
@@ -61,17 +37,6 @@ export function StickyNav({ onNavigate }: StickyNavProps) {
             <span className="lnav__logo" aria-hidden="true">⚓</span>
             <span className="lnav__name">RescueShip</span>
           </a>
-          <div className="lnav__telemetry" aria-label="System status & IST time">
-            <span className="lnav__time-badge">
-              <span className="lnav__clock-dot" aria-hidden="true" />
-              <span className="lnav__time">{istTime || 'IST'}</span>
-              <span className="lnav__tz">IST</span>
-            </span>
-            <span className="lnav__sla-badge">
-              <span className="lnav__sla-pulse" aria-hidden="true" />
-              <span className="lnav__sla-text">90s SLA LIVE</span>
-            </span>
-          </div>
         </div>
 
         <div className="lnav__links">

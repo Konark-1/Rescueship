@@ -72,7 +72,7 @@ export function FeaturesGrid() {
   const marqueeX = useTransform(scrollYProgress, [0, 1], ['0%', '-25%']);
 
   return (
-    <div ref={containerRef} className="fgrid" id="features" aria-labelledby="features-heading">
+    <div ref={containerRef} className="fgrid" aria-labelledby="features-heading">
       {/* ── Scroll-Linked Parallax Marquee Header ── */}
       <div className="nt-fgrid__marquee-wrap" aria-hidden="true">
         <motion.div
@@ -103,23 +103,17 @@ export function FeaturesGrid() {
                 className="fgrid__card nt-bento-card"
                 spotlightColor={feat.color}
               >
-                <svg className="nt-bento-numeral" aria-hidden="true" width="90" height="70" viewBox="0 0 90 70">
-                  <text x="10" y="60" fill="none" stroke="currentColor" strokeWidth="1.5" fontSize="64" fontFamily="monospace" fontWeight="800">
-                    {feat.index}
-                  </text>
-                </svg>
                 <div className="fgrid__card-head">
-                  <span className="fgrid__card-index">{feat.index}</span>
+                  <span className="fgrid__card-index">SYS / {feat.index}</span>
                   <span className="fgrid__card-code">{feat.code}</span>
                 </div>
                 <div className="fgrid__icon-wrap">
-                  <Icon size={22} className="fgrid__icon" aria-hidden="true" />
+                  <Icon size={20} className="fgrid__icon" aria-hidden="true" />
                 </div>
                 <h3 className="fgrid__card-title">{feat.title}</h3>
                 <p className="fgrid__card-desc">{feat.desc}</p>
                 <div className="fgrid__card-foot">
-                  <span className="fgrid__card-status">● AUTONOMOUS GATE</span>
-                  <span className="fgrid__card-sla">{feat.sla}</span>
+                  <span className="fgrid__card-status">AUTONOMOUS GATE · {feat.sla}</span>
                 </div>
               </SpotlightCard>
             );

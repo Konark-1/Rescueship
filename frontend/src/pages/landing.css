@@ -268,19 +268,12 @@ section[id] {
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .lp-pass:hover {
-  border-color: var(--indigo-30);
-  box-shadow: 0 20px 50px -20px var(--black-70), 0 0 30px -10px var(--indigo-20);
+  border-color: var(--signal-border);
+  box-shadow: 0 20px 50px -20px var(--black-70), 0 0 30px -10px var(--signal-soft);
 }
 .lp-pass::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, var(--indigo), var(--emerald), var(--indigo));
-  background-size: 200% 100%;
-  animation: lp-gradient-pan 5s ease infinite;
-}
-@keyframes lp-gradient-pan {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: var(--signal);
 }
 .lp-pass__row { display: flex; flex-direction: column; gap: var(--space-1-5); }
 .lp-pass__label {
@@ -293,24 +286,17 @@ section[id] {
   font-family: var(--font-body); font-size: 0.92rem; outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.lp-pass__input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px var(--indigo-12); }
+.lp-pass__input:focus { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
 .lp-pass__input::placeholder { color: var(--text-3); }
 .lp-pass__btn {
   position: relative; z-index: 0; overflow: hidden;
-  background: var(--indigo); color: #fff; font-weight: 700; font-size: 0.95rem;
+  background: var(--signal); color: var(--bg-void); font-weight: 700; font-size: 0.95rem;
   padding: var(--space-3-5) var(--space-6); border-radius: var(--radius-full); border: none; cursor: pointer;
   transition: background 0.25s, box-shadow 0.25s, transform 0.2s; will-change: transform;
 }
-.lp-pass__btn::after {
-  content: ''; position: absolute; z-index: -1; top: 0; left: -120%;
-  width: 60%; height: 100%; transform: skewX(-18deg);
-  background: linear-gradient(100deg, transparent, var(--white-25), transparent);
-  transition: left 0.6s var(--ease-out);
-}
 .lp-pass__btn:hover:not(:disabled) {
-  background: var(--indigo-hover); transform: translateY(-1px); box-shadow: 0 8px 28px var(--indigo-35);
+  background: var(--signal-hover); transform: translateY(-1px); box-shadow: 0 8px 28px var(--signal-soft);
 }
-.lp-pass__btn:hover:not(:disabled)::after { left: 140%; }
 .lp-pass__btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .lp-pass__err { color: var(--rose); font-size: 0.82rem; }
 .lp-pass__fine { font-size: 0.76rem; color: var(--text-3); text-align: center; }
@@ -1201,7 +1187,7 @@ section[id] {
   left: 0;
   right: 0;
   height: 2px;
-  background: linear-gradient(90deg, var(--indigo), var(--emerald));
+  background: var(--signal);
   transform-origin: 0%;
   z-index: 10;
 }
@@ -4331,3 +4317,238 @@ section[id] {
 .lp-chapter--paper .bl-tier-card.is-selected .bl-tier-card__subtext {
   color: var(--waybill-emerald);
 }
+
+/* ── 9. v4 Viewport Auto-Lock (scroll-snap) & Clean Editorial Architecture ── */
+html {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: 64px;
+}
+
+.nt-snap-section {
+  scroll-snap-align: start;
+  min-height: calc(100dvh - 64px);
+  position: relative;
+  box-sizing: border-box;
+}
+
+.nt-snap-section--hero {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+/* ── Section 02: Bleed Equation on Alabaster Paper ── */
+.nt-manifesto-wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) var(--space-12) var(--space-6);
+}
+
+.nt-equation-paper-block {
+  margin-top: var(--space-8);
+  padding: var(--space-6) var(--space-8);
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 30px var(--border-paper);
+}
+
+.nt-equation-paper-tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--text-paper-2);
+  margin-bottom: var(--space-4);
+  text-transform: uppercase;
+}
+
+.nt-equation-block--paper {
+  background: var(--bg-paper-subtle);
+  border: 1px solid var(--border-paper);
+}
+
+.nt-equation-block--paper .nt-equation-label {
+  color: var(--text-paper-1);
+  font-weight: 600;
+}
+
+.nt-equation-block--paper .nt-equation-val {
+  color: var(--text-paper-1);
+}
+
+.nt-equation-block--paper .nt-equation-op {
+  color: var(--text-paper-1);
+  font-weight: 700;
+}
+
+.nt-bleed-bars--paper .nt-bleed-label {
+  color: var(--text-paper-2);
+}
+
+.nt-bleed-bars--paper .nt-bleed-track {
+  background: var(--border-paper);
+}
+
+.nt-bleed-bars--paper .nt-bleed-amount {
+  color: var(--text-paper-1);
+}
+
+/* ── Section 03: Carrier Accountability & Live Intercept ── */
+.nt-product-wrap {
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 0 var(--space-6) var(--space-12) var(--space-6);
+}
+
+.nt-intercept-section {
+  margin-top: var(--space-10);
+}
+
+.nt-intercept-header {
+  margin-bottom: var(--space-6);
+}
+
+.nt-loop-wrap {
+  margin-top: var(--space-12);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--border);
+}
+
+.nt-loop-header {
+  margin-bottom: var(--space-6);
+}
+
+.nt-panel-h3 {
+  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
+  color: var(--text-1);
+  margin-top: var(--space-2);
+}
+
+.nt-reel-beats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (max-width: 900px) {
+  .nt-reel-beats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .nt-reel-beats-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Section 05: Unified Pricing Split View ── */
+.nt-pricing-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-8);
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .nt-pricing-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nt-pricing-split__left .roi {
+  padding: 0;
+}
+
+.nt-pricing-split__left .roi__container {
+  padding: 0;
+  max-width: 100%;
+}
+
+.nt-pricing-split__right .pricing__header {
+  margin-top: 0;
+  margin-bottom: var(--space-4);
+  text-align: left;
+}
+
+.nt-pricing-split__right .pricing__heading {
+  font-size: 1.6rem;
+}
+
+.nt-pricing-split__right .pricing__sub {
+  margin: 0 0 var(--space-4) 0;
+  max-width: 100%;
+}
+
+/* ── Security Specification Badges in FAQ ── */
+.nt-security-stubs {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border-paper);
+}
+
+.nt-security-stubs__header {
+  margin-bottom: var(--space-4);
+}
+
+.nt-security-stubs__tag {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  color: var(--text-paper-3);
+  text-transform: uppercase;
+}
+
+.nt-security-stubs__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+}
+
+.nt-sec-stub {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-paper-elevated);
+  border: 1px solid var(--border-paper);
+  border-radius: var(--radius-sm);
+}
+
+.nt-sec-stub__code {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--signal);
+}
+
+.nt-sec-stub__title {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-paper-1);
+}
+
+/* ── 1px Exposed Architectural Grid on Features ── */
+.fgrid__list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+@media (max-width: 900px) {
+  .fgrid__list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fgrid__card {
+  background: var(--bg-surface);
+  border-radius: 0;
+  border: none;
+}
+

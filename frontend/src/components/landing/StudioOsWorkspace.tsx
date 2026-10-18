@@ -126,55 +126,60 @@ export function StudioOsWorkspace({
             >
               <div className="pricing" aria-labelledby="pricing-heading">
                 <div className="pricing__container">
-                  {/* Unified ROI Sliders at Top */}
-                  <div className="nt-pricing-roi-block">
-                    <RoiCalculator
-                      orders={orders}
-                      onOrdersChange={onOrdersChange}
-                      selectedPlan={selectedPlan}
-                    />
-                  </div>
+                  <div className="nt-pricing-split">
+                    {/* Left Column: Sliders, ROI Math, Break-Even & Guarantee */}
+                    <div className="nt-pricing-split__left">
+                      <RoiCalculator
+                        orders={orders}
+                        onOrdersChange={onOrdersChange}
+                        selectedPlan={selectedPlan}
+                      />
 
-                  {/* 3 Perforated Waybill Pricing Cards */}
-                  <div className="pricing__header" style={{ marginTop: 'var(--space-8)' }}>
-                    <span className="pricing__eyebrow">TARIFF SCHEDULE</span>
-                    <h2 id="pricing-heading" className="pricing__heading">
-                      Pick your protection. Pay for your size.
-                    </h2>
-                    <p className="pricing__sub">
-                      Same features for every brand size — smaller brands simply pay less. Drag your monthly orders to see your price.
-                    </p>
-                  </div>
+                      {/* Break-even line */}
+                      <div className="pricing__breakeven" aria-live="polite">
+                        <span className="pricing__breakeven-text">
+                          {band ? (
+                            <>
+                              <strong>{plan.name}</strong> pays for itself at ~<strong>{breakEvenRescues}</strong> saved parcels a month. At your volume we expect ~<strong>{rescued}</strong> fewer RTOs — about <strong>{coverage.toFixed(1)}×</strong> its price.
+                            </>
+                          ) : (
+                            <>Custom volume pricing available for high-growth brands.</>
+                          )}
+                        </span>
+                      </div>
 
-                  <div className="pricing__picker-wrap">
-                    <PlanPicker
-                      value={orders}
-                      onChange={onOrdersChange}
-                      selectedTierKey={selectedPlan}
-                      onSelectTier={(key) => onSelectPlan?.(key as PlanKey)}
-                    />
-                  </div>
-
-                  {/* Break-even line */}
-                  <div className="pricing__breakeven" aria-live="polite">
-                    <span className="pricing__breakeven-text">
-                      {band ? (
-                        <>
-                          <strong>{plan.name}</strong> pays for itself at ~<strong>{breakEvenRescues}</strong> saved parcels a month. At your volume we expect ~<strong>{rescued}</strong> fewer RTOs — about <strong>{coverage.toFixed(1)}×</strong> its price.
-                        </>
-                      ) : (
-                        <>Custom volume pricing available for high-growth brands.</>
-                      )}
-                    </span>
-                  </div>
-
-                  {/* 90-Day Money-Back Guarantee Banner */}
-                  <div className="pricing__guarantee">
-                    <div className="pricing__guarantee-icon" aria-hidden="true">
-                      <CheckCircle2 size={16} />
+                      {/* 90-Day Money-Back Guarantee Banner */}
+                      <div className="pricing__guarantee">
+                        <div className="pricing__guarantee-icon" aria-hidden="true">
+                          <CheckCircle2 size={16} />
+                        </div>
+                        <div className="pricing__guarantee-text">
+                          <strong>90-day money-back guarantee:</strong> If verified RTO freight savings recorded in your dashboard don't exceed the fees you paid by the end of your license, we refund the difference in full.
+                        </div>
+                      </div>
                     </div>
-                    <div className="pricing__guarantee-text">
-                      <strong>90-day money-back guarantee:</strong> If verified RTO freight savings recorded in your dashboard don't exceed the fees you paid by the end of your license, we refund the difference in full.
+
+                    {/* Right Column: 3 Perforated Waybill Pricing Cards */}
+                    <div className="nt-pricing-split__right">
+                      <div className="pricing__header">
+                        <span className="pricing__eyebrow">TARIFF SCHEDULE</span>
+                        <h2 id="pricing-heading" className="pricing__heading">
+                          Pick your protection. Pay for your size.
+                        </h2>
+                        <p className="pricing__sub">
+                          Same features for every brand size — smaller brands simply pay less. Drag your monthly orders on the left to see your price.
+                        </p>
+                      </div>
+
+                      <div className="pricing__picker-wrap">
+                        <PlanPicker
+                          value={orders}
+                          onChange={onOrdersChange}
+                          selectedTierKey={selectedPlan}
+                          onSelectTier={(key) => onSelectPlan?.(key as PlanKey)}
+                          hideSlider={true}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -205,6 +210,38 @@ export function StudioOsWorkspace({
               className="nt-os-pane nt-os-pane--faq"
             >
               <FaqSection />
+
+              <div className="nt-security-stubs">
+                <div className="nt-security-stubs__header">
+                  <span className="nt-security-stubs__tag">SECURITY SPECIFICATION // 01–06 AUDITED ENCLAVES</span>
+                </div>
+                <div className="nt-security-stubs__grid">
+                  <div className="nt-sec-stub">
+                    <span className="nt-sec-stub__code">SEC.01</span>
+                    <span className="nt-sec-stub__title">Meta-approved Utility templates</span>
+                  </div>
+                  <div className="nt-sec-stub">
+                    <span className="nt-sec-stub__code">SEC.02</span>
+                    <span className="nt-sec-stub__title">AES-256-GCM encryption at rest</span>
+                  </div>
+                  <div className="nt-sec-stub">
+                    <span className="nt-sec-stub__code">SEC.03</span>
+                    <span className="nt-sec-stub__title">HMAC-SHA256 authenticated webhooks</span>
+                  </div>
+                  <div className="nt-sec-stub">
+                    <span className="nt-sec-stub__code">SEC.04</span>
+                    <span className="nt-sec-stub__title">Zero buyer PII retention policy</span>
+                  </div>
+                  <div className="nt-sec-stub">
+                    <span className="nt-sec-stub__code">SEC.05</span>
+                    <span className="nt-sec-stub__title">Shopify & WooCommerce native sync</span>
+                  </div>
+                  <div className="nt-sec-stub">
+                    <span className="nt-sec-stub__code">SEC.06</span>
+                    <span className="nt-sec-stub__title">DPDP Act 2023 compliant data vault</span>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
