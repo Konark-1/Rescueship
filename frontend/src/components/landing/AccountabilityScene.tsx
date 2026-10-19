@@ -1,11 +1,11 @@
-import { PhoneOff, Timer, MessageSquareWarning } from 'lucide-react';
+import { Timer, PhoneOff, MessageSquareWarning } from 'lucide-react';
 
 export function AccountabilityScene() {
   return (
-    <section className="account" aria-labelledby="accountability-heading">
+    <section className="account" aria-label="Courier audit telemetry and fraud heuristics">
       <div className="account__container">
         <div className="account__grid">
-          {/* Left Column: Monospace courier-scan log card */}
+          {/* Left Column: Monospace courier-scan log window */}
           <div className="account__left">
             <div className="account__log-window">
               <div className="account__log-header">
@@ -48,34 +48,34 @@ export function AccountabilityScene() {
             </div>
           </div>
 
-          {/* Right Column: Narrative + Heuristic Chips */}
+          {/* Right Column: 3 Fraud Detection Heuristics (no duplicate text or headline) */}
           <div className="account__right">
-            <span className="account__eyebrow">CARRIER ACCOUNTABILITY</span>
-            <h2 id="accountability-heading" className="account__heading">
-              &ldquo;Door locked.&rdquo; No knock. No call.
-            </h2>
-            <p className="account__sub">
-              Logged four minutes after the scan. RescueShip flags the lie automatically — and files the escalation so your courier starts behaving.
-            </p>
+            <div className="nt-heuristics-col">
+              <div className="nt-heuristic-card">
+                <div className="nt-heuristic-head">
+                  <span className="nt-heuristic-tag">HEURISTIC 01</span>
+                  <Timer size={15} className="nt-heuristic-icon" aria-hidden="true" />
+                </div>
+                <h4>Odd-Hour Scan</h4>
+                <p>Driver scans &quot;Premises Closed&quot; at 11:47 PM when commercial hubs have shut.</p>
+              </div>
 
-            <div className="account__chips" role="list" aria-label="Courier fraud detection heuristics">
-              <div className="account__chip" role="listitem">
-                <span className="account__chip-icon" aria-hidden="true">
-                  <Timer size={16} />
-                </span>
-                <span className="account__chip-text">Odd-hour scan (before 8 AM / after 10 PM)</span>
+              <div className="nt-heuristic-card">
+                <div className="nt-heuristic-head">
+                  <span className="nt-heuristic-tag">HEURISTIC 02</span>
+                  <PhoneOff size={15} className="nt-heuristic-icon" aria-hidden="true" />
+                </div>
+                <h4>Sub-15m OFD to Failure</h4>
+                <p>Out for delivery to failure in 4 minutes — geographically impossible.</p>
               </div>
-              <div className="account__chip" role="listitem">
-                <span className="account__chip-icon" aria-hidden="true">
-                  <PhoneOff size={16} />
-                </span>
-                <span className="account__chip-text">OFD → failure under 15 min</span>
-              </div>
-              <div className="account__chip" role="listitem">
-                <span className="account__chip-icon" aria-hidden="true">
-                  <MessageSquareWarning size={16} />
-                </span>
-                <span className="account__chip-text">Customer says &ldquo;nobody came&rdquo;</span>
+
+              <div className="nt-heuristic-card">
+                <div className="nt-heuristic-head">
+                  <span className="nt-heuristic-tag">HEURISTIC 03</span>
+                  <MessageSquareWarning size={15} className="nt-heuristic-icon" aria-hidden="true" />
+                </div>
+                <h4>Verification Discrepancy</h4>
+                <p>Customer instantly replies: &quot;Nobody came, I&apos;ve been waiting at home all day.&quot;</p>
               </div>
             </div>
           </div>
@@ -84,3 +84,5 @@ export function AccountabilityScene() {
     </section>
   );
 }
+
+export default AccountabilityScene;

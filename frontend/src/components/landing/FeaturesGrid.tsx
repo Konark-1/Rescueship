@@ -6,7 +6,6 @@ import { SpotlightCard } from '../SpotlightCard';
 const FEATURES = [
   {
     index: '01',
-    code: 'SYS/NDR.90S',
     icon: Zap,
     title: 'Autonomous NDR Rescue',
     desc: 'Every failed attempt gets a WhatsApp response inside 90 seconds.',
@@ -15,7 +14,6 @@ const FEATURES = [
   },
   {
     index: '02',
-    code: 'SYS/ADR.FIX',
     icon: MapPin,
     title: '2-Step AI Address Fix',
     desc: 'GPS pin + Hinglish landmark merged and pushed to the driver app.',
@@ -24,7 +22,6 @@ const FEATURES = [
   },
   {
     index: '03',
-    code: 'SYS/UPI.CNV',
     icon: CreditCard,
     title: 'COD → UPI Conversion',
     desc: 'Doorstep & cancel-time UPI links with self-funding discounts.',
@@ -33,7 +30,6 @@ const FEATURES = [
   },
   {
     index: '04',
-    code: 'SYS/RTO.GTE',
     icon: ShieldCheck,
     title: 'Payment-Gated RTO Arrest',
     desc: 'Return transit halts only when money is actually captured.',
@@ -42,7 +38,6 @@ const FEATURES = [
   },
   {
     index: '05',
-    code: 'SYS/NDR.DEC',
     icon: SearchCheck,
     title: 'Fake Remark Detection',
     desc: 'Odd-hour scans and 4-minute attempts auto-escalate to carrier supervisors.',
@@ -51,7 +46,6 @@ const FEATURES = [
   },
   {
     index: '06',
-    code: 'SYS/PIN.IDX',
     icon: LineChart,
     title: 'Pincode Intelligence',
     desc: 'Every pincode scored by real outcomes: courier vs customer vs address.',
@@ -103,17 +97,19 @@ export function FeaturesGrid() {
                 className="fgrid__card nt-bento-card"
                 spotlightColor={feat.color}
               >
-                <div className="fgrid__card-head">
-                  <span className="fgrid__card-index">SYS / {feat.index}</span>
-                  <span className="fgrid__card-code">{feat.code}</span>
+                <div className="fgrid__card-top">
+                  <div className="fgrid__icon-wrap">
+                    <Icon size={20} className="fgrid__icon" aria-hidden="true" />
+                  </div>
+                  <span className="fgrid__card-num">{feat.index}</span>
                 </div>
-                <div className="fgrid__icon-wrap">
-                  <Icon size={20} className="fgrid__icon" aria-hidden="true" />
-                </div>
+
                 <h3 className="fgrid__card-title">{feat.title}</h3>
                 <p className="fgrid__card-desc">{feat.desc}</p>
+
                 <div className="fgrid__card-foot">
-                  <span className="fgrid__card-status">AUTONOMOUS GATE · {feat.sla}</span>
+                  <span className="fgrid__foot-dot" aria-hidden="true" />
+                  <span className="fgrid__card-sla">{feat.sla}</span>
                 </div>
               </SpotlightCard>
             );

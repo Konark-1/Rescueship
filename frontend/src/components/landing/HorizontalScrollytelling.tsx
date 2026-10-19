@@ -44,6 +44,10 @@ export function HorizontalScrollytelling({
   cancelledOrders,
 }: HorizontalScrollytellingProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const waypoint0Ref = useRef<HTMLDivElement>(null);
+  const waypoint1Ref = useRef<HTMLDivElement>(null);
+  const waypoint2Ref = useRef<HTMLDivElement>(null);
+  const waypoint3Ref = useRef<HTMLDivElement>(null);
   const reduced = !!useReducedMotion();
 
   const { scrollYProgress } = useScroll({
@@ -52,24 +56,32 @@ export function HorizontalScrollytelling({
   });
 
   const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 100,
-    damping: 26,
-    mass: 0.3,
+    stiffness: 120,
+    damping: 24,
+    mass: 0.25,
   });
 
-  const ribbonX = useTransform(smoothProgress, [0, 1], ['0%', '-75%']);
-  const parcelProgress = useTransform(smoothProgress, [0.75, 1], ['0%', '100%']);
-
+  // Stepped plateaus: Locks squarely onto 01, 02, 03, 04 without stopping between slides
+  const ribbonX = useTransform(
+    smoothProgress,
+    [0, 0.08, 0.25, 0.35, 0.58, 0.68, 0.90, 1],
+    ['0%', '0%', '-25%', '-25%', '-50%', '-50%', '-75%', '-75%']
+  );
   const jumpToPanel = (index: number) => {
-    if (!containerRef.current) return;
-    const top = containerRef.current.offsetTop;
-    const height = containerRef.current.offsetHeight - window.innerHeight;
-    const targetScroll = top + height * (index / 3);
-    window.scrollTo({ top: targetScroll, behavior: reduced ? 'auto' : 'smooth' });
+    const waypoints = [waypoint0Ref, waypoint1Ref, waypoint2Ref, waypoint3Ref];
+    waypoints[index]?.current?.scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
   };
 
   return (
     <div id="product" ref={containerRef} className="nt-hscroll">
+      {/* 4 Invisible 95vh Snap Waypoint Markers for CSS Scroll-Snap Auto-Locking */}
+      <div className="nt-hscroll__waypoints" aria-hidden="true">
+        <div ref={waypoint0Ref} className="nt-hscroll__waypoint" />
+        <div ref={waypoint1Ref} className="nt-hscroll__waypoint" />
+        <div ref={waypoint2Ref} className="nt-hscroll__waypoint" />
+        <div ref={waypoint3Ref} className="nt-hscroll__waypoint" />
+      </div>
+
       <div className="nt-hscroll__stage">
         {/* ── Top Scrolly Header Bar ── */}
         <div className="nt-hscroll__head">
@@ -100,103 +112,95 @@ export function HorizontalScrollytelling({
         >
           {/* ════════ PANEL 01: THE ₹430 BLEED EQUATION ════════ */}
           <section className="nt-hscroll__panel nt-hscroll__panel--01" tabIndex={0} aria-label="Panel 1: The 430 Rupee Bleed Equation">
-            <div className="nt-panel-content">
-              <span className="nt-panel-kicker">PANEL 01 // THE ₹430 BLEED EQUATION</span>
-              <h2 className="nt-panel-h2 nt-display">
-                Every fake remark <em className="nt-serif">burns ₹430.</em>
-              </h2>
-              <p className="nt-panel-sub">
-                When a courier fakes an NDR, you don't just lose forward shipping. You bleed ad spend, double freight, and warehouse handling.
-              </p>
+            <div className="nt-panel-content nt-panel-content--wide">
+              <div className="nt-bleed-split">
+                {/* Left Column: Headline & Equation Card */}
+                <div className="nt-bleed-split__left">
+                  <span className="nt-panel-kicker">PANEL 01 // THE ₹430 BLEED EQUATION</span>
+                  <h2 className="nt-panel-h2 nt-display">
+                    Every fake remark <em className="nt-serif">burns ₹430.</em>
+                  </h2>
+                  <p className="nt-panel-sub">
+                    When a courier fakes an NDR, you don&apos;t just lose forward shipping. You bleed ad spend, double freight, and warehouse handling.
+                  </p>
 
-              {/* Typographic Equation Block */}
-              <div className="nt-equation-block" tabIndex={0} aria-label="₹430 RTO loss equation">
-                <div className="nt-equation-part">
-                  <span className="nt-equation-label">CAC</span>
-                  <span className="nt-equation-val">₹230</span>
-                </div>
-                <span className="nt-equation-op">+</span>
-                <div className="nt-equation-part">
-                  <span className="nt-equation-label">FORWARD</span>
-                  <span className="nt-equation-val">₹80</span>
-                </div>
-                <span className="nt-equation-op">+</span>
-                <div className="nt-equation-part">
-                  <span className="nt-equation-label">REVERSE</span>
-                  <span className="nt-equation-val">₹80</span>
-                </div>
-                <span className="nt-equation-op">+</span>
-                <div className="nt-equation-part">
-                  <span className="nt-equation-label">REPACK</span>
-                  <span className="nt-equation-val">₹40</span>
-                </div>
-                <span className="nt-equation-op">=</span>
-                <div className="nt-equation-part nt-equation-part--total">
-                  <span className="nt-equation-label">BLEED / RTO</span>
-                  <span className="nt-equation-val nt-equation-val--signal">₹430</span>
-                </div>
-              </div>
-
-              {/* Animated Breakdown Bar Meters */}
-              <div className="nt-bleed-bars">
-                {LOSS_PARTS.map((p) => (
-                  <div key={p.label} className="nt-bleed-row">
-                    <span className="nt-bleed-label">{p.label}</span>
-                    <div className="nt-bleed-track">
-                      <motion.div
-                        className="nt-bleed-fill"
-                        initial={reduced ? false : { width: 0 }}
-                        whileInView={{ width: `${(p.amount / 230) * 100}%` }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                      />
+                  {/* Typographic Equation Block */}
+                  <div className="nt-equation-block" tabIndex={0} aria-label="₹430 RTO loss equation">
+                    <div className="nt-equation-part">
+                      <span className="nt-equation-label">CAC</span>
+                      <span className="nt-equation-val">₹230</span>
                     </div>
-                    <span className="nt-bleed-amount">₹{p.amount}</span>
+                    <span className="nt-equation-op">+</span>
+                    <div className="nt-equation-part">
+                      <span className="nt-equation-label">FORWARD</span>
+                      <span className="nt-equation-val">₹80</span>
+                    </div>
+                    <span className="nt-equation-op">+</span>
+                    <div className="nt-equation-part">
+                      <span className="nt-equation-label">REVERSE</span>
+                      <span className="nt-equation-val">₹80</span>
+                    </div>
+                    <span className="nt-equation-op">+</span>
+                    <div className="nt-equation-part">
+                      <span className="nt-equation-label">REPACK</span>
+                      <span className="nt-equation-val">₹40</span>
+                    </div>
+                    <span className="nt-equation-op">=</span>
+                    <div className="nt-equation-part nt-equation-part--total">
+                      <span className="nt-equation-label">BLEED / RTO</span>
+                      <span className="nt-equation-val nt-equation-val--signal">₹430</span>
+                    </div>
                   </div>
-                ))}
-              </div>
+                </div>
 
-              <div className="nt-panel-footer-note">
-                <p>
-                  At 7,500 orders/mo with a 15% failure rate, that's <strong>1,125 lost orders</strong> costing <strong>₹4,83,750</strong> in dead freight.
-                </p>
+                {/* Right Column: Loss Breakdown Bars & Dead Freight Card */}
+                <div className="nt-bleed-split__right">
+                  <div className="nt-bleed-bars-card">
+                    <span className="nt-bleed-card-title">LOSS COMPONENT BREAKDOWN</span>
+                    <div className="nt-bleed-bars">
+                      {LOSS_PARTS.map((p) => (
+                        <div key={p.label} className="nt-bleed-row">
+                          <span className="nt-bleed-label">{p.label}</span>
+                          <div className="nt-bleed-track">
+                            <motion.div
+                              className="nt-bleed-fill"
+                              initial={reduced ? false : { width: 0 }}
+                              whileInView={{ width: `${(p.amount / 230) * 100}%` }}
+                              viewport={{ once: true }}
+                              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                            />
+                          </div>
+                          <span className="nt-bleed-amount">₹{p.amount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="nt-bleed-dead-freight-card">
+                    <span className="nt-bleed-calc-badge">MONTHLY BLEED AT SCALE</span>
+                    <p>
+                      At 7,500 orders/mo with a 15% failure rate, that&apos;s <strong>1,125 lost orders</strong> costing <strong className="nt-bleed-amount-highlight">₹4,83,750/mo</strong> in dead freight.
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
 
           {/* ════════ PANEL 02: THE 4-MINUTE LIE ════════ */}
           <section className="nt-hscroll__panel nt-hscroll__panel--02" tabIndex={0} aria-label="Panel 2: The 4-Minute Lie">
-            <div className="nt-panel-content">
+            <div className="nt-panel-content nt-panel-content--wide">
               <span className="nt-panel-kicker">PANEL 02 // THE 4-MINUTE LIE</span>
               <h2 className="nt-panel-h2 nt-display">
                 Four minutes. <em className="nt-serif">No knock. No call.</em>
               </h2>
               <p className="nt-panel-sub">
-                Drivers scan 'Customer Unavailable' without leaving their vans. RescueShip captures timestamp telemetry to hold couriers accountable.
+                Drivers scan &apos;Customer Unavailable&apos; without leaving their vans. RescueShip captures timestamp telemetry to hold couriers accountable.
               </p>
 
-              {/* Monospace Courier Telemetry Log Window (Preserves AccountabilityScene) */}
+              {/* Monospace Courier Telemetry Log Window + Heuristics */}
               <div className="nt-accountability-wrap">
                 <AccountabilityScene />
-              </div>
-
-              {/* 3 Fraud Detection Heuristics */}
-              <div className="nt-heuristics-grid">
-                <div className="nt-heuristic-card">
-                  <span className="nt-heuristic-tag">HEURISTIC 01</span>
-                  <h4>Odd-Hour Scan</h4>
-                  <p>Driver scans "Premises Closed" at 11:47 PM when commercial hubs have shut.</p>
-                </div>
-                <div className="nt-heuristic-card">
-                  <span className="nt-heuristic-tag">HEURISTIC 02</span>
-                  <h4>Sub-15m OFD to Failure</h4>
-                  <p>Out for delivery to failure in 4 minutes — geographically impossible.</p>
-                </div>
-                <div className="nt-heuristic-card">
-                  <span className="nt-heuristic-tag">HEURISTIC 03</span>
-                  <h4>Verification Discrepancy</h4>
-                  <p>Customer instantly replies: "Nobody came, I've been waiting at home all day."</p>
-                </div>
               </div>
             </div>
           </section>
@@ -249,8 +253,6 @@ export function HorizontalScrollytelling({
                         )}
                       </div>
 
-                      <div className="lp-board__arrow" aria-hidden="true">→</div>
-
                       <div className="lp-board__col">
                         <div className="lp-board__col-h lp-board__col-h--ok">
                           <span>Rescued &amp; Accepted</span>
@@ -281,7 +283,7 @@ export function HorizontalScrollytelling({
 
                       <div className="lp-board__col">
                         <div className="lp-board__col-h lp-board__col-h--cancel">
-                          <span>Cancelled &amp; Restocked</span>
+                          <span style={{ whiteSpace: 'nowrap' }}>RESTORED / RTO</span>
                           <span className="lp-board__col-count">{cancelledOrders.length}</span>
                         </div>
                         <AnimatePresence mode="popLayout">
@@ -326,37 +328,20 @@ export function HorizontalScrollytelling({
                 From fake scan to redelivery <em className="nt-serif">in 90 seconds.</em>
               </h2>
 
-              {/* Horizontal Timeline Rail */}
-              <div className="nt-rail-wrapper">
-                <div className="lp-reel__route" aria-hidden="true">
-                  <span className="lp-reel__line" />
-                  {REEL_BEATS.map((b, i) => (
-                    <span key={i} className={`lp-reel__dot lp-reel__dot--${b.role}`} />
-                  ))}
-                  <motion.span
-                    className="lp-reel__parcel nt-reel-parcel-horizontal"
-                    style={reduced ? undefined : { left: parcelProgress }}
-                    role="img"
-                    aria-label="Delivery parcel"
-                  >
-                    📦
-                  </motion.span>
-                </div>
-
-                <ol className="lp-reel__beats nt-reel-beats-horizontal">
-                  {REEL_BEATS.map((b, i) => (
-                    <li key={i} className={`lp-reel__beat lp-reel__beat--${b.role}`}>
-                      <div className="lp-reel__beat-top">
-                        <span className="lp-reel__beat-time">{b.time}</span>
-                        <span className={`lp-reel__beat-role lp-reel__beat-role--${b.role}`}>
-                          {b.role.toUpperCase()}
-                        </span>
-                      </div>
-                      <h3 className="lp-reel__beat-title">{b.title}</h3>
-                      <p className="lp-reel__beat-desc">{b.desc}</p>
-                    </li>
-                  ))}
-                </ol>
+              {/* Visible 4×2 Architectural Lifecycle Grid */}
+              <div className="nt-reel-beats-grid">
+                {REEL_BEATS.map((beat) => (
+                  <div key={beat.time} className="lp-reel__beat nt-reel__beat-card">
+                    <div className="lp-reel__beat-top">
+                      <span className="lp-reel__beat-time">{beat.time}</span>
+                      <span className={`lp-reel__beat-role lp-reel__beat-role--${beat.role}`}>
+                        {beat.role.toUpperCase()}
+                      </span>
+                    </div>
+                    <h3 className="lp-reel__beat-title">{beat.title}</h3>
+                    <p className="lp-reel__beat-desc">{beat.desc}</p>
+                  </div>
+                ))}
               </div>
 
               {/* Preserved TrustStrip Badges */}
@@ -367,7 +352,7 @@ export function HorizontalScrollytelling({
           </section>
         </motion.div>
 
-        {/* ── Bottom Scroll Progress Indicator ── */}
+        {/* ── Bottom Clickable Progress Tabs ── */}
         <div className="nt-hscroll__foot">
           <div className="nt-hscroll__progress-track">
             <motion.div
@@ -376,10 +361,18 @@ export function HorizontalScrollytelling({
             />
           </div>
           <div className="nt-hscroll__progress-labels">
-            <span>01 Bleed</span>
-            <span>02 The Lie</span>
-            <span>03 Intercept</span>
-            <span>04 Closed Loop</span>
+            <button type="button" className="nt-hscroll__prog-btn" onClick={() => jumpToPanel(0)}>
+              01 Bleed
+            </button>
+            <button type="button" className="nt-hscroll__prog-btn" onClick={() => jumpToPanel(1)}>
+              02 The Lie
+            </button>
+            <button type="button" className="nt-hscroll__prog-btn" onClick={() => jumpToPanel(2)}>
+              03 Intercept
+            </button>
+            <button type="button" className="nt-hscroll__prog-btn" onClick={() => jumpToPanel(3)}>
+              04 Closed Loop
+            </button>
           </div>
         </div>
       </div>

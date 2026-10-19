@@ -148,8 +148,8 @@ section[id] {
   box-shadow: 0 30px 80px -40px var(--black-90);
 }
 .lp-console__head {
-  display: flex; align-items: center; gap: var(--space-2);
-  padding: var(--space-3-5) var(--space-4); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: 14px 20px; border-bottom: 1px solid var(--border);
   background: var(--white-02);
 }
 .lp-console__dot { width: 10px; height: 10px; border-radius: var(--radius-full); }
@@ -167,7 +167,7 @@ section[id] {
 .lp-console__body { display: flex; flex-direction: column; }
 .lp-console__channels {
   display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-2);
-  padding: var(--space-2-5) var(--space-4); border-bottom: 1px solid var(--border);
+  padding: 10px 20px; border-bottom: 1px solid var(--border);
   background: var(--white-01);
 }
 .lp-console__watch {
@@ -231,6 +231,7 @@ section[id] {
   font-family: 'Barlow Condensed', var(--font-display);
   font-size: clamp(1.4rem, 2.5vw, 1.9rem); font-weight: 700; letter-spacing: -0.01em;
   color: var(--text-1); font-variant-numeric: tabular-nums;
+  white-space: nowrap; display: inline-flex; align-items: baseline;
 }
 .lp-stat__l {
   font-family: var(--font-mono); font-size: 0.62rem;
@@ -268,12 +269,19 @@ section[id] {
   transition: border-color 0.25s, box-shadow 0.25s;
 }
 .lp-pass:hover {
-  border-color: var(--signal-border);
-  box-shadow: 0 20px 50px -20px var(--black-70), 0 0 30px -10px var(--signal-soft);
+  border-color: var(--indigo-30);
+  box-shadow: 0 20px 50px -20px var(--black-70), 0 0 30px -10px var(--indigo-20);
 }
 .lp-pass::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-  background: var(--signal);
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--indigo), var(--emerald), var(--indigo));
+  background-size: 200% 100%;
+  animation: lp-gradient-pan 5s ease infinite;
+}
+@keyframes lp-gradient-pan {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 .lp-pass__row { display: flex; flex-direction: column; gap: var(--space-1-5); }
 .lp-pass__label {
@@ -286,7 +294,7 @@ section[id] {
   font-family: var(--font-body); font-size: 0.92rem; outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
-.lp-pass__input:focus { border-color: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
+.lp-pass__input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px var(--indigo-12); }
 .lp-pass__input::placeholder { color: var(--text-3); }
 .lp-pass__btn {
   position: relative; z-index: 0; overflow: hidden;
@@ -294,9 +302,16 @@ section[id] {
   padding: var(--space-3-5) var(--space-6); border-radius: var(--radius-full); border: none; cursor: pointer;
   transition: background 0.25s, box-shadow 0.25s, transform 0.2s; will-change: transform;
 }
+.lp-pass__btn::after {
+  content: ''; position: absolute; z-index: -1; top: 0; left: -120%;
+  width: 60%; height: 100%; transform: skewX(-18deg);
+  background: linear-gradient(100deg, transparent, var(--white-25), transparent);
+  transition: left 0.6s var(--ease-out);
+}
 .lp-pass__btn:hover:not(:disabled) {
   background: var(--signal-hover); transform: translateY(-1px); box-shadow: 0 8px 28px var(--signal-soft);
 }
+.lp-pass__btn:hover:not(:disabled)::after { left: 140%; }
 .lp-pass__btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .lp-pass__err { color: var(--rose); font-size: 0.82rem; }
 .lp-pass__fine { font-size: 0.76rem; color: var(--text-3); text-align: center; }
@@ -1187,7 +1202,7 @@ section[id] {
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--signal);
+  background: linear-gradient(90deg, var(--indigo), var(--emerald));
   transform-origin: 0%;
   z-index: 10;
 }
@@ -4337,91 +4352,121 @@ html {
   justify-content: space-between;
 }
 
-/* ── Section 02: Bleed Equation on Alabaster Paper ── */
-.nt-manifesto-wrap {
-  max-width: 1140px;
-  margin: 0 auto;
-  padding: 0 var(--space-6) var(--space-12) var(--space-6);
+/* Horizontal Track Waypoints & Quick-Nav */
+.nt-hscroll__waypoints {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
-.nt-equation-paper-block {
-  margin-top: var(--space-8);
-  padding: var(--space-6) var(--space-8);
-  background: var(--bg-paper-elevated);
-  border: 1px solid var(--border-paper);
+.nt-hscroll__waypoint {
+  height: 95vh;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.nt-hscroll__prog-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-3);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.nt-hscroll__prog-btn:hover {
+  color: var(--text-1);
+  background: var(--white-06);
+}
+
+/* Panel 01: The Bleed Split Grid */
+.nt-bleed-split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: var(--space-8);
+  align-items: center;
+}
+
+@media (max-width: 960px) {
+  .nt-bleed-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nt-bleed-bars-card {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  box-shadow: 0 8px 30px var(--border-paper);
+  padding: var(--space-6);
 }
 
-.nt-equation-paper-tag {
+.nt-bleed-card-title {
+  display: block;
   font-family: var(--font-mono);
   font-size: 0.72rem;
   letter-spacing: 0.08em;
-  color: var(--text-paper-2);
+  color: var(--text-3);
   margin-bottom: var(--space-4);
-  text-transform: uppercase;
 }
 
-.nt-equation-block--paper {
-  background: var(--bg-paper-subtle);
-  border: 1px solid var(--border-paper);
+.nt-bleed-dead-freight-card {
+  margin-top: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-card);
+  border: 1px dashed var(--signal-border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--text-2);
+  line-height: 1.5;
 }
 
-.nt-equation-block--paper .nt-equation-label {
-  color: var(--text-paper-1);
-  font-weight: 600;
+.nt-bleed-calc-badge {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--signal);
+  margin-bottom: var(--space-2);
 }
 
-.nt-equation-block--paper .nt-equation-val {
-  color: var(--text-paper-1);
-}
-
-.nt-equation-block--paper .nt-equation-op {
-  color: var(--text-paper-1);
+.nt-bleed-amount-highlight {
+  color: var(--signal);
   font-weight: 700;
 }
 
-.nt-bleed-bars--paper .nt-bleed-label {
-  color: var(--text-paper-2);
+/* Panel 02: Heuristics Column */
+.nt-heuristics-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.nt-bleed-bars--paper .nt-bleed-track {
-  background: var(--border-paper);
+.nt-heuristic-card {
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
 }
 
-.nt-bleed-bars--paper .nt-bleed-amount {
-  color: var(--text-paper-1);
+.nt-heuristic-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
 }
 
-/* ── Section 03: Carrier Accountability & Live Intercept ── */
-.nt-product-wrap {
-  max-width: 1220px;
-  margin: 0 auto;
-  padding: 0 var(--space-6) var(--space-12) var(--space-6);
+.nt-heuristic-icon {
+  color: var(--signal);
 }
 
-.nt-intercept-section {
-  margin-top: var(--space-10);
-}
-
-.nt-intercept-header {
-  margin-bottom: var(--space-6);
-}
-
-.nt-loop-wrap {
-  margin-top: var(--space-12);
-  padding-top: var(--space-8);
-  border-top: 1px solid var(--border);
-}
-
-.nt-loop-header {
-  margin-bottom: var(--space-6);
-}
-
-.nt-panel-h3 {
-  font-size: clamp(1.6rem, 3.2vw, 2.4rem);
-  color: var(--text-1);
-  margin-top: var(--space-2);
+/* Panel 04: 4x2 Architectural Lifecycle Grid & Beat Overrides */
+.nt-hscroll__panel .lp-reel__beat {
+  opacity: 1 !important;
+  transform: none !important;
 }
 
 .nt-reel-beats-grid {
@@ -4443,7 +4488,94 @@ html {
   }
 }
 
-/* ── Section 05: Unified Pricing Split View ── */
+.nt-reel__beat-card {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.lp-reel__beat-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+
+.lp-reel__beat-time {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--signal);
+}
+
+.lp-reel__beat-role {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+}
+
+.lp-reel__beat-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-1);
+  margin: 0 0 var(--space-1) 0;
+}
+
+.lp-reel__beat-desc {
+  font-size: 0.8rem;
+  color: var(--text-2);
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Chapter 04: Features Grid Polish */
+.fgrid__card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.fgrid__card-num {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.fgrid__card-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+  padding-top: var(--space-4);
+}
+
+.fgrid__foot-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--signal);
+}
+
+.fgrid__card-sla {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  color: var(--text-3);
+  text-transform: uppercase;
+}
+
+/* Chapter 05: Studio OS Workspace Split View */
+.nt-pricing-viewport {
+  max-height: calc(100dvh - 180px);
+  overflow-y: auto;
+}
+
 .nt-pricing-split {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -4479,76 +4611,5 @@ html {
 .nt-pricing-split__right .pricing__sub {
   margin: 0 0 var(--space-4) 0;
   max-width: 100%;
-}
-
-/* ── Security Specification Badges in FAQ ── */
-.nt-security-stubs {
-  margin-top: var(--space-8);
-  padding-top: var(--space-6);
-  border-top: 1px solid var(--border-paper);
-}
-
-.nt-security-stubs__header {
-  margin-bottom: var(--space-4);
-}
-
-.nt-security-stubs__tag {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  color: var(--text-paper-3);
-  text-transform: uppercase;
-}
-
-.nt-security-stubs__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: var(--space-3);
-}
-
-.nt-sec-stub {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  background: var(--bg-paper-elevated);
-  border: 1px solid var(--border-paper);
-  border-radius: var(--radius-sm);
-}
-
-.nt-sec-stub__code {
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--signal);
-}
-
-.nt-sec-stub__title {
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  color: var(--text-paper-1);
-}
-
-/* ── 1px Exposed Architectural Grid on Features ── */
-.fgrid__list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-
-@media (max-width: 900px) {
-  .fgrid__list {
-    grid-template-columns: 1fr;
-  }
-}
-
-.fgrid__card {
-  background: var(--bg-surface);
-  border-radius: 0;
-  border: none;
 }
 

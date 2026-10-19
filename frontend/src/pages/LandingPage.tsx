@@ -5,14 +5,9 @@ import api from '../services/api';
 import { CarrierMarquee } from '../components/CarrierMarquee';
 import { StickyNav } from '../components/landing/StickyNav';
 import { SlotCounter } from '../components/landing/SlotCounter';
-import { ScrollRevealText } from '../components/landing/ScrollRevealText';
-import { AccountabilityScene } from '../components/landing/AccountabilityScene';
-import { RescueScene } from '../components/story/RescueScene';
-import { TrustStrip } from '../components/landing/TrustStrip';
-import { SpotlightCard } from '../components/SpotlightCard';
+import { HorizontalScrollytelling } from '../components/landing/HorizontalScrollytelling';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
-import { Scissors } from 'lucide-react';
 import type { PlanKey } from '../config/pricing.config';
 import './landing.css';
 
@@ -86,24 +81,6 @@ const ORDER_BOARD: OrderCard[] = [
   { id: '#89467', awb: '8812903112', amount: '₹740', status: 'pending' },
 ];
 
-const LOSS_PARTS = [
-  { label: 'Customer acquisition cost (CAC)', amount: 230 },
-  { label: 'Forward freight committed', amount: 80 },
-  { label: 'Reverse RTO freight penalty', amount: 80 },
-  { label: 'Repackaging, QA & restocking', amount: 40 },
-];
-
-const REEL_BEATS = [
-  { time: '11:20', role: 'gate', title: 'Risk gate', desc: 'Order #89421 cleared · COD verified · address risk normal.' },
-  { time: '11:43', role: 'ofd', title: 'Dispatched OFD', desc: 'Driver marks Out For Delivery from Gurugram hub.' },
-  { time: '11:47', role: 'ndr', title: 'Fake NDR scan', desc: 'Driver logs "Customer Unavailable". No call, no doorbell.' },
-  { time: '11:47:30', role: 'rescue', title: 'Rescue dispatched', desc: 'Webhook fires · RescueShip contacts customer on WhatsApp inside 30s.' },
-  { time: '11:48:15', role: 'reply', title: 'Customer replies', desc: 'Customer taps "I am home" · shares live location pin.' },
-  { time: '11:49', role: 'carrier', title: 'Carrier sync', desc: 'Escalation raised · attempt flagged · next-day slot committed to carrier.' },
-  { time: '14:30', role: 'redeliv', title: 'Re-delivery', desc: 'Out for delivery again — driver receives supervisor notification.' },
-  { time: '15:20', role: 'ok', title: 'Delivered · Saved', desc: 'Cash collected · ₹1,240 saved from RTO return transit.' },
-];
-
 /* ═══ MAIN LANDING PAGE ═══ */
 export default function LandingPage() {
   const [monthlyOrders, setMonthlyOrders] = useState(1500);
@@ -121,6 +98,7 @@ export default function LandingPage() {
   const [rescuedCount, setRescuedCount] = useState(387);
   const [orders, setOrders] = useState<OrderCard[]>(ORDER_BOARD);
 
+  const [isPassOpen, setIsPassOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [storeUrl, setStoreUrl] = useState('');
@@ -261,11 +239,12 @@ export default function LandingPage() {
         }}
       />
 
-      {/* 2. BOOT SEQUENCE OVERLAY */}
+      {/* 2. BOOT TERMINAL OVERLAY */}
       <AnimatePresence>
         {showOverlay && (
           <motion.div
             className="lp-boot"
+            initial={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.3 }}
             onClick={skipBoot}
@@ -301,10 +280,10 @@ export default function LandingPage() {
       <div className="lp-scan" aria-hidden="true" />
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 01: HERO & COMMAND CENTER (#hero)
+          CHAPTER 01: HERO & COMMAND CENTER (Matte Carbon Surface)
           ═══════════════════════════════════════════════════════════════ */}
-      <section id="hero" className="nt-snap-section nt-snap-section--hero lp-chapter lp-chapter--dark" aria-label="RescueShip overview">
-        <div className="lp-hero">
+      <div className="nt-snap-section nt-snap-section--hero lp-chapter lp-chapter--dark">
+        <section className="lp-hero" aria-label="RescueShip overview">
           <div className="lp-hero__content">
             <motion.div
               className="lp-hero__kicker"
@@ -340,128 +319,142 @@ export default function LandingPage() {
                   className="nt-hero-cmd__input"
                   placeholder="yourbrand.myshopify.com"
                   value={storeUrl}
-                  onChange={(e) => setStoreUrl(e.target.value)}
+                  onChange={(e) => {
+                    setStoreUrl(e.target.value);
+                    setIsPassOpen(true);
+                  }}
+                  onFocus={() => setIsPassOpen(true)}
                 />
               </div>
               <button
                 type="button"
                 className="nt-hero-cmd__btn"
                 onClick={() => {
+                  setIsPassOpen(true);
                   const passEl = document.querySelector('.lp-pass');
                   passEl?.scrollIntoView({ behavior: 'smooth' });
-                  (document.getElementById('hero-name') as HTMLElement)?.focus();
                 }}
               >
                 Start Rescuing →
               </button>
             </div>
 
-            {/* Perforated Waybill Boarding Ticket / Lead Capture Form */}
-            {submitted ? (
-              <motion.div
-                className="lp-pass lp-pass--done"
-                initial={{ opacity: 0, scale: 0.96 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                <div className="lp-pass__done-h">
-                  <span className="lp-pass__done-i">✓</span>
-                  <div className="lp-pass__done-t">Integration request received · Added to manifest</div>
-                </div>
-                <p className="lp-pass__done-d">
-                  Our integrations desk will provision your WhatsApp Cloud API webhook credentials within 24-48 hours. A verification dispatch was delivered to <strong>{email}</strong>.
-                </p>
-                <div className="lp-pass__done-steps">
-                  <div className="lp-pass__done-s">
-                    <span className="lp-pass__done-s-n">1</span>
-                    <span>Meta Business WhatsApp Number verified</span>
-                  </div>
-                  <div className="lp-pass__done-s">
-                    <span className="lp-pass__done-s-n">2</span>
-                    <span>Carrier webhook listener armed (90s SLA)</span>
-                  </div>
-                  <div className="lp-pass__done-s">
-                    <span className="lp-pass__done-s-n">3</span>
-                    <span>Autonomous RTO shield active</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className="lp-pass__btn lp-pass__btn--ghost"
-                  onClick={() => { setSubmitted(false); setName(''); setEmail(''); setStoreUrl(''); }}
-                >
-                  Register another store
-                </button>
-              </motion.div>
-            ) : (
-              <form onSubmit={handleSignup} className="lp-pass" aria-label="Lead capture boarding pass">
-                <div className="lp-pass__waybill-bar">
-                  <span className="lp-pass__serial">RS/PASS.01 // BOARDING SPEC</span>
-                  <span className="lp-pass__tear" style={{ whiteSpace: 'nowrap' }}>
-                    <Scissors size={12} aria-hidden="true" /> TEAR ALONG LINE
-                  </span>
-                </div>
+            {/* Perforated Waybill Boarding Ticket (Collapsed until Start Rescuing is clicked) */}
+            <AnimatePresence>
+              {(isPassOpen || submitted) && (
+                submitted ? (
+                  <motion.div
+                    className="lp-pass lp-pass--done"
+                    initial={{ opacity: 0, scale: 0.96, height: 0 }}
+                    animate={{ opacity: 1, scale: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <div className="lp-pass__done-h">
+                      <span className="lp-pass__done-i">✓</span>
+                      <div className="lp-pass__done-t">Integration request received · Added to manifest</div>
+                    </div>
+                    <p className="lp-pass__done-d">
+                      Our integrations desk will provision your WhatsApp Cloud API webhook credentials within 24-48 hours. A verification dispatch was delivered to <strong>{email}</strong>.
+                    </p>
+                    <div className="lp-pass__done-steps">
+                      <div className="lp-pass__done-s">
+                        <span className="lp-pass__done-s-n">1</span>
+                        <span>Meta Business WhatsApp Number verified</span>
+                      </div>
+                      <div className="lp-pass__done-s">
+                        <span className="lp-pass__done-s-n">2</span>
+                        <span>Carrier webhook listener armed (90s SLA)</span>
+                      </div>
+                      <div className="lp-pass__done-s">
+                        <span className="lp-pass__done-s-n">3</span>
+                        <span>Autonomous RTO shield active</span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="lp-pass__btn lp-pass__btn--ghost"
+                      onClick={() => { setSubmitted(false); setName(''); setEmail(''); setStoreUrl(''); setIsPassOpen(false); }}
+                    >
+                      Register another store
+                    </button>
+                  </motion.div>
+                ) : (
+                  <motion.form
+                    onSubmit={handleSignup}
+                    className="lp-pass"
+                    aria-label="Lead capture boarding pass"
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <div className="lp-pass__waybill-bar">
+                      <span className="lp-pass__serial">RS/PASS.01 // BOARDING SPEC</span>
+                    </div>
 
-                <div className="lp-pass__grid">
-                  <div className="lp-pass__f">
-                    <label className="lp-pass__l" htmlFor="hero-name">Full name</label>
-                    <input
-                      id="hero-name"
-                      type="text"
-                      className="lp-pass__input"
-                      placeholder="John Doe"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      autoComplete="name"
-                    />
-                  </div>
+                    <div className="lp-pass__grid">
+                      <div className="lp-pass__f">
+                        <label className="lp-pass__l" htmlFor="hero-name">Full name</label>
+                        <input
+                          id="hero-name"
+                          type="text"
+                          className="lp-pass__input"
+                          placeholder="John Doe"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          required
+                          autoComplete="name"
+                        />
+                      </div>
 
-                  <div className="lp-pass__f">
-                    <label className="lp-pass__l" htmlFor="hero-email">Work email</label>
-                    <input
-                      id="hero-email"
-                      type="email"
-                      className="lp-pass__input"
-                      placeholder="growth@testbrand.com"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      required
-                      autoComplete="email"
-                    />
-                  </div>
+                      <div className="lp-pass__f">
+                        <label className="lp-pass__l" htmlFor="hero-email">Work email</label>
+                        <input
+                          id="hero-email"
+                          type="email"
+                          className="lp-pass__input"
+                          placeholder="growth@testbrand.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          required
+                          autoComplete="email"
+                        />
+                      </div>
 
-                  <div className="lp-pass__f">
-                    <label className="lp-pass__l" htmlFor="hero-store">Shopify / WooCommerce store</label>
-                    <input
-                      id="hero-store"
-                      type="text"
-                      className="lp-pass__input"
-                      placeholder="yourbrand.myshopify.com"
-                      value={storeUrl}
-                      onChange={(e) => setStoreUrl(e.target.value)}
-                      required
-                    />
-                  </div>
-                </div>
+                      <div className="lp-pass__f">
+                        <label className="lp-pass__l" htmlFor="hero-store">Shopify / WooCommerce store</label>
+                        <input
+                          id="hero-store"
+                          type="text"
+                          className="lp-pass__input"
+                          placeholder="yourbrand.myshopify.com"
+                          value={storeUrl}
+                          onChange={(e) => setStoreUrl(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
 
-                {error && <div className="lp-pass__err" role="alert">{error}</div>}
+                    {error && <div className="lp-pass__err" role="alert">{error}</div>}
 
-                <button
-                  type="submit"
-                  className="lp-pass__btn"
-                  disabled={submitting}
-                >
-                  {submitting ? 'Generating Boarding Pass…' : 'Generate Boarding Pass →'}
-                </button>
+                    <button
+                      type="submit"
+                      className="lp-pass__btn"
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Generating Boarding Pass…' : 'Generate Boarding Pass →'}
+                    </button>
 
-                <div className="lp-pass__foot">
-                  <span>3 free test rescues to your phone</span>
-                  <span className="lp-pass__foot-dot">·</span>
-                  <span>Zero developer setup required</span>
-                </div>
-              </form>
-            )}
+                    <div className="lp-pass__foot">
+                      <span>3 free test rescues to your phone</span>
+                      <span className="lp-pass__foot-dot">·</span>
+                      <span>Zero developer setup required</span>
+                    </div>
+                  </motion.form>
+                )
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Right Column: Live Terminal Telemetry Feed & Stats */}
@@ -471,15 +464,14 @@ export default function LandingPage() {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5, delay: 0.1 }}
           >
-            <div className="lp-console__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="lp-console__header">
+              <div className="lp-console__head-brand">
                 <span className="lp-console__dot" />
                 <span className="lp-console__title">rescueship://telemetry/live-feed</span>
               </div>
-              <span className="lp-console__tag">AUTONOMOUS SYS.v3</span>
             </div>
 
-            <div className="lp-console__mesh" style={{ paddingLeft: '4px' }}>
+            <div className="lp-console__mesh">
               <span className="lp-console__watch">watching</span>
               {WATCHED.map((c, i) => (
                 <span key={c} className="lp-console__chip">
@@ -514,266 +506,57 @@ export default function LandingPage() {
 
             <div className="lp-console__stats">
               <div className="lp-stat">
-                <span className="lp-stat__n" style={{ whiteSpace: 'nowrap' }}>
-                  ₹<SlotCounter value={recovered} />
+                <span className="lp-stat__n">
+                  <span>₹</span><SlotCounter value={recovered} />
                 </span>
                 <span className="lp-stat__l">recovered · sample</span>
               </div>
               <div className="lp-stat">
-                <span className="lp-stat__n" style={{ whiteSpace: 'nowrap' }}>
+                <span className="lp-stat__n">
                   <SlotCounter value={rescuedCount} />
                 </span>
                 <span className="lp-stat__l">orders rescued · sample</span>
               </div>
               <div className="lp-stat">
-                <span className="lp-stat__n" style={{ whiteSpace: 'nowrap' }}>
+                <span className="lp-stat__n">
                   <SlotCounter value="90s" />
                 </span>
                 <span className="lp-stat__l">avg intercept</span>
               </div>
             </div>
           </motion.div>
-        </div>
+        </section>
 
-        {/* Carrier Intercept Mesh Marquee folded into bottom of Hero */}
+        {/* Carrier Intercept Mesh Marquee folded directly into bottom of Hero container */}
         <CarrierMarquee />
-      </section>
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 02: THE FAKE ATTEMPT MANIFESTO & ₹430 BLEED (#manifesto)
+          CHAPTER 02: HORIZONTAL SCROLLYTELLING (Matte Carbon Surface)
           ═══════════════════════════════════════════════════════════════ */}
-      <section id="manifesto" className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The fake attempt manifesto">
-        <div className="lp-chapter__header" aria-hidden="true">
-          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 02 // THE FAKE ATTEMPT MANIFESTO &amp; ₹430 BLEED</span>
-          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
-        </div>
-
-        <div className="nt-manifesto-wrap">
-          <ScrollRevealText />
-
-          {/* Integrated ₹430 Bleed Equation Strip on Alabaster Paper */}
-          <div className="nt-equation-paper-block" aria-label="Financial bleed breakdown">
-            <div className="nt-equation-paper-tag">
-              <span>RECEIPT SPECIFICATION // RS-BLD.430 // COST OF A FAKE REMARK</span>
-            </div>
-
-            <div className="nt-equation-block nt-equation-block--paper" tabIndex={0} aria-label="Financial bleed breakdown equation">
-              <div className="nt-equation-part">
-                <span className="nt-equation-label">CAC (Ad Spend)</span>
-                <span className="nt-equation-val">₹230</span>
-              </div>
-              <span className="nt-equation-op">+</span>
-              <div className="nt-equation-part">
-                <span className="nt-equation-label">Forward Freight</span>
-                <span className="nt-equation-val">₹80</span>
-              </div>
-              <span className="nt-equation-op">+</span>
-              <div className="nt-equation-part">
-                <span className="nt-equation-label">Reverse Penalty</span>
-                <span className="nt-equation-val">₹80</span>
-              </div>
-              <span className="nt-equation-op">+</span>
-              <div className="nt-equation-part">
-                <span className="nt-equation-label">Repack &amp; Restock</span>
-                <span className="nt-equation-val">₹40</span>
-              </div>
-              <span className="nt-equation-op">=</span>
-              <div className="nt-equation-part">
-                <span className="nt-equation-label">Bleed / RTO</span>
-                <span className="nt-equation-val nt-equation-val--signal">₹430</span>
-              </div>
-            </div>
-
-            <div className="nt-bleed-bars nt-bleed-bars--paper">
-              {LOSS_PARTS.map((item) => (
-                <div key={item.label} className="nt-bleed-row">
-                  <span className="nt-bleed-label">{item.label}</span>
-                  <div className="nt-bleed-track">
-                    <div
-                      className="nt-bleed-fill"
-                      style={{ width: `${(item.amount / 230) * 100}%` }}
-                    />
-                  </div>
-                  <span className="nt-bleed-amount">₹{item.amount}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
+      <div className="nt-snap-section nt-snap-section--track lp-chapter lp-chapter--dark">
+        <HorizontalScrollytelling
+          booted={booted}
+          failedOrders={failedOrders}
+          rescuedOrders={rescuedOrders}
+          cancelledOrders={cancelledOrders}
+        />
+      </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 03: CARRIER ACCOUNTABILITY & LIVE INTERCEPT (#product)
-          ═══════════════════════════════════════════════════════════════ */}
-      <section id="product" className="nt-snap-section nt-snap-section--product lp-chapter lp-chapter--dark" aria-label="Carrier accountability and live intercept">
-        <div className="lp-chapter__header" aria-hidden="true">
-          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 03 // CARRIER ACCOUNTABILITY &amp; LIVE INTERCEPT</span>
-          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
-        </div>
-
-        <div className="nt-product-wrap">
-          {/* Deduplicated Carrier Accountability log card */}
-          <AccountabilityScene />
-
-          {/* Live Interception: WhatsApp Simulator + Order Board Split */}
-          <div className="nt-intercept-section">
-            <div className="nt-intercept-header">
-              <span className="nt-panel-kicker">AUTONOMOUS INTERCEPTION // 90-SECOND SLA</span>
-              <h2 className="nt-panel-h2 nt-display">
-                Automated rescue. <em className="nt-serif">Direct to driver app.</em>
-              </h2>
-            </div>
-
-            <div className="nt-intercept-split">
-              {/* Left: Interactive 5-Scenario WhatsApp Simulator */}
-              <div className="nt-intercept-simulator">
-                <div className="nt-simulator-badge">
-                  <span>● INTERACTIVE PHONE SIMULATOR</span>
-                </div>
-                <RescueScene active={booted} reduced={reduced} />
-              </div>
-
-              {/* Right: Live 3-Column Order Board */}
-              <div className="nt-intercept-board">
-                <div className="lp-board">
-                  <p className="lp-section__kicker">Order board · sample</p>
-                  <div className="lp-board__cols">
-                    <div className="lp-board__col">
-                      <div className="lp-board__col-h lp-board__col-h--fail">
-                        <span>NDR In-Flight</span>
-                        <span className="lp-board__col-count">{failedOrders.length}</span>
-                      </div>
-                      <AnimatePresence mode="popLayout">
-                        {failedOrders.map((o) => (
-                          <motion.div
-                            key={o.id}
-                            layout
-                            exit={{ opacity: 0, x: 50, scale: 0.94 }}
-                            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                          >
-                            <SpotlightCard className="lp-order lp-order--fail" spotlightColor="var(--signal-soft)">
-                              <span className="lp-order__id">{o.id}</span>
-                              <span className="lp-order__awb">AWB {o.awb}</span>
-                              <span className="lp-order__amt">{o.amount}</span>
-                            </SpotlightCard>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                      {failedOrders.length === 0 && (
-                        <div className="lp-order lp-order--ghost">all NDRs resolved</div>
-                      )}
-                    </div>
-
-                    <div className="lp-board__arrow" aria-hidden="true">→</div>
-
-                    <div className="lp-board__col">
-                      <div className="lp-board__col-h lp-board__col-h--ok">
-                        <span>Rescued &amp; Accepted</span>
-                        <span className="lp-board__col-count">{rescuedOrders.length}</span>
-                      </div>
-                      <AnimatePresence mode="popLayout">
-                        {rescuedOrders.map((o) => (
-                          <motion.div
-                            key={o.id}
-                            layout
-                            initial={reduced ? false : { opacity: 0, scale: 0.92, y: 12 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                          >
-                            <SpotlightCard className="lp-order lp-order--ok" spotlightColor="var(--emerald-15)">
-                              <span className="lp-order__id">{o.id}</span>
-                              <span className="lp-order__awb">AWB {o.awb}</span>
-                              <span className="lp-order__amt">{o.amount}</span>
-                              <span className="lp-order__tag">✓ rescued</span>
-                            </SpotlightCard>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                      {rescuedOrders.length === 0 && (
-                        <div className="lp-order lp-order--ghost">watching stream…</div>
-                      )}
-                    </div>
-
-                    <div className="lp-board__col">
-                      <div className="lp-board__col-h lp-board__col-h--cancel">
-                        <span style={{ whiteSpace: 'nowrap' }}>RESTORED / RTO</span>
-                        <span className="lp-board__col-count">{cancelledOrders.length}</span>
-                      </div>
-                      <AnimatePresence mode="popLayout">
-                        {cancelledOrders.map((o) => (
-                          <motion.div
-                            key={o.id}
-                            layout
-                            initial={reduced ? false : { opacity: 0, scale: 0.92, y: 12 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                          >
-                            <SpotlightCard className="lp-order lp-order--cancel" spotlightColor="var(--amber-10)">
-                              <span className="lp-order__id">{o.id}</span>
-                              <span className="lp-order__awb">AWB {o.awb}</span>
-                              <span className="lp-order__amt">{o.amount}</span>
-                              <span className="lp-order__tag">✕ restocked</span>
-                            </SpotlightCard>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                      {cancelledOrders.length === 0 && (
-                        <div className="lp-order lp-order--ghost">watching stream…</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Vertically-stable cost container for Playwright invariant */}
-                <div className="lp-cost">
-                  <span className="lp-cost__lbl">Active NDR pipeline: 90s response SLA active</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 8-Beat Closed Loop Reel & TrustStrip */}
-          <div className="nt-loop-wrap">
-            <div className="nt-loop-header">
-              <span className="nt-panel-kicker">8-BEAT CLOSED LOOP // AUDITED AUDIT LOG</span>
-              <h3 className="nt-panel-h3 nt-display">
-                From fake scan to re-delivery <em className="nt-serif">in 90 seconds.</em>
-              </h3>
-            </div>
-
-            <div className="nt-reel-beats-grid">
-              {REEL_BEATS.map((beat) => (
-                <div key={beat.time} className="lp-reel__beat">
-                  <span className="lp-reel__time">{beat.time}</span>
-                  <strong className="lp-reel__title">{beat.title}</strong>
-                  <p className="lp-reel__desc">{beat.desc}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="nt-trust-wrap">
-              <TrustStrip />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          SECTION 04: AUTONOMOUS SYSTEMS BENTO (#features)
+          CHAPTER 03: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)
           ═══════════════════════════════════════════════════════════════ */}
       <section id="features" className="nt-snap-section nt-snap-section--features lp-chapter lp-chapter--dark" aria-label="Six autonomous engines">
         <FeaturesGrid />
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 05: STUDIO OS WORKSPACE (#workspace)
+          CHAPTER 04: STUDIO OS WORKSPACE (Warm Alabaster Paper Surface)
           ═══════════════════════════════════════════════════════════════ */}
       <section id="workspace" className="nt-snap-section nt-snap-section--workspace lp-chapter lp-chapter--paper" aria-label="Studio OS workspace">
         <div className="lp-chapter__header" aria-hidden="true">
           <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 05 // STUDIO OS WORKSPACE</span>
+          <span className="lp-chapter__meta">CHAPTER 04 // STUDIO OS WORKSPACE</span>
           <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
         </div>
 
@@ -788,9 +571,9 @@ export default function LandingPage() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 06: BOARDING GATE & EDITORIAL CTA
+          CHAPTER 05: BOARDING GATE & CLEAN CTA (Matte Carbon)
           ═══════════════════════════════════════════════════════════════ */}
-      <section className="lp-final">
+      <section className="nt-snap-section nt-snap-section--final lp-final">
         <motion.div
           className="lp-final__panel"
           initial={{ opacity: 0, y: 40 }}
@@ -814,30 +597,14 @@ export default function LandingPage() {
           </p>
 
           <div className="lp-final__actions">
-            <Link to="/register" className="lp-final__btn">Start Free — 3 Live Test Rescues →</Link>
-            <Link to="/register" className="lp-final__btn lp-final__btn--secondary">or configure store settings →</Link>
+            <Link to="/register" className="lp-final__btn">Start Rescuing Free →</Link>
+            <Link to="/sandbox" className="lp-final__btn lp-final__btn--secondary">Or test in Sandbox →</Link>
           </div>
           <div className="lp-final__chips">
             <span>no credit card</span><span>no sales call</span><span>live in 4 min</span>
           </div>
         </motion.div>
       </section>
-
-      {/* 17. FOOTER */}
-      <footer className="lp-foot">
-        <span className="lp-foot__brand">
-          <span className="lp-brand__mark" aria-hidden="true">⚓</span>
-          <strong>RescueShip</strong>
-          <span className="lp-foot__tag">autonomous ndr rescue · whatsapp</span>
-        </span>
-        <span className="lp-foot__links">
-          <Link to="/privacy">Privacy Policy</Link>
-          <Link to="/terms">Terms of Service</Link>
-          <Link to="/dpa">DPDP Addendum</Link>
-          <Link to="/login">Log in</Link>
-          <Link to="/register" className="lp-foot__cta">Get started →</Link>
-        </span>
-      </footer>
     </div>
   );
 }

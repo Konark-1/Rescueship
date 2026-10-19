@@ -55,3 +55,5 @@ export function StickyNav({ onNavigate }: StickyNavProps) {
     </nav>
   );
 }
+
+export default StickyNav;

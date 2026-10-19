@@ -1,7 +1,7 @@
 import { useState, useId } from 'react';
 import { motion } from 'motion/react';
 import { PLANS, BANDS, bandFor, priceFor, estimate, recommendedPlan, inr, type PlanKey } from '../../config/pricing.config';
-import { SlidersHorizontal, Scissors } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import { springSnappy } from '../../lib/motion';
 
 export interface PlanPickerProps {
@@ -120,10 +120,6 @@ export function PlanPicker({
             >
               <div className="bl-tier-card__waybill-bar">
                 <span className="bl-tier-card__serial">{waybillCode} // WAYBILL SPEC</span>
-                <span className="bl-tier-card__tear" style={{ whiteSpace: 'nowrap' }}>
-                  <Scissors size={10} className="waybill-scissors" aria-hidden="true" />
-                  TEAR ALONG LINE
-                </span>
               </div>
 
               <div className="bl-tier-card__body">
@@ -133,7 +129,7 @@ export function PlanPicker({
                       <span className="bl-tier-card__name">{plan.name}</span>
                       {isRec && <span className="bl-tier-card__badge">Recommended for you</span>}
                     </div>
-                    <p className="bl-tier-card__volume">{plan.tagline}</p>
+                    <p className="bl-tier-card__tagline">{plan.tagline}</p>
                     <p className="bl-tier-card__volume">
                       Covers {plan.coverage} · ≈{Math.round(plan.reduction * 100)}% fewer RTOs · saves ~{inr(e.saved)}/mo
                     </p>
@@ -142,7 +138,13 @@ export function PlanPicker({
 
                 <div className="bl-tier-card__right">
                   <span className="bl-tier-card__price">
-                    {p ? <>{inr(p.monthly)}<small>/mo</small></> : 'Custom'}
+                    {p ? (
+                      <span className="bl-tier-card__price-nowrap">
+                        {inr(p.monthly)}<small>/mo</small>
+                      </span>
+                    ) : (
+                      'Custom'
+                    )}
                   </span>
                   <span className="bl-tier-card__subtext">{p ? cycleLabel || 'Billed quarterly' : 'Above 10k orders'}</span>
                 </div>
@@ -154,3 +156,5 @@ export function PlanPicker({
     </div>
   );
 }
+
+export default PlanPicker;

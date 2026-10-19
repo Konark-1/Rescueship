@@ -53,18 +53,18 @@ const redisOptions: RedisOptions = {
     if (isQuotaExceeded) {
       return null; // Stop reconnecting immediately on quota exhaustion
     }
-    if (times > 5) {
-      logger.warn(`Redis: exceeded 5 reconnection attempts — pausing reconnects`);
+    if (times > 2) {
+      logger.warn(`Redis: exceeded 2 reconnection attempts — pausing reconnects`);
       return null; // stop reconnecting
     }
-    const delay = Math.min(times * 1000, 10_000);
+    const delay = Math.min(times * 1000, 3_000);
     logger.warn(`Redis: reconnection attempt ${times} in ${delay}ms`);
     return delay;
   },
   reconnectOnError(err: Error): boolean | 1 | 2 {
-    if (err.message.includes('max requests limit exceeded')) {
+    if (err.message.includes('max requests limit exceeded') || err.message.includes('not in the allowlist')) {
       isQuotaExceeded = true;
-      logger.warn('🛑 Upstash Redis monthly quota exceeded (500k limit). Suppressing reconnect loop.');
+      logger.warn('🛑 Redis cloud access restricted (allowlist or quota limit). Suppressing reconnect loop.');
       return false;
     }
     const targetErrors = ['READONLY', 'ECONNRESET', 'ECONNREFUSED'];
@@ -113,10 +113,10 @@ redisConnection.on('close', () => {
 });
 
 redisConnection.on('error', (err: Error) => {
-  if (err.message.includes('max requests limit exceeded')) {
+  if (err.message.includes('max requests limit exceeded') || err.message.includes('not in the allowlist')) {
     if (!isQuotaExceeded) {
       isQuotaExceeded = true;
-      logger.warn('🛑 Upstash Redis request limit reached (500,000 monthly limit). Background queues paused. Switch to Render Redis (unlimited) to resume.');
+      logger.warn('🛑 Redis cloud access restricted (allowlist or quota limit). Background queues paused for local dev.');
       try { redisConnection.disconnect(); } catch { /* ignore */ }
     }
     return;

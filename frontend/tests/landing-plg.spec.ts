@@ -70,7 +70,13 @@ test.describe('Landing Page PLG Lead Capture & Telemetry Feed', () => {
       });
     });
 
-    await page.fill('input[placeholder="John Doe"]', 'Test Merchant');
+    const nameInput = page.locator('input[placeholder="John Doe"]');
+    if (!(await nameInput.isVisible())) {
+      await page.click('.nt-hero-cmd__btn');
+      await nameInput.waitFor({ state: 'visible' });
+    }
+
+    await nameInput.fill('Test Merchant');
     await page.fill('input[type="email"]', 'growth@testbrand.com');
     await page.fill('input[placeholder*="myshopify"]', 'testbrand.myshopify.com');
     await page.click('button.lp-pass__btn');

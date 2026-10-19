@@ -1,4 +1,3 @@
-
 interface Carrier {
   serial: string;
   name: string;
@@ -80,15 +79,7 @@ function PartnerGlyph({ name }: { name: string }) {
 
 export function CarrierMarquee() {
   return (
-    <section className="rs-mesh" aria-label="Supported Carriers and Commerce Integrations">
-      <div className="rs-mesh__header">
-        <span className="rs-mesh__kicker">Supported Integrations</span>
-        <h3 className="rs-mesh__title">Direct connections with India’s leading logistics network</h3>
-        <p className="rs-mesh__sub">
-          RescueShip connects directly to India’s courier APIs (Shiprocket, Delhivery, ClickPost for Blue Dart/Shadowfax), commerce platforms (Shopify, WooCommerce), WhatsApp Cloud API, and UPI gateways.
-        </p>
-      </div>
-
+    <div className="rs-mesh rs-mesh--embedded" aria-label="Supported Carriers and Commerce Integrations">
       <div className="rs-marquee" tabIndex={0} aria-label="List of supported carrier and commerce integrations">
         <div className="rs-marquee__track">
           {/* First loop */}
@@ -130,7 +121,7 @@ export function CarrierMarquee() {
           </div>
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
