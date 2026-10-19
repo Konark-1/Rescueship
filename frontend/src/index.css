@@ -82,6 +82,17 @@
   --waybill-amber-soft: rgba(180, 83, 9, 0.12);
   --waybill-amber-border: rgba(180, 83, 9, 0.30);
 
+  /* ── 2b. WhatsApp Authentic Surfaces ── */
+  --wa-bg: #efeae2;
+  --wa-bubble-user: #d9fdd3;
+  --wa-bubble-bot: #ffffff;
+  --wa-chat-border: #e2ded7;
+  --wa-header-bg: #f0f2f5;
+  --wa-text-user: #111b21;
+  --wa-text-bot: #111b21;
+  --wa-meta-time: #667781;
+  --wa-ticks: #53bdeb;
+
   /* ── 3. Primary Brand Accents (Signal Vermilion + Verification Emerald) ── */
   --signal: #ff3b1d; /* Neutomni signature vermilion red-orange */
   --signal-hover: #e02e12;
@@ -93,6 +104,7 @@
   --rose: #fb7185;
   --rose-light: #fca5a5;
   --danger: #ef4444;
+  --danger-ink: #991b1b;
   --emerald-light: #a7f3d0;
   --cyan: #38bdf8;
   --indigo: #4f46e5;

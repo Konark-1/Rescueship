@@ -5,6 +5,8 @@ import api from '../services/api';
 import { CarrierMarquee } from '../components/CarrierMarquee';
 import { StickyNav } from '../components/landing/StickyNav';
 import { SlotCounter } from '../components/landing/SlotCounter';
+import { ScrollRevealText } from '../components/landing/ScrollRevealText';
+import { TrustStrip } from '../components/landing/TrustStrip';
 import { HorizontalScrollytelling } from '../components/landing/HorizontalScrollytelling';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
@@ -98,7 +100,6 @@ export default function LandingPage() {
   const [rescuedCount, setRescuedCount] = useState(387);
   const [orders, setOrders] = useState<OrderCard[]>(ORDER_BOARD);
 
-  const [isPassOpen, setIsPassOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [storeUrl, setStoreUrl] = useState('');
@@ -310,124 +311,96 @@ export default function LandingPage() {
               </p>
             </motion.div>
 
-            {/* Sleek 1-Line Command Bar */}
-            <div className="nt-hero-cmd">
-              <div className="nt-hero-cmd__input-wrap">
-                <span className="nt-hero-cmd__icon">shopify://</span>
-                <input
-                  type="text"
-                  className="nt-hero-cmd__input"
-                  placeholder="yourbrand.myshopify.com"
-                  value={storeUrl}
-                  onChange={(e) => {
-                    setStoreUrl(e.target.value);
-                    setIsPassOpen(true);
-                  }}
-                  onFocus={() => setIsPassOpen(true)}
-                />
-              </div>
-              <button
-                type="button"
-                className="nt-hero-cmd__btn"
-                onClick={() => {
-                  setIsPassOpen(true);
-                  const passEl = document.querySelector('.lp-pass');
-                  passEl?.scrollIntoView({ behavior: 'smooth' });
-                }}
+            {/* Unified 2-Row Boarding Manifest Card */}
+            {submitted ? (
+              <motion.div
+                className="lp-pass lp-pass--done"
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
               >
-                Start Rescuing →
-              </button>
-            </div>
+                <div className="lp-pass__done-h">
+                  <span className="lp-pass__done-i">✓</span>
+                  <div className="lp-pass__done-t">Integration request received · Added to manifest</div>
+                </div>
+                <p className="lp-pass__done-d">
+                  Our integrations desk will provision your WhatsApp Cloud API webhook credentials within 24-48 hours. A verification dispatch was delivered to <strong>{email}</strong>.
+                </p>
+                <div className="lp-pass__done-steps">
+                  <div className="lp-pass__done-s">
+                    <span className="lp-pass__done-s-n">1</span>
+                    <span>Meta Business WhatsApp Number verified</span>
+                  </div>
+                  <div className="lp-pass__done-s">
+                    <span className="lp-pass__done-s-n">2</span>
+                    <span>Carrier webhook listener armed (90s SLA)</span>
+                  </div>
+                  <div className="lp-pass__done-s">
+                    <span className="lp-pass__done-s-n">3</span>
+                    <span>Autonomous RTO shield active</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="lp-pass__btn lp-pass__btn--ghost"
+                  onClick={() => { setSubmitted(false); setName(''); setEmail(''); setStoreUrl(''); }}
+                >
+                  Register another store
+                </button>
+              </motion.div>
+            ) : (
+              <form
+                onSubmit={handleSignup}
+                className="lp-pass lp-pass--unified"
+                aria-label="Lead capture boarding pass"
+              >
+                <div className="lp-pass__waybill-bar">
+                  <span className="lp-pass__serial">RS/PASS.01 // BOARDING MANIFEST</span>
+                  <span className="lp-pass__tag">AUTONOMOUS GATEWAY</span>
+                </div>
 
-            {/* Perforated Waybill Boarding Ticket (Collapsed until Start Rescuing is clicked) */}
-            <AnimatePresence>
-              {(isPassOpen || submitted) && (
-                submitted ? (
-                  <motion.div
-                    className="lp-pass lp-pass--done"
-                    initial={{ opacity: 0, scale: 0.96, height: 0 }}
-                    animate={{ opacity: 1, scale: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <div className="lp-pass__done-h">
-                      <span className="lp-pass__done-i">✓</span>
-                      <div className="lp-pass__done-t">Integration request received · Added to manifest</div>
+                <div className="lp-pass__unified-body">
+                  {/* Row 1: Full name + Work email */}
+                  <div className="lp-pass__unified-row">
+                    <div className="lp-pass__f">
+                      <label className="lp-pass__l" htmlFor="hero-name">Full name</label>
+                      <input
+                        id="hero-name"
+                        type="text"
+                        className="lp-pass__input"
+                        placeholder="John Doe"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        required
+                        autoComplete="name"
+                      />
                     </div>
-                    <p className="lp-pass__done-d">
-                      Our integrations desk will provision your WhatsApp Cloud API webhook credentials within 24-48 hours. A verification dispatch was delivered to <strong>{email}</strong>.
-                    </p>
-                    <div className="lp-pass__done-steps">
-                      <div className="lp-pass__done-s">
-                        <span className="lp-pass__done-s-n">1</span>
-                        <span>Meta Business WhatsApp Number verified</span>
-                      </div>
-                      <div className="lp-pass__done-s">
-                        <span className="lp-pass__done-s-n">2</span>
-                        <span>Carrier webhook listener armed (90s SLA)</span>
-                      </div>
-                      <div className="lp-pass__done-s">
-                        <span className="lp-pass__done-s-n">3</span>
-                        <span>Autonomous RTO shield active</span>
-                      </div>
+
+                    <div className="lp-pass__f">
+                      <label className="lp-pass__l" htmlFor="hero-email">Work email</label>
+                      <input
+                        id="hero-email"
+                        type="email"
+                        className="lp-pass__input"
+                        placeholder="growth@testbrand.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        required
+                        autoComplete="email"
+                      />
                     </div>
-                    <button
-                      type="button"
-                      className="lp-pass__btn lp-pass__btn--ghost"
-                      onClick={() => { setSubmitted(false); setName(''); setEmail(''); setStoreUrl(''); setIsPassOpen(false); }}
-                    >
-                      Register another store
-                    </button>
-                  </motion.div>
-                ) : (
-                  <motion.form
-                    onSubmit={handleSignup}
-                    className="lp-pass"
-                    aria-label="Lead capture boarding pass"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: 'auto' }}
-                    exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <div className="lp-pass__waybill-bar">
-                      <span className="lp-pass__serial">RS/PASS.01 // BOARDING SPEC</span>
-                    </div>
+                  </div>
 
-                    <div className="lp-pass__grid">
-                      <div className="lp-pass__f">
-                        <label className="lp-pass__l" htmlFor="hero-name">Full name</label>
-                        <input
-                          id="hero-name"
-                          type="text"
-                          className="lp-pass__input"
-                          placeholder="John Doe"
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                          required
-                          autoComplete="name"
-                        />
-                      </div>
-
-                      <div className="lp-pass__f">
-                        <label className="lp-pass__l" htmlFor="hero-email">Work email</label>
-                        <input
-                          id="hero-email"
-                          type="email"
-                          className="lp-pass__input"
-                          placeholder="growth@testbrand.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          required
-                          autoComplete="email"
-                        />
-                      </div>
-
-                      <div className="lp-pass__f">
-                        <label className="lp-pass__l" htmlFor="hero-store">Shopify / WooCommerce store</label>
+                  {/* Row 2: shopify:// storeUrl + Vermilion Start Rescuing -> */}
+                  <div className="lp-pass__unified-row lp-pass__unified-row--action">
+                    <div className="lp-pass__f lp-pass__f--store">
+                      <label className="lp-pass__l" htmlFor="hero-store">Shopify / WooCommerce store</label>
+                      <div className="lp-pass__store-input-wrap">
+                        <span className="lp-pass__store-prefix">shopify://</span>
                         <input
                           id="hero-store"
                           type="text"
-                          className="lp-pass__input"
+                          className="lp-pass__input lp-pass__input--store"
                           placeholder="yourbrand.myshopify.com"
                           value={storeUrl}
                           onChange={(e) => setStoreUrl(e.target.value)}
@@ -436,25 +409,23 @@ export default function LandingPage() {
                       </div>
                     </div>
 
-                    {error && <div className="lp-pass__err" role="alert">{error}</div>}
-
                     <button
                       type="submit"
-                      className="lp-pass__btn"
+                      className="lp-pass__btn nt-hero-cmd__btn"
                       disabled={submitting}
                     >
-                      {submitting ? 'Generating Boarding Pass…' : 'Generate Boarding Pass →'}
+                      {submitting ? 'Registering…' : 'Start Rescuing →'}
                     </button>
+                  </div>
+                </div>
 
-                    <div className="lp-pass__foot">
-                      <span>3 free test rescues to your phone</span>
-                      <span className="lp-pass__foot-dot">·</span>
-                      <span>Zero developer setup required</span>
-                    </div>
-                  </motion.form>
-                )
-              )}
-            </AnimatePresence>
+                {error && <div className="lp-pass__err" role="alert">{error}</div>}
+
+                <div className="lp-pass__fine">
+                  Live in 4 minutes · Meta Cloud API verified · Zero buyer PII stored
+                </div>
+              </form>
+            )}
           </div>
 
           {/* Right Column: Live Terminal Telemetry Feed & Stats */}
@@ -532,7 +503,22 @@ export default function LandingPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 02: HORIZONTAL SCROLLYTELLING (Matte Carbon Surface)
+          CHAPTER 02: THE FAKE ATTEMPT MANIFESTO (Warm Alabaster Paper Surface)
+          ═══════════════════════════════════════════════════════════════ */}
+      <section className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The fake attempt manifesto">
+        <div className="lp-chapter__header" aria-hidden="true">
+          <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
+          <span className="lp-chapter__meta">CHAPTER 02 // THE FAKE ATTEMPT MANIFESTO</span>
+          <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
+        </div>
+
+        <div className="nt-manifesto-wrap">
+          <ScrollRevealText />
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 03: HORIZONTAL SCROLLYTELLING (Matte Carbon Surface)
           ═══════════════════════════════════════════════════════════════ */}
       <div className="nt-snap-section nt-snap-section--track lp-chapter lp-chapter--dark">
         <HorizontalScrollytelling
@@ -544,19 +530,19 @@ export default function LandingPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 03: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)
+          CHAPTER 04: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)
           ═══════════════════════════════════════════════════════════════ */}
       <section id="features" className="nt-snap-section nt-snap-section--features lp-chapter lp-chapter--dark" aria-label="Six autonomous engines">
         <FeaturesGrid />
       </section>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 04: STUDIO OS WORKSPACE (Warm Alabaster Paper Surface)
+          CHAPTER 05: STUDIO OS WORKSPACE (Warm Alabaster Paper Surface)
           ═══════════════════════════════════════════════════════════════ */}
       <section id="workspace" className="nt-snap-section nt-snap-section--workspace lp-chapter lp-chapter--paper" aria-label="Studio OS workspace">
         <div className="lp-chapter__header" aria-hidden="true">
           <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 04 // STUDIO OS WORKSPACE</span>
+          <span className="lp-chapter__meta">CHAPTER 05 // STUDIO OS WORKSPACE</span>
           <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
         </div>
 
@@ -570,8 +556,13 @@ export default function LandingPage() {
         />
       </section>
 
+      {/* Audited Trust & Compliance Badges */}
+      <div className="nt-trust-wrap nt-trust-wrap--footer" style={{ maxWidth: 1220, margin: '0 auto', padding: '0 24px var(--space-8)' }}>
+        <TrustStrip />
+      </div>
+
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 05: BOARDING GATE & CLEAN CTA (Matte Carbon)
+          CHAPTER 06: BOARDING GATE & CLEAN CTA (Matte Carbon)
           ═══════════════════════════════════════════════════════════════ */}
       <section className="nt-snap-section nt-snap-section--final lp-final">
         <motion.div

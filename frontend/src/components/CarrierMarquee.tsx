@@ -95,6 +95,7 @@ export function CarrierMarquee() {
                 </div>
                 <div className="rs-badge__footer">
                   <span className="rs-badge__desc">{item.desc}</span>
+                  <span className="rs-badge__sep">·</span>
                   <span className="rs-badge__latency">{item.latency}</span>
                 </div>
               </div>
@@ -114,6 +115,7 @@ export function CarrierMarquee() {
                 </div>
                 <div className="rs-badge__footer">
                   <span className="rs-badge__desc">{item.desc}</span>
+                  <span className="rs-badge__sep">·</span>
                   <span className="rs-badge__latency">{item.latency}</span>
                 </div>
               </div>

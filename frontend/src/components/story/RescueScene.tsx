@@ -3,7 +3,6 @@ import { motion } from 'motion/react';
 import {
   DoorClosed,
   MapPin,
-  IndianRupee,
   PackageX,
   BadgeCheck,
   CheckCheck,
@@ -18,11 +17,10 @@ interface Choice { id: string; label: string; danger?: boolean; run: () => void;
 export type Scenario = 'locked' | 'address' | 'cod' | 'rto' | 'predeliv';
 
 const SCENARIOS = [
-  { id: 'locked' as const, label: 'Door Locked', icon: DoorClosed },
-  { id: 'address' as const, label: 'Address / GPS', icon: MapPin },
-  { id: 'cod' as const, label: 'COD → UPI', icon: IndianRupee },
-  { id: 'rto' as const, label: 'RTO Arrest', icon: PackageX },
-  { id: 'predeliv' as const, label: 'Pre-Delivery', icon: BellRing },
+  { id: 'predeliv' as const, label: '1. Pre-Delivery', icon: BellRing },
+  { id: 'locked' as const, label: '2. Door Locked', icon: DoorClosed },
+  { id: 'address' as const, label: '📍 Address', icon: MapPin },
+  { id: 'rto' as const, label: '3. RTO Arrest', icon: PackageX },
 ];
 
 export interface RescueSceneProps {
@@ -444,7 +442,7 @@ export function RescueScene({ active, reduced = false, codIncentive }: RescueSce
         <span className="lp-wa__av">⚓</span>
         <div className="lp-wa__who">
           <span className="lp-wa__name">
-            RescueShip · your brand
+            RescueShip Delivery Support
             <BadgeCheck size={14} className="lp-wa__verified" aria-label="Official Verified Account" />
           </span>
           <span className="lp-wa__meta"><i />{phase}</span>

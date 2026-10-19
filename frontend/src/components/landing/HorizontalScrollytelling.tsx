@@ -2,7 +2,6 @@ import { useRef } from 'react';
 import { motion, AnimatePresence, useScroll, useTransform, useSpring, useReducedMotion } from 'motion/react';
 import { AccountabilityScene } from './AccountabilityScene';
 import { RescueScene } from '../story/RescueScene';
-import { TrustStrip } from './TrustStrip';
 import { SpotlightCard } from '../SpotlightCard';
 
 interface OrderCard {
@@ -124,30 +123,44 @@ export function HorizontalScrollytelling({
                     When a courier fakes an NDR, you don&apos;t just lose forward shipping. You bleed ad spend, double freight, and warehouse handling.
                   </p>
 
-                  {/* Typographic Equation Block */}
-                  <div className="nt-equation-block" tabIndex={0} aria-label="₹430 RTO loss equation">
-                    <div className="nt-equation-part">
-                      <span className="nt-equation-label">CAC</span>
-                      <span className="nt-equation-val">₹230</span>
+                  {/* Typographic Equation Block: Indian D2C Breakdown */}
+                  <div className="nt-equation-block nt-equation-block--indian-d2c" tabIndex={0} aria-label="₹430 Indian D2C RTO loss equation">
+                    <div className="nt-equation-group">
+                      <div className="nt-equation-group__tag">₹200 DIRECT COURIER &amp; PACK BURN</div>
+                      <div className="nt-equation-group__items">
+                        <div className="nt-equation-part">
+                          <span className="nt-equation-label">FORWARD</span>
+                          <span className="nt-equation-val">₹80</span>
+                        </div>
+                        <span className="nt-equation-op">+</span>
+                        <div className="nt-equation-part">
+                          <span className="nt-equation-label">REVERSE RTO</span>
+                          <span className="nt-equation-val">₹80</span>
+                        </div>
+                        <span className="nt-equation-op">+</span>
+                        <div className="nt-equation-part">
+                          <span className="nt-equation-label">PACK / QC</span>
+                          <span className="nt-equation-val">₹40</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="nt-equation-op">+</span>
-                    <div className="nt-equation-part">
-                      <span className="nt-equation-label">FORWARD</span>
-                      <span className="nt-equation-val">₹80</span>
+
+                    <span className="nt-equation-op nt-equation-op--major">+</span>
+
+                    <div className="nt-equation-group">
+                      <div className="nt-equation-group__tag">₹230 WASTED AD CAC</div>
+                      <div className="nt-equation-group__items">
+                        <div className="nt-equation-part">
+                          <span className="nt-equation-label">META / GOOGLE</span>
+                          <span className="nt-equation-val">₹230</span>
+                        </div>
+                      </div>
                     </div>
-                    <span className="nt-equation-op">+</span>
-                    <div className="nt-equation-part">
-                      <span className="nt-equation-label">REVERSE</span>
-                      <span className="nt-equation-val">₹80</span>
-                    </div>
-                    <span className="nt-equation-op">+</span>
-                    <div className="nt-equation-part">
-                      <span className="nt-equation-label">REPACK</span>
-                      <span className="nt-equation-val">₹40</span>
-                    </div>
-                    <span className="nt-equation-op">=</span>
+
+                    <span className="nt-equation-op nt-equation-op--major">=</span>
+
                     <div className="nt-equation-part nt-equation-part--total">
-                      <span className="nt-equation-label">BLEED / RTO</span>
+                      <span className="nt-equation-label">TOTAL BLEED / RTO</span>
                       <span className="nt-equation-val nt-equation-val--signal">₹430</span>
                     </div>
                   </div>
@@ -253,7 +266,7 @@ export function HorizontalScrollytelling({
                         )}
                       </div>
 
-                      <div className="lp-board__col">
+                      <div className={`lp-board__col ${rescuedOrders.length > 0 ? 'lp-board__col--active-rescued' : ''}`}>
                         <div className="lp-board__col-h lp-board__col-h--ok">
                           <span>Rescued &amp; Accepted</span>
                           <span className="lp-board__col-count">{rescuedOrders.length}</span>
@@ -281,7 +294,7 @@ export function HorizontalScrollytelling({
                         )}
                       </div>
 
-                      <div className="lp-board__col">
+                      <div className={`lp-board__col ${cancelledOrders.length > 0 ? 'lp-board__col--active-cancelled' : ''}`}>
                         <div className="lp-board__col-h lp-board__col-h--cancel">
                           <span style={{ whiteSpace: 'nowrap' }}>RESTORED / RTO</span>
                           <span className="lp-board__col-count">{cancelledOrders.length}</span>
@@ -342,11 +355,6 @@ export function HorizontalScrollytelling({
                     <p className="lp-reel__beat-desc">{beat.desc}</p>
                   </div>
                 ))}
-              </div>
-
-              {/* Preserved TrustStrip Badges */}
-              <div className="nt-trust-wrap">
-                <TrustStrip />
               </div>
             </div>
           </section>

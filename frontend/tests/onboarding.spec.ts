@@ -16,6 +16,24 @@ test.describe('Onboarding Wizard Flow (/onboarding)', () => {
       }));
     });
 
+    // Mock auth API route to avoid real backend 401s
+    await page.route('**/api/auth/**', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          token: 'mock_jwt_test_token_12345',
+          merchant: {
+            id: 'merchant_123',
+            email: 'founder@testbrand.com',
+            name: 'Alex Merchant',
+            platform: 'shopify',
+            onboardingStatus: 'pending'
+          }
+        }),
+      });
+    });
+
     await page.goto('/onboarding');
   });
 
