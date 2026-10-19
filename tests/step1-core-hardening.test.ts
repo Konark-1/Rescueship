@@ -328,7 +328,7 @@ describe('STEP 1: Core Logic Hardening & Regulatory Safeguards', () => {
         'ndr_reschedule_en',
         'en',
         expect.any(Array),
-        expect.any(Object)
+        undefined
       );
       expect(whatsAppService.sendTemplate).not.toHaveBeenCalledWith(
         expect.any(String),

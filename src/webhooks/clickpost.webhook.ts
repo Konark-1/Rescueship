@@ -27,6 +27,20 @@ router.post(
       const carrierMeta: Record<string, string | number> = {};
       if (body.cp_id !== undefined) carrierMeta.cpId = Number(body.cp_id);
       if (body.account_code) carrierMeta.accountCode = safeStr(body.account_code, 64);
+      const rawRiderPhone = safeStr(
+        body.additional?.rider_phone_number ||
+        body.additional?.fe_phone ||
+        body.rider_phone ||
+        body.field_executive_phone ||
+        body.delivery_boy_phone,
+        32
+      ) || undefined;
+      const rawRiderName = safeStr(
+        body.additional?.rider_name ||
+        body.rider_name,
+        64
+      ) || undefined;
+
       return {
         awb,
         externalOrderId: safeStr(body.order_id || body.reference_number, 128),
@@ -36,6 +50,7 @@ router.post(
         isNdr,
         attemptTime,
         carrierMeta,
+        assignedRider: rawRiderPhone ? { phone: rawRiderPhone, name: rawRiderName } : undefined,
         // Per-scan id so attempt 2 on the same AWB is not deduped as a retry of attempt 1.
         eventId: req.get('x-clickpost-event-id') || req.get('x-event-id') || `${awb}_${Number.isFinite(code) ? code : desc || 'ndr'}_${safeStr(String(tsRaw || ''), 40) || 'notime'}`,
       };

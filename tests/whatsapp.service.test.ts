@@ -181,4 +181,14 @@ describe('WhatsAppService - Unit Tests', () => {
       expect(isValid).toBe(false);
     });
   });
+
+  describe('sendLocationRequest', () => {
+    it('should simulate location request message in test environment', async () => {
+      const res = await whatsAppService.sendLocationRequest('919876543210', 'Please share location');
+      expect(res).toBeDefined();
+      expect(res.messaging_product).toBe('whatsapp');
+      expect(res.contacts?.[0]?.wa_id).toBe('919876543210');
+      expect(res.messages?.[0]?.id).toContain('wamid_sim_');
+    });
+  });
 });

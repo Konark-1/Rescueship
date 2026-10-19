@@ -125,6 +125,13 @@ export interface IOrder extends Document {
   depositPaidAt?: Date | null;
   depositTransactionId?: string | null;
   pincodeHoldReason?: 'force_prepaid' | 'require_deposit' | string | null;
+  assignedRider?: {
+    name?: string | null;
+    phone?: string | null;
+    source?: string | null;
+    assignedAt?: Date | null;
+    locationSharedAt?: Date | null;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -279,6 +286,13 @@ const OrderSchema = new Schema<IOrder>(
       sentAt: { type: Date, default: null },
       response: { type: String, default: null },
       respondedAt: { type: Date, default: null },
+    },
+    assignedRider: {
+      name: { type: String, default: null },
+      phone: { type: String, default: null },
+      source: { type: String, default: null },
+      assignedAt: { type: Date, default: null },
+      locationSharedAt: { type: Date, default: null },
     },
   },
   {

@@ -20,11 +20,16 @@ jest.mock('../src/models', () => ({
   AuditLog: {
     create: jest.fn().mockResolvedValue({}),
   },
+  NdrCase: {
+    findOneAndUpdate: jest.fn().mockResolvedValue({}),
+  },
 }));
 
 jest.mock('../src/services/whatsapp.service', () => ({
   whatsAppService: {
     sendInteractiveButtons: jest.fn().mockResolvedValue({ messaging_product: 'whatsapp' }),
+    sendLocationRequest: jest.fn().mockResolvedValue({ messaging_product: 'whatsapp' }),
+    sendText: jest.fn().mockResolvedValue({ messaging_product: 'whatsapp' }),
   },
 }));
 
@@ -105,10 +110,9 @@ describe('AddressCorrectionService', () => {
 
       await addressCorrectionService.initiateAddressCorrection('order_123', 'both');
 
-      expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
+      expect(whatsAppService.sendLocationRequest).toHaveBeenCalledWith(
         '9876543210',
         expect.stringContaining('Step 1/2'),
-        [],
         expect.any(Object)
       );
       expect(order.ndr.addressMode).toBe('both');
@@ -124,6 +128,11 @@ describe('AddressCorrectionService', () => {
 
       await addressCorrectionService.initiateAddressCorrection('order_123', 'location_pin');
 
+      expect(whatsAppService.sendLocationRequest).toHaveBeenCalledWith(
+        '9876543210',
+        expect.stringContaining('location pin'),
+        expect.any(Object)
+      );
       expect(order.ndr.addressMode).toBe('location_pin');
       expect(order.ndr.addressCorrectionStep).toBe('awaiting_location');
       expect(order.ndr.addressUpdate.collectionState).toBe('awaiting_location');

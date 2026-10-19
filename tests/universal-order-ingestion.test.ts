@@ -353,7 +353,7 @@ describe('Universal Order Ingestion & NDR Metrics Hardening', () => {
         'ndr_reschedule_en',
         'en',
         expect.any(Array),
-        expect.any(Object)
+        undefined
       );
     });
   });

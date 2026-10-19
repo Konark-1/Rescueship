@@ -112,12 +112,12 @@ export class AddressCorrectionService {
       await order.save();
 
     } else {
-      // BOTH mode: Step 1 → Ask for GPS pin first
+      // BOTH mode: Step 1 → Ask for GPS pin first via WhatsApp's native location_request_message
       const msg = lang === 'hi'
-        ? '📍 *Step 1/2:* कृपया अपनी सही लोकेशन पिन शेयर करें。\n\nWhatsApp में 📎 (Attach) > Location > "Send Current Location" पर टैप करें।'
-        : '📍 *Step 1/2:* Please share your exact delivery location pin.\n\nIn WhatsApp, tap 📎 (Attach) > Location > "Send Current Location" or drop a pin on your building.';
+        ? '📍 *Step 1/2:* कृपया अपनी सही लोकेशन पिन शेयर करें ताकि डिलीवरी एजेंट सीधे आपके पते पर पहुँच सके।'
+        : '📍 *Step 1/2:* Please share your exact delivery location pin so our delivery agent can reach your doorstep.';
 
-      await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
+      await whatsAppService.sendLocationRequest(order.customerPhone, msg, waConfig);
 
       (order.ndr as any).addressMode = 'both';
       (order.ndr as any).addressCorrectionStep = 1;
@@ -222,11 +222,15 @@ export class AddressCorrectionService {
         await whatsAppService.sendInteractiveButtons(order.customerPhone, step2Msg, [], waConfig);
 
       } else {
+        const landmark = location.name || '';
+        const driverNote = location.address || '';
         await this.pushAddressToCarrier(order, merchant, {
           address: geocodedAddress,
           lat: location.latitude,
           lng: location.longitude,
           pincode: this.extractPincode(geocodedAddress),
+          landmark,
+          driverNote,
         });
 
         const rtoFee = merchant?.settings?.estimatedRtoLossPerOrder || 140;
@@ -388,6 +392,8 @@ export class AddressCorrectionService {
         lat: gpsCoords?.lat,
         lng: gpsCoords?.lng,
         pincode,
+        landmark: extracted.landmark,
+        driverNote: extracted.driverNote,
       });
 
       const rtoFee = merchant?.settings?.estimatedRtoLossPerOrder || 140;
@@ -474,7 +480,15 @@ export class AddressCorrectionService {
   private async pushAddressToCarrier(
     order: any,
     merchant: any,
-    addressData: { address: string; lat?: number; lng?: number; pincode?: string }
+    addressData: {
+      address: string;
+      lat?: number;
+      lng?: number;
+      pincode?: string;
+      landmark?: string;
+      driverNote?: string;
+      remarks?: string;
+    }
   ): Promise<void> {
     if (order.merchantId.toString() !== merchant._id.toString()) {
       throw new Error('Tenant mismatch: order does not belong to merchant');
@@ -485,25 +499,56 @@ export class AddressCorrectionService {
     const { orderService } = require('./order.service');
     const carrierConfig = orderService.getCarrierConfig(merchant, order.carrier || merchant.carrierConfig?.provider);
 
+    const landmarkText = addressData.landmark || '';
+    const gateText = addressData.driverNote || '';
+    const formattedRemarks = addressData.remarks || [
+      landmarkText ? `Landmark: ${landmarkText}` : '',
+      gateText ? `Gate: ${gateText}` : '',
+      addressData.lat && addressData.lng ? `GPS: ${addressData.lat.toFixed(4)},${addressData.lng.toFixed(4)}` : '',
+    ].filter(Boolean).join(' | ');
+
     if (order.carrier && order.awb) {
       await logisticsService.updateDeliveryAddress(
         order.carrier,
         {
           awb: order.awb,
           address: addressData.address,
-          city: '',
-          pincode: addressData.pincode || '',
+          city: order.shippingCity || '',
+          pincode: addressData.pincode || order.shippingPincode || '',
           phone: order.customerPhone,
           customerName: order.customerName || 'Customer',
+          landmark: landmarkText,
+          driverNote: gateText,
+          remarks: formattedRemarks,
+          latitude: addressData.lat,
+          longitude: addressData.lng,
         },
         carrierConfig
       );
     }
+
+    // Dual Sync Part 2: If field agent phone is available in carrier telemetry, notify them with Google Maps deep-link
+    if (addressData.lat && addressData.lng) {
+      try {
+        const { fieldAgentNotifierService } = require('./field-agent-notifier.service');
+        await fieldAgentNotifierService.notifyAssignedAgentIfAvailable(order, merchant, {
+          latitude: addressData.lat,
+          longitude: addressData.lng,
+          landmark: landmarkText,
+          driverNote: gateText,
+          address: addressData.address,
+        });
+      } catch (agentErr: any) {
+        logger.warn('Failed to notify field agent of location update', { error: agentErr?.message, orderId: order._id });
+      }
+    }
   }
 
   private async requestLocationPin(order: any, lang: string, waConfig?: any): Promise<void> {
-    const msg = '📍 Please share your exact delivery location pin. In WhatsApp, tap 📎 > Location > Send Current Location.';
-    await whatsAppService.sendInteractiveButtons(order.customerPhone, msg, [], waConfig);
+    const msg = lang === 'hi'
+      ? '📍 कृपया अपनी सटीक डिलीवरी लोकेशन पिन शेयर करें ताकि डिलीवरी एजेंट सीधे आपके पते पर पहुँच सके।'
+      : '📍 Please share your exact delivery location pin so our delivery agent can reach your doorstep.';
+    await whatsAppService.sendLocationRequest(order.customerPhone, msg, waConfig);
   }
 
   private async requestTextAddress(order: any, lang: string, waConfig?: any): Promise<void> {

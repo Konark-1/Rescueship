@@ -42,6 +42,11 @@ export interface ParsedNdr {
   state?: string;
   /** Carrier ids needed for later API actions (e.g. ClickPost cp_id / account_code) */
   carrierMeta?: Record<string, string | number>;
+  /** Assigned field delivery agent / rider details from carrier telemetry */
+  assignedRider?: {
+    name?: string;
+    phone?: string;
+  };
 }
 
 function str(v: unknown, max = 256): string {
@@ -163,6 +168,77 @@ export function createCarrierNdrHandler(
       if (order && !order.awb && parsed.awb) {
         // Remember the AWB so later events match directly.
         try { await Order.updateOne({ _id: order._id, awb: null }, { $set: { awb: parsed.awb, carrier: provider } }); } catch { /* AWB already used */ }
+      }
+
+      // ─── 1b. Field Agent / Rider Telemetry Extraction (Dual Sync Part 2) ───
+      const rawRiderPhone =
+        parsed.assignedRider?.phone ||
+        (req.body as any)?.rider_phone ||
+        (req.body as any)?.fe_phone ||
+        (req.body as any)?.field_executive_phone ||
+        (req.body as any)?.delivery_boy_phone ||
+        (req.body as any)?.driver_phone ||
+        (req.body as any)?.agent_phone ||
+        (req.body as any)?.additional?.rider_phone_number ||
+        (req.body as any)?.additional?.fe_phone ||
+        (req.body as any)?.data?.rider_phone ||
+        (req.body as any)?.data?.fe_phone;
+
+      const rawRiderName =
+        parsed.assignedRider?.name ||
+        (req.body as any)?.rider_name ||
+        (req.body as any)?.fe_name ||
+        (req.body as any)?.field_executive_name ||
+        (req.body as any)?.delivery_boy_name ||
+        (req.body as any)?.driver_name ||
+        (req.body as any)?.agent_name ||
+        (req.body as any)?.additional?.rider_name ||
+        (req.body as any)?.data?.rider_name;
+
+      if (rawRiderPhone && typeof rawRiderPhone === 'string' && rawRiderPhone.trim() && order) {
+        const { normalizeIndianPhone } = require('../utils/phoneNormalizer');
+        const normalizedRiderPhone = normalizeIndianPhone(rawRiderPhone.trim());
+        const previousRiderPhone = order.assignedRider?.phone;
+        const isNewRider = previousRiderPhone !== normalizedRiderPhone;
+
+        order.assignedRider = {
+          name: rawRiderName ? String(rawRiderName).trim() : order.assignedRider?.name || null,
+          phone: normalizedRiderPhone,
+          source: provider,
+          assignedAt: isNewRider ? new Date() : (order.assignedRider?.assignedAt || new Date()),
+          locationSharedAt: isNewRider ? null : (order.assignedRider?.locationSharedAt || null),
+        };
+
+        await Order.updateOne(
+          { _id: order._id },
+          { $set: { assignedRider: order.assignedRider } }
+        ).catch(() => {});
+
+        // Dual Sync Part 2: If customer has already shared GPS coordinates, notify this assigned rider immediately
+        const gpsCoords =
+          order.ndr?.addressUpdate?.latitude && order.ndr?.addressUpdate?.longitude
+            ? { lat: order.ndr.addressUpdate.latitude, lng: order.ndr.addressUpdate.longitude }
+            : (order.ndr as any)?.gpsCoordinates || (order.ndr?.addressUpdate as any)?.gpsCoordinates;
+
+        if (gpsCoords?.lat && gpsCoords?.lng && (!order.assignedRider.locationSharedAt || isNewRider)) {
+          try {
+            const { fieldAgentNotifierService } = require('../services/field-agent-notifier.service');
+            const merchant = await Merchant.findById(merchantId);
+            if (merchant) {
+              await fieldAgentNotifierService.notifyAssignedAgent(order, merchant, {
+                riderPhone: normalizedRiderPhone,
+                riderName: rawRiderName ? String(rawRiderName).trim() : undefined,
+                latitude: gpsCoords.lat,
+                longitude: gpsCoords.lng,
+                landmark: order.ndr?.addressUpdate?.landmark || (order.ndr as any)?.landmark,
+                driverNote: order.ndr?.addressUpdate?.driverNote || (order.ndr as any)?.driverNote,
+                address: order.ndr?.addressUpdate?.geocodedAddress || order.ndr?.addressUpdate?.textAddress,
+              });
+            }
+          } catch (agentErr: any) {
+            logger.warn('Failed to notify newly assigned field agent from carrier telemetry', { error: agentErr?.message, orderId: order._id });
+          }
+        }
       }
 
       // ─── 2. Shipment Registry Linking & Quarantine ───

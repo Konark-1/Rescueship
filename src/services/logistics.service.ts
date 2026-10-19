@@ -32,6 +32,12 @@ export interface AddressUpdateParams {
   pincode: string;
   phone: string;
   customerName?: string;
+  landmark?: string;
+  driverNote?: string;
+  remarks?: string;
+  latitude?: number;
+  longitude?: number;
+  preferredDate?: string;
 }
 
 export interface CancelParams {
@@ -420,14 +426,23 @@ export class LogisticsService {
       const token = await this.getShiprocketToken(carrierConfig?.email, carrierConfig?.password);
       const url = 'https://apiv2.shiprocket.in/v1/external/ndr/reattempt';
 
+      const landmarkPart = params.landmark ? `Landmark: ${params.landmark}` : '';
+      const gatePart = params.driverNote ? `Gate: ${params.driverNote}` : '';
+      const gpsPart = params.latitude && params.longitude ? `GPS: ${params.latitude.toFixed(4)},${params.longitude.toFixed(4)}` : '';
+      const combinedComments = params.remarks || [landmarkPart, gatePart, gpsPart].filter(Boolean).join(' | ') || 'Customer updated delivery address';
+
+      const cityPin = [params.city, sanitizePincode(params.pincode)].filter(Boolean).join(' ');
+      const address2Val = [params.landmark, cityPin].filter(Boolean).join(', ');
+
       // Shiprocket's reattempt API carries the corrected address as address1/address2 + phone
-      // (verified against apiv2 in Oct 2026; there is no separate address-update endpoint).
-      const payload = {
+      // and comments for the rider remarks field (printed on rider app and delivery run-sheet).
+      const payload: any = {
         awb: params.awb,
         address1: sanitizeString(params.address, 200),
-        address2: sanitizeString([params.city, sanitizePincode(params.pincode)].filter(Boolean).join(' '), 100),
+        address2: sanitizeString(address2Val, 100),
+        comments: sanitizeString(combinedComments, 150),
         phone: params.phone,
-        deferred_date: sanitizeDeferredDate(undefined),
+        deferred_date: sanitizeDeferredDate(params.preferredDate),
       };
 
       const response = await axios.post(url, payload, {
@@ -458,12 +473,19 @@ export class LogisticsService {
   }
 
   private async updateAddressClickPost(params: AddressUpdateParams, carrierConfig?: CarrierConfig): Promise<RescheduleResult> {
-    // ClickPost has no separate address API: a REATTEMPT carries the corrected address.
+    const landmarkPart = params.landmark ? `Landmark: ${params.landmark}` : '';
+    const gatePart = params.driverNote ? `Gate Note: ${params.driverNote}` : '';
+    const gpsPart = params.latitude && params.longitude ? `GPS: ${params.latitude.toFixed(4)},${params.longitude.toFixed(4)}` : '';
+    const combinedRemark = params.remarks || [landmarkPart, gatePart, gpsPart].filter(Boolean).join(' | ') || 'Address corrected by customer';
+
+    // ClickPost's REATTEMPT carries the corrected address, landmark, and remarks printed on rider app.
     return clickPostNdrAction(params.awb, carrierConfig, 'REATTEMPT', {
       address: [params.address, params.city].filter(Boolean).join(', '),
+      landmark: params.landmark,
       pincode: params.pincode,
       phone: params.phone,
-      remark: 'Address corrected by customer',
+      preferredDate: params.preferredDate,
+      remark: sanitizeString(combinedRemark, 150),
     });
   }
 
@@ -482,12 +504,14 @@ export class LogisticsService {
       // Delhivery NDR API: POST /api/p/update with { data: [{ waybill, act, ... }] }.
       // act = RE-ATTEMPT (retry next working day) | DEFER_DLV (defer to a date, needs deferred_date).
       const deferredDate = sanitizeDeferredDate(params.newDate);
+      const actItem: any = deferredDate
+        ? { waybill: params.awb, act: 'DEFER_DLV', deferred_date: deferredDate }
+        : { waybill: params.awb, act: 'RE-ATTEMPT' };
+      if (params.reason) {
+        actItem.remarks = sanitizeString(params.reason, 150);
+      }
       const payload = {
-        data: [
-          deferredDate
-            ? { waybill: params.awb, act: 'DEFER_DLV', deferred_date: deferredDate }
-            : { waybill: params.awb, act: 'RE-ATTEMPT' },
-        ],
+        data: [actItem],
       };
 
       const response = await axios.post(url, payload, {
@@ -522,18 +546,27 @@ export class LogisticsService {
       const baseUrl = isProd ? 'https://track.delhivery.com' : 'https://staging-express.delhivery.com';
       const url = `${baseUrl}/api/p/update`;
 
-      // act = EDIT_DETAILS lets the consignee address/phone be corrected on an undelivered shipment.
+      // act = EDIT_DETAILS lets the consignee address/phone/remarks be corrected on an undelivered shipment.
+      // Delhivery prints remarks on the rider's Delivery Executive Last-Mile application.
+      const landmarkPart = params.landmark ? `Landmark: ${params.landmark}` : '';
+      const gatePart = params.driverNote ? `Gate: ${params.driverNote}` : '';
+      const gpsPart = params.latitude && params.longitude ? `GPS: ${params.latitude.toFixed(4)},${params.longitude.toFixed(4)}` : '';
+      const combinedRemarks = params.remarks || [landmarkPart, gatePart, gpsPart].filter(Boolean).join(' | ');
+
+      const item: any = {
+        waybill: params.awb,
+        act: 'EDIT_DETAILS',
+        add: sanitizeString(params.address, 200),
+        city: sanitizeString(params.city, 50),
+        pin: sanitizePincode(params.pincode),
+        phone: params.phone,
+      };
+      if (combinedRemarks) {
+        item.remarks = sanitizeString(combinedRemarks, 150);
+      }
+
       const payload = {
-        data: [
-          {
-            waybill: params.awb,
-            act: 'EDIT_DETAILS',
-            add: sanitizeString(params.address, 200),
-            city: sanitizeString(params.city, 50),
-            pin: sanitizePincode(params.pincode),
-            phone: params.phone,
-          },
-        ],
+        data: [item],
       };
 
       const response = await axios.post(url, payload, {

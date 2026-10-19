@@ -21,6 +21,22 @@ router.post(
         status.includes('failed') ||
         remarksLc.includes('not delivered') ||
         remarksLc.includes('address not found');
+      const rawRiderPhone = safeStr(
+        body.fe_phone ||
+        body.field_executive_phone ||
+        body.rider_phone ||
+        body.agent_phone ||
+        body.driver_phone ||
+        body.delivery_person_phone,
+        32
+      ) || undefined;
+      const rawRiderName = safeStr(
+        body.fe_name ||
+        body.rider_name ||
+        body.field_executive_name,
+        64
+      ) || undefined;
+
       return {
         awb,
         externalOrderId: safeStr(body.ref_id || body.order_id, 128),
@@ -28,6 +44,7 @@ router.post(
         phone: safeStr(body.phone || body.customer_phone, 32) || undefined,
         status,
         isNdr,
+        assignedRider: rawRiderPhone ? { phone: rawRiderPhone, name: rawRiderName } : undefined,
         eventId: req.get('x-delhivery-event-id') || req.get('x-event-id') || `${awb}_${status || 'ndr'}`,
       };
     }

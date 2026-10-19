@@ -37,6 +37,27 @@ export function parseShiprocketWebhook(req: Request): ParsedNdr | { error: strin
 
   if (!awb) return { error: 'Missing AWB in payload' };
 
+  const rawRiderPhone = safeStr(
+    body.rider_phone ||
+    body.driver_phone ||
+    body.delivery_boy_phone ||
+    body.field_executive_phone ||
+    body.fe_phone ||
+    lastScan?.rider_phone ||
+    lastScan?.field_executive_phone,
+    32
+  ) || undefined;
+
+  const rawRiderName = safeStr(
+    body.rider_name ||
+    body.driver_name ||
+    body.delivery_boy_name ||
+    body.field_executive_name ||
+    body.fe_name ||
+    lastScan?.rider_name,
+    64
+  ) || undefined;
+
   return {
     awb,
     externalOrderId,
@@ -45,6 +66,7 @@ export function parseShiprocketWebhook(req: Request): ParsedNdr | { error: strin
     status: normalizedStatus,
     isNdr,
     attemptTime,
+    assignedRider: rawRiderPhone ? { phone: rawRiderPhone, name: rawRiderName } : undefined,
     // No provider event id: make each scan distinct (status + its timestamp) so a second
     // failed attempt on the same AWB is not mistaken for a retry of the first.
     eventId:

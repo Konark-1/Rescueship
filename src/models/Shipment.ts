@@ -47,6 +47,8 @@ export interface IShipment extends Document {
   isQuarantined: boolean;
   quarantineReason?: string | null;
   quarantinedAt?: Date | null;
+  assignedRiderPhone?: string | null;
+  assignedRiderName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -111,6 +113,8 @@ const ShipmentSchema = new Schema<IShipment>(
     isQuarantined: { type: Boolean, default: false, index: true },
     quarantineReason: { type: String, default: null },
     quarantinedAt: { type: Date, default: null },
+    assignedRiderPhone: { type: String, default: null },
+    assignedRiderName: { type: String, default: null },
   },
   {
     timestamps: true,

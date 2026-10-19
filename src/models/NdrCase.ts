@@ -40,6 +40,9 @@ export interface INdrCase extends Document {
   isFakeRemarkSuspicious?: boolean;
   failureSource?: 'COURIER_REPORTED' | 'CUSTOMER_PRE_ATTEMPT' | 'MERCHANT_CANCELLED' | 'PLATFORM_CANCELLED' | 'NONE' | null;
   attemptCount?: number;
+  assignedRiderPhone?: string | null;
+  assignedRiderName?: string | null;
+  riderLocationSharedAt?: Date | null;
   closedAt?: Date | null;
   lastWebhookAt?: Date | null;
   piiAnonymized?: boolean;
@@ -104,6 +107,9 @@ const NdrCaseSchema = new Schema<INdrCase>(
       default: 'COURIER_REPORTED',
     },
     attemptCount: { type: Number, default: 1 },
+    assignedRiderPhone: { type: String, default: null, index: true },
+    assignedRiderName: { type: String, default: null },
+    riderLocationSharedAt: { type: Date, default: null },
     closedAt: { type: Date, default: null },
     lastWebhookAt: { type: Date, default: null },
     piiAnonymized: { type: Boolean, default: false, index: true },
