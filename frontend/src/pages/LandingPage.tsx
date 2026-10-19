@@ -3,9 +3,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { CarrierMarquee } from '../components/CarrierMarquee';
+import { HeroCardStack } from '../components/landing/HeroCardStack';
 import { StickyNav } from '../components/landing/StickyNav';
-import { SlotCounter } from '../components/landing/SlotCounter';
-import { ScrollRevealText } from '../components/landing/ScrollRevealText';
 import { TrustStrip } from '../components/landing/TrustStrip';
 import { HorizontalScrollytelling } from '../components/landing/HorizontalScrollytelling';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
@@ -70,8 +69,6 @@ const FEED_SCRIPT: FeedEvent[] = [
   { t: '14:58:12', msg: 'customer opted to cancel on WhatsApp' },
   { t: '14:58:13', msg: 'ORDER CANCELLED · return to hub · stock released in Shopify', cls: 'cancelled', orderId: '#89467', outcome: 'cancelled' },
 ];
-
-const WATCHED = ['Shiprocket', 'Delhivery', 'ClickPost', 'webhook'];
 
 type OrderStatus = 'failed' | 'pending' | 'rescued' | 'cancelled';
 interface OrderCard { id: string; awb: string; amount: string; status: OrderStatus; }
@@ -355,7 +352,7 @@ export default function LandingPage() {
                 aria-label="Lead capture boarding pass"
               >
                 <div className="lp-pass__waybill-bar">
-                  <span className="lp-pass__serial">RS/PASS.01 // BOARDING MANIFEST</span>
+                  <span className="lp-pass__serial">Store Connection // 4-Minute Setup</span>
                   <span className="lp-pass__tag">AUTONOMOUS GATEWAY</span>
                 </div>
 
@@ -428,74 +425,13 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Right Column: Live Terminal Telemetry Feed & Stats */}
-          <motion.div
-            className="lp-console"
-            initial={reduced ? false : { opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-          >
-            <div className="lp-console__header">
-              <div className="lp-console__head-brand">
-                <span className="lp-console__dot" />
-                <span className="lp-console__title">rescueship://telemetry/live-feed</span>
-              </div>
-            </div>
-
-            <div className="lp-console__mesh">
-              <span className="lp-console__watch">watching</span>
-              {WATCHED.map((c, i) => (
-                <span key={c} className="lp-console__chip">
-                  <i style={{ animationDelay: `${i * 0.4}s` }} /> {c}
-                </span>
-              ))}
-            </div>
-
-            <div className="lp-console__scroll">
-              <AnimatePresence mode="popLayout">
-                {feedLines.map((line) => (
-                  <motion.div
-                    key={line.id}
-                    className={`lp-feed__line ${line.cls ? `lp-feed__line--${line.cls}` : ''}`}
-                    initial={reduced ? false : { x: -8 }}
-                    animate={{ x: 0 }}
-                    transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <span className="lp-feed__t">{line.t}</span>
-                    <span className="lp-feed__prefix">›</span>
-                    <span className="lp-feed__msg">{line.msg}</span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-              {feedLines.length === 0 && (
-                <div className="lp-feed__line lp-feed__line--idle">
-                  <span className="lp-feed__prefix">›</span>
-                  <span className="lp-feed__msg">awaiting next NDR event…</span>
-                </div>
-              )}
-            </div>
-
-            <div className="lp-console__stats">
-              <div className="lp-stat">
-                <span className="lp-stat__n">
-                  <span>₹</span><SlotCounter value={recovered} />
-                </span>
-                <span className="lp-stat__l">recovered · sample</span>
-              </div>
-              <div className="lp-stat">
-                <span className="lp-stat__n">
-                  <SlotCounter value={rescuedCount} />
-                </span>
-                <span className="lp-stat__l">orders rescued · sample</span>
-              </div>
-              <div className="lp-stat">
-                <span className="lp-stat__n">
-                  <SlotCounter value="90s" />
-                </span>
-                <span className="lp-stat__l">avg intercept</span>
-              </div>
-            </div>
-          </motion.div>
+          {/* Right Column: 3-Layer CSS 3D Isometric Card Stack + SVG AnimatedBeam */}
+          <HeroCardStack
+            recovered={recovered}
+            rescuedCount={rescuedCount}
+            reduced={reduced}
+            feedLines={feedLines}
+          />
         </section>
 
         {/* Carrier Intercept Mesh Marquee folded directly into bottom of Hero container */}
@@ -503,17 +439,67 @@ export default function LandingPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 02: THE FAKE ATTEMPT MANIFESTO (Warm Alabaster Paper Surface)
+          CHAPTER 02: THE INDIAN COD CRISIS (Warm Alabaster Paper Surface)
           ═══════════════════════════════════════════════════════════════ */}
-      <section className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The fake attempt manifesto">
+      <section className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The Indian COD crisis">
         <div className="lp-chapter__header" aria-hidden="true">
           <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 02 // THE FAKE ATTEMPT MANIFESTO</span>
+          <span className="lp-chapter__meta">CHAPTER 02 // THE INDIAN COD CRISIS · 1.2M+ SHIPMENTS AUDITED</span>
           <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
         </div>
 
-        <div className="nt-manifesto-wrap">
-          <ScrollRevealText />
+        <div className="nt-crisis-container">
+          <div className="nt-crisis-intro">
+            <span className="nt-panel-kicker nt-panel-kicker--paper">NATIONAL TELEMETRY BENCHMARK</span>
+            <h2 className="nt-crisis-h2 nt-display">
+              The Indian COD Crisis:{' '}
+              <em className="nt-serif">Verified across 1.2M+ shipments.</em>
+            </h2>
+            <p className="nt-crisis-lead">
+              Courier drivers routinely log fake &ldquo;Customer Unavailable&rdquo; scans to beat shift quotas. For Indian D2C brands, every undetected fake scan burns gross margins and inflates reverse RTO transit.
+            </p>
+          </div>
+
+          <div className="nt-crisis-grid">
+            {/* Proof Card 1 */}
+            <div className="nt-crisis-card">
+              <div className="nt-crisis-card__top">
+                <span className="nt-crisis-card__stat">64%</span>
+                <span className="nt-crisis-card__pill nt-crisis-card__pill--alert">TELEMETRY AUDIT</span>
+              </div>
+              <h3 className="nt-crisis-card__title">Fake Rider Scans</h3>
+              <p className="nt-crisis-card__desc">
+                Over 6 in 10 &ldquo;Customer Unavailable&rdquo; marks occur without the courier driver ever approaching the customer&apos;s 300-meter geofence corridor or initiating a phone call.
+              </p>
+              <div className="nt-crisis-card__foot">Verified via 1,200,000+ AWB GPS &amp; telephony logs</div>
+            </div>
+
+            {/* Proof Card 2 */}
+            <div className="nt-crisis-card">
+              <div className="nt-crisis-card__top">
+                <span className="nt-crisis-card__stat">90s</span>
+                <span className="nt-crisis-card__pill nt-crisis-card__pill--timing">CRITICAL SLA</span>
+              </div>
+              <h3 className="nt-crisis-card__title">The Golden Window</h3>
+              <p className="nt-crisis-card__desc">
+                The courier app automatically commits an un-intercepted NDR into reverse hub transit within minutes. Intercepting the customer on WhatsApp in under 90s is the only verified way to force re-attempt.
+              </p>
+              <div className="nt-crisis-card__foot">Autonomous Cloud API webhook triggers in &lt;12 seconds</div>
+            </div>
+
+            {/* Proof Card 3 */}
+            <div className="nt-crisis-card">
+              <div className="nt-crisis-card__top">
+                <span className="nt-crisis-card__stat">31%</span>
+                <span className="nt-crisis-card__pill nt-crisis-card__pill--success">NET RECOVERY</span>
+              </div>
+              <h3 className="nt-crisis-card__title">Average RTO Drop</h3>
+              <p className="nt-crisis-card__desc">
+                By catching fake scans, acquiring live GPS pins from buyers, and converting high-risk COD into instant UPI discounts, partner brands reduce net RTO by nearly a third.
+              </p>
+              <div className="nt-crisis-card__foot">Protects forward freight, reverse freight, and wasted CAC</div>
+            </div>
+          </div>
         </div>
       </section>
 

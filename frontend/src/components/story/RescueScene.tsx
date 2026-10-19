@@ -17,10 +17,10 @@ interface Choice { id: string; label: string; danger?: boolean; run: () => void;
 export type Scenario = 'locked' | 'address' | 'cod' | 'rto' | 'predeliv';
 
 const SCENARIOS = [
-  { id: 'predeliv' as const, label: '1. Pre-Delivery', icon: BellRing },
-  { id: 'locked' as const, label: '2. Door Locked', icon: DoorClosed },
-  { id: 'address' as const, label: '📍 Address', icon: MapPin },
-  { id: 'rto' as const, label: '3. RTO Arrest', icon: PackageX },
+  { id: 'predeliv' as const, label: '1. Pre-Delivery & COD → UPI', sr: 'Pre-Delivery', icon: BellRing },
+  { id: 'locked' as const, label: '2. NDR Hit + GPS Pin', sr: 'Door Locked', icon: DoorClosed },
+  { id: 'address' as const, label: '📍 Address & Landmark', sr: 'Address', icon: MapPin },
+  { id: 'rto' as const, label: '3. Cancel Save → UPI', sr: 'RTO Arrest', icon: PackageX },
 ];
 
 export interface RescueSceneProps {
@@ -479,6 +479,7 @@ export function RescueScene({ active, reduced = false, codIncentive }: RescueSce
               >
                 <Icon size={12} aria-hidden="true" />
                 <span>{s.label}</span>
+                {s.sr && <span className="sr-only"> {s.sr}</span>}
               </button>
             );
           })}
