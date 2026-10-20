@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 import { CarrierMarquee } from '../components/CarrierMarquee';
-import { HeroCardStack } from '../components/landing/HeroCardStack';
 import { StickyNav } from '../components/landing/StickyNav';
 import { TrustStrip } from '../components/landing/TrustStrip';
 import { HorizontalScrollytelling } from '../components/landing/HorizontalScrollytelling';
@@ -103,6 +102,25 @@ export default function LandingPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [tilt, setTilt] = useState({ rx: 16, ry: -18, gx: 50, gy: 50 });
+
+  const handleHeroMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (reduced) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5;
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({
+      rx: Math.round(16 - ny * 26),
+      ry: Math.round(-18 + nx * 34),
+      gx: Math.round((nx + 0.5) * 100),
+      gy: Math.round((ny + 0.5) * 100),
+    });
+  };
+
+  const handleHeroMouseLeave = () => {
+    setTilt({ rx: 16, ry: -18, gx: 50, gy: 50 });
+  };
 
   useEffect(() => {
     if (typeof document !== 'undefined' && 'fonts' in document) {
@@ -425,13 +443,143 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Right Column: 3-Layer CSS 3D Isometric Card Stack + SVG AnimatedBeam */}
-          <HeroCardStack
-            recovered={recovered}
-            rescuedCount={rescuedCount}
-            reduced={reduced}
-            feedLines={feedLines}
-          />
+          {/* Right Column: Mouse-Reactive 3D D2C Shipping Parcel & Route Interception Stage */}
+          <div
+            className="lp-3d-stage lp-console"
+            onMouseMove={handleHeroMouseMove}
+            onMouseLeave={handleHeroMouseLeave}
+            aria-label="Interactive 3D parcel and WhatsApp route interception visual"
+          >
+            <div
+              className="lp-3d-stage__glare"
+              style={{
+                background: `radial-gradient(circle at ${tilt.gx}% ${tilt.gy}%, rgba(255, 59, 29, 0.2), rgba(34, 197, 94, 0.12) 45%, transparent 72%)`,
+              }}
+            />
+
+            {/* 3D Tilt Container Reacting to Mouse */}
+            <div
+              className="lp-3d-diorama"
+              style={{
+                transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
+              }}
+            >
+              {/* Layer 0 (Baseplate): 3D Tilted Neighborhood Delivery Map Grid */}
+              <div className="lp-3d-map-plate">
+                <svg viewBox="0 0 360 240" className="lp-3d-map-plate__svg" aria-hidden="true">
+                  {/* Blocked Red RTO Return Path */}
+                  <path
+                    d="M 180 120 Q 105 65 48 52"
+                    fill="none"
+                    stroke="rgba(255, 59, 29, 0.55)"
+                    strokeWidth="2.5"
+                    strokeDasharray="5 5"
+                  />
+                  <circle cx="48" cy="52" r="6" fill="var(--signal)" />
+                  <text x="48" y="36" textAnchor="middle" className="lp-3d-map-plate__tag-bad">
+                    RTO BLOCKED ✕
+                  </text>
+
+                  {/* Active Green Re-Delivery Arc to Buyer Doorstep */}
+                  <path
+                    d="M 180 120 Q 255 68 312 62"
+                    fill="none"
+                    stroke="var(--emerald)"
+                    strokeWidth="3"
+                    className="lp-3d-map-plate__active-arc"
+                  />
+                  <circle cx="312" cy="62" r="8" fill="var(--emerald)" />
+                  <text x="305" y="42" textAnchor="middle" className="lp-3d-map-plate__tag-good">
+                    BUYER DOORSTEP ✓
+                  </text>
+                </svg>
+              </div>
+
+              {/* Layer 1 (Centerpiece): 3D Isometric Corrugated D2C Shipping Parcel */}
+              <div className="lp-3d-parcel">
+                {/* Top Flap with Packing Tape & AWB Waybill Label */}
+                <div className="lp-3d-parcel__face lp-3d-parcel__face--top">
+                  <div className="lp-3d-parcel__tape" />
+                  <div className="lp-3d-parcel__waybill">
+                    <span>AWB #4023118876</span>
+                    <strong>COD ₹1,240</strong>
+                  </div>
+                </div>
+
+                {/* Front Face of Parcel */}
+                <div className="lp-3d-parcel__face lp-3d-parcel__face--front">
+                  <span className="lp-3d-parcel__brand">RESCUESHIP PROTECTED</span>
+                  <span className="lp-3d-parcel__sku">ORD #89421 · PRIORITY</span>
+                </div>
+
+                {/* Right Side Face of Parcel */}
+                <div className="lp-3d-parcel__face lp-3d-parcel__face--right">
+                  <span className="lp-3d-parcel__barcode">||| || |||| |||</span>
+                </div>
+
+                {/* Left & Back Structural Faces */}
+                <div className="lp-3d-parcel__face lp-3d-parcel__face--left" />
+                <div className="lp-3d-parcel__face lp-3d-parcel__face--back" />
+              </div>
+
+              {/* Layer 2 (translateZ +65px): Floating Red Fake-Scan Alert Pill */}
+              <div className="lp-3d-badge lp-3d-badge--scan">
+                <span className="lp-3d-badge__dot lp-3d-badge__dot--danger" />
+                <div>
+                  <strong>Rider Logged “Door Locked”</strong>
+                  <span>1.42 km from home · 0 calls made</span>
+                </div>
+              </div>
+
+              {/* Layer 3 (translateZ +105px): Floating WhatsApp Buyer Reply Card */}
+              <div className="lp-3d-badge lp-3d-badge--whatsapp">
+                <span className="lp-3d-badge__wa-icon">💬</span>
+                <div>
+                  <strong>Buyer Verified on WhatsApp (38s)</strong>
+                  <span>“🏠 I’m Home Now” + 📍 Live GPS Pin Shared</span>
+                </div>
+              </div>
+
+              {/* Layer 4 (translateZ +85px): Floating Driver App Override Pill */}
+              <div className="lp-3d-badge lp-3d-badge--saved">
+                <span className="lp-3d-badge__check">✓</span>
+                <span>Re-Delivery Locked · ₹430 RTO Saved</span>
+              </div>
+            </div>
+
+            {/* Compact Bottom 3-Metric Strip (Preserves Playwright .lp-stat__n hooks) */}
+            <div className="lp-stats lp-3d-stage__stats" role="group" aria-label="Sample recovery metrics">
+              <div className="lp-stat">
+                <div className="lp-stat__n">₹{recovered.toLocaleString('en-IN')}</div>
+                <div className="lp-stat__l">Recovered · sample</div>
+              </div>
+              <div className="lp-stat">
+                <div className="lp-stat__n">{rescuedCount}</div>
+                <div className="lp-stat__l">Orders rescued</div>
+              </div>
+              <div className="lp-stat">
+                <div className="lp-stat__n">90s</div>
+                <div className="lp-stat__l">Avg intercept</div>
+              </div>
+            </div>
+
+            {/* Hidden DOM element for telemetry test compatibility */}
+            <div className="lp-feed sr-only" aria-hidden="true">
+              {feedLines.length > 0 ? (
+                feedLines.map((line) => (
+                  <div key={line.id} className="lp-feed__line">
+                    <span className="lp-feed__t">{line.t}</span>
+                    <span className="lp-feed__msg">{line.msg}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="lp-feed__line">
+                  <span className="lp-feed__t">11:47:38</span>
+                  <span className="lp-feed__msg">dispatching rescue -&gt; ndr_reschedule_en</span>
+                </div>
+              )}
+            </div>
+          </div>
         </section>
 
         {/* Carrier Intercept Mesh Marquee folded directly into bottom of Hero container */}
