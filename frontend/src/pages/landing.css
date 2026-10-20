@@ -6569,7 +6569,7 @@ html {
   flex-direction: column;
   justify-content: space-between;
   padding: 1.1rem 2rem;
-  position: relative;
+  z-index: 10;
 }
 
 /* Foldfolio Orbit Mood Rings */
@@ -6829,6 +6829,10 @@ html {
   transform: translateZ(-10px);
   filter: brightness(0.7);
   box-shadow: 0 24px 60px rgb(0 0 0 / 75%);
+}
+
+.rs-3d-wing--left .rs-3d-rim-layer {
+  display: none;
 }
 
 /* Side Edge Wall & Physical Volume/Power Buttons */

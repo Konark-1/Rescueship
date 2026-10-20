@@ -480,10 +480,6 @@ export const FoldfolioShowcase: React.FC = () => {
                 rotateY: effectiveHingeDeg,
               }}
             >
-              {/* 3D Extruded Rim Thickness Layers for Left Leaf */}
-              <div className="rs-3d-rim-layer rs-3d-rim-layer--1" />
-              <div className="rs-3d-rim-layer rs-3d-rim-layer--2" />
-              <div className="rs-3d-rim-layer rs-3d-rim-layer--3" />
               <div className="rs-3d-edge-wall rs-3d-edge-wall--left" />
 
               {/* ---------------------------------------------------------
