@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react';
-import { motion, AnimatePresence, useScroll, useTransform, useSpring, useReducedMotion } from 'motion/react';
+import { motion, AnimatePresence, useScroll, useTransform, useSpring, useReducedMotion, useMotionValueEvent } from 'motion/react';
 import { Zap, Terminal } from 'lucide-react';
 import { AccountabilityScene } from './AccountabilityScene';
 import { RescueScene } from '../story/RescueScene';
@@ -108,6 +108,13 @@ const REEL_BEATS = [
   { time: '15:20', role: 'ok', title: 'Delivered · Saved', desc: 'Cash collected · ₹1,240 saved from RTO return transit.' },
 ];
 
+const FILMSTRIP_SLIDES = [
+  { index: '01', code: 'BLEED', label: '₹430 / RTO Bleed Math' },
+  { index: '02', code: 'THE LIE', label: '1.42 km Rider GPS Drift' },
+  { index: '03', code: 'INTERCEPT', label: '90s WhatsApp + Order Board' },
+  { index: '04', code: 'CLOSED LOOP', label: '4-Stage NDR API Pipeline' },
+] as const;
+
 export function HorizontalScrollytelling({
   booted,
   failedOrders,
@@ -121,6 +128,7 @@ export function HorizontalScrollytelling({
   const waypoint3Ref = useRef<HTMLDivElement>(null);
   const reduced = !!useReducedMotion();
   const [activeStage, setActiveStage] = useState(0);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   useEffect(() => {
     if (reduced) return;
@@ -133,6 +141,13 @@ export function HorizontalScrollytelling({
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ['start start', 'end end'],
+  });
+
+  useMotionValueEvent(scrollYProgress, 'change', (v) => {
+    if (v < 0.25) setActiveSlide(0);
+    else if (v < 0.52) setActiveSlide(1);
+    else if (v < 0.78) setActiveSlide(2);
+    else setActiveSlide(3);
   });
 
   const smoothProgress = useSpring(scrollYProgress, {
@@ -182,6 +197,32 @@ export function HorizontalScrollytelling({
             <button type="button" className="nt-hscroll__jump-btn" onClick={() => jumpToPanel(3)}>
               04 Closed Loop
             </button>
+          </div>
+        </div>
+        {/* FILMSTRIP MINIMAL GALLERY HUD */}
+        <div className="rs-filmstrip-hud" role="navigation" aria-label="Horizontal Story Progress">
+          <div className="rs-filmstrip-hud__counter">
+            <span className="rs-filmstrip-hud__active">0{activeSlide + 1}</span>
+            <span className="rs-filmstrip-hud__sep">/</span>
+            <span>04</span>
+            <span className="rs-filmstrip-hud__tag">
+              {FILMSTRIP_SLIDES[activeSlide].code} — {FILMSTRIP_SLIDES[activeSlide].label}
+            </span>
+          </div>
+
+          <div className="rs-filmstrip-hud__strip">
+            {FILMSTRIP_SLIDES.map((s, i) => (
+              <button
+                key={s.index}
+                type="button"
+                onClick={() => jumpToPanel(i)}
+                className={`rs-filmstrip-tick ${activeSlide === i ? 'is-current' : ''}`}
+                aria-label={`Jump to slide ${s.index}: ${s.label}`}
+              >
+                <span className="rs-filmstrip-tick__num">[{s.index}]</span>
+                <span className="rs-filmstrip-tick__name">{s.code}</span>
+              </button>
+            ))}
           </div>
         </div>
 

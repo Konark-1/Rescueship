@@ -1,11 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, useScroll, useTransform, useMotionValueEvent, AnimatePresence } from 'motion/react';
+import {
+  motion,
+  useScroll,
+  useTransform,
+  useSpring,
+  useMotionValue,
+  useMotionValueEvent,
+  AnimatePresence,
+} from 'motion/react';
 import {
   MapPin,
   CheckCheck,
   ShieldCheck,
   Navigation,
   Phone,
+  PhoneIncoming,
+  PhoneOff,
   Video,
   ChevronLeft,
   Sparkles,
@@ -32,6 +42,8 @@ type FlowStage =
   | 'STAGE_3_COMPLETED_PIN'
   | 'STAGE_3_COMPLETED_SKIP';
 
+type HardwareFinish = 'graphite' | 'titanium' | 'vermilion' | 'emerald';
+
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
     id: 'sys-1',
@@ -56,35 +68,92 @@ export const FoldfolioShowcase: React.FC = () => {
     offset: ['start start', 'end end'],
   });
 
-  // Scroll-driven states
-  const [notifVisible, setNotifVisible] = useState(false);
-  const [isUnfolded, setIsUnfolded] = useState(false);
+  // Hardware finish (inspired by Mahmud Azimov's Foldfolio: Graphite, Titanium, Coral/Vermilion, Sage/Emerald)
+  const [finish, setFinish] = useState<HardwareFinish>('graphite');
+
+  // Interactive override vs scroll-driven state
+  const [manualAngle, setManualAngle] = useState<number | null>(null);
+  const [notifVisible, setNotifVisible] = useState(true);
   const [appOpened, setAppOpened] = useState(false);
+  const [incomingCallMode, setIncomingCallMode] = useState(false);
 
   // Sequential lifecycle state
   const [stage, setStage] = useState<FlowStage>('STAGE_1_PRE_DELIVERY');
-  const [activePathLabel, setActivePathLabel] = useState<'PRE_DELIVERY' | 'NDR_INTERCEPT'>('PRE_DELIVERY');
+  const [activePathLabel, setActivePathLabel] = useState<'PRE_DELIVERY' | 'NDR_INTERCEPT'>(
+    'PRE_DELIVERY'
+  );
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
 
-  // Smooth 3D transforms for unfolding cover
-  const coverRotateY = useTransform(scrollYProgress, [0.22, 0.55], [0, -180]);
+  // --- 3D HINGE PHYSICS ---
+  // 180deg = Folded Shut (Left wing folded completely over Right wing, showing Cover Screen)
+  // 0deg   = Fully Unfolded Flat (180-degree open dual-screen tablet)
+  const rawScrollHingeAngle = useTransform(
+    scrollYProgress,
+    [0, 0.16, 0.52, 0.86, 0.98],
+    [176, 172, 0, 0, 174]
+  );
+  const smoothScrollHinge = useSpring(rawScrollHingeAngle, {
+    stiffness: 120,
+    damping: 22,
+    mass: 0.7,
+  });
 
-  useMotionValueEvent(scrollYProgress, 'change', (latest) => {
-    if (latest >= 0.06) {
-      setNotifVisible(true);
-    } else {
-      setNotifVisible(false);
-    }
+  const [currentHingeDeg, setCurrentHingeDeg] = useState(174);
 
-    if (latest >= 0.36) {
-      setIsUnfolded(true);
-    } else {
-      setIsUnfolded(false);
-      setAppOpened(false);
+  useMotionValueEvent(smoothScrollHinge, 'change', (deg) => {
+    if (manualAngle === null) {
+      setCurrentHingeDeg(deg);
     }
   });
 
-  // Auto-scroll WhatsApp messages container cleanly without page jump
+  useMotionValueEvent(scrollYProgress, 'change', (p) => {
+    if (p > 0.03) setNotifVisible(true);
+    if (manualAngle === null) {
+      if (p >= 0.9) {
+        setIncomingCallMode(true);
+      } else {
+        setIncomingCallMode(false);
+      }
+    }
+  });
+
+  const effectiveHingeDeg = manualAngle !== null ? manualAngle : currentHingeDeg;
+  const isUnfoldedEnough = effectiveHingeDeg < 75;
+
+  // --- 3D MOUSE PARALLAX & SPECULAR GLARE ---
+  const mouseRx = useMotionValue(12);
+  const mouseRy = useMotionValue(-16);
+  const glareX = useMotionValue(50);
+  const glareY = useMotionValue(35);
+
+  const springRx = useSpring(mouseRx, { stiffness: 150, damping: 20 });
+  const springRy = useSpring(mouseRy, { stiffness: 150, damping: 20 });
+
+  const glareBackground = useTransform(
+    [glareX, glareY],
+    ([gx, gy]) =>
+      `radial-gradient(circle at ${gx}% ${gy}%, rgb(255 255 255 / 16%) 0%, transparent 62%)`
+  );
+
+  const handleStageMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const nx = (e.clientX - rect.left) / rect.width - 0.5; // -0.5 to 0.5
+    const ny = (e.clientY - rect.top) / rect.height - 0.5;
+    // When folded shut, give a stronger 3D isometric angle so chassis depth & spine pop
+    const baseRy = effectiveHingeDeg > 90 ? -18 : 0;
+    const baseRx = effectiveHingeDeg > 90 ? 11 : 6;
+    mouseRx.set(baseRx - ny * 14);
+    mouseRy.set(baseRy + nx * 22);
+    glareX.set(Math.round((nx + 0.5) * 100));
+    glareY.set(Math.round((ny + 0.5) * 100));
+  };
+
+  const handleStageMouseLeave = () => {
+    mouseRx.set(effectiveHingeDeg > 90 ? 11 : 6);
+    mouseRy.set(effectiveHingeDeg > 90 ? -18 : 0);
+  };
+
+  // Auto-scroll WhatsApp messages cleanly
   useEffect(() => {
     if (chatScrollRef.current) {
       chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
@@ -95,9 +164,7 @@ export const FoldfolioShowcase: React.FC = () => {
     setMessages((prev) => [...prev, ...newMsgs]);
   };
 
-  // --- SEQUENTIAL FLOW HANDLERS ---
-
-  // Path A: Pre-Delivery UPI Paid -> Ask for Address Pin + Skip
+  // --- SEQUENTIAL LIFECYCLE HANDLERS ---
   const handlePreDeliveryUpi = () => {
     setActivePathLabel('PRE_DELIVERY');
     appendMessages([
@@ -117,7 +184,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_1_PIN_PROMPT');
   };
 
-  // Path B: Buyer keeps COD -> Advances sequentially to Afternoon NDR Hit
   const handleContinueToNdr = () => {
     setActivePathLabel('NDR_INTERCEPT');
     appendMessages([
@@ -143,7 +209,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_2_NDR_HIT');
   };
 
-  // In NDR Hit: Buyer confirms availability -> Ask for Address Pin + Skip
   const handleNdrConfirmAvailable = () => {
     setActivePathLabel('NDR_INTERCEPT');
     appendMessages([
@@ -163,7 +228,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_2_PIN_PROMPT');
   };
 
-  // In NDR Hit: Buyer clicks Cancel Order -> 1-Shot ₹100 UPI Payment-Gated Save
   const handleBuyerCancelOrder = () => {
     setActivePathLabel('NDR_INTERCEPT');
     appendMessages([
@@ -183,7 +247,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_2_CANCEL_SAVE');
   };
 
-  // Buyer accepts 1-shot UPI Save -> Ask for Final Address Pin + Skip
   const handleAcceptCancelUpiSave = () => {
     appendMessages([
       {
@@ -202,7 +265,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_2_PIN_PROMPT');
   };
 
-  // Final Step Option 1 (Both Pre-Delivery & NDR): Share WhatsApp Location Pin
   const handleShareLocationPin = () => {
     appendMessages([
       {
@@ -222,7 +284,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_3_COMPLETED_PIN');
   };
 
-  // Final Step Option 2 (Both Pre-Delivery & NDR): Skip Pin
   const handleSkipLocationPin = () => {
     appendMessages([
       {
@@ -241,7 +302,6 @@ export const FoldfolioShowcase: React.FC = () => {
     setStage('STAGE_3_COMPLETED_SKIP');
   };
 
-  // Quick Reset / Jump helper so visitors can test both branches anytime
   const handleResetFlow = (startAtNdr = false) => {
     if (!startAtNdr) {
       setMessages(INITIAL_MESSAGES);
@@ -274,195 +334,283 @@ export const FoldfolioShowcase: React.FC = () => {
     }
   };
 
+  // Unfold phone smoothly & open WhatsApp
+  const unfoldAndOpenWhatsApp = () => {
+    setIncomingCallMode(false);
+    setManualAngle(0);
+    setAppOpened(true);
+    mouseRx.set(5);
+    mouseRy.set(0);
+  };
+
   return (
     <section
       ref={containerRef}
       id="foldfolio-demo"
-      className="rs-fold-track"
-      aria-label="Interactive Foldable iPhone WhatsApp Rescue Demo"
+      className="rs-fold3d-track"
+      aria-label="Interactive 3D Foldable iPhone WhatsApp Rescue Demo"
     >
-      <div className="rs-fold-sticky">
-        {/* Top Section Header */}
-        <div className="rs-fold-header">
-          <div className="rs-fold-header__meta">
-            <span className="rs-fold-kicker">INTERACTIVE DEVICE DEMO · iOS DUO</span>
+      <div
+        className="rs-fold3d-sticky"
+        onMouseMove={handleStageMouseMove}
+        onMouseLeave={handleStageMouseLeave}
+      >
+        {/* Orbit Backdrop Rings (from Mahmud Azimov's Foldfolio Orbit mood) */}
+        <div className="rs-fold3d-orbit" aria-hidden="true">
+          <div className="rs-fold3d-orbit__ring rs-fold3d-orbit__ring--1" />
+          <div className="rs-fold3d-orbit__ring rs-fold3d-orbit__ring--2" />
+          <div className="rs-fold3d-orbit__glow" />
+        </div>
+
+        {/* Top Bar: Title + Foldfolio State & Finish Switchers */}
+        <div className="rs-fold3d-header">
+          <div>
+            <span className="rs-fold-kicker">3D FOLDFOLIO RIG · SCROLL OR DRAG CURSOR TO TILT</span>
             <h2 className="rs-fold-title">
-              Scroll to unfold. <em>Tap WhatsApp to rescue the order.</em>
+              Watch it unfold in 3D. <em>Tap WhatsApp (1) to intercept.</em>
             </h2>
           </div>
 
-          {/* Interactive Stage Switcher Pills */}
-          <div className="rs-fold-controls">
-            <button
-              type="button"
-              className={`rs-fold-chip ${!isUnfolded ? 'is-active' : ''}`}
-              onClick={() => {
-                setIsUnfolded(false);
-                setAppOpened(false);
-                setNotifVisible(true);
-              }}
-            >
-              1. Cover Notification
-            </button>
-            <button
-              type="button"
-              className={`rs-fold-chip ${isUnfolded && !appOpened ? 'is-active' : ''}`}
-              onClick={() => {
-                setIsUnfolded(true);
-                setAppOpened(false);
-              }}
-            >
-              2. Unfolded Home (1)
-            </button>
-            <button
-              type="button"
-              className={`rs-fold-chip ${appOpened ? 'is-active' : ''}`}
-              onClick={() => {
-                setIsUnfolded(true);
-                setAppOpened(true);
-              }}
-            >
-              3. Live WhatsApp Chat
-            </button>
+          <div className="rs-fold3d-toolbar">
+            {/* Hardware Finish Dots */}
+            <div className="rs-finish-picker" role="group" aria-label="Phone Frame Finish">
+              {(['graphite', 'titanium', 'vermilion', 'emerald'] as HardwareFinish[]).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  onClick={() => setFinish(f)}
+                  className={`rs-finish-dot rs-finish-dot--${f} ${finish === f ? 'is-selected' : ''}`}
+                  title={`Finish: ${f}`}
+                  aria-label={`Select ${f} frame finish`}
+                />
+              ))}
+            </div>
+
+            {/* 4-Stage Posture Switcher */}
+            <div className="rs-fold-controls">
+              <button
+                type="button"
+                className={`rs-fold-chip ${!isUnfoldedEnough && !incomingCallMode ? 'is-active' : ''}`}
+                onClick={() => {
+                  setIncomingCallMode(false);
+                  setAppOpened(false);
+                  setNotifVisible(true);
+                  setManualAngle(168);
+                  mouseRx.set(12);
+                  mouseRy.set(-20);
+                }}
+              >
+                1. Folded Cover
+              </button>
+              <button
+                type="button"
+                className={`rs-fold-chip ${isUnfoldedEnough && !appOpened ? 'is-active' : ''}`}
+                onClick={() => {
+                  setIncomingCallMode(false);
+                  setAppOpened(false);
+                  setManualAngle(0);
+                  mouseRx.set(6);
+                  mouseRy.set(0);
+                }}
+              >
+                2. Unfolded Home (1)
+              </button>
+              <button
+                type="button"
+                className={`rs-fold-chip ${isUnfoldedEnough && appOpened ? 'is-active' : ''}`}
+                onClick={unfoldAndOpenWhatsApp}
+              >
+                3. Live WhatsApp Duo
+              </button>
+              <button
+                type="button"
+                className={`rs-fold-chip ${incomingCallMode ? 'is-active' : ''}`}
+                onClick={() => {
+                  setAppOpened(false);
+                  setIncomingCallMode(true);
+                  setManualAngle(170);
+                  mouseRx.set(12);
+                  mouseRy.set(-18);
+                }}
+              >
+                4. Fold Shut · Rider Call
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Center 3D Hardware Stage */}
-        <div className="rs-fold-stage">
-          <AnimatePresence mode="wait">
-            {!isUnfolded ? (
-              /* =========================================================
-                 STATE 1: CLOSED FOLDABLE IPHONE COVER SCREEN + NOTIFICATION
-                 ========================================================= */
-              <motion.div
-                key="closed-cover"
-                className="rs-iphone-cover"
-                initial={{ opacity: 0, scale: 0.94, rotateY: -12 }}
-                animate={{ opacity: 1, scale: 1, rotateY: 0 }}
-                exit={{ opacity: 0, scale: 0.96, rotateY: -65 }}
-                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-                style={{ rotateY: coverRotateY }}
-              >
-                {/* iOS Dynamic Island & Status Bar */}
-                <div className="rs-ios-statusbar">
-                  <span className="rs-ios-time">14:47</span>
-                  <div className="rs-dynamic-island">
-                    <span className="rs-island-cam" />
-                  </div>
-                  <div className="rs-ios-StatusIcons">
-                    <Wifi size={13} />
-                    <BatteryCharging size={14} />
-                  </div>
-                </div>
+        {/* ===============================================================
+            TRUE 3D BOOK-FOLD HARDWARE STAGE (CONTINUOUS PRESERVE-3D RIG)
+           =============================================================== */}
+        <div className="rs-fold3d-viewport">
+          <motion.div
+            className={`rs-fold3d-rig rs-fold3d-rig--${finish}`}
+            style={{
+              rotateX: springRx,
+              rotateY: springRy,
+              // When folded shut (effectiveHingeDeg ~ 174), shift rig left by -25% so the closed right-half phone sits dead-center
+              x: `${-(effectiveHingeDeg / 180) * 230}px`,
+            }}
+          >
+            {/* Dynamic Specular Glass Glare Layer across entire 3D rig */}
+            <motion.div
+              className="rs-3d-glare"
+              style={{ background: glareBackground }}
+              aria-hidden="true"
+            />
 
-                {/* iOS Lock Screen Clock */}
-                <div className="rs-lockscreen-clock">
-                  <div className="rs-lockscreen-date">
-                    <Lock size={12} /> Tuesday, 20 October
-                  </div>
-                  <div className="rs-lockscreen-digits">02:47</div>
-                </div>
+            {/* Dynamic Floor Drop Shadow */}
+            <div
+              className="rs-fold3d-floor-shadow"
+              style={{
+                transform: `translateZ(-70px) rotateX(82deg) scaleX(${
+                  1 - (effectiveHingeDeg / 180) * 0.42
+                })`,
+              }}
+            />
 
-                {/* Scroll-Triggered iOS WhatsApp Push Notification */}
-                <AnimatePresence>
-                  {notifVisible && (
-                    <motion.button
-                      type="button"
-                      className="rs-ios-notif"
-                      initial={{ opacity: 0, y: -28, scale: 0.92 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -16 }}
-                      transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-                      onClick={() => {
-                        setIsUnfolded(true);
-                        setAppOpened(true);
-                      }}
-                    >
-                      <div className="rs-ios-notif__icon">
-                        <span>WA</span>
-                        <span className="rs-ios-notif__badge">1</span>
-                      </div>
-                      <div className="rs-ios-notif__body">
-                        <div className="rs-ios-notif__row">
-                          <strong>RescueShip Delivery Support ✓</strong>
-                          <span>now</span>
+            {/* ===========================================================
+                LEFT ROTATING 3D LEAF (Hinges around right edge at center spine)
+                - RotateY = 180deg -> Closed over the right wing (Cover faces viewer)
+                - RotateY = 0deg   -> Unfolded flat (Left Inner Screen faces viewer)
+               =========================================================== */}
+            <motion.div
+              className="rs-3d-wing rs-3d-wing--left"
+              style={{
+                rotateY: effectiveHingeDeg,
+              }}
+            >
+              {/* 3D Extruded Rim Thickness Layers for Left Leaf */}
+              <div className="rs-3d-rim-layer rs-3d-rim-layer--1" />
+              <div className="rs-3d-rim-layer rs-3d-rim-layer--2" />
+              <div className="rs-3d-rim-layer rs-3d-rim-layer--3" />
+              <div className="rs-3d-edge-wall rs-3d-edge-wall--left" />
+
+              {/* ---------------------------------------------------------
+                  FACE A (OUTER COVER SCREEN): Visible when folded (rotateY > 90deg)
+                 --------------------------------------------------------- */}
+              <div className="rs-wing-face rs-wing-face--cover">
+                <div className="rs-bezel-frame">
+                  {/* iOS Dynamic Island & Status Bar */}
+                  <div className="rs-ios-statusbar">
+                    <span className="rs-ios-time">14:47</span>
+                    <div className="rs-dynamic-island">
+                      <span className="rs-island-cam" />
+                      <span className="rs-island-sensor" />
+                    </div>
+                    <div className="rs-ios-StatusIcons">
+                      <Wifi size={12} />
+                      <BatteryCharging size={14} />
+                    </div>
+                  </div>
+
+                  {!incomingCallMode ? (
+                    /* NORMAL COVER LOCK SCREEN + WHATSAPP NOTIFICATION */
+                    <div className="rs-cover-content">
+                      <div className="rs-lockscreen-clock">
+                        <div className="rs-lockscreen-date">
+                          <Lock size={11} /> Tuesday, 20 October
                         </div>
-                        <p>
-                          🚚 AWB #4023118876: Pre-delivery & NDR protection active. Tap to open chat.
-                        </p>
+                        <div className="rs-lockscreen-digits">02:47</div>
                       </div>
-                    </motion.button>
+
+                      <AnimatePresence>
+                        {notifVisible && (
+                          <motion.button
+                            type="button"
+                            className="rs-ios-notif"
+                            initial={{ opacity: 0, y: -24, scale: 0.92 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: -12 }}
+                            transition={{ type: 'spring', stiffness: 340, damping: 24 }}
+                            onClick={unfoldAndOpenWhatsApp}
+                          >
+                            <div className="rs-ios-notif__icon">
+                              <span>WA</span>
+                              <span className="rs-ios-notif__badge">1</span>
+                            </div>
+                            <div className="rs-ios-notif__body">
+                              <div className="rs-ios-notif__row">
+                                <strong>RescueShip Delivery Support ✓</strong>
+                                <span>now</span>
+                              </div>
+                              <p>
+                                ⚠️ Delhivery logged “Door Locked” on AWB #4023118876. Tap or scroll to unfold &amp; rescue.
+                              </p>
+                            </div>
+                          </motion.button>
+                        )}
+                      </AnimatePresence>
+
+                      <div className="rs-cover-footer">
+                        <span className="rs-cover-hint">Scroll down or click to unfold 180° →</span>
+                        <div className="rs-ios-homebar" />
+                      </div>
+                    </div>
+                  ) : (
+                    /* FOLDFOLIO FINALE: FOLD SHUT INTO INCOMING FIELD AGENT CALL */
+                    <div className="rs-incoming-call">
+                      <div className="rs-incoming-call__top">
+                        <span className="rs-incoming-badge">✓ GPS PIN INJECTED · LIVE DISPATCH</span>
+                        <h4>Delhivery Field Agent (Noida Hub)</h4>
+                        <p>Calling regarding AWB #4023118876 · Gate 2</p>
+                      </div>
+
+                      <div className="rs-incoming-call__actions">
+                        <button
+                          type="button"
+                          className="rs-call-btn rs-call-btn--decline"
+                          onClick={() => {
+                            setIncomingCallMode(false);
+                            setManualAngle(0);
+                          }}
+                        >
+                          <PhoneOff size={20} />
+                          <span>Re-Open Duo</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="rs-call-btn rs-call-btn--accept"
+                          onClick={unfoldAndOpenWhatsApp}
+                        >
+                          <PhoneIncoming size={20} />
+                          <span>Answer &amp; Inspect</span>
+                        </button>
+                      </div>
+                      <div className="rs-ios-homebar" />
+                    </div>
                   )}
-                </AnimatePresence>
-
-                <div className="rs-cover-footer">
-                  <span>Keep scrolling to unfold iPhone Duo →</span>
-                  <div className="rs-ios-homebar" />
                 </div>
-              </motion.div>
-            ) : (
-              /* =========================================================
-                 STATE 2 & 3: UNFOLDED IPHONE DUO (HOME SCREEN -> WHATSAPP)
-                 ========================================================= */
-              <motion.div
-                key="unfolded-duo"
-                className="rs-iphone-duo"
-                initial={{ opacity: 0, scale: 0.92, rotateX: 8 }}
-                animate={{ opacity: 1, scale: 1, rotateX: 0 }}
-                exit={{ opacity: 0, scale: 0.92 }}
-                transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {/* Center Foldable Hinge Crease */}
-                <div className="rs-duo-hinge" aria-hidden="true" />
+              </div>
 
-                {/* Top Unfolded Status Bar */}
-                <div className="rs-ios-statusbar rs-ios-statusbar--duo">
-                  <span className="rs-ios-time">14:48 · 5G</span>
-                  <div className="rs-dynamic-island">
-                    <span className="rs-island-cam" />
+              {/* ---------------------------------------------------------
+                  FACE B (LEFT INNER DISPLAY): Visible when unfolded (rotateY < 90deg)
+                 --------------------------------------------------------- */}
+              <div className="rs-wing-face rs-wing-face--inner-left">
+                <div className="rs-inner-screen rs-inner-screen--left">
+                  {/* Left Half of Unfolded Status Bar */}
+                  <div className="rs-duo-topbar">
+                    <span className="rs-ios-time">14:48 · Jio 5G</span>
+                    <span className="rs-duo-topbar__tag">INNER DISPLAY · LEFT</span>
                   </div>
-                  <div className="rs-ios-StatusIcons">
-                    <span>98%</span>
-                    <Wifi size={13} />
-                    <BatteryCharging size={15} />
-                  </div>
-                </div>
 
-                <AnimatePresence mode="wait">
                   {!appOpened ? (
-                    /* -----------------------------------------------------
-                       SUB-STATE 2A: UNFOLDED iOS HOME SCREEN WITH WA (1)
-                       ----------------------------------------------------- */
-                    <motion.div
-                      key="duo-homescreen"
-                      className="rs-duo-homescreen"
-                      initial={{ opacity: 0, scale: 0.96 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 1.08, filter: 'blur(4px)' }}
-                      transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      {/* Top Notification Banner on Unfolded Home Screen */}
-                      <motion.div
-                        className="rs-home-banner"
-                        initial={{ y: -20, opacity: 0 }}
-                        animate={{ y: 0, opacity: 1 }}
-                        transition={{ delay: 0.12 }}
-                        onClick={() => setAppOpened(true)}
-                      >
+                    /* LEFT HALF OF iOS HOME SCREEN WITH WHATSAPP (1) ICON */
+                    <div className="rs-inner-home-pane">
+                      <div className="rs-home-banner" onClick={() => setAppOpened(true)}>
                         <div className="rs-home-banner__left">
                           <span className="rs-wa-mini-icon">WA</span>
                           <div>
                             <strong>RescueShip Delivery Support ✓</strong>
-                            <p>1 unread message · Tap WhatsApp icon below to launch live chat</p>
+                            <p>1 unread message · Tap WhatsApp (1) below</p>
                           </div>
                         </div>
                         <span className="rs-home-banner__cta">Open →</span>
-                      </motion.div>
+                      </div>
 
-                      {/* Center Interactive WhatsApp App Icon with Red (1) Badge */}
                       <div className="rs-home-grid">
                         <div className="rs-app-tile rs-app-tile--muted">
-                          <div className="rs-app-icon rs-app-icon--maps">
+                          <div className="rs-app-icon">
                             <Navigation size={24} />
                           </div>
                           <span>Maps</span>
@@ -471,7 +619,7 @@ export const FoldfolioShowcase: React.FC = () => {
                         <motion.button
                           type="button"
                           className="rs-app-tile rs-app-tile--whatsapp"
-                          whileHover={{ scale: 1.06 }}
+                          whileHover={{ scale: 1.07 }}
                           whileTap={{ scale: 0.94 }}
                           onClick={() => setAppOpened(true)}
                           aria-label="Open WhatsApp with 1 unread notification from RescueShip"
@@ -486,7 +634,7 @@ export const FoldfolioShowcase: React.FC = () => {
                         </motion.button>
 
                         <div className="rs-app-tile rs-app-tile--muted">
-                          <div className="rs-app-icon rs-app-icon--shield">
+                          <div className="rs-app-icon">
                             <ShieldCheck size={24} />
                           </div>
                           <span>Delhivery</span>
@@ -494,305 +642,326 @@ export const FoldfolioShowcase: React.FC = () => {
                       </div>
 
                       <div className="rs-home-prompt">
-                        <Sparkles size={14} /> Click the <strong>WhatsApp (1)</strong> icon to launch the sequential rescue chat
+                        <Sparkles size={13} /> Tap <strong>WhatsApp (1)</strong> to launch live sequential rescue
                       </div>
-                    </motion.div>
+                    </div>
                   ) : (
-                    /* -----------------------------------------------------
-                       SUB-STATE 2B: AUTHENTIC DUAL-PANE WHATSAPP + TELEMETRY
-                       ----------------------------------------------------- */
-                    <motion.div
-                      key="duo-whatsapp-open"
-                      className="rs-duo-split"
-                      initial={{ opacity: 0, scale: 0.88 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.94 }}
-                      transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-                    >
-                      {/* LEFT PANE: Authentic iOS WhatsApp Chat Interface */}
-                      <div className="rs-wa-pane">
-                        {/* WhatsApp Top Bar */}
-                        <div className="rs-wa-header">
-                          <button
-                            type="button"
-                            className="rs-wa-back"
-                            onClick={() => setAppOpened(false)}
-                            title="Back to iOS Home Screen"
-                          >
-                            <ChevronLeft size={18} />
-                          </button>
-                          <div className="rs-wa-avatar">RS</div>
-                          <div className="rs-wa-contact">
-                            <div className="rs-wa-contact__name">
-                              RescueShip Delivery Support <span className="rs-wa-verified">✓</span>
-                            </div>
-                            <div className="rs-wa-contact__sub">
-                              Official Business Account · Automated 90s SLA
-                            </div>
+                    /* AUTHENTIC iOS WHATSAPP SEQUENTIAL INTERFACE */
+                    <div className="rs-wa-pane">
+                      <div className="rs-wa-header">
+                        <button
+                          type="button"
+                          className="rs-wa-back"
+                          onClick={() => setAppOpened(false)}
+                          title="Back to Home Screen"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <div className="rs-wa-avatar">RS</div>
+                        <div className="rs-wa-contact">
+                          <div className="rs-wa-contact__name">
+                            RescueShip Delivery Support <span className="rs-wa-verified">✓</span>
                           </div>
-                          <div className="rs-wa-actions">
-                            <Video size={16} />
-                            <Phone size={15} />
+                          <div className="rs-wa-contact__sub">
+                            Official Business Account · Automated 90s SLA
                           </div>
                         </div>
-
-                        {/* Quick Jump Bar inside Chat Header (Sequential Progress) */}
-                        <div className="rs-wa-progress-bar">
-                          <button
-                            type="button"
-                            className={`rs-wa-step-pill ${activePathLabel === 'PRE_DELIVERY' ? 'is-active' : ''}`}
-                            onClick={() => handleResetFlow(false)}
-                          >
-                            1. Pre-Delivery
-                          </button>
-                          <span className="rs-wa-step-arrow">→</span>
-                          <button
-                            type="button"
-                            className={`rs-wa-step-pill ${activePathLabel === 'NDR_INTERCEPT' ? 'is-active' : ''}`}
-                            onClick={() => handleResetFlow(true)}
-                          >
-                            2. NDR Hit
-                          </button>
-                          <span className="rs-wa-step-arrow">→</span>
-                          <span
-                            className={`rs-wa-step-pill ${
-                              stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
-                                ? 'is-active'
-                                : ''
-                            }`}
-                          >
-                            3. GPS Pin / Skip
-                          </span>
+                        <div className="rs-wa-actions">
+                          <Video size={15} />
+                          <Phone size={14} />
                         </div>
+                      </div>
 
-                        {/* Scrollable Chat Wallpaper Area */}
-                        <div ref={chatScrollRef} className="rs-wa-messages">
-                          {messages.map((m) => {
-                            if (m.sender === 'system') {
-                              return (
-                                <div key={m.id} className="rs-wa-sys-pill">
-                                  {m.text}
-                                </div>
-                              );
-                            }
-                            const isUser = m.sender === 'user';
+                      <div className="rs-wa-progress-bar">
+                        <button
+                          type="button"
+                          className={`rs-wa-step-pill ${
+                            activePathLabel === 'PRE_DELIVERY' ? 'is-active' : ''
+                          }`}
+                          onClick={() => handleResetFlow(false)}
+                        >
+                          1. Pre-Delivery
+                        </button>
+                        <span>→</span>
+                        <button
+                          type="button"
+                          className={`rs-wa-step-pill ${
+                            activePathLabel === 'NDR_INTERCEPT' ? 'is-active' : ''
+                          }`}
+                          onClick={() => handleResetFlow(true)}
+                        >
+                          2. NDR Hit
+                        </button>
+                        <span>→</span>
+                        <span
+                          className={`rs-wa-step-pill ${
+                            stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
+                              ? 'is-active'
+                              : ''
+                          }`}
+                        >
+                          3. Pin / Skip
+                        </span>
+                      </div>
+
+                      <div ref={chatScrollRef} className="rs-wa-messages">
+                        {messages.map((m) => {
+                          if (m.sender === 'system') {
                             return (
-                              <motion.div
-                                key={m.id}
-                                initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                                animate={{ opacity: 1, y: 0, scale: 1 }}
-                                transition={{ duration: 0.22 }}
-                                className={`rs-wa-bubble ${
-                                  isUser ? 'rs-wa-bubble--user' : 'rs-wa-bubble--bot'
-                                }`}
-                              >
-                                {m.isLocationPin && (
-                                  <div className="rs-wa-map-card">
-                                    <MapPin size={16} />
-                                    <span>Live GPS Pin · 28.5355° N, 77.3910° E (Gate 2)</span>
-                                  </div>
-                                )}
-                                <p className="rs-wa-bubble__text">{m.text}</p>
-                                <div className="rs-wa-bubble__meta">
-                                  <span>{m.time}</span>
-                                  {isUser && <CheckCheck size={14} className="rs-wa-ticks" />}
-                                </div>
-                              </motion.div>
+                              <div key={m.id} className="rs-wa-sys-pill">
+                                {m.text}
+                              </div>
                             );
-                          })}
-                        </div>
-
-                        {/* Interactive Bottom Action Tray (Sequential Choices + Final Pin/Skip) */}
-                        <div className="rs-wa-tray">
-                          {stage === 'STAGE_1_PRE_DELIVERY' && (
-                            <div className="rs-wa-btn-group">
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn rs-wa-action-btn--primary"
-                                onClick={handlePreDeliveryUpi}
-                              >
-                                💳 Pay ₹1,190 via UPI (Pre-Delivery Path)
-                              </button>
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn"
-                                onClick={handleContinueToNdr}
-                              >
-                                🚚 Keep COD → Simulate Afternoon NDR Hit
-                              </button>
-                            </div>
-                          )}
-
-                          {stage === 'STAGE_2_NDR_HIT' && (
-                            <div className="rs-wa-btn-group">
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn rs-wa-action-btn--primary"
-                                onClick={handleNdrConfirmAvailable}
-                              >
-                                🏠 I'm Home — Lock Free Priority Re-Attempt
-                              </button>
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn rs-wa-action-btn--danger"
-                                onClick={handleBuyerCancelOrder}
-                              >
-                                ❌ Cancel Order (Triggers ₹100 UPI Save)
-                              </button>
-                            </div>
-                          )}
-
-                          {stage === 'STAGE_2_CANCEL_SAVE' && (
-                            <div className="rs-wa-btn-group">
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn rs-wa-action-btn--primary"
-                                onClick={handleAcceptCancelUpiSave}
-                              >
-                                ⚡ Pay ₹1,140 via Instant UPI (Save ₹100 Now)
-                              </button>
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn"
-                                onClick={handleNdrConfirmAvailable}
-                              >
-                                🏠 Or Keep COD & Confirm Re-Attempt
-                              </button>
-                            </div>
-                          )}
-
-                          {(stage === 'STAGE_1_PIN_PROMPT' || stage === 'STAGE_2_PIN_PROMPT') && (
-                            <div className="rs-wa-btn-group">
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn rs-wa-action-btn--emerald"
-                                onClick={handleShareLocationPin}
-                              >
-                                📍 Share WhatsApp Location Pin
-                              </button>
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn"
-                                onClick={handleSkipLocationPin}
-                              >
-                                ⏭️ Skip — Use Existing Address
-                              </button>
-                            </div>
-                          )}
-
-                          {(stage === 'STAGE_3_COMPLETED_PIN' ||
-                            stage === 'STAGE_3_COMPLETED_SKIP') && (
-                            <div className="rs-wa-btn-group rs-wa-btn-group--row">
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn"
-                                onClick={() => handleResetFlow(false)}
-                              >
-                                <RotateCcw size={13} /> Replay from Pre-Delivery
-                              </button>
-                              <button
-                                type="button"
-                                className="rs-wa-action-btn"
-                                onClick={() => handleResetFlow(true)}
-                              >
-                                <RotateCcw size={13} /> Replay from NDR Hit
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* RIGHT PANE: Real-Time Courier API & Field-Agent Dispatch Telemetry */}
-                      <div className="rs-telemetry-pane">
-                        <div className="rs-telemetry-card">
-                          <div className="rs-telemetry-card__top">
-                            <span className="rs-telemetry-tag">LIVE COURIER API STATE</span>
-                            <span className="rs-telemetry-awb">AWB #4023118876</span>
-                          </div>
-
-                          <h3 className="rs-telemetry-heading">
-                            {stage === 'STAGE_1_PRE_DELIVERY' && 'Morning Pre-Delivery Check Dispatched'}
-                            {stage === 'STAGE_1_PIN_PROMPT' && 'Prepaid Converted · Awaiting Gate Pin or Skip'}
-                            {stage === 'STAGE_2_NDR_HIT' && 'Fake "Door Locked" Scan Intercepted (1.42 km)'}
-                            {stage === 'STAGE_2_CANCEL_SAVE' && '1-Shot ₹100 UPI Cancellation Rescue Active'}
-                            {stage === 'STAGE_2_PIN_PROMPT' && 'Re-Attempt Unlocked · Requesting Location Pin'}
-                            {stage === 'STAGE_3_COMPLETED_PIN' && '✓ GPS Pin Injected & Dispatched to Field Agent'}
-                            {stage === 'STAGE_3_COMPLETED_SKIP' && '✓ Re-Delivery Locked with Saved Address'}
-                          </h3>
-
-                          <div className="rs-telemetry-steps">
-                            <div className="rs-t-step is-done">
-                              <span className="rs-t-dot" />
-                              <div>
-                                <strong>1. Pre-Delivery & NDR Webhook</strong>
-                                <p>
-                                  {activePathLabel === 'PRE_DELIVERY'
-                                    ? 'Pre-delivery UPI conversion completed before rider dispatch.'
-                                    : 'Delhivery NDR scan intercepted in 38s (1.42 km drift, 0 IVR calls).'}
-                                </p>
-                              </div>
-                            </div>
-
+                          }
+                          const isUser = m.sender === 'user';
+                          return (
                             <div
-                              className={`rs-t-step ${
-                                stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
-                                  ? 'is-done'
-                                  : ''
+                              key={m.id}
+                              className={`rs-wa-bubble ${
+                                isUser ? 'rs-wa-bubble--user' : 'rs-wa-bubble--bot'
                               }`}
                             >
-                              <span className="rs-t-dot" />
-                              <div>
-                                <strong>2. Buyer Decision Captured</strong>
-                                <p>
-                                  {stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
-                                    ? 'Buyer verified availability inside native WhatsApp chat.'
-                                    : 'Waiting for buyer tap inside WhatsApp conversation...'}
-                                </p>
+                              {m.isLocationPin && (
+                                <div className="rs-wa-map-card">
+                                  <MapPin size={14} />
+                                  <span>Live GPS Pin · 28.5355° N, 77.3910° E (Gate 2)</span>
+                                </div>
+                              )}
+                              <p className="rs-wa-bubble__text">{m.text}</p>
+                              <div className="rs-wa-bubble__meta">
+                                <span>{m.time}</span>
+                                {isUser && <CheckCheck size={13} className="rs-wa-ticks" />}
                               </div>
                             </div>
-
-                            <div
-                              className={`rs-t-step ${
-                                stage.includes('COMPLETED') ? 'is-done' : ''
-                              }`}
-                            >
-                              <span className="rs-t-dot" />
-                              <div>
-                                <strong>3. Final Address Pin / Skip Resolution</strong>
-                                <p>
-                                  {stage === 'STAGE_3_COMPLETED_PIN' &&
-                                    'Landmark injected into Shiprocket/Delhivery NDR API + Google Maps SMS sent to rider.'}
-                                  {stage === 'STAGE_3_COMPLETED_SKIP' &&
-                                    'Buyer skipped GPS pin; priority re-attempt locked using verified address on file.'}
-                                  {!stage.includes('COMPLETED') &&
-                                    'Final step asks buyer for live GPS Pin alongside a Skip button.'}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="rs-telemetry-footer">
-                            <div>
-                              <span>BLEED PREVENTED</span>
-                              <strong>₹430 / Parcel</strong>
-                            </div>
-                            <div>
-                              <span>COURIER SYNC</span>
-                              <strong>&lt; 90s SLA</strong>
-                            </div>
-                          </div>
-                        </div>
+                          );
+                        })}
                       </div>
-                    </motion.div>
+
+                      <div className="rs-wa-tray">
+                        {stage === 'STAGE_1_PRE_DELIVERY' && (
+                          <div className="rs-wa-btn-group">
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn rs-wa-action-btn--primary"
+                              onClick={handlePreDeliveryUpi}
+                            >
+                              💳 Pay ₹1,190 via UPI (Pre-Delivery Path)
+                            </button>
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn"
+                              onClick={handleContinueToNdr}
+                            >
+                              🚚 Keep COD → Simulate Afternoon NDR Hit
+                            </button>
+                          </div>
+                        )}
+
+                        {stage === 'STAGE_2_NDR_HIT' && (
+                          <div className="rs-wa-btn-group">
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn rs-wa-action-btn--primary"
+                              onClick={handleNdrConfirmAvailable}
+                            >
+                              🏠 I'm Home — Lock Free Priority Re-Attempt
+                            </button>
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn rs-wa-action-btn--danger"
+                              onClick={handleBuyerCancelOrder}
+                            >
+                              ❌ Cancel Order (Triggers ₹100 UPI Save)
+                            </button>
+                          </div>
+                        )}
+
+                        {stage === 'STAGE_2_CANCEL_SAVE' && (
+                          <div className="rs-wa-btn-group">
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn rs-wa-action-btn--primary"
+                              onClick={handleAcceptCancelUpiSave}
+                            >
+                              ⚡ Pay ₹1,140 via Instant UPI (Save ₹100 Now)
+                            </button>
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn"
+                              onClick={handleNdrConfirmAvailable}
+                            >
+                              🏠 Or Keep COD &amp; Confirm Re-Attempt
+                            </button>
+                          </div>
+                        )}
+
+                        {(stage === 'STAGE_1_PIN_PROMPT' || stage === 'STAGE_2_PIN_PROMPT') && (
+                          <div className="rs-wa-btn-group">
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn rs-wa-action-btn--emerald"
+                              onClick={handleShareLocationPin}
+                            >
+                              📍 Share WhatsApp Location Pin
+                            </button>
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn"
+                              onClick={handleSkipLocationPin}
+                            >
+                              ⏭️ Skip — Use Existing Address
+                            </button>
+                          </div>
+                        )}
+
+                        {(stage === 'STAGE_3_COMPLETED_PIN' ||
+                          stage === 'STAGE_3_COMPLETED_SKIP') && (
+                          <div className="rs-wa-btn-group rs-wa-btn-group--row">
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn"
+                              onClick={() => handleResetFlow(false)}
+                            >
+                              <RotateCcw size={12} /> Pre-Delivery
+                            </button>
+                            <button
+                              type="button"
+                              className="rs-wa-action-btn"
+                              onClick={() => handleResetFlow(true)}
+                            >
+                              <RotateCcw size={12} /> NDR Hit
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
-                </AnimatePresence>
+                </div>
+              </div>
+            </motion.div>
 
-                <div className="rs-ios-homebar rs-ios-homebar--duo" />
-              </motion.div>
-            )}
-          </AnimatePresence>
+            {/* ===========================================================
+                CENTER 3D CYLINDRICAL METALLIC HINGE SPINE
+               =========================================================== */}
+            <div className="rs-3d-spine" aria-hidden="true">
+              <div className="rs-3d-spine__cap rs-3d-spine__cap--top" />
+              <div className="rs-3d-spine__crease" />
+              <div className="rs-3d-spine__cap rs-3d-spine__cap--bottom" />
+            </div>
+
+            {/* ===========================================================
+                RIGHT BASE 3D WING (Fixed Anchor holding Right Inner Display)
+               =========================================================== */}
+            <div className="rs-3d-wing rs-3d-wing--right">
+              {/* 3D Extruded Titanium/Graphite Backplate & Side Volume/Power Rockers */}
+              <div className="rs-3d-rim-layer rs-3d-rim-layer--1" />
+              <div className="rs-3d-rim-layer rs-3d-rim-layer--2" />
+              <div className="rs-3d-rim-layer rs-3d-rim-layer--3" />
+              <div className="rs-3d-edge-wall rs-3d-edge-wall--right">
+                <span className="rs-side-btn rs-side-btn--vol-up" />
+                <span className="rs-side-btn rs-side-btn--vol-dn" />
+                <span className="rs-side-btn rs-side-btn--power" />
+              </div>
+
+              <div className="rs-wing-face rs-wing-face--inner-right">
+                <div className="rs-inner-screen rs-inner-screen--right">
+                  {/* Right Half of Unfolded Status Bar */}
+                  <div className="rs-duo-topbar">
+                    <span className="rs-duo-topbar__tag">COURIER NDR API · TELEMETRY</span>
+                    <div className="rs-ios-StatusIcons">
+                      <span>98%</span>
+                      <Wifi size={12} />
+                      <BatteryCharging size={14} />
+                    </div>
+                  </div>
+
+                  {/* LIVE COURIER API & FIELD AGENT DISPATCH PANE */}
+                  <div className="rs-telemetry-pane">
+                    <div className="rs-telemetry-card">
+                      <div className="rs-telemetry-card__top">
+                        <span className="rs-telemetry-tag">● LIVE WEBHOOK SYNC</span>
+                        <span className="rs-telemetry-awb">AWB #4023118876</span>
+                      </div>
+
+                      <h3 className="rs-telemetry-heading">
+                        {stage === 'STAGE_1_PRE_DELIVERY' && 'Morning Pre-Delivery Check Active'}
+                        {stage === 'STAGE_1_PIN_PROMPT' && 'Prepaid Converted · Awaiting Gate Pin or Skip'}
+                        {stage === 'STAGE_2_NDR_HIT' && 'Fake "Door Locked" Scan Intercepted (1.42 km)'}
+                        {stage === 'STAGE_2_CANCEL_SAVE' && '1-Shot ₹100 UPI Cancellation Rescue Active'}
+                        {stage === 'STAGE_2_PIN_PROMPT' && 'Re-Attempt Unlocked · Requesting Location Pin'}
+                        {stage === 'STAGE_3_COMPLETED_PIN' && '✓ GPS Pin Injected & Sent to Field Agent'}
+                        {stage === 'STAGE_3_COMPLETED_SKIP' && '✓ Re-Delivery Locked with Saved Address'}
+                      </h3>
+
+                      <div className="rs-telemetry-steps">
+                        <div className="rs-t-step is-done">
+                          <span className="rs-t-dot" />
+                          <div>
+                            <strong>1. Pre-Delivery &amp; NDR Webhook</strong>
+                            <p>
+                              {activePathLabel === 'PRE_DELIVERY'
+                                ? 'Morning out-for-delivery ping offers ₹50 instant UPI conversion.'
+                                : 'Delhivery NDR scan intercepted in 38s (1.42 km drift, 0 IVR calls).'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`rs-t-step ${
+                            stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
+                              ? 'is-done'
+                              : ''
+                          }`}
+                        >
+                          <span className="rs-t-dot" />
+                          <div>
+                            <strong>2. Buyer Decision Captured</strong>
+                            <p>
+                              {stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
+                                ? 'Buyer verified availability inside native WhatsApp chat.'
+                                : 'Tap WhatsApp on the left screen to interact with the buyer flow.'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div
+                          className={`rs-t-step ${stage.includes('COMPLETED') ? 'is-done' : ''}`}
+                        >
+                          <span className="rs-t-dot" />
+                          <div>
+                            <strong>3. Final Address Pin + Skip Resolution</strong>
+                            <p>
+                              {stage === 'STAGE_3_COMPLETED_PIN' &&
+                                'Landmark injected into Delhivery NDR API + Google Maps SMS sent to rider.'}
+                              {stage === 'STAGE_3_COMPLETED_SKIP' &&
+                                'Buyer clicked Skip; priority re-attempt locked with existing address.'}
+                              {!stage.includes('COMPLETED') &&
+                                'Final step in both Pre-Delivery & NDR asks for GPS Pin + Skip.'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rs-telemetry-footer">
+                        <div>
+                          <span>TOTAL BLEED SAVED</span>
+                          <strong>₹430 / RTO</strong>
+                        </div>
+                        <div>
+                          <span>BREAKDOWN</span>
+                          <strong>₹200 Freight + ₹230 CAC</strong>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </div>
     </section>
   );
 };
+
+export default FoldfolioShowcase;

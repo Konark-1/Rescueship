@@ -139,7 +139,7 @@ export function PlanPicker({
                 <div className="bl-tier-card__right">
                   <span className="bl-tier-card__price">
                     {p ? (
-                      <span className="bl-tier-card__price-nowrap">
+                      <span className="bl-tier-card__price-nowrap rs-nowrap-num">
                         {inr(p.monthly)}<small>/mo</small>
                       </span>
                     ) : (

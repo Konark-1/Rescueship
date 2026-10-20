@@ -672,9 +672,7 @@ export default function LandingPage() {
       {/* ═══════════════════════════════════════════════════════════════
           CHAPTER 04: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)
           ═══════════════════════════════════════════════════════════════ */}
-      <section id="features" className="nt-snap-section nt-snap-section--features lp-chapter lp-chapter--dark" aria-label="Six autonomous engines">
-        <FeaturesGrid />
-      </section>
+      <FeaturesGrid />
 
       {/* ═══════════════════════════════════════════════════════════════
           CHAPTER 05: STUDIO OS WORKSPACE (Warm Alabaster Paper Surface)
@@ -696,46 +694,38 @@ export default function LandingPage() {
         />
       </section>
 
-      {/* Audited Trust & Compliance Badges */}
-      <div className="nt-trust-wrap nt-trust-wrap--footer" style={{ maxWidth: 1220, margin: '0 auto', padding: '0 24px var(--space-8)' }}>
-        <TrustStrip />
-      </div>
-
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 06: BOARDING GATE & CLEAN CTA (Matte Carbon)
+          CHAPTER 06: NIKA STERN EDITORIAL BOARDING MANIFEST FOOTER
           ═══════════════════════════════════════════════════════════════ */}
-      <section className="nt-snap-section nt-snap-section--final lp-final">
-        <motion.div
-          className="lp-final__panel"
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        >
-          <div className="lp-final__ticket-bar">
-            <span className="lp-final__ticket-code">RS/GATE.07 // BOARDING MANIFEST</span>
-            <span className="lp-final__ticket-tag">AUTONOMOUS DISPATCH</span>
+      <footer className="rs-nika-footer" aria-labelledby="footer-manifest-heading">
+        <div className="rs-nika-footer__inner">
+          <div className="rs-nika-footer__editorial">
+            <span className="rs-nika-kicker">BOARDING MANIFEST · DEPLOY IN 4 MINUTES</span>
+            <h2 id="footer-manifest-heading" className="rs-nika-headline">
+              Stop paying ₹430 for <em>fake “Door Locked” scans.</em>
+            </h2>
+            <p className="rs-nika-sub">
+              Connect your Shopify store and Shiprocket/Delhivery account in one click. Every fake NDR
+              scan is intercepted in under 90 seconds via verified WhatsApp GPS pins.
+            </p>
           </div>
 
-          <span className="lp-final__kicker">ready when you are</span>
-          <h2 className="lp-final__h2 nt-display">
-            Stop losing revenue<br />
-            <em className="nt-serif">every single time.</em>
-          </h2>
-          <p className="lp-final__sub">
-            Connect your store, verify WhatsApp, link your carrier.
-            Live in four minutes — no sales call, no demo.
-          </p>
+          {/* Clean High-Contrast CTA Pair (Zero Overlapping Purple Drag Pill) */}
+          <div className="rs-nika-footer__actions">
+            <Link to="/register" className="rs-nika-btn-primary">
+              Start Rescuing Free →
+            </Link>
+            <Link to="/sandbox" className="rs-nika-btn-secondary">
+              Or test in Sandbox →
+            </Link>
+          </div>
+        </div>
 
-          <div className="lp-final__actions">
-            <Link to="/register" className="lp-final__btn">Start Rescuing Free →</Link>
-            <Link to="/sandbox" className="lp-final__btn lp-final__btn--secondary">Or test in Sandbox →</Link>
-          </div>
-          <div className="lp-final__chips">
-            <span>no credit card</span><span>no sales call</span><span>live in 4 min</span>
-          </div>
-        </motion.div>
-      </section>
+        {/* Single-Line TrustStrip Required by landing-v2.spec.ts */}
+        <div className="rs-nika-footer__trust">
+          <TrustStrip />
+        </div>
+      </footer>
     </div>
   );
 }

@@ -1,123 +1,132 @@
-import { useRef } from 'react';
-import { motion, useScroll, useTransform, useReducedMotion } from 'motion/react';
-import { Zap, MapPin, CreditCard, ShieldCheck, SearchCheck, LineChart } from 'lucide-react';
-import { SpotlightCard } from '../SpotlightCard';
+import React from 'react';
+import {
+  Zap,
+  Radar,
+  MessageSquareCheck,
+  IndianRupee,
+  MapPinCheckInside,
+  ShieldAlert,
+} from 'lucide-react';
 
-const FEATURES = [
+interface FeatureEngine {
+  num: string;
+  title: string;
+  description: string;
+  pillText: string;
+  pillTone: 'vermilion' | 'emerald' | 'neutral';
+  Icon: React.ComponentType<{ size?: number; className?: string }>;
+}
+
+const ENGINES: FeatureEngine[] = [
   {
-    index: '01',
-    icon: Zap,
-    title: 'Autonomous NDR Rescue',
-    desc: 'Every failed attempt gets a WhatsApp response inside 90 seconds.',
-    color: 'var(--signal-soft)',
-    sla: '< 90s SLA',
+    num: '01',
+    title: 'Sub-90s NDR Webhook Intercept',
+    description:
+      'Ingests Shiprocket, Delhivery, Blue Dart, and ClickPost NDR webhooks in real time—firing a WhatsApp verification before the hub locks the parcel for RTO.',
+    pillText: '< 90s SLA · REALTIME WEBHOOK',
+    pillTone: 'vermilion',
+    Icon: Zap,
   },
   {
-    index: '02',
-    icon: MapPin,
-    title: '2-Step AI Address Fix',
-    desc: 'GPS pin + Hinglish landmark merged and pushed to the driver app.',
-    color: 'var(--amber-10)',
-    sla: 'GEO-RESOLVE',
+    num: '02',
+    title: 'Geofence & Zero-Call Audit Engine',
+    description:
+      'Cross-checks the rider scan coordinates against a 300m buyer doorstep geofence and flags fake "Door Locked" attempts made 1.42 km away with zero IVR calls.',
+    pillText: '300M GEOFENCE PROOF',
+    pillTone: 'emerald',
+    Icon: Radar,
   },
   {
-    index: '03',
-    icon: CreditCard,
-    title: 'COD → UPI Conversion',
-    desc: 'Doorstep & cancel-time UPI links with self-funding discounts.',
-    color: 'var(--emerald-15)',
-    sla: 'INSTANT UPI',
+    num: '03',
+    title: 'Free Priority Re-Attempt Lock',
+    description:
+      'When a rider fakes an attempt, RescueShip never wastes margin on discounts—it captures buyer confirmation and locks a free priority next-day re-delivery.',
+    pillText: 'ZERO MARGIN DILUTION',
+    pillTone: 'emerald',
+    Icon: MessageSquareCheck,
   },
   {
-    index: '04',
-    icon: ShieldCheck,
-    title: 'Payment-Gated RTO Arrest',
-    desc: 'Return transit halts only when money is actually captured.',
-    color: 'var(--signal-soft)',
-    sla: 'GATE LOCKED',
+    num: '04',
+    title: '1-Shot Payment-Gated Cancellation Save',
+    description:
+      'Only when a buyer explicitly taps Cancel Order, sends one polite ₹100 instant UPI discount offer with a strict 2-hour payment hold so WABA quality stays pristine.',
+    pillText: '2-HR UPI PAYMENT GATE',
+    pillTone: 'vermilion',
+    Icon: IndianRupee,
   },
   {
-    index: '05',
-    icon: SearchCheck,
-    title: 'Fake Remark Detection',
-    desc: 'Odd-hour scans and 4-minute attempts auto-escalate to carrier supervisors.',
-    color: 'var(--amber-10)',
-    sla: 'AUTO-ESCALATE',
+    num: '05',
+    title: 'WhatsApp GPS Pin → Rider SMS Dispatch',
+    description:
+      'Captures native WhatsApp lat/lng pins, injects the reverse-geocoded gate landmark into the courier NDR API, and texts a Google Maps link to the field agent.',
+    pillText: 'NATIVE LOCATION PIN + SMS',
+    pillTone: 'emerald',
+    Icon: MapPinCheckInside,
   },
   {
-    index: '06',
-    icon: LineChart,
-    title: 'Pincode Intelligence',
-    desc: 'Every pincode scored by real outcomes: courier vs customer vs address.',
-    color: 'var(--emerald-15)',
-    sla: 'TELEMETRY LIVE',
+    num: '06',
+    title: 'Pre-Delivery COD Risk & Pincode Shield',
+    description:
+      'Scores high-risk COD orders across 29,000+ Indian pincodes prior to dispatch—prompting instant UPI conversion or address verification before freight is burned.',
+    pillText: '5 METROS + 29K PINCODES',
+    pillTone: 'neutral',
+    Icon: ShieldAlert,
   },
 ];
 
-export function FeaturesGrid() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const reduced = !!useReducedMotion();
-
-  const { scrollYProgress } = useScroll({
-    target: containerRef,
-    offset: ['start end', 'end start'],
-  });
-
-  const marqueeX = useTransform(scrollYProgress, [0, 1], ['0%', '-25%']);
-
+export const FeaturesGrid: React.FC = () => {
   return (
-    <div ref={containerRef} className="fgrid" aria-labelledby="features-heading">
-      {/* ── Scroll-Linked Parallax Marquee Header ── */}
-      <div className="nt-fgrid__marquee-wrap" aria-hidden="true">
-        <motion.div
-          className="nt-fgrid__marquee"
-          style={reduced ? { transform: 'none' } : { x: marqueeX }}
-        >
-          AUTONOMOUS NDR ENGINE // ZERO HUMANS // 90s SLA // OVERRIDE FAKE SCANS // AUTOMATED RE-DELIVERY // GPS PIN GEO-RESOLUTION //
-        </motion.div>
-      </div>
-
-      <div className="fgrid__container">
-        <div className="fgrid__header">
-          <span className="fgrid__eyebrow">CHAPTER 04 // 01–06 AUTONOMOUS SYSTEMS</span>
-          <h2 id="features-heading" className="fgrid__heading nt-display">
-            Six engines. <em className="nt-serif">Zero human delay.</em>
-          </h2>
-          <p className="fgrid__sub">
-            Built for instantaneous execution so you never bleed freight or lose customers to fraudulent delivery remarks.
+    <section
+      id="features"
+      className="nt-snap-section nt-snap-section--features rs-mondragon-section lp-chapter lp-chapter--dark"
+      aria-labelledby="features-heading"
+    >
+      <div className="rs-mondragon-container">
+        {/* Mondragon Architectural Header */}
+        <header className="rs-mondragon-header">
+          <div className="rs-mondragon-header__left">
+            <span className="rs-mondragon-kicker">[ CHAPTER 04 · ARCHITECTURAL ENGINES ]</span>
+            <h2 id="features-heading" className="rs-mondragon-title">
+              Six autonomous engines. <em>Zero manual NDR calling.</em>
+            </h2>
+          </div>
+          <p className="rs-mondragon-sub">
+            Built for Indian D2C operations teams handling 500 to 50,000+ monthly COD shipments
+            across Delhivery, Shiprocket, Blue Dart, and Shadowfax.
           </p>
-        </div>
+        </header>
 
-        <div className="fgrid__list">
-          {FEATURES.map((feat) => {
-            const Icon = feat.icon;
-            return (
-              <SpotlightCard
-                key={feat.title}
-                className="fgrid__card nt-bento-card"
-                spotlightColor={feat.color}
-              >
-                <div className="fgrid__card-top">
-                  <div className="fgrid__icon-wrap">
-                    <Icon size={20} className="fgrid__icon" aria-hidden="true" />
-                  </div>
-                  <span className="fgrid__card-num">{feat.index}</span>
+        {/* 3x2 Mondragon Hairline Bento Grid (Exactly 6 Cards for Playwright) */}
+        <div className="rs-mondragon-grid">
+          {ENGINES.map(({ num, title, description, pillText, pillTone, Icon }) => (
+            <article key={num} className="rs-mondragon-card feature-card">
+              {/* Top Row: Clean Icon Top-Left + Single Numeral Top-Right */}
+              <div className="rs-mondragon-card__top">
+                <div className="rs-mondragon-icon" aria-hidden="true">
+                  <Icon size={20} />
                 </div>
+                <span className="rs-mondragon-num">[{num}]</span>
+              </div>
 
-                <h3 className="fgrid__card-title">{feat.title}</h3>
-                <p className="fgrid__card-desc">{feat.desc}</p>
+              {/* Middle Row: Heading & Copy */}
+              <div className="rs-mondragon-card__body">
+                <h3 className="rs-mondragon-card__title">{title}</h3>
+                <p className="rs-mondragon-card__desc">{description}</p>
+              </div>
 
-                <div className="fgrid__card-foot">
-                  <span className="fgrid__foot-dot" aria-hidden="true" />
-                  <span className="fgrid__card-sla">{feat.sla}</span>
-                </div>
-              </SpotlightCard>
-            );
-          })}
+              {/* Bottom Row: Spaced Status Pill at Bottom-Left */}
+              <div className="rs-mondragon-card__footer">
+                <span className={`rs-mondragon-pill rs-mondragon-pill--${pillTone}`}>
+                  <span className="rs-mondragon-pill__dot" />
+                  {pillText}
+                </span>
+              </div>
+            </article>
+          ))}
         </div>
       </div>
-    </div>
+    </section>
   );
-}
+};
 
 export default FeaturesGrid;
