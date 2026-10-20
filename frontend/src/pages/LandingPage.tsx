@@ -6,6 +6,7 @@ import { CarrierMarquee } from '../components/CarrierMarquee';
 import { StickyNav } from '../components/landing/StickyNav';
 import { TrustStrip } from '../components/landing/TrustStrip';
 import { HorizontalScrollytelling } from '../components/landing/HorizontalScrollytelling';
+import { FoldfolioShowcase } from '../components/FoldfolioShowcase';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
 import type { PlanKey } from '../config/pricing.config';
@@ -662,6 +663,11 @@ export default function LandingPage() {
           cancelledOrders={cancelledOrders}
         />
       </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 03.5: FOLDFOLIO FOLDABLE IPHONE DUO SHOWCASE
+          ═══════════════════════════════════════════════════════════════ */}
+      <FoldfolioShowcase />
 
       {/* ═══════════════════════════════════════════════════════════════
           CHAPTER 04: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)

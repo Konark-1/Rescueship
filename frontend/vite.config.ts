@@ -13,11 +13,11 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_BACKEND_URL || 'https://rescueship.onrender.com',
         changeOrigin: true,
       },
       '/webhooks': {
-        target: 'http://localhost:3000',
+        target: process.env.VITE_BACKEND_URL || 'https://rescueship.onrender.com',
         changeOrigin: true,
       },
     },
