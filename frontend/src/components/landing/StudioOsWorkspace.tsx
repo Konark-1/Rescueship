@@ -33,9 +33,9 @@ export function StudioOsWorkspace({
   return (
     <div className="nt-os-workspace rs-storm-workspace-root" id="os-workspace">
       {/* Target anchor divs for smooth scrolling & test discovery */}
-      <div id="calculator" className="nt-anchor-target rs-anchor-hook" aria-hidden="true" />
-      <div id="pricing" className="nt-anchor-target rs-anchor-hook" aria-hidden="true" />
-      <div id="faq" className="nt-anchor-target rs-anchor-hook" aria-hidden="true" />
+      <div id="calculator" className="nt-anchor-target rs-anchor-hook" />
+      <div id="pricing" className="nt-anchor-target rs-anchor-hook" />
+      <div id="faq" className="nt-anchor-target rs-anchor-hook" />
 
       {/* ── Studio OS Window Chrome Header ── */}
       <div className="nt-os-window__head rs-storm-topbar">

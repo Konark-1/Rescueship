@@ -8,6 +8,12 @@ test.describe('TASK 3.3: Motion Accessibility (prefers-reduced-motion)', () => {
       features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
     });
 
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.setItem('rs_booted', '1');
+      } catch {}
+    });
+
     // 2. Mount page containing motion/react spring animations (Landing Page Hero / Story Scene)
     await page.goto('/');
 

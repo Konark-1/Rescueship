@@ -2,8 +2,19 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 test.describe('Landing Page PLG Lead Capture & Telemetry Feed', () => {
+  test.use({
+    reducedMotion: 'reduce',
+  });
+
   test.beforeEach(async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.addInitScript(() => {
+      try {
+        sessionStorage.setItem('rs_booted', '1');
+      } catch {}
+    });
     await page.goto('/');
+    await page.locator('.lp-hero').waitFor({ state: 'visible' });
   });
 
   test('Landing page should have no automated accessibility violations', async ({ page }) => {
@@ -71,11 +82,7 @@ test.describe('Landing Page PLG Lead Capture & Telemetry Feed', () => {
     });
 
     const nameInput = page.locator('input[placeholder="John Doe"]');
-    if (!(await nameInput.isVisible())) {
-      await page.click('.nt-hero-cmd__btn');
-      await nameInput.waitFor({ state: 'visible' });
-    }
-
+    await nameInput.waitFor({ state: 'visible' });
     await nameInput.fill('Test Merchant');
     await page.fill('input[type="email"]', 'growth@testbrand.com');
     await page.fill('input[placeholder*="myshopify"]', 'testbrand.myshopify.com');
