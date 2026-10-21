@@ -6669,8 +6669,12 @@ html {
   transition: all 0.18s ease;
 }
 
-.rs-fold-chip.is-active,
 .rs-fold-chip:hover {
+  background: rgb(244 241 234 / 12%);
+  color: var(--text-1, #f4f1ea);
+}
+
+.rs-fold-chip.is-active {
   background: var(--signal, #ff3b1d);
   color: var(--bg-void, #0e0e0d);
   font-weight: 700;
@@ -8103,5 +8107,66 @@ html {
 @media (width <= 960px) {
   .rs-mondragon-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (width <= 840px) {
+  .rs-book-sticky {
+    padding: 0.75rem 1rem !important;
+  }
+
+  .rs-book-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+  }
+
+  .rs-book-toolbar {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  .rs-fold-controls {
+    overflow-x: auto;
+    max-width: 100%;
+    scrollbar-width: none;
+  }
+
+  .rs-fold-controls::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rs-book-stage {
+    transform: scale(0.85);
+    transform-origin: center center;
+  }
+}
+
+@media (width <= 700px) {
+  .rs-book-stage {
+    transform: scale(0.72);
+  }
+}
+
+@media (width <= 560px) {
+  .rs-book-stage {
+    transform: scale(0.58);
+  }
+}
+
+@media (width <= 440px) {
+  .rs-fold-title {
+    font-size: 1.15rem;
+  }
+
+  .rs-book-stage {
+    transform: scale(0.46);
+  }
+}
+
+@media (width <= 380px) {
+  .rs-book-stage {
+    transform: scale(0.41);
   }
 }
