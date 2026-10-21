@@ -6548,15 +6548,31 @@ html {
 }
 
 /* ==========================================================================
-   CHAPTER 3.5: NATURAL TITANIUM BOOK-FOLD IPHONE DUO (FLUSH SPINE, SOLID UI)
+   CHAPTER 3.5: CONTINUOUS SCROLL-DRIVEN 3D BOOK-FOLD IPHONE DUO
    ========================================================================== */
 .rs-book-track {
   position: relative;
-  height: 280vh;
+  height: 360vh;
   background-color: var(--bg-void, #0e0e0d);
   color: var(--text-1, #f4f1ea);
   border-top: 1px solid rgb(244 241 234 / 10%);
   border-bottom: 1px solid rgb(244 241 234 / 10%);
+}
+
+/* 4 Scroll-Snap Waypoints so scrolling steps through the book unfold without skipping */
+.rs-book-waypoints {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+.rs-book-waypoint {
+  height: 90vh;
+  width: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
 .rs-book-sticky {
@@ -6568,7 +6584,9 @@ html {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 1rem 2rem;
+  align-items: center;
+  padding: 0.85rem 2rem 1.1rem;
+  box-sizing: border-box;
 }
 
 .rs-book-header {
@@ -6576,9 +6594,11 @@ html {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  max-width: 1180px;
+  max-width: 1040px;
   width: 100%;
   margin: 0 auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
   flex-wrap: wrap;
   z-index: 10;
 }
@@ -6643,13 +6663,14 @@ html {
 
 .rs-book-stage {
   flex: 1;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  perspective: 2400px;
+  perspective: 2200px;
 }
 
-/* AUTHENTIC NATURAL TITANIUM BOOK CHASSIS (330px folded -> 660px book-open) */
+/* NATURAL TITANIUM BOOK CHASSIS (310px closed -> 620px open, 490px tall so it never clips!) */
 .rs-titanium-book {
   --ti-light: #d4d0c8;
   --ti-mid: #8a857c;
@@ -6659,8 +6680,8 @@ html {
   position: relative;
   display: flex;
   align-items: stretch;
-  width: 660px;
-  height: 550px;
+  width: 620px;
+  height: 490px;
   transform-style: preserve-3d;
 }
 
@@ -6678,41 +6699,53 @@ html {
 
 .rs-book-leaf {
   position: relative;
-  width: 330px;
-  height: 550px;
+  width: 310px;
+  height: 490px;
   transform-style: preserve-3d;
   flex-shrink: 0;
 }
 
-/* Left page hinges open like a real book around its right spine edge */
+/* Left page sits 3px higher in Z-space so when folded at 180deg it physically covers the right page! */
 .rs-book-leaf--left {
   transform-origin: right center;
-  z-index: 5;
+  transform: translateZ(3px);
+  z-index: 6;
 }
 
-/* Right page sits flush against the left page — ZERO gap, ZERO floating rod! */
+/* Right page stays rendered at Z=0 (NO `visibility: hidden` pop-in!) */
 .rs-book-leaf--right {
   transform-origin: left center;
+  transform: translateZ(0);
   z-index: 2;
   background: linear-gradient(135deg, var(--ti-light) 0%, var(--ti-mid) 45%, var(--ti-dark) 100%);
-  border-radius: 0 42px 42px 0;
-  padding: 9px 9px 9px 0;
+  border-radius: 0 38px 38px 0;
+  padding: 8px 8px 8px 0;
   box-shadow:
-    0 30px 70px rgb(0 0 0 / 78%),
+    0 26px 60px rgb(0 0 0 / 78%),
     inset 0 1px 1px rgb(255 255 255 / 55%),
     inset 0 -2px 4px rgb(0 0 0 / 70%);
 }
 
-.rs-book-leaf--right.is-covered {
-  visibility: hidden;
+/* Dynamic Crease Shadow Cast Across the Right Page While Left Page Unfolds */
+.rs-book-crease-shadow {
+  position: absolute;
+  inset: 8px 8px 8px 0;
+  border-radius: 0 30px 30px 0;
+  background: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 92%) 0%,
+    rgb(0 0 0 / 68%) 48%,
+    rgb(0 0 0 / 35%) 100%
+  );
   pointer-events: none;
+  z-index: 20;
 }
 
 /* Flush Center Book Crease Line (Replaces the detached left stick!) */
 .rs-book-crease-line {
   position: absolute;
-  top: 9px;
-  bottom: 9px;
+  top: 8px;
+  bottom: 8px;
   left: -1px;
   width: 2px;
   background: linear-gradient(
@@ -6776,18 +6809,18 @@ html {
     inset 0 -2px 4px rgb(0 0 0 / 70%);
 }
 
-/* Outer Cover Screen (When Closed: Symmetric 42px iPhone Corners on All 4 Sides) */
+/* Outer Cover Screen (When Closed: Symmetric 38px iPhone Corners on All 4 Sides) */
 .rs-leaf-face--cover {
   transform: rotateY(180deg);
-  border-radius: 42px;
-  padding: 9px;
+  border-radius: 38px;
+  padding: 8px;
 }
 
 /* Left Inner Screen (When Open Like a Book: Flush Right Edge Meeting the Right Page) */
 .rs-leaf-face--inner-left {
   transform: rotateY(0deg);
-  border-radius: 42px 0 0 42px;
-  padding: 9px 0 9px 9px;
+  border-radius: 38px 0 0 38px;
+  padding: 8px 0 8px 8px;
 }
 
 /* SOLID TITANIUM DARK DISPLAY (NO MUDDY GREEN/RED BLOBS) */
@@ -6804,16 +6837,16 @@ html {
 }
 
 .rs-ios-display--cover {
-  border-radius: 34px;
+  border-radius: 30px;
 }
 
 .rs-ios-display--inner-left {
-  border-radius: 34px 0 0 34px;
+  border-radius: 30px 0 0 30px;
   border-right: 1px solid rgb(255 255 255 / 10%);
 }
 
 .rs-ios-display--inner-right {
-  border-radius: 0 34px 34px 0;
+  border-radius: 0 30px 30px 0;
   border-left: none;
 }
 
