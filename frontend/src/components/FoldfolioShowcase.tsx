@@ -3,6 +3,7 @@ import {
   motion,
   useScroll,
   useMotionValueEvent,
+  useReducedMotion,
 } from 'motion/react';
 import {
   MapPin,
@@ -47,7 +48,6 @@ type FlowStage =
   | 'STAGE_3_COMPLETED_SKIP';
 
 type DevicePosture = 'cover' | 'unfolded-home' | 'whatsapp-duo' | 'rider-call';
-type HardwareFinish = 'titanium' | 'graphite' | 'vermilion' | 'emerald';
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -67,6 +67,7 @@ const INITIAL_MESSAGES: ChatMessage[] = [
 export const FoldfolioShowcase: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useReducedMotion();
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -74,8 +75,8 @@ export const FoldfolioShowcase: React.FC = () => {
   });
 
   const [posture, setPosture] = useState<DevicePosture>('cover');
+  const [lastScrollBand, setLastScrollBand] = useState<number>(0);
   const [userInteracted, setUserInteracted] = useState(false);
-  const [finish, setFinish] = useState<HardwareFinish>('titanium');
 
   // Sequential WhatsApp flow state
   const [stage, setStage] = useState<FlowStage>('STAGE_1_PRE_DELIVERY');
@@ -84,20 +85,20 @@ export const FoldfolioShowcase: React.FC = () => {
   );
   const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
 
-  // Scroll-driven progression:
-  // 0.00 - 0.28 -> 1. Folded Cover with Notification pop-up
-  // 0.28 - 0.86 -> 2. Unfolds to iOS Home Screen with WhatsApp (1) (stays open if user clicked into WhatsApp!)
-  // 0.86 - 1.00 -> 4. Folds shut into Rider Call
+  // Scroll steps cleanly through the book-open sequence
   useMotionValueEvent(scrollYProgress, 'change', (p) => {
-    if (userInteracted && posture === 'whatsapp-duo' && p > 0.2 && p < 0.88) {
-      return;
-    }
-    if (p < 0.28) {
-      setPosture('cover');
-    } else if (p < 0.86) {
-      setPosture((prev) => (prev === 'whatsapp-duo' ? 'whatsapp-duo' : 'unfolded-home'));
-    } else {
-      setPosture('rider-call');
+    if (userInteracted) return;
+    const band = p < 0.25 ? 0 : p < 0.64 ? 1 : p < 0.86 ? 2 : 3;
+    if (band !== lastScrollBand) {
+      setLastScrollBand(band);
+      if (band === 0) setPosture('cover');
+      else if (band === 1) {
+        setPosture((prev) => (prev === 'whatsapp-duo' ? 'whatsapp-duo' : 'unfolded-home'));
+      } else if (band === 2) {
+        setPosture('whatsapp-duo');
+      } else {
+        setPosture('rider-call');
+      }
     }
   });
 
@@ -284,6 +285,10 @@ export const FoldfolioShowcase: React.FC = () => {
   const isFolded = posture === 'cover' || posture === 'rider-call';
   const lastMsg = messages[messages.length - 1];
 
+  const bookHingeTransition = prefersReducedMotion
+    ? { duration: 0 }
+    : { type: 'spring' as const, stiffness: 125, damping: 22, mass: 0.85 };
+
   return (
     <section
       ref={containerRef}
@@ -292,117 +297,119 @@ export const FoldfolioShowcase: React.FC = () => {
       aria-label="Interactive iPhone Duo Foldable WhatsApp Rescue Showcase"
     >
       <div className="rs-book-sticky">
-        {/* Top Header + Controls */}
+        {/* Top Header + Exclusive 4-State Switcher (Zero Multi-Color Dots) */}
         <div className="rs-book-header">
           <div>
-            <span className="rs-fold-kicker">FOLDFOLIO × iPHONE DUO · REAL 3D HINGE</span>
+            <span className="rs-fold-kicker">NATURAL TITANIUM · BOOK-FOLD iPHONE DUO</span>
             <h2 className="rs-fold-title">
-              Scroll to unfold iPhone Duo. <em>Tap WhatsApp (1) to rescue.</em>
+              Opens like a book on scroll. <em>Tap WhatsApp (1) to rescue.</em>
             </h2>
           </div>
 
-          <div className="rs-book-toolbar">
-            <div className="rs-finish-picker" role="group" aria-label="Hardware Finish">
-              {(['titanium', 'graphite', 'vermilion', 'emerald'] as HardwareFinish[]).map((f) => (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => setFinish(f)}
-                  className={`rs-finish-dot rs-finish-dot--${f} ${finish === f ? 'is-selected' : ''}`}
-                  title={`Finish: ${f}`}
-                  aria-label={`Select ${f} finish`}
-                />
-              ))}
-            </div>
-
-            <div className="rs-fold-controls" role="tablist" aria-label="iPhone Duo Posture">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={posture === 'cover'}
-                className={`rs-fold-chip ${posture === 'cover' ? 'is-active' : ''}`}
-                onClick={() => {
-                  setUserInteracted(true);
-                  setPosture('cover');
-                }}
-              >
-                1. Folded Cover
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={posture === 'unfolded-home'}
-                className={`rs-fold-chip ${posture === 'unfolded-home' ? 'is-active' : ''}`}
-                onClick={() => {
-                  setUserInteracted(true);
-                  setPosture('unfolded-home');
-                }}
-              >
-                2. Unfolded Home (1)
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={posture === 'whatsapp-duo'}
-                className={`rs-fold-chip ${posture === 'whatsapp-duo' ? 'is-active' : ''}`}
-                onClick={() => {
-                  setUserInteracted(true);
-                  setPosture('whatsapp-duo');
-                }}
-              >
-                3. Live WhatsApp Duo
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={posture === 'rider-call'}
-                className={`rs-fold-chip ${posture === 'rider-call' ? 'is-active' : ''}`}
-                onClick={() => {
-                  setUserInteracted(true);
-                  setPosture('rider-call');
-                }}
-              >
-                4. Fold Shut · Rider Call
-              </button>
-            </div>
+          <div className="rs-fold-controls" role="tablist" aria-label="iPhone Duo Posture">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={posture === 'cover'}
+              className={`rs-fold-chip ${posture === 'cover' ? 'is-active' : ''}`}
+              onClick={() => {
+                setUserInteracted(true);
+                setPosture('cover');
+              }}
+            >
+              1. Folded Cover
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={posture === 'unfolded-home'}
+              className={`rs-fold-chip ${posture === 'unfolded-home' ? 'is-active' : ''}`}
+              onClick={() => {
+                setUserInteracted(true);
+                setPosture('unfolded-home');
+              }}
+            >
+              2. Unfolded Home (1)
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={posture === 'whatsapp-duo'}
+              className={`rs-fold-chip ${posture === 'whatsapp-duo' ? 'is-active' : ''}`}
+              onClick={() => {
+                setUserInteracted(true);
+                setPosture('whatsapp-duo');
+              }}
+            >
+              3. Live WhatsApp Chat
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={posture === 'rider-call'}
+              className={`rs-fold-chip ${posture === 'rider-call' ? 'is-active' : ''}`}
+              onClick={() => {
+                setUserInteracted(true);
+                setPosture('rider-call');
+              }}
+            >
+              4. Fold Shut · Rider Call
+            </button>
           </div>
         </div>
 
         {/* ===============================================================
-            RIGID TWO-LEAF 3D BOOK STAGE (ZERO WIDTH STRETCH, ZERO GREY BOX)
+            SEAMLESS NATURAL TITANIUM BOOK-FOLD STAGE (330px -> 660px)
+            Zero Detached Stick on Left, Zero Orange Side Tab
            =============================================================== */}
         <div className="rs-book-stage">
           <motion.div
-            className={`rs-book-device rs-book-device--${finish}`}
+            className="rs-titanium-book"
             animate={{
-              // When folded, shift left by -194px so the closed 388px cover leaf sits dead-center!
-              x: isFolded ? -194 : 0,
+              // When folded, shift left by -165px so the 330px closed phone sits dead-center
+              x: isFolded ? -165 : 0,
+              rotateX: isFolded ? 6 : 2,
+              rotateY: isFolded ? -8 : 0,
             }}
-            transition={{ type: 'spring', stiffness: 150, damping: 24 }}
+            transition={bookHingeTransition}
           >
+            {/* Contact Shadow on Floor */}
+            <motion.div
+              className="rs-book-floor-shadow"
+              animate={{
+                scaleX: isFolded ? 0.5 : 1,
+                x: isFolded ? 165 : 0,
+              }}
+              transition={bookHingeTransition}
+              aria-hidden="true"
+            />
+
             {/* ===========================================================
-                LEFT LEAF (388px rigid width, hinges around its right edge)
-                - rotateY: 180deg when folded (shows Outer Cover Screen)
-                - rotateY: 0deg when unfolded (shows Left Inner Screen)
+                LEFT PAGE OF THE BOOK (330px × 560px)
+                Hinges around its right edge (`transform-origin: right center`)
                =========================================================== */}
             <motion.div
               className="rs-book-leaf rs-book-leaf--left"
               animate={{
                 rotateY: isFolded ? 180 : 0,
               }}
-              transition={{ type: 'spring', stiffness: 140, damping: 23 }}
+              transition={bookHingeTransition}
             >
+              {/* Machined Titanium Outer Edge Thickness */}
+              <div className="rs-titanium-edge-wall" aria-hidden="true" />
+
               {/* ---------------------------------------------------------
-                  OUTER COVER FACE (Visible when folded: rotateY === 180deg)
+                  OUTER COVER SCREEN (Visible when closed: rotateY === 180deg)
                  --------------------------------------------------------- */}
               <div
                 className="rs-leaf-face rs-leaf-face--cover"
                 aria-hidden={!isFolded}
-                inert={!isFolded}
+                inert={!isFolded ? true : undefined}
               >
-                <span className="rs-hw-btn rs-hw-btn--power" />
-                <div className="rs-ios-screen rs-ios-wallpaper-dark">
-                  {/* iOS Status Bar + Dynamic Island */}
+                {/* Brushed Titanium Side Power Button (Matches body, NOT orange!) */}
+                <span className="rs-ti-side-btn rs-ti-side-btn--right" aria-hidden="true" />
+
+                <div className="rs-ios-display rs-ios-display--cover">
                   <div className="rs-ios-statusbar">
                     <span className="rs-ios-time">02:47</span>
                     <div className="rs-dynamic-island">
@@ -423,10 +430,10 @@ export const FoldfolioShowcase: React.FC = () => {
                         <div className="rs-lockscreen-digits">02:47</div>
                       </div>
 
-                      {/* Authentic iOS Translucent Push Notification */}
+                      {/* Clean iOS Notification Card */}
                       <button
                         type="button"
-                        className="rs-ios-glass-notif"
+                        className="rs-solid-notif-card"
                         onClick={() => {
                           setUserInteracted(true);
                           setPosture('unfolded-home');
@@ -444,18 +451,17 @@ export const FoldfolioShowcase: React.FC = () => {
                             <span>now</span>
                           </div>
                           <p>
-                            🚚 AWB #4023118876: Fake “Door Locked” scan intercepted. Scroll or tap to unfold iPhone Duo.
+                            🚚 AWB #4023118876: Fake “Door Locked” scan intercepted. Tap or scroll to open phone.
                           </p>
                         </div>
                       </button>
 
                       <div className="rs-lockscreen-bottom">
-                        <span className="rs-scroll-pill">Scroll down or tap to unfold →</span>
+                        <span className="rs-scroll-pill">Scroll or tap to open book →</span>
                         <div className="rs-ios-homebar" />
                       </div>
                     </div>
                   ) : (
-                    /* STATE 4: INCOMING FIELD AGENT CALL ON COVER SCREEN */
                     <div className="rs-incoming-call">
                       <div className="rs-incoming-call__top">
                         <span className="rs-incoming-badge">✓ GPS PIN DISPATCHED TO RIDER</span>
@@ -494,73 +500,68 @@ export const FoldfolioShowcase: React.FC = () => {
               </div>
 
               {/* ---------------------------------------------------------
-                  LEFT INNER FACE (Visible when unfolded: rotateY === 0deg)
+                  LEFT INNER SCREEN (Visible when book opens: rotateY === 0deg)
                  --------------------------------------------------------- */}
               <div
                 className="rs-leaf-face rs-leaf-face--inner-left"
                 aria-hidden={isFolded}
-                inert={isFolded}
+                inert={isFolded ? true : undefined}
               >
-                <span className="rs-hw-btn rs-hw-btn--vol-up" />
-                <span className="rs-hw-btn rs-hw-btn--vol-dn" />
+                <span className="rs-ti-side-btn rs-ti-side-btn--left-top" aria-hidden="true" />
+                <span className="rs-ti-side-btn rs-ti-side-btn--left-bot" aria-hidden="true" />
 
-                <div className="rs-ios-screen rs-ios-screen--left">
+                <div className="rs-ios-display rs-ios-display--inner-left">
                   {posture !== 'whatsapp-duo' ? (
-                    /* =====================================================
-                       AUTHENTIC iOS 18 HOME SCREEN (LEFT PANE: WIDGET + APPS)
-                       ===================================================== */
-                    <div className="rs-ios-homescreen rs-ios-wallpaper-dark">
+                    <div className="rs-ios-homescreen">
                       <div className="rs-ios-statusbar">
                         <span className="rs-ios-time">02:48 · 5G</span>
-                        <div className="rs-dynamic-island rs-dynamic-island--sm" />
                         <span className="rs-ios-carrier">Jio True5G</span>
                       </div>
 
-                      {/* Real iOS Live Activity Delivery Widget */}
+                      {/* Solid iOS Widgets */}
                       <div className="rs-ios-widget-row">
-                        <div className="rs-ios-widget">
+                        <div className="rs-solid-widget">
                           <div className="rs-ios-widget__top">
-                            <PackageCheck size={15} className="rs-emerald-icon" />
-                            <span>DELHIVERY · LIVE</span>
+                            <PackageCheck size={14} className="rs-emerald-icon" />
+                            <span>DELHIVERY</span>
                           </div>
                           <strong>AWB #4023118876</strong>
-                          <small>COD ₹1,240 · NDR Alert</small>
+                          <small>COD ₹1,240 · NDR Hit</small>
                         </div>
 
-                        <div className="rs-ios-widget">
+                        <div className="rs-solid-widget">
                           <div className="rs-ios-widget__top">
-                            <Calendar size={15} className="rs-vermilion-icon" />
+                            <Calendar size={14} className="rs-vermilion-icon" />
                             <span>WEDNESDAY</span>
                           </div>
                           <strong className="rs-widget-big-num">21</strong>
-                          <small>1 Action Required</small>
+                          <small>1 Unread Alert</small>
                         </div>
                       </div>
 
-                      {/* Authentic 4x2 iOS Squircle App Icon Grid */}
+                      {/* 4x2 iOS App Icon Grid with WhatsApp (1) */}
                       <div className="rs-ios-app-grid">
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--mail">
-                            <Mail size={22} />
+                            <Mail size={21} />
                           </div>
                           <span>Mail</span>
                         </div>
 
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--maps">
-                            <Navigation size={22} />
+                            <Navigation size={21} />
                           </div>
                           <span>Maps</span>
                         </div>
 
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--photos">
-                            <Camera size={22} />
+                            <Camera size={21} />
                           </div>
                           <span>Photos</span>
                         </div>
 
-                        {/* PULSING WHATSAPP ICON WITH (1) UNREAD BADGE */}
                         <button
                           type="button"
                           className="rs-ios-app rs-ios-app--interactive"
@@ -571,7 +572,7 @@ export const FoldfolioShowcase: React.FC = () => {
                           aria-label="Open WhatsApp with 1 unread message from RescueShip"
                         >
                           <div className="rs-ios-squircle rs-squircle--whatsapp">
-                            <svg viewBox="0 0 24 24" width="28" height="28" fill="currentColor">
+                            <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
                               <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824z" />
                             </svg>
                             <span className="rs-ios-badge">1</span>
@@ -581,28 +582,28 @@ export const FoldfolioShowcase: React.FC = () => {
 
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--clock">
-                            <Clock size={22} />
+                            <Clock size={21} />
                           </div>
                           <span>Clock</span>
                         </div>
 
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--delhivery">
-                            <ShieldCheck size={22} />
+                            <ShieldCheck size={21} />
                           </div>
                           <span>Delhivery</span>
                         </div>
 
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--safari">
-                            <Compass size={22} />
+                            <Compass size={21} />
                           </div>
                           <span>Safari</span>
                         </div>
 
                         <div className="rs-ios-app">
                           <div className="rs-ios-squircle rs-squircle--settings">
-                            <Settings size={22} />
+                            <Settings size={21} />
                           </div>
                           <span>Settings</span>
                         </div>
@@ -611,9 +612,7 @@ export const FoldfolioShowcase: React.FC = () => {
                       <div className="rs-ios-homebar" />
                     </div>
                   ) : (
-                    /* =====================================================
-                       AUTHENTIC iOS WHATSAPP LEFT SCREEN: CHATS LIST SIDEBAR
-                       ===================================================== */
+                    /* LEFT PAGE OF WHATSAPP: OFFICIAL CHATS LIST SIDEBAR */
                     <div className="rs-wa-sidebar">
                       <div className="rs-wa-sidebar__top">
                         <button
@@ -632,16 +631,15 @@ export const FoldfolioShowcase: React.FC = () => {
 
                       <div className="rs-wa-search">
                         <Search size={13} />
-                        <span>Ask Meta AI or Search</span>
+                        <span>Search or Ask Meta AI</span>
                       </div>
 
                       <div className="rs-wa-filters">
                         <span className="is-active">All</span>
                         <span>Unread (1)</span>
-                        <span>Orders</span>
+                        <span>Business</span>
                       </div>
 
-                      {/* Active Chat Row: RescueShip Delivery Support ✓ */}
                       <div className="rs-wa-chat-list">
                         <div className="rs-wa-chat-row is-selected">
                           <div className="rs-wa-avatar">RS</div>
@@ -651,31 +649,29 @@ export const FoldfolioShowcase: React.FC = () => {
                               <span className="rs-wa-chat-row__time">{lastMsg.time}</span>
                             </div>
                             <p className="rs-wa-chat-row__preview">
-                              {lastMsg.text.replace(/\*/g, '').slice(0, 52)}...
+                              {lastMsg.text.replace(/\*/g, '').slice(0, 44)}...
                             </p>
                           </div>
                         </div>
 
-                        {/* Secondary Muted Chat Rows for Authentic iOS WhatsApp Realism */}
                         <div className="rs-wa-chat-row is-muted">
                           <div className="rs-wa-avatar rs-wa-avatar--neutral">DL</div>
                           <div className="rs-wa-chat-row__body">
                             <div className="rs-wa-chat-row__head">
-                              <strong>Delhivery Express Updates</strong>
+                              <strong>Delhivery Express</strong>
                               <span>09:14 AM</span>
                             </div>
                             <p className="rs-wa-chat-row__preview">
-                              Shipment AWB #4023118876 is out for delivery...
+                              AWB #4023118876 is out for delivery today
                             </p>
                           </div>
                         </div>
                       </div>
 
-                      {/* Live Courier API Status Footer inside Left Sidebar */}
                       <div className="rs-wa-sidebar__telemetry">
                         <div className="rs-wa-sidebar__telemetry-head">
                           <span>● LIVE COURIER API</span>
-                          <strong>₹430 RTO Protected</strong>
+                          <strong>₹430 RTO Saved</strong>
                         </div>
                         <p>
                           {stage === 'STAGE_1_PRE_DELIVERY' &&
@@ -701,34 +697,22 @@ export const FoldfolioShowcase: React.FC = () => {
             </motion.div>
 
             {/* ===========================================================
-                CENTER TITANIUM FOLD HINGE SEAM
+                RIGHT PAGE OF THE BOOK (330px × 560px)
+                Flush against the left page with a hairline center book crease!
                =========================================================== */}
-            <div className="rs-book-hinge" aria-hidden="true">
-              <span className="rs-book-hinge__cap" />
-              <span className="rs-book-hinge__line" />
-              <span className="rs-book-hinge__cap" />
-            </div>
-
-            {/* ===========================================================
-                RIGHT LEAF (388px rigid width — visible when unfolded)
-               =========================================================== */}
-            <motion.div
-              className="rs-book-leaf rs-book-leaf--right"
-              animate={{
-                opacity: isFolded ? 0 : 1,
-              }}
-              transition={{ duration: 0.22 }}
+            <div
+              className={`rs-book-leaf rs-book-leaf--right ${isFolded ? 'is-covered' : ''}`}
               aria-hidden={isFolded}
-              inert={isFolded}
+              inert={isFolded ? true : undefined}
             >
-              <span className="rs-hw-btn rs-hw-btn--power" />
+              {/* Subtle Book-Fold Crease Shadow along the center seam */}
+              <div className="rs-book-crease-line" aria-hidden="true" />
 
-              <div className="rs-ios-screen rs-ios-screen--right">
+              <span className="rs-ti-side-btn rs-ti-side-btn--right" aria-hidden="true" />
+
+              <div className="rs-ios-display rs-ios-display--inner-right">
                 {posture !== 'whatsapp-duo' ? (
-                  /* =======================================================
-                     AUTHENTIC iOS 18 HOME SCREEN (RIGHT PANE: BANNER + DOCK)
-                     ======================================================= */
-                  <div className="rs-ios-homescreen rs-ios-wallpaper-dark">
+                  <div className="rs-ios-homescreen">
                     <div className="rs-ios-statusbar">
                       <span className="rs-ios-carrier">RescueShip OS</span>
                       <div className="rs-ios-StatusIcons">
@@ -738,10 +722,10 @@ export const FoldfolioShowcase: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Top Clickable Frosted iOS Notification Banner */}
+                    {/* Top Clickable iOS Notification Banner */}
                     <button
                       type="button"
-                      className="rs-ios-glass-notif"
+                      className="rs-solid-notif-card"
                       onClick={() => {
                         setUserInteracted(true);
                         setPosture('whatsapp-duo');
@@ -756,36 +740,36 @@ export const FoldfolioShowcase: React.FC = () => {
                       <div className="rs-ios-notif__body">
                         <div className="rs-ios-notif__row">
                           <strong>RescueShip Delivery Support ✓</strong>
-                          <span>Tap to Open</span>
+                          <span>Open Chat</span>
                         </div>
                         <p>
-                          “🚚 Out for Delivery: Your order AWB #4023118876 is out with Delhivery...”
+                          Tap here or on the WhatsApp (1) icon to launch the live rescue chat.
                         </p>
                       </div>
                     </button>
 
-                    {/* Center Glass Order Telemetry Card on Right Home Screen */}
-                    <div className="rs-ios-glass-card">
+                    <div className="rs-solid-info-card">
                       <div className="rs-ios-glass-card__row">
-                        <span>PARCEL LIFECYCLE</span>
-                        <strong>SEQUENTIAL DEMO</strong>
+                        <span>BOOK-OPEN DUAL DISPLAY</span>
+                        <strong>SEQUENTIAL FLOW</strong>
                       </div>
                       <p>
-                        Tap the <strong>WhatsApp (1)</strong> icon on the home screen or dock to
-                        experience Pre-Delivery UPI, Afternoon NDR Hit, and Final GPS Pin + Skip.
+                        Walks through <strong>Pre-Delivery UPI</strong> and{' '}
+                        <strong>Afternoon NDR Intercept</strong> sequentially, ending with{' '}
+                        <strong>Share Location Pin + Skip</strong> in both paths.
                       </p>
                     </div>
 
-                    {/* Authentic Frosted iOS Bottom Dock */}
-                    <div className="rs-ios-dock">
+                    {/* Bottom iOS Dock */}
+                    <div className="rs-solid-dock">
                       <div className="rs-ios-squircle rs-squircle--phone">
-                        <Phone size={22} />
+                        <Phone size={21} />
                       </div>
                       <div className="rs-ios-squircle rs-squircle--safari">
-                        <Compass size={22} />
+                        <Compass size={21} />
                       </div>
                       <div className="rs-ios-squircle rs-squircle--messages">
-                        <MessageCircle size={22} />
+                        <MessageCircle size={21} />
                       </div>
                       <button
                         type="button"
@@ -797,7 +781,7 @@ export const FoldfolioShowcase: React.FC = () => {
                         aria-label="Launch WhatsApp from iOS Dock"
                       >
                         <div className="rs-ios-squircle rs-squircle--whatsapp">
-                          <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+                          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                             <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771z" />
                           </svg>
                           <span className="rs-ios-badge">1</span>
@@ -806,9 +790,7 @@ export const FoldfolioShowcase: React.FC = () => {
                     </div>
                   </div>
                 ) : (
-                  /* =======================================================
-                     AUTHENTIC iOS WHATSAPP RIGHT SCREEN: LIVE CONVERSATION
-                     ======================================================= */
+                  /* RIGHT PAGE OF WHATSAPP: LIVE SEQUENTIAL CHAT */
                   <div className="rs-wa-pane">
                     <div className="rs-wa-header">
                       <div className="rs-wa-avatar">RS</div>
@@ -826,7 +808,6 @@ export const FoldfolioShowcase: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Sequential Step Switcher inside Chat */}
                     <div className="rs-wa-progress-bar">
                       <button
                         type="button"
@@ -992,7 +973,7 @@ export const FoldfolioShowcase: React.FC = () => {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </div>
           </motion.div>
         </div>
       </div>
