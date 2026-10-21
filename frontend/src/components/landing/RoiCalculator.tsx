@@ -1,4 +1,4 @@
-import { useState, useId } from 'react';
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import { estimate, recommendedPlan, planByKey, type PlanKey } from '../../config/pricing.config';
 import { Calculator, ShieldCheck, Flame, TrendingUp } from 'lucide-react';
@@ -14,9 +14,6 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
   const [codShare, setCodShare] = useState(60);
   const [rtoRate, setRtoRate] = useState(25);
 
-  const ordersSliderId = useId();
-  const codSliderId = useId();
-  const rtoSliderId = useId();
 
   const metrics = { codPct: codShare / 100, codRtoRate: rtoRate / 100 };
   const plan = planByKey(selectedPlan || recommendedPlan(orders, metrics));
@@ -52,7 +49,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
             {/* Slider 1: Monthly Orders */}
             <div className="roi__field rs-slider-group">
               <div className="roi__field-head rs-slider-label-row">
-                <label htmlFor={ordersSliderId} className="roi__label">
+                <label htmlFor="roi-orders" className="roi__label">
                   Monthly orders
                 </label>
                 <span className="roi__val-badge rs-nowrap-num" aria-live="polite">
@@ -60,7 +57,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
                 </span>
               </div>
               <input
-                id={ordersSliderId}
+                id="roi-orders"
                 type="range"
                 className="roi__range rs-vermilion-slider"
                 aria-label="Monthly orders"
@@ -75,7 +72,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
             {/* Slider 2: COD Share */}
             <div className="roi__field rs-slider-group">
               <div className="roi__field-head rs-slider-label-row">
-                <label htmlFor={codSliderId} className="roi__label">
+                <label htmlFor="roi-cod" className="roi__label">
                   COD share
                 </label>
                 <span className="roi__val-badge rs-nowrap-num" aria-live="polite">
@@ -83,7 +80,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
                 </span>
               </div>
               <input
-                id={codSliderId}
+                id="roi-cod"
                 type="range"
                 className="roi__range rs-vermilion-slider"
                 aria-label="COD share"
@@ -98,7 +95,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
             {/* Slider 3: Current RTO Rate */}
             <div className="roi__field rs-slider-group">
               <div className="roi__field-head rs-slider-label-row">
-                <label htmlFor={rtoSliderId} className="roi__label">
+                <label htmlFor="roi-rto" className="roi__label">
                   Current RTO rate
                 </label>
                 <span className="roi__val-badge rs-nowrap-num" aria-live="polite">
@@ -106,7 +103,7 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
                 </span>
               </div>
               <input
-                id={rtoSliderId}
+                id="roi-rto"
                 type="range"
                 className="roi__range rs-vermilion-slider"
                 aria-label="Current RTO rate"
@@ -138,7 +135,6 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
           {/* Results Output Panel (Clean Storm Lab Readout - Zero Tear Stub, Zero Purple) */}
           <div className="roi__out" aria-live="polite" role="region" aria-label="Projected recovery math">
             <div className="roi__out-ticket-top">
-              <span className="roi__out-serial">RS/SIM.01-OUT // WAYBILL LEDGER</span>
               <span className="roi__out-status-tag">
                 <ShieldCheck size={13} aria-hidden="true" />
                 VERIFIED RECOVERY MODEL

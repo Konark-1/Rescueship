@@ -421,8 +421,10 @@ export const FoldfolioShowcase: React.FC = () => {
                =========================================================== */}
             <motion.div
               className="rs-book-leaf rs-book-leaf--left"
+              style={{ z: 3 }}
               animate={{
                 rotateY: currentAngle,
+                z: 3,
               }}
               transition={
                 manualAngle !== null
@@ -746,8 +748,9 @@ export const FoldfolioShowcase: React.FC = () => {
                 Naturally covered by the left page when closed at 180deg, and
                 smoothly uncovered as the left page swings open!
                =========================================================== */}
-            <div
+            <motion.div
               className="rs-book-leaf rs-book-leaf--right"
+              style={{ z: 0, pointerEvents: isMostlyOpen ? "auto" : "none" }}
               aria-hidden={!isMostlyOpen}
               inert={!isMostlyOpen ? true : undefined}
             >
@@ -1071,7 +1074,7 @@ export const FoldfolioShowcase: React.FC = () => {
                   )}
                 </AnimatePresence>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
         </div>
       </div>

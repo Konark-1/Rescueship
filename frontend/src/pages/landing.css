@@ -2015,10 +2015,9 @@ section[id] {
 .roi__val-badge {
   font-family: var(--font-mono);
   font-size: 0.82rem;
-  font-weight: 700;
-  color: var(--indigo-soft);
-  background: var(--indigo-12);
-  border: 1px solid var(--indigo-25);
+  color: var(--text-1, #f4f1ea);
+  background: color-mix(in srgb, var(--signal, #ff3b1d) 20%, transparent);
+  border: 1px solid color-mix(in srgb, var(--signal, #ff3b1d) 40%, transparent);
   padding: 2px 8px;
   border-radius: var(--radius-sm);
   font-variant-numeric: tabular-nums;
@@ -2033,7 +2032,7 @@ section[id] {
   border-radius: 6px;
   outline: none;
   cursor: pointer;
-  accent-color: var(--indigo);
+  accent-color: var(--signal, #ff3b1d);
 }
 
 .roi__range::-webkit-slider-thumb {
@@ -2041,10 +2040,10 @@ section[id] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--indigo);
+  background: var(--signal, #ff3b1d);
   border: 2px solid var(--text-1);
   cursor: pointer;
-  box-shadow: 0 0 12px var(--indigo-60);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--signal, #ff3b1d) 60%, transparent);
   transition: transform 0.1s ease;
 }
 
@@ -2057,10 +2056,10 @@ section[id] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--indigo);
+  background: var(--signal, #ff3b1d);
   border: 2px solid var(--text-1);
   cursor: pointer;
-  box-shadow: 0 0 12px var(--indigo-60);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--signal, #ff3b1d) 60%, transparent);
 }
 
 .roi__range::-moz-range-track {
@@ -2126,12 +2125,13 @@ section[id] {
 
 .roi__out-amount {
   font-family: 'Barlow Condensed', var(--font-display);
-  font-size: clamp(2.5rem, 6vw, 3.8rem);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
   font-weight: 800;
   color: var(--emerald);
-  line-height: 0.95;
+  line-height: 1.05;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+  white-space: nowrap !important;
   text-shadow: 0 0 30px var(--emerald-20);
 }
 
@@ -2361,7 +2361,7 @@ section[id] {
   border-radius: 6px;
   outline: none;
   cursor: pointer;
-  accent-color: var(--indigo);
+  accent-color: var(--signal, #ff3b1d);
   margin-bottom: var(--space-4);
 }
 
@@ -2371,10 +2371,10 @@ section[id] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--indigo);
+  background: var(--signal, #ff3b1d);
   border: 2px solid var(--text-1);
   cursor: pointer;
-  box-shadow: 0 0 12px var(--indigo-60);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--signal, #ff3b1d) 60%, transparent);
   transition: transform 0.1s ease;
 }
 
@@ -2389,10 +2389,10 @@ section[id] {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--indigo);
+  background: var(--signal, #ff3b1d);
   border: 2px solid var(--text-1);
   cursor: pointer;
-  box-shadow: 0 0 12px var(--indigo-60);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--signal, #ff3b1d) 60%, transparent);
 }
 
 .plan-picker__slider::-moz-range-track,
@@ -2471,9 +2471,9 @@ section[id] {
 
 .plan-picker__card.is-selected,
 .bl-tier-card.is-selected {
-  background: var(--indigo-08);
-  border-color: var(--indigo);
-  box-shadow: 0 0 24px var(--indigo-20);
+  background: color-mix(in srgb, var(--signal, #ff3b1d) 8%, var(--bg-surface));
+  border-color: var(--signal, #ff3b1d);
+  box-shadow: 0 0 24px color-mix(in srgb, var(--signal, #ff3b1d) 20%, transparent);
 }
 
 .bl-tier-card__left {
@@ -2495,8 +2495,8 @@ section[id] {
 }
 
 .bl-tier-card.is-selected .bl-tier-card__radio {
-  border-color: var(--indigo);
-  background: var(--indigo);
+  border-color: var(--signal, #ff3b1d);
+  background: var(--signal, #ff3b1d);
 }
 
 .bl-tier-card__radio-dot {
@@ -2528,15 +2528,15 @@ section[id] {
 
 .bl-tier-card__badge {
   font-family: var(--font-mono);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--indigo-soft);
-  background: var(--indigo-20);
-  border: 1px solid var(--indigo-35);
-  padding: 1px 7px;
+  padding: 2px 7px;
   border-radius: var(--radius-full);
+  color: var(--bg-void, #0e0e0d);
+  background: var(--signal, #ff3b1d);
+  border: 1px solid var(--signal, #ff3b1d);
 }
 
 .bl-tier-card__volume {
@@ -4463,9 +4463,16 @@ section[id] {
 }
 
 .lp-chapter--paper .bl-tier-card__badge {
-  background: var(--signal-soft);
-  color: var(--indigo-dark);
-  border-color: var(--signal-border);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+  color: var(--bg-void, #0e0e0d);
+  background: var(--signal, #ff3b1d);
+  border: 1px solid var(--signal, #ff3b1d);
 }
 
 .lp-chapter--paper .bl-tier-card.is-selected,
@@ -4890,8 +4897,7 @@ html {
 
 /* Chapter 05: Studio OS Workspace Split View */
 .nt-pricing-viewport {
-  max-height: calc(100dvh - 180px);
-  overflow-y: auto;
+  width: 100%;
 }
 
 .nt-pricing-split {
@@ -7978,16 +7984,17 @@ html {
 
 .rs-bleed-formula__row,
 .rs-bleed-formula__total {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
+  padding-top: 0.4rem;
+  border-top: 1px dashed rgb(14 14 13 / 22%);
+  font-weight: 700;
+  color: var(--signal-dark, #991b1b);
 }
 
 .rs-bleed-formula__total {
   padding-top: 0.4rem;
   border-top: 1px dashed rgb(14 14 13 / 22%);
   font-weight: 700;
-  color: var(--signal-hover);
+  color: var(--signal-dark, #991b1b);
 }
 
 .rs-burn-icon {
@@ -8154,4 +8161,12 @@ html {
   .rs-book-stage {
     transform: scale(0.46);
   }
+}
+
+/* ZERO TEAR STUBS & WAYBILL MONOSPACE CLUTTER */
+.bl-tier-card__waybill-bar,
+.bl-tier-card__tear,
+.roi__out-tear,
+.lp-pass__tear {
+  display: none !important;
 }

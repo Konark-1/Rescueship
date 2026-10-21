@@ -13,12 +13,6 @@ export interface PlanPickerProps {
   hideSlider?: boolean;
 }
 
-const PLAN_WAYBILL_CODES: Record<string, string> = {
-  rescue: 'RS/PKG.01-RES',
-  convert: 'RS/PKG.02-CNV',
-  prevent: 'RS/PKG.03-PRV',
-};
-
 /**
  * Landing plan picker: the plan sets the features, the monthly order volume sets the price.
  */
@@ -101,7 +95,6 @@ export function PlanPicker({
           const isRec = plan.key === recommended;
           const e = estimate(volume, {}, plan.key);
           const p = band ? priceFor(plan.key, band, 'quarterly') : null;
-          const waybillCode = PLAN_WAYBILL_CODES[plan.key] || 'RS/PKG.00';
 
           return (
             <div
@@ -118,12 +111,12 @@ export function PlanPicker({
                 }
               }}
             >
-              <div className="bl-tier-card__waybill-bar">
-                <span className="bl-tier-card__serial">{waybillCode} // WAYBILL SPEC</span>
-              </div>
 
               <div className="bl-tier-card__body">
                 <div className="bl-tier-card__left">
+                  <div className="bl-tier-card__radio" aria-hidden="true">
+                    {isSelected && <span className="bl-tier-card__radio-dot" />}
+                  </div>
                   <div className="bl-tier-card__info">
                     <div className="bl-tier-card__title-row">
                       <span className="bl-tier-card__name">{plan.name}</span>
