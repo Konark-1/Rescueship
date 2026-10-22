@@ -100,7 +100,7 @@ export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
           // When closed: slight yaw to showcase titanium rim and side buttons
           // When open: flat head-on framing
           const targetYaw = -0.10 * (1 - currentOpen);
-          const targetDistance = MathUtils.lerp(46, 48, currentOpen);
+          const targetDistance = MathUtils.lerp(34.0, 35.5, currentOpen);
           const targetPitch = MathUtils.lerp(1.57, 1.51, currentOpen);
 
           stage.applyView({

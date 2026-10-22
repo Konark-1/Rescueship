@@ -16,8 +16,8 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 const CAMERA_DISTANCE = 40;
 const HINGE_DEPTH = 0.275454;
-const FRAMED_WIDTH = 17;
-const FRAMED_HEIGHT = 16.5;
+const FRAMED_WIDTH = 13.5;
+const FRAMED_HEIGHT = 13.0;
 const FRAME_DAMPING = 9;
 const MAX_BOTTOM_CARVE = 0.65;
 export interface StageView {

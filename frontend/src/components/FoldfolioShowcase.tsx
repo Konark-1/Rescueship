@@ -12,7 +12,6 @@ import {
   Phone,
   Video,
   RotateCcw,
-  Lock,
   Wifi,
   BatteryCharging,
   Camera,
@@ -25,7 +24,14 @@ import {
   Activity,
   CheckCircle2,
   Sparkles,
-  Bell,
+  Sun,
+  FileText,
+  CheckSquare,
+  Folder,
+  Music,
+  ShoppingBag,
+  HeartPulse,
+  CreditCard,
 } from 'lucide-react';
 import { IPhoneDuoViewer } from './iphone-duo/IPhoneDuoViewer';
 
@@ -120,14 +126,14 @@ export const FoldfolioShowcase: React.FC = () => {
   const notifPopT = Math.max(0, Math.min(1, (activeP - 0.05) / 0.11));
 
   // Openness: 0 (closed at 180deg) -> 1 (flat open at 0deg)
-  const openness = Math.max(0, Math.min(1, (activeP - 0.20) / 0.32));
+  const openness = Math.max(0, Math.min(1, (activeP - 0.18) / 0.26));
 
   // Current hinge angle in degrees: 180deg (closed) -> 0deg (flat open)
   const currentAngle = (1 - openness) * 180;
   const isCoverFacing = currentAngle > 90;
 
-  // Center the phone horizontally: -165px when closed -> 0px when flat open
-  const shiftX = -165 * (1 - openness);
+  // Center the phone horizontally: -210px when closed -> 0px when flat open (leaf width 420px)
+  const shiftX = -210 * (1 - openness);
 
   // Subtle 3D perspective pitch & yaw during swing (peaks around 90deg like in reference)
   const swingArcTiltX = Math.sin(openness * Math.PI) * 7;
@@ -136,12 +142,9 @@ export const FoldfolioShowcase: React.FC = () => {
   // Crease shadow cast over the right leaf dissolves from 0.92 -> 0 as phone opens
   const creaseShadowAlpha = (1 - openness) * 0.92;
 
-  // App launch expansion (Phase 3: 0.52 -> 0.74)
-  const appExpandT = Math.max(0, Math.min(1, (activeP - 0.52) / 0.22));
+  // App launch expansion (Phase 3: 0.54 -> 0.74)
+  const appExpandT = Math.max(0, Math.min(1, (activeP - 0.54) / 0.20));
   const dashboardLive = activeP >= 0.70;
-
-  // Notification width expansion across the flat inner screen
-  const notifWidthPx = 296 + openness * 314;
 
   // Sequential WhatsApp flow state
   const [stage, setStage] = useState<FlowStage>('STAGE_1_PRE_DELIVERY');
@@ -396,8 +399,8 @@ export const FoldfolioShowcase: React.FC = () => {
             <button
               type="button"
               role="tab"
-              aria-selected={activeP >= 0.22 && activeP < 0.50}
-              className={`rs-fold-chip ${activeP >= 0.22 && activeP < 0.50 ? 'is-active' : ''}`}
+              aria-selected={activeP >= 0.22 && activeP < 0.54}
+              className={`rs-fold-chip ${activeP >= 0.22 && activeP < 0.54 ? 'is-active' : ''}`}
               onClick={() => jumpToStage(0.48)}
             >
               2. Unfolded Home
@@ -405,17 +408,17 @@ export const FoldfolioShowcase: React.FC = () => {
             <button
               type="button"
               role="tab"
-              aria-selected={activeP >= 0.50 && activeP < 0.72}
-              className={`rs-fold-chip ${activeP >= 0.50 && activeP < 0.72 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.62)}
+              aria-selected={activeP >= 0.54 && activeP < 0.74}
+              className={`rs-fold-chip ${activeP >= 0.54 && activeP < 0.74 ? 'is-active' : ''}`}
+              onClick={() => jumpToStage(0.64)}
             >
               3. iOS App Launch
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={activeP >= 0.72}
-              className={`rs-fold-chip ${activeP >= 0.72 ? 'is-active' : ''}`}
+              aria-selected={activeP >= 0.74}
+              className={`rs-fold-chip ${activeP >= 0.74 ? 'is-active' : ''}`}
               onClick={() => jumpToStage(0.88)}
             >
               4. Live Chat + Dashboard
@@ -546,7 +549,7 @@ export const FoldfolioShowcase: React.FC = () => {
                     <div className="rs-duo-leaf-display rs-duo-leaf-display--cover">
                       {/* Top Status Bar + Dynamic Island */}
                       <div className="rs-duo-leaf-statusbar">
-                        <span className="rs-ios-time">02:47</span>
+                        <span className="rs-ios-time">9:41</span>
                         <div className="rs-dynamic-island">
                           <span className="rs-island-cam" />
                         </div>
@@ -556,29 +559,10 @@ export const FoldfolioShowcase: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Lock Screen Body */}
+                      {/* Lock Screen Body (native 9:41 clock is rendered by 3D model texture) */}
                       <div className="rs-lockscreen-body">
-                        <div className="rs-lockscreen-clock">
-                          <div className="rs-lockscreen-date">
-                            <Lock size={11} /> Wednesday, 21 October
-                          </div>
-                          <div className="rs-lockscreen-digits">02:47</div>
-                        </div>
-
-                        {/* Lock Screen Hint before WhatsApp Notification arrives */}
-                        {notifPopT < 0.35 && (
-                          <button
-                            type="button"
-                            className="rs-duo-lock-hint"
-                            onClick={() => jumpToStage(0.14)}
-                          >
-                            <Bell size={13} />
-                            <span>Scroll down or tap to receive courier NDR alert ↓</span>
-                          </button>
-                        )}
-
-                        {/* WhatsApp Notification: Pops in with iOS spring physics */}
-                        {notifPopT > 0.02 && (
+                        {/* WhatsApp Notification: Pops in with iOS spring physics below the native 9:41 clock */}
+                        {notifPopT > 0.02 && isCoverFacing && (
                           <div
                             className="rs-duo-cover-notif"
                             style={{
@@ -631,8 +615,8 @@ export const FoldfolioShowcase: React.FC = () => {
                   <div className="rs-duo-leaf-chassis rs-duo-leaf-chassis--inner-left">
                     <div className="rs-duo-leaf-display rs-duo-leaf-display--inner-left">
                       <div className="rs-duo-leaf-statusbar">
-                        <span className="rs-ios-time">02:47 · 5G</span>
-                        <span className="rs-duo-carrier-tag">Jio True5G</span>
+                        <span className="rs-ios-time">9:41 · 5G</span>
+                        <span className="rs-duo-carrier-tag">5G</span>
                       </div>
                       <div className="rs-duo-wallpaper-glow" />
                     </div>
@@ -643,25 +627,25 @@ export const FoldfolioShowcase: React.FC = () => {
 
             {/* =========================================================
                 SEAMLESS FLAT PANORAMIC OVERLAY
-                Renders when phone is flat open (openness >= 0.70)
-                Contains the expanded notification banner, app grid,
+                Renders when phone is flat open
+                Contains the dual-page iOS Home Screen, widgets, app grid,
                 iOS app-launch morph, WhatsApp chat, and live Dashboard!
                ========================================================= */}
             <div
               className="rs-duo-panoramic-overlay"
               style={{
-                opacity: Number(Math.max(0, (openness - 0.7) / 0.3).toFixed(2)),
-                pointerEvents: openness > 0.85 ? 'auto' : 'none',
+                opacity: Number(Math.max(0, Math.min(1, (openness - 0.45) / 0.40)).toFixed(2)),
+                pointerEvents: openness > 0.75 ? 'auto' : 'none',
               }}
-              aria-hidden={openness <= 0.85}
-              inert={openness <= 0.85 ? true : undefined}
+              aria-hidden={openness <= 0.75}
+              inert={openness <= 0.75 ? true : undefined}
             >
               <div className="rs-duo-panoramic-bezel">
                 {/* Continuous Top Status Bar */}
                 <div className="rs-duo-continuous-status">
                   <div className="rs-duo-status-left">
-                    <span>02:47</span>
-                    <span className="rs-duo-carrier-tag">Jio True5G</span>
+                    <span>9:41</span>
+                    <span className="rs-duo-carrier-tag">5G</span>
                   </div>
                   <div className="rs-dynamic-island">
                     <span className="rs-island-cam" />
@@ -673,7 +657,7 @@ export const FoldfolioShowcase: React.FC = () => {
                   </div>
                 </div>
 
-                {/* LAYER 1: UNFOLDED HOME SCREEN + EXPANDED NOTIFICATION BANNER */}
+                {/* LAYER 1: AUTHENTIC iPHONE DUO DUAL-PAGE iOS HOME SCREEN */}
                 <div
                   className="rs-duo-home-layer"
                   style={{
@@ -684,110 +668,213 @@ export const FoldfolioShowcase: React.FC = () => {
                   aria-hidden={appExpandT > 0.5}
                   inert={appExpandT > 0.5 ? true : undefined}
                 >
-                  <div className="rs-duo-clock-wrap">
-                    <div className="rs-lockscreen-date">
-                      <Lock size={11} /> Wednesday, 21 October
-                    </div>
-                    <div className="rs-lockscreen-digits">02:47</div>
-                  </div>
+                  <div className="rs-duo-dual-homescreen">
+                    {/* LEFT SCREEN (PAGE 1: WIDGETS + APPS) */}
+                    <div className="rs-duo-home-page rs-duo-home-page--left">
+                      {/* Top Widgets Row: 2x2 Weather + 2x2 Telemetry */}
+                      <div className="rs-duo-widgets-row">
+                        {/* iOS Weather Widget (2x2) */}
+                        <div className="rs-ios-widget rs-ios-widget--weather">
+                          <div className="rs-ios-widget__header">
+                            <span className="rs-ios-widget__city">Gurugram</span>
+                            <Sun size={18} className="rs-weather-sun-icon" />
+                          </div>
+                          <div className="rs-ios-widget__temp">28°</div>
+                          <div className="rs-ios-widget__condition">Sunny</div>
+                          <div className="rs-ios-widget__hi-lo">H:32° L:22° · AQI 84</div>
+                        </div>
 
-                  {/* Wide Unfolded Notification Banner with glowing green action button */}
-                  <div
-                    className="rs-duo-expanding-notif"
-                    style={{ width: `${notifWidthPx.toFixed(0)}px` }}
-                    onClick={() => jumpToStage(0.88)}
-                  >
-                    <div className="rs-duo-notif-main">
-                      <div className="rs-wa-squircle-sm">
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771z" />
-                        </svg>
-                        <span className="rs-notif-badge">1</span>
+                        {/* RescueShip Telemetry Widget (2x2) */}
+                        <div className="rs-ios-widget rs-ios-widget--telemetry">
+                          <div className="rs-ios-widget__header">
+                            <span className="rs-ios-widget__brand">RescueShip</span>
+                            <span className="rs-widget-pulse-dot" />
+                          </div>
+                          <div className="rs-telemetry-val">₹430</div>
+                          <div className="rs-telemetry-lbl">RTO Bleed Shield</div>
+                          <div className="rs-telemetry-meta">AWB #4023118876 · Active</div>
+                        </div>
                       </div>
 
-                      <div className="rs-duo-notif-copy">
-                        <div className="rs-duo-notif-head">
-                          <strong>RescueShip Delivery Support ✓</strong>
-                          <span className="rs-duo-notif-time">
-                            Official WhatsApp Business · AWB #4023118876
-                          </span>
+                      {/* 4x2 App Grid Left */}
+                      <div className="rs-ios-app-grid">
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--mail">
+                            <Mail size={20} />
+                          </div>
+                          <span>Mail</span>
                         </div>
-                        <p>
-                          🚚 Out for Delivery & NDR Protection Active (COD ₹1,240). Tap or keep
-                          scrolling to launch live rescue chat.
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--maps">
+                            <Navigation size={20} />
+                          </div>
+                          <span>Maps</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--photos">
+                            <Camera size={20} />
+                          </div>
+                          <span>Photos</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--camera">
+                            <Camera size={20} />
+                          </div>
+                          <span>Camera</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--notes">
+                            <FileText size={20} />
+                          </div>
+                          <span>Notes</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--reminders">
+                            <CheckSquare size={20} />
+                          </div>
+                          <span>Reminders</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--files">
+                            <Folder size={20} />
+                          </div>
+                          <span>Files</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--settings">
+                            <Settings size={20} />
+                          </div>
+                          <span>Settings</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* CENTER HINGE CREASE SEPARATOR */}
+                    <div className="rs-duo-inner-crease" aria-hidden="true" />
+
+                    {/* RIGHT SCREEN (PAGE 2: LIVE ACTIVITY NOTIFICATION + WHATSAPP) */}
+                    <div className="rs-duo-home-page rs-duo-home-page--right">
+                      {/* Live Activity Notification Banner Card */}
+                      <div
+                        className="rs-duo-home-activity-card"
+                        onClick={() => jumpToStage(0.88)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') jumpToStage(0.88);
+                        }}
+                        aria-label="Launch WhatsApp Rescue Chat"
+                      >
+                        <div className="rs-activity-card__top">
+                          <div className="rs-activity-card__badge">
+                            <div className="rs-wa-squircle-sm">
+                              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                                <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771z" />
+                              </svg>
+                              <span className="rs-notif-badge">1</span>
+                            </div>
+                            <div>
+                              <strong>RescueShip Support ✓</strong>
+                              <span className="rs-activity-time">now · Delhivery NDR</span>
+                            </div>
+                          </div>
+                          <span className="rs-activity-cta">Open WhatsApp →</span>
+                        </div>
+                        <p className="rs-activity-msg">
+                          🚚 <strong>AWB #4023118876:</strong> Fake “Door Locked” scan intercepted (1.42 km away). Tap to resolve via WhatsApp.
                         </p>
                       </div>
 
-                      <div className="rs-duo-notif-cta-wrap">
-                        <span className="rs-duo-launch-btn">Open WhatsApp →</span>
+                      {/* 4x2 App Grid Right */}
+                      <div className="rs-ios-app-grid">
+                        <button
+                          type="button"
+                          className="rs-ios-app rs-ios-app--interactive"
+                          onClick={() => jumpToStage(0.88)}
+                          aria-label="Open WhatsApp with 1 unread message from RescueShip"
+                        >
+                          <div className="rs-ios-squircle rs-squircle--whatsapp">
+                            <MessageCircle size={22} />
+                            <span className="rs-ios-badge">1</span>
+                          </div>
+                          <span className="rs-ios-app__highlight">WhatsApp</span>
+                        </button>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--delhivery">
+                            <PackageCheck size={20} />
+                          </div>
+                          <span>Delhivery</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--safari">
+                            <Compass size={20} />
+                          </div>
+                          <span>Safari</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--clock">
+                            <Clock size={20} />
+                          </div>
+                          <span>Clock</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--music">
+                            <Music size={20} />
+                          </div>
+                          <span>Music</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--appstore">
+                            <ShoppingBag size={20} />
+                          </div>
+                          <span>App Store</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--health">
+                            <HeartPulse size={20} />
+                          </div>
+                          <span>Health</span>
+                        </div>
+                        <div className="rs-ios-app">
+                          <div className="rs-ios-squircle rs-squircle--wallet">
+                            <CreditCard size={20} />
+                          </div>
+                          <span>Wallet</span>
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* 8-App iOS Squircle Strip */}
-                  <div className="rs-duo-unfolded-apps">
-                    <div className="rs-duo-app-strip">
+                  {/* FLOATING FROSTED GLASS DOCK */}
+                  <div className="rs-duo-floating-dock-wrap">
+                    <div className="rs-duo-floating-dock">
                       <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--mail">
-                          <Mail size={19} />
+                        <div className="rs-ios-squircle rs-squircle--phone">
+                          <Phone size={21} />
                         </div>
-                        <span>Mail</span>
                       </div>
                       <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--maps">
-                          <Navigation size={19} />
+                        <div className="rs-ios-squircle rs-squircle--safari">
+                          <Compass size={21} />
                         </div>
-                        <span>Maps</span>
                       </div>
                       <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--photos">
-                          <Camera size={19} />
+                        <div className="rs-ios-squircle rs-squircle--messages">
+                          <MessageCircle size={21} />
                         </div>
-                        <span>Photos</span>
                       </div>
                       <button
                         type="button"
                         className="rs-ios-app rs-ios-app--interactive"
                         onClick={() => jumpToStage(0.88)}
-                        aria-label="Open WhatsApp with 1 unread message from RescueShip"
+                        aria-label="Open WhatsApp from dock"
                       >
                         <div className="rs-ios-squircle rs-squircle--whatsapp">
                           <MessageCircle size={21} />
                           <span className="rs-ios-badge">1</span>
                         </div>
-                        <span className="rs-ios-app__highlight">WhatsApp</span>
                       </button>
-                      <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--delhivery">
-                          <PackageCheck size={19} />
-                        </div>
-                        <span>Delhivery</span>
-                      </div>
-                      <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--clock">
-                          <Clock size={19} />
-                        </div>
-                        <span>Clock</span>
-                      </div>
-                      <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--safari">
-                          <Compass size={19} />
-                        </div>
-                        <span>Safari</span>
-                      </div>
-                      <div className="rs-ios-app">
-                        <div className="rs-ios-squircle rs-squircle--settings">
-                          <Settings size={19} />
-                        </div>
-                        <span>Settings</span>
-                      </div>
                     </div>
-                  </div>
-
-                  <div className="rs-duo-bottom-hint">
-                    <span className="rs-scroll-pill">
-                      Keep scrolling to expand WhatsApp full-screen →
-                    </span>
                     <div className="rs-ios-homebar" />
                   </div>
                 </div>

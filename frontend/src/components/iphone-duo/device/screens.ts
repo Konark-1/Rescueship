@@ -119,9 +119,11 @@ export function paintPanelLockScreen(
   front.globalCompositeOperation = 'destination-out';
   drawCover(front, lockScreen.sky, frame.width, frame.height, bias);
   drawCover(context, lockScreen.backdrop, frame.width, frame.height, bias);
-  context.drawImage(clock.time, 0, 0, frame.width, frame.height);
-  context.drawImage(foreground, 0, 0);
-  context.drawImage(clock.chrome, 0, 0, frame.width, frame.height);
+  if (panel === 'outer') {
+    context.drawImage(clock.time, 0, 0, frame.width, frame.height);
+    context.drawImage(foreground, 0, 0);
+    context.drawImage(clock.chrome, 0, 0, frame.width, frame.height);
+  }
   return canvas;
 }
 
