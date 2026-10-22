@@ -132,8 +132,8 @@ export const FoldfolioShowcase: React.FC = () => {
   const currentAngle = (1 - openness) * 180;
   const isCoverFacing = currentAngle > 90;
 
-  // Center the phone horizontally: -210px when closed -> 0px when flat open (leaf width 420px)
-  const shiftX = -210 * (1 - openness);
+  // Center the phone horizontally: -239px when closed -> 0px when flat open (leaf width 478px)
+  const shiftX = -239 * (1 - openness);
 
   // Subtle 3D perspective pitch & yaw during swing (peaks around 90deg like in reference)
   const swingArcTiltX = Math.sin(openness * Math.PI) * 7;
@@ -634,15 +634,22 @@ export const FoldfolioShowcase: React.FC = () => {
             <div
               className="rs-duo-panoramic-overlay"
               style={{
-                opacity: Number(Math.max(0, Math.min(1, (openness - 0.45) / 0.40)).toFixed(2)),
-                pointerEvents: openness > 0.75 ? 'auto' : 'none',
+                opacity: Number(Math.max(0, Math.min(1, (openness - 0.84) / 0.14)).toFixed(2)),
+                pointerEvents: openness > 0.94 ? 'auto' : 'none',
               }}
-              aria-hidden={openness <= 0.75}
-              inert={openness <= 0.75 ? true : undefined}
+              aria-hidden={openness <= 0.94}
+              inert={openness <= 0.94 ? true : undefined}
             >
               <div className="rs-duo-panoramic-bezel">
                 {/* Continuous Top Status Bar */}
-                <div className="rs-duo-continuous-status">
+                <div
+                  className="rs-duo-continuous-status"
+                  style={{
+                    opacity: Number((1 - Math.min(1, appExpandT * 1.4)).toFixed(2)),
+                    visibility: appExpandT > 0.98 ? 'hidden' : 'visible',
+                  }}
+                  aria-hidden={appExpandT > 0.5}
+                >
                   <div className="rs-duo-status-left">
                     <span>9:41</span>
                     <span className="rs-duo-carrier-tag">5G</span>
