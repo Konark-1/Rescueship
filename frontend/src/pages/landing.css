@@ -6663,60 +6663,23 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
-  perspective: 2600px;
 }
 
-/* 940px × 620px FULL-SIZE IPHONE DUO RIG (470px Left Wing + 470px Right Wing) */
+/* 940px × 620px FLAT IPHONE DUO RIG (NO 3D ROTATION — flat clip-path unmask) */
 .rs-duo-rig-wrapper {
   position: relative;
   width: 940px;
   height: 620px;
-  display: flex;
-  transform-style: preserve-3d;
+  transform-style: flat;
   will-change: transform;
 }
 
-.rs-duo-wing {
-  position: relative;
-  width: 470px;
-  height: 620px;
-  transform-style: preserve-3d;
-  flex-shrink: 0;
-}
-
-.rs-duo-wing--left {
-  transform-origin: right center;
-  z-index: 12;
-}
-
-.rs-duo-wing--right {
-  transform-origin: left center;
-  z-index: 4;
-}
-
-/* Brushed Natural Titanium Hinge Spine along the fold line */
-.rs-duo-hinge-spine {
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  right: -5px;
-  width: 10px;
-  border-radius: 4px;
-  background: linear-gradient(
-    90deg,
-    rgb(82 79 73) 0%,
-    rgb(212 208 200) 50%,
-    rgb(63 61 56) 100%
-  );
-  box-shadow: 0 0 12px rgb(0 0 0 / 70%);
-  z-index: 25;
-}
-
-.rs-duo-wing-face {
+/* Static titanium chassis. Closed: clipped to the right half (single cover phone).
+   Open: the clip's left edge sweeps 50% -> 0%, unmasking the 940px dual-page screen. */
+.rs-duo-chassis {
   position: absolute;
   inset: 0;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  border-radius: 48px;
   background: linear-gradient(
     135deg,
     rgb(212 208 200) 0%,
@@ -6726,27 +6689,54 @@ html {
   box-shadow:
     0 32px 75px rgb(0 0 0 / 80%),
     inset 0 1px 2px rgb(255 255 255 / 60%);
-  box-sizing: border-box;
+  will-change: clip-path;
 }
 
-/* Outer Cover Face (Visible when closed: rotateY == 180deg) */
-.rs-duo-wing-face--front {
-  transform: rotateY(180deg);
+/* Flat cover lock screen over the right half. Dissolves with a frosted blur. */
+.rs-duo-cover {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 50%;
+  height: 100%;
   border-radius: 48px;
   padding: 10px;
+  box-sizing: border-box;
+  background: linear-gradient(
+    135deg,
+    rgb(212 208 200) 0%,
+    rgb(138 133 124) 48%,
+    rgb(63 61 56) 100%
+  );
+  box-shadow:
+    0 32px 75px rgb(0 0 0 / 80%),
+    inset 0 1px 2px rgb(255 255 255 / 60%);
+  z-index: 30;
+  will-change: opacity, filter;
 }
 
-/* Inner Left Wing Face (Visible when unfolded: rotateY == 0deg) */
-.rs-duo-wing-face--back {
-  transform: rotateY(0deg);
-  border-radius: 48px 0 0 48px;
-  padding: 10px 0 10px 10px;
+.rs-duo-cover .rs-desert-wallpaper {
+  border-radius: 38px;
 }
 
-/* Inner Right Wing Face */
-.rs-duo-wing-face--right {
-  border-radius: 0 48px 48px 0;
-  padding: 10px 10px 10px 0;
+/* Brushed Natural Titanium Hinge Spine along the center fold line */
+.rs-duo-hinge-spine {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 8px;
+  border-radius: 3px;
+  background: linear-gradient(
+    90deg,
+    rgb(63 61 56) 0%,
+    rgb(212 208 200) 50%,
+    rgb(63 61 56) 100%
+  );
+  box-shadow: 0 0 10px rgb(0 0 0 / 80%);
+  z-index: 25;
+  pointer-events: none;
 }
 
 /* DESERT DUNES WALLPAPER */
@@ -6982,8 +6972,26 @@ html {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transform: translateZ(12px);
-  transform-style: flat;
+  background:
+    radial-gradient(
+      110% 55% at 50% 100%,
+      rgb(216 204 184) 0%,
+      rgb(181 164 139) 42%,
+      transparent 43%
+    ),
+    radial-gradient(
+      120% 50% at 30% 72%,
+      rgb(92 83 70) 0%,
+      rgb(61 55 46) 48%,
+      transparent 49%
+    ),
+    linear-gradient(
+      180deg,
+      rgb(124 151 173) 0%,
+      rgb(184 196 204) 36%,
+      rgb(223 213 197) 68%,
+      rgb(199 185 163) 100%
+    );
 }
 
 .rs-unified-statusbar {
@@ -7014,12 +7022,34 @@ html {
 
 /* STAGE 2: FULL-BLEED 2-PAGE HOME SCREEN */
 .rs-duo-home-fullbleed {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: 0.8rem 2.2rem 1rem;
   box-sizing: border-box;
+}
+
+/* iOS-style wallpaper legibility scrim behind app icons + dock */
+.rs-duo-home-fullbleed::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgb(12 12 14 / 0%) 0%,
+    rgb(12 12 14 / 12%) 24%,
+    rgb(12 12 14 / 30%) 55%,
+    rgb(12 12 14 / 34%) 100%
+  );
+}
+
+.rs-duo-home-fullbleed > * {
+  position: relative;
+  z-index: 1;
 }
 
 .rs-duo-two-pages-grid {
@@ -7182,7 +7212,7 @@ html {
   font-size: 0.74rem;
   font-weight: 600;
   color: rgb(255 255 255);
-  text-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 72%), 0 0 10px rgb(0 0 0 / 38%);
   background: none;
   border: none;
 }
@@ -7268,8 +7298,9 @@ html {
 }
 
 .rs-wa-label-glow {
-  color: rgb(134 239 172);
+  color: rgb(255 255 255);
   font-weight: 800;
+  text-shadow: 0 0 12px rgb(37 211 102 / 95%), 0 1px 3px rgb(0 0 0 / 75%);
 }
 
 .rs-duo-dock-wrap {

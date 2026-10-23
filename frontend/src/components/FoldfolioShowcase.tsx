@@ -103,32 +103,32 @@ export const FoldfolioShowcase: React.FC = () => {
     : manualProgress ?? p;
 
   // =========================================================================
-  // 4-PHASE CONTINUOUS KINEMATICS
+  // 4-PHASE CONTINUOUS KINEMATICS — FLAT CLIP-PATH UNFOLD (NO 3D ROTATION)
   // =========================================================================
   // 1. unfoldT (0 -> 1 during scroll 0.10 -> 0.46):
-  //    0 = Closed Single Cover (470px wide)
+  //    0 = Closed Single Cover (470px viewport via clip-path)
   //    1 = Fully Unfolded Dual Screen (940px wide)
   const unfoldT = Math.max(0, Math.min(1, (activeP - 0.1) / 0.36));
 
-  // 2. homeRevealT (0 -> 1 during scroll 0.32 -> 0.50):
-  //    Reveals the Full-Bleed Dual-Page iPhone Duo Home Screen
-  const homeRevealT = Math.max(0, Math.min(1, (activeP - 0.32) / 0.18));
-
-  // 3. appLaunchT (0 -> 1 during scroll 0.54 -> 0.76):
+  // 2. appLaunchT (0 -> 1 during scroll 0.54 -> 0.76):
   //    Expands from the right-page WhatsApp Notification Banner / Icon into
   //    100% Full-Bleed Edge-to-Edge WhatsApp + Live Dashboard!
   const appLaunchT = Math.max(0, Math.min(1, (activeP - 0.54) / 0.22));
   const isAppInteractive = appLaunchT > 0.65;
 
-  // 3D Cover Glass Wing Rotation (180deg closed over right half -> 0deg unfolded left half)
-  const coverLeafDeg = (1 - unfoldT) * 180;
-  // Center the 470px folded phone by shifting -235px when closed, 0px when unfolded to 940px
+  // Flat clip-path unmask: closed clips to the right half (50%), open reveals 940px (0%).
+  const clipLeftPct = (1 - unfoldT) * 50;
+  // 2D centering only — the frame never rotates in 3D. Closed cover (470px) stays
+  // centered, then widens symmetrically to the full 940px as the clip expands.
   const chassisShiftX = -(1 - unfoldT) * 235;
 
-  // Both 9:41 AND the Cover WhatsApp Notification share the exact same
-  // translucent frosted glass physics as the left wing unfolds!
-  const coverGlassBlurPx = unfoldT * 14;
-  const coverGlassOpacity = 1 - unfoldT * 0.58;
+  // Cover lock screen dissolves off with a frosted liquid-glass blur (no 3D door!)
+  const coverDissolveT = Math.max(0, Math.min(1, (unfoldT - 0.05) / 0.5));
+  const coverDissolveOpacity = 1 - coverDissolveT;
+  const coverDissolveBlurPx = coverDissolveT * 16;
+
+  // Center hinge spine fades in once the cover has dissolved away
+  const hingeOpacity = Math.max(0, Math.min(1, (unfoldT - 0.4) / 0.4));
 
   // Sequential WhatsApp flow state
   const [stage, setStage] = useState<FlowStage>('STAGE_1_PRE_DELIVERY');
@@ -408,25 +408,22 @@ export const FoldfolioShowcase: React.FC = () => {
             }}
           >
             {/* ===========================================================
-                LEFT TRANSLUCENT GLASS COVER WING (470px × 620px)
-                Hinges open from 180deg (closed over right wing) -> 0deg (open left wing).
-                BOTH "Wed Apr 1 / 9:41" AND the WhatsApp Notification live INSIDE
-                this exact same cover glass layer so they behave 100% identically!
+                FLAT COVER LOCK SCREEN (RIGHT HALF, 470px × 620px)
+                ZERO 3D rotation — the cover holds flat over the right half and
+                dissolves with a frosted liquid-glass blur as the screen unfolds.
                =========================================================== */}
             <div
-              className="rs-duo-wing rs-duo-wing--left"
+              className="rs-duo-cover"
               style={{
-                transform: `translate3d(0, 0, 3px) rotateY(${coverLeafDeg.toFixed(2)}deg)`,
+                opacity: Number(coverDissolveOpacity.toFixed(2)),
+                filter: `blur(${coverDissolveBlurPx.toFixed(1)}px)`,
+                pointerEvents: unfoldT < 0.25 ? 'auto' : 'none',
+                visibility: unfoldT > 0.98 ? 'hidden' : 'visible',
               }}
+              aria-hidden={unfoldT > 0.35}
+              inert={unfoldT > 0.35 ? true : undefined}
             >
-              {/* Brushed Titanium Center Hinge Spine along the fold line */}
-              <div className="rs-duo-hinge-spine" aria-hidden="true" />
-
-              {/* OUTER FACE OF LEFT WING (Visible when closed: coverLeafDeg > 90deg) */}
-              <div
-                className="rs-duo-wing-face rs-duo-wing-face--front"
-                aria-hidden={unfoldT > 0.5}
-              >
+              {/* Cover lock screen: Wed Apr 1 + 9:41 + translucent WhatsApp notification */}
                 <div className="rs-desert-wallpaper rs-desert-wallpaper--left">
                   <div className="rs-cover-top-sensors">
                     <span className="rs-cover-lens" />
@@ -474,78 +471,39 @@ export const FoldfolioShowcase: React.FC = () => {
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* INNER FACE OF LEFT WING (Visible when unfolded: coverLeafDeg <= 90deg)
-                  Shows the translucent, blurred ghost reflection of BOTH 9:41 AND the
-                  WhatsApp Notification on the inside of the unfolded glass! */}
-              <div
-                className="rs-duo-wing-face rs-duo-wing-face--back"
-                aria-hidden={unfoldT <= 0.5}
-              >
-                <div className="rs-desert-wallpaper rs-desert-wallpaper--inner-left">
-                  <div
-                    className="rs-shared-lockscreen-layer rs-shared-lockscreen-layer--ghost"
-                    style={{
-                      filter: `blur(${coverGlassBlurPx.toFixed(1)}px)`,
-                      opacity: Number((coverGlassOpacity * (1 - homeRevealT * 0.65)).toFixed(2)),
-                    }}
-                    aria-hidden="true"
-                  >
-                    <div className="rs-big-lock-clock">
-                      <div className="rs-big-lock-date">Wed Apr 1</div>
-                      <div className="rs-big-lock-time">9:41</div>
-                    </div>
-
-                    <div className="rs-glass-lock-notif">
-                      <div className="rs-wa-squircle-sm">
-                        <MessageCircle size={22} />
-                        <span className="rs-notif-badge">1</span>
-                      </div>
-                      <div className="rs-glass-lock-notif__copy">
-                        <div className="rs-glass-lock-notif__row">
-                          <strong>RescueShip Delivery Support ✓</strong>
-                          <span>now</span>
-                        </div>
-                        <p>
-                          🚚 AWB #4023118876: Fake “Door Locked” scan intercepted. Scroll to unfold.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             {/* ===========================================================
-                RIGHT BASE WING (470px × 620px)
-               =========================================================== */}
-            <div className="rs-duo-wing rs-duo-wing--right">
-              <div className="rs-duo-wing-face rs-duo-wing-face--right">
-                <div className="rs-desert-wallpaper rs-desert-wallpaper--inner-right">
-                  <div
-                    className="rs-right-wing-fold-shadow"
-                    style={{
-                      opacity: Number(((1 - unfoldT) * 0.85).toFixed(2)),
-                    }}
-                    aria-hidden="true"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ===========================================================
-                FULL-BLEED PANORAMIC INNER SCREEN (940px × 620px, inset: 14px)
-                Fills 100% of the unfolded iPhone Duo bezel edge-to-edge!
+                FLAT TITANIUM CHASSIS (NO 3D ROTATION)
+                Closed: clip-path keeps only the right 470px (single cover phone).
+                Scroll: the clip's left edge sweeps 50% -> 0% to unmask the full
+                940px panoramic dual-page screen — flat, crisp, zero perspective.
                =========================================================== */}
             <div
-              className="rs-duo-fullbleed-screen"
+              className="rs-duo-chassis"
               style={{
-                opacity: Number(homeRevealT.toFixed(2)),
-                pointerEvents: unfoldT > 0.75 ? 'auto' : 'none',
+                clipPath: `polygon(${clipLeftPct.toFixed(1)}% 0%, 100% 0%, 100% 100%, ${clipLeftPct.toFixed(1)}% 100%)`,
+                opacity: Number(Math.min(1, unfoldT * 6).toFixed(2)),
               }}
-              aria-hidden={unfoldT <= 0.75}
             >
+              {/* Brushed Titanium Center Hinge Spine along the fold line */}
+              <div
+                className="rs-duo-hinge-spine"
+                style={{ opacity: Number(hingeOpacity.toFixed(2)) }}
+                aria-hidden="true"
+              />
+
+              {/* =========================================================
+                  FULL-BLEED PANORAMIC DUAL-PAGE SCREEN (fills the chassis)
+                 ========================================================= */}
+              <div
+                className="rs-duo-fullbleed-screen"
+                style={{
+                  opacity: Number(Math.min(1, unfoldT * 2.5).toFixed(2)),
+                  pointerEvents: unfoldT > 0.75 ? 'auto' : 'none',
+                }}
+                aria-hidden={unfoldT <= 0.75}
+              >
               {/* Single Unified Top Status Bar Across the Full Unfolded Screen */}
               <div
                 className="rs-unified-statusbar"
@@ -1075,6 +1033,7 @@ export const FoldfolioShowcase: React.FC = () => {
                   </div>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         </div>
