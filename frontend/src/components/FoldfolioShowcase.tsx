@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+﻿import React, { useState, useRef, useEffect } from 'react';
 import {
   useScroll,
   useSpring,
@@ -380,7 +380,7 @@ export const FoldfolioShowcase: React.FC = () => {
               role="tab"
               aria-selected={activeP >= 0.54 && activeP < 0.74}
               className={`rs-fold-chip ${activeP >= 0.54 && activeP < 0.74 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.64)}
+              onClick={() => jumpToStage(0.72)}
             >
               3. iOS App Launch
             </button>
@@ -509,7 +509,7 @@ export const FoldfolioShowcase: React.FC = () => {
                     className="rs-wing-home-page"
                     style={{
                       opacity: Number(
-                        (innerHomeOpacity * (1 - appLaunchT * 0.95)).toFixed(2)
+                        (innerHomeOpacity * (1 - appLaunchT)).toFixed(2)
                       ),
                       transform: `scale(${(
                         0.92 +
@@ -640,7 +640,7 @@ export const FoldfolioShowcase: React.FC = () => {
                     className="rs-wing-home-page"
                     style={{
                       opacity: Number(
-                        (innerHomeOpacity * (1 - appLaunchT * 0.95)).toFixed(2)
+                        (innerHomeOpacity * (1 - appLaunchT)).toFixed(2)
                       ),
                       transform: `scale(${(
                         0.92 +
@@ -783,9 +783,9 @@ export const FoldfolioShowcase: React.FC = () => {
               className="rs-duo-app-fullbleed"
               style={{
                 opacity: Number(Math.min(1, appLaunchT * 1.35).toFixed(2)),
-                transform: `translate3d(0, 0, 2px) scale(${(
-                  0.35 +
-                  appLaunchT * 0.65
+                transform: `translate3d(0, 0, 2px) scale(${Math.min(
+                  1,
+                  0.35 + appLaunchT * 0.7
                 ).toFixed(3)})`,
                 pointerEvents: isAppInteractive ? 'auto' : 'none',
               }}
