@@ -1,4 +1,4 @@
-/* Landing — interception console.
+/* Landing â€” interception console.
    Source of truth: index.css tokens.
    Blueprint grid · ambient orbs · monospace feed · ledger bars · live rescue proof. */
 
@@ -26,7 +26,7 @@ section[id] {
   padding-top: 64px;
 }
 
-/* ═══ BOOT OVERLAY ═══ */
+/* â•â•â• BOOT OVERLAY â•â•â• */
 .lp-boot {
   position: fixed; inset: 0; z-index: 9999;
   background: var(--bg-void);
@@ -77,7 +77,7 @@ section[id] {
   opacity: 0; animation: lp-boot-in 0.3s var(--ease-out) 1.5s forwards;
 }
 
-/* ═══ AMBIENT LAYERS ═══ */
+/* â•â•â• AMBIENT LAYERS â•â•â• */
 .lp-orb { display: none !important; }
 .lp-grid-bg {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
@@ -99,7 +99,7 @@ section[id] {
 }
 @keyframes lp-scan { 0% { transform: translateY(0); } 100% { transform: translateY(100vh); } }
 
-/* ═══ TOP BAR ═══ */
+/* â•â•â• TOP BAR â•â•â• */
 .lp-top {
   position: relative; z-index: 3;
   display: flex; align-items: center; gap: var(--space-5);
@@ -131,7 +131,7 @@ section[id] {
 }
 .lp-top__cta:hover { background: var(--indigo-hover); box-shadow: 0 6px 20px var(--indigo-30); }
 
-/* ═══ HERO ═══ */
+/* â•â•â• HERO â•â•â• */
 .lp-hero {
   position: relative; z-index: 2;
   max-width: 1220px; margin: 0 auto;
@@ -393,7 +393,7 @@ section[id] {
   white-space: nowrap;
 }
 
-/* ═══ KICKERS ═══ */
+/* â•â•â• KICKERS â•â•â• */
 .lp-section__kicker {
   font-family: var(--font-mono); font-size: 0.72rem;
   letter-spacing: 0.2em; text-transform: uppercase; color: var(--text-3); margin-bottom: var(--space-6);
@@ -403,7 +403,7 @@ section[id] {
   content: ''; width: 22px; height: 1px; background: var(--indigo-soft); opacity: 0.7;
 }
 
-/* ═══ ORDER BOARD ═══ */
+/* â•â•â• ORDER BOARD â•â•â• */
 .lp-board { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem) var(--section); }
 .lp-board__cols { display: grid; grid-template-columns: 1.15fr auto 1fr 1fr; gap: var(--space-5); align-items: start; min-height: 387px; }
 .lp-board__col { display: flex; flex-direction: column; gap: var(--space-2-5); min-height: 387px; }
@@ -441,7 +441,7 @@ section[id] {
 .lp-order--ok .lp-order__amt { color: var(--emerald); }
 .lp-order--cancel .lp-order__amt { color: var(--amber); }
 
-/* ═══ COST / LEDGER ═══ */
+/* â•â•â• COST / LEDGER â•â•â• */
 .lp-cost { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem) var(--section); }
 .lp-cost__shell { display: grid; grid-template-columns: auto 1fr; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
 .lp-cost__total { display: flex; flex-direction: column; align-items: flex-start; }
@@ -473,7 +473,7 @@ section[id] {
   gap: var(--space-2);
 }
 
-/* ═══ RESCUE LOOP — spine + phone ═══ */
+/* â•â•â• RESCUE LOOP â€” spine + phone â•â•â• */
 .lp-how {
   position: relative; z-index: 2; max-width: 1300px; margin: 0 auto;
   padding: 0 clamp(1rem, 4vw, 3rem) var(--section);
@@ -662,7 +662,7 @@ section[id] {
 .lp-wa__typing i:nth-child(3) { animation-delay: 0.3s; }
 @keyframes lp-dot { 0%,60%,100% { opacity: 0.3; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-3px); } }
 
-/* ═══ TRUST ═══ */
+/* â•â•â• TRUST â•â•â• */
 .lp-trust { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 3rem) var(--section); }
 .lp-trust__grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
 .lp-trust__item {
@@ -675,7 +675,7 @@ section[id] {
 .lp-trust__l { font-family: var(--font-mono); font-size: 0.66rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-3); }
 .lp-trust__disc { margin-top: var(--space-4); font-size: 0.74rem; color: var(--text-3); font-style: italic; }
 
-/* ═══ FINAL CTA — framed gate ═══ */
+/* â•â•â• FINAL CTA â€” framed gate â•â•â• */
 .lp-final { position: relative; z-index: 2; max-width: 1220px; margin: 0 auto; padding: clamp(2rem, 6vh, 4rem) clamp(1rem, 4vw, 3rem) clamp(3rem, 7vh, 5rem); }
 .lp-final__panel {
   position: relative; overflow: hidden; text-align: center;
@@ -756,7 +756,7 @@ section[id] {
   color: var(--text-3); padding: var(--space-1-5) var(--space-3); border: 1px solid var(--border); border-radius: var(--radius-full);
 }
 
-/* ═══ FOOTER ═══ */
+/* â•â•â• FOOTER â•â•â• */
 .lp-foot {
   position: relative; z-index: 2; max-width: 1220px; margin: 0 auto;
   padding: var(--space-8) clamp(1rem, 4vw, 3rem); border-top: 1px solid var(--border);
@@ -777,7 +777,7 @@ section[id] {
 .lp-foot__cta:hover { color: var(--text-1) !important; }
 @media (max-width: 600px) { .lp-foot__tag { display: none; } }
 
-/* ═══ SCROLL REEL — the story in motion ═══ */
+/* â•â•â• SCROLL REEL â€” the story in motion â•â•â• */
 .lp-reel { position: relative; z-index: 2; }
 .lp-reel__track { position: relative; height: 300vh; }
 .lp-reel__stage {
@@ -792,7 +792,7 @@ section[id] {
   gap: clamp(2rem, 5vw, 4rem);
   align-items: stretch; flex: 1; min-height: 0;
 }
-/* route + transcript share the SAME six equal rows → dot i always lines up with text i */
+/* route + transcript share the SAME six equal rows â†’ dot i always lines up with text i */
 .lp-reel__route {
   position: relative; height: 100%; min-height: 380px;
   display: grid; grid-template-rows: repeat(8, 1fr); place-items: center;
@@ -860,7 +860,7 @@ section[id] {
 .lp-reel__beat--rescue .lp-reel__beat-t { color: var(--emerald); }
 .lp-reel__beat-d { font-size: 0.85rem; color: var(--text-2); line-height: 1.5; max-width: 48ch; }
 
-/* reduced‑motion / static / responsive mobile: unpin, show everything cleanly */
+/* reducedâ€‘motion / static / responsive mobile: unpin, show everything cleanly */
 .lp-reel--static .lp-reel__track { height: auto; }
 .lp-reel--static .lp-reel__stage { position: static; height: auto; overflow: visible; padding-top: var(--space-8); padding-bottom: var(--space-8); }
 .lp-reel--static .lp-reel__grid { min-height: 460px; }
@@ -879,7 +879,7 @@ section[id] {
   .lp-reel__route { display: none; }
 }
 
-/* ═══ 21st.dev & shadcn Storytelling Components ═══ */
+/* â•â•â• 21st.dev & shadcn Storytelling Components â•â•â• */
 
 /* 1. Spotlight Card Wrapper */
 .rs-spotlight {
@@ -1267,11 +1267,11 @@ section[id] {
   color: var(--emerald);
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LANDING PAGE V2 SECTIONS
-   ═══════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── 1. STICKY NAVIGATION (.lnav) ── */
+/* â”€â”€ 1. STICKY NAVIGATION (.lnav) â”€â”€ */
 .lnav {
   position: fixed;
   top: 0;
@@ -1439,7 +1439,7 @@ section[id] {
   box-shadow: 0 6px 20px var(--signal-border);
 }
 
-/* ── 2. CARRIER ACCOUNTABILITY (.account) ── */
+/* â”€â”€ 2. CARRIER ACCOUNTABILITY (.account) â”€â”€ */
 .account {
   position: relative;
   z-index: 2;
@@ -1671,7 +1671,7 @@ section[id] {
   font-weight: 500;
 }
 
-/* ── 3. PINCODE INTELLIGENCE (.intel) ── */
+/* â”€â”€ 3. PINCODE INTELLIGENCE (.intel) â”€â”€ */
 .intel {
   position: relative;
   z-index: 2;
@@ -1822,7 +1822,7 @@ section[id] {
   text-align: center;
 }
 
-/* ── 4. FEATURES GRID (.fgrid) ── */
+/* â”€â”€ 4. FEATURES GRID (.fgrid) â”€â”€ */
 .fgrid {
   position: relative;
   z-index: 2;
@@ -1930,7 +1930,7 @@ section[id] {
   margin: 0;
 }
 
-/* ── 5. ROI CALCULATOR (.roi) ── */
+/* â”€â”€ 5. ROI CALCULATOR (.roi) â”€â”€ */
 .roi {
   position: relative;
   z-index: 2;
@@ -2165,7 +2165,7 @@ section[id] {
   font-weight: 700;
 }
 
-/* ── 6. PRICING SECTION & PLAN PICKER (.pricing, .plan-picker) ── */
+/* â”€â”€ 6. PRICING SECTION & PLAN PICKER (.pricing, .plan-picker) â”€â”€ */
 .pricing {
   position: relative;
   z-index: 2;
@@ -2578,7 +2578,7 @@ section[id] {
   color: var(--emerald);
 }
 
-/* ── 7. TRUST STRIP (.trust) ── */
+/* â”€â”€ 7. TRUST STRIP (.trust) â”€â”€ */
 .trust {
   position: relative;
   z-index: 2;
@@ -2621,7 +2621,7 @@ section[id] {
   color: var(--text-2);
 }
 
-/* ── 8. FAQ SECTION (.faq) ── */
+/* â”€â”€ 8. FAQ SECTION (.faq) â”€â”€ */
 .faq {
   position: relative;
   z-index: 2;
@@ -2745,11 +2745,11 @@ section[id] {
   margin: 0;
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    NEUTOMNI HYBRID CONTRAST & FLUENT MOTION STYLES
-   ═══════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── 1. Hybrid Contrast Chapter Engine ── */
+/* â”€â”€ 1. Hybrid Contrast Chapter Engine â”€â”€ */
 .lp-chapter {
   position: relative;
   z-index: 2;
@@ -2810,7 +2810,7 @@ section[id] {
   font-weight: 600;
 }
 
-/* ── 2. Editorial Paper Scoped Styles ── */
+/* â”€â”€ 2. Editorial Paper Scoped Styles â”€â”€ */
 .lp-chapter--paper h2,
 .lp-chapter--paper h3,
 .lp-chapter--paper .account__heading,
@@ -2909,7 +2909,7 @@ section[id] {
   box-shadow: 0 16px 48px var(--shadow-28);
 }
 
-/* ── Pincode Intelligence Paper Styling ── */
+/* â”€â”€ Pincode Intelligence Paper Styling â”€â”€ */
 .lp-chapter--paper .intel__card {
   background: var(--bg-paper-elevated);
   border: 1px solid var(--border-paper);
@@ -2963,7 +2963,7 @@ section[id] {
   border: 1px solid var(--waybill-emerald-border);
 }
 
-/* ── Features Grid Paper Styling ── */
+/* â”€â”€ Features Grid Paper Styling â”€â”€ */
 .lp-chapter--paper .fgrid__card {
   background: var(--bg-paper-elevated);
   border: 1px solid var(--border-paper);
@@ -2991,7 +2991,7 @@ section[id] {
   color: var(--waybill-indigo);
 }
 
-/* ── Trust Strip Paper Styling ── */
+/* â”€â”€ Trust Strip Paper Styling â”€â”€ */
 .lp-chapter--paper .trust {
   background: var(--bg-paper);
   border-top: 1px solid var(--border-paper);
@@ -3010,7 +3010,7 @@ section[id] {
   color: var(--waybill-indigo);
 }
 
-/* ── FAQ Paper Styling ── */
+/* â”€â”€ FAQ Paper Styling â”€â”€ */
 .lp-chapter--paper .faq__item {
   background: var(--bg-paper-elevated);
   border: 1px solid var(--border-paper);
@@ -3052,7 +3052,7 @@ section[id] {
   color: var(--waybill-indigo);
 }
 
-/* ── 3. Typographic Visual Equation (.lp-equation) ── */
+/* â”€â”€ 3. Typographic Visual Equation (.lp-equation) â”€â”€ */
 .lp-equation {
   display: flex;
   align-items: center;
@@ -3100,7 +3100,7 @@ section[id] {
   font-size: 1.05rem;
 }
 
-/* ── 4. Animated A → B Interception Beam (.lp-ab-path) ── */
+/* â”€â”€ 4. Animated A â†’ B Interception Beam (.lp-ab-path) â”€â”€ */
 .lp-ab-path {
   display: flex;
   align-items: center;
@@ -3168,7 +3168,7 @@ section[id] {
   letter-spacing: 0.04em;
 }
 
-/* ── 5. Tactile Courier Waybill Headers & Scissors ── */
+/* â”€â”€ 5. Tactile Courier Waybill Headers & Scissors â”€â”€ */
 .lp-pass__waybill-bar,
 .roi__out-ticket-top,
 .bl-tier-card__waybill-bar {
@@ -3235,7 +3235,7 @@ section[id] {
   gap: var(--space-3);
 }
 
-/* ── 6. Feature Card Details & Intelligence Table ── */
+/* â”€â”€ 6. Feature Card Details & Intelligence Table â”€â”€ */
 .fgrid__card-head {
   display: flex;
   align-items: center;
@@ -3329,7 +3329,7 @@ section[id] {
   font-weight: 600;
 }
 
-/* ── 7. FAQ Markdown Window Chrome ── */
+/* â”€â”€ 7. FAQ Markdown Window Chrome â”€â”€ */
 .faq__md-window {
   background: var(--bg-paper-elevated);
   border: 1px solid var(--border-paper);
@@ -3398,7 +3398,7 @@ section[id] {
   user-select: none;
 }
 
-/* ── 8. Pricing Window Bar & Prevent Callout ── */
+/* â”€â”€ 8. Pricing Window Bar & Prevent Callout â”€â”€ */
 .pricing__window-bar {
   display: flex;
   align-items: center;
@@ -3490,7 +3490,7 @@ section[id] {
   width: 100%;
 }
 
-/* ── 9. ROI Deck Bar & Live Feed Number Slot Reel ── */
+/* â”€â”€ 9. ROI Deck Bar & Live Feed Number Slot Reel â”€â”€ */
 .roi__deck-bar {
   display: flex;
   align-items: center;
@@ -3519,7 +3519,7 @@ section[id] {
   display: inline-block;
 }
 
-/* ── 10. Carrier Marquee Serials & Partner Glyphs ── */
+/* â”€â”€ 10. Carrier Marquee Serials & Partner Glyphs â”€â”€ */
 .rs-badge__serial {
   font-family: var(--font-mono);
   font-size: 0.65rem;
@@ -3533,7 +3533,7 @@ section[id] {
   flex-shrink: 0;
 }
 
-/* ── 11. PlanPicker Shared Layout Pills ── */
+/* â”€â”€ 11. PlanPicker Shared Layout Pills â”€â”€ */
 .plan-picker__chip {
   position: relative;
   overflow: hidden;
@@ -3553,7 +3553,7 @@ section[id] {
   z-index: 2;
 }
 
-/* ── 12. Final Boarding Gate Ticket Bar & Drag Slider ── */
+/* â”€â”€ 12. Final Boarding Gate Ticket Bar & Drag Slider â”€â”€ */
 .lp-final__ticket-bar {
   display: flex;
   align-items: center;
@@ -3636,7 +3636,7 @@ section[id] {
   pointer-events: none;
 }
 
-/* ═══ RESPONSIVE ═══ */
+/* â•â•â• RESPONSIVE â•â•â• */
 @media (max-width: 960px) {
   .lp-hero { grid-template-columns: 1fr; align-items: start; }
   .lp-intent { order: -1; }
@@ -3695,7 +3695,7 @@ section[id] {
   }
 }
 
-/* ═══ REDUCED MOTION ═══ */
+/* â•â•â• REDUCED MOTION â•â•â• */
 @media (prefers-reduced-motion: reduce) {
   .lp-scan, .lp-boot__cursor, .lp-console__chip i, .lp-wa__typing i, .lp-wa::before { animation: none; }
   .lp-boot__line { animation: none; opacity: 1; }
@@ -3707,11 +3707,11 @@ section[id] {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    NEUTOMNI V3 MAJOR REFACTOR: EDITORIAL, HORIZONTAL TRACK & OS WORKSPACE
-   ═══════════════════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── 1. Editorial Typography & Slot Counters ── */
+/* â”€â”€ 1. Editorial Typography & Slot Counters â”€â”€ */
 .nt-display {
   font-family: var(--font-display);
   font-size: clamp(2.8rem, 6.8vw, 5.8rem);
@@ -3743,7 +3743,7 @@ section[id] {
   display: inline-block;
 }
 
-/* ── 2. Sleek 1-Line Hero Command Bar ── */
+/* â”€â”€ 2. Sleek 1-Line Hero Command Bar â”€â”€ */
 .nt-hero-cmd {
   display: flex;
   align-items: center;
@@ -3809,7 +3809,7 @@ section[id] {
   transform: translateY(-1px);
 }
 
-/* ── 3. Chapter 02: Warm Alabaster Manifesto Reveal ── */
+/* â”€â”€ 3. Chapter 02: Warm Alabaster Manifesto Reveal â”€â”€ */
 .nt-manifesto {
   padding: clamp(var(--space-12), 10vh, var(--space-20)) var(--space-4);
   max-width: 1120px;
@@ -3838,7 +3838,7 @@ section[id] {
   color: var(--signal-hover);
 }
 
-/* ── 4. Chapter 03: Pinned Horizontal Scrollytelling Track ── */
+/* â”€â”€ 4. Chapter 03: Pinned Horizontal Scrollytelling Track â”€â”€ */
 .nt-hscroll {
   position: relative;
   height: 380vh;
@@ -4199,7 +4199,7 @@ section[id] {
   color: var(--text-3);
 }
 
-/* ── 5. Chapter 04: Parallax Bento Cards ── */
+/* â”€â”€ 5. Chapter 04: Parallax Bento Cards â”€â”€ */
 .nt-fgrid__marquee-wrap {
   overflow: hidden;
   white-space: nowrap;
@@ -4233,7 +4233,7 @@ section[id] {
   user-select: none;
 }
 
-/* ── 6. Chapter 05: Studio OS Workspace ── */
+/* â”€â”€ 6. Chapter 05: Studio OS Workspace â”€â”€ */
 .nt-os-workspace {
   width: 100%;
   max-width: 1260px;
@@ -4343,7 +4343,7 @@ section[id] {
   margin-bottom: var(--space-8);
 }
 
-/* ── 7. Reduced Motion Fallback for Horizontal Track ── */
+/* â”€â”€ 7. Reduced Motion Fallback for Horizontal Track â”€â”€ */
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-snap-type: none !important;
@@ -4397,7 +4397,7 @@ section[id] {
   }
 }
 
-/* ── 8. Keyboard Accessibility & WCAG 2.1 AA Paper Contrast Overrides ── */
+/* â”€â”€ 8. Keyboard Accessibility & WCAG 2.1 AA Paper Contrast Overrides â”€â”€ */
 .nt-hscroll__panel:focus-visible {
   outline: 2px solid var(--signal);
   outline-offset: -2px;
@@ -4495,7 +4495,7 @@ section[id] {
   color: var(--waybill-emerald);
 }
 
-/* ── 9. v4 Viewport Auto-Lock (scroll-snap) & Clean Editorial Architecture ── */
+/* â”€â”€ 9. v4 Viewport Auto-Lock (scroll-snap) & Clean Editorial Architecture â”€â”€ */
 html {
   scroll-snap-type: y proximity;
   scroll-padding-top: 64px;
@@ -4938,9 +4938,9 @@ html {
 }
 
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.2 UPGRADE 1: HERO 3D ISOMETRIC CARD STACK & ANIMATED BEAM
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .lp-hero-stage {
   position: relative;
   display: flex;
@@ -5207,9 +5207,9 @@ html {
   margin-top: var(--space-4);
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.2 UPGRADE 2: 56PX LOGO CLOUD BADGES & CHAPTER 2 CRISIS CARDS
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .rs-logo-pill {
   display: inline-flex;
   align-items: center;
@@ -5392,9 +5392,9 @@ html {
   border-top: 1px solid var(--border-paper);
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.2 UPGRADE 3: SVG GPS GEOFENCE RADAR & BENTO CARDS
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .account__radar-window {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -5646,9 +5646,9 @@ html {
   font-weight: 600;
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.2 UPGRADE 4: STRICT DIMENSION LOCKS & SCENARIO TABS
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .nt-intercept-split {
   display: grid !important;
   grid-template-columns: 420px minmax(0, 1fr) !important;
@@ -5682,9 +5682,9 @@ html {
   min-height: 450px !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.2 UPGRADE 5: PANEL 04 ANIMATED BEAM PIPELINE & INSPECTOR
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .nt-beam-pipeline {
   position: relative;
   margin: var(--space-6) 0 var(--space-8);
@@ -5933,9 +5933,9 @@ html {
   color: var(--text-3);
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.3 HERO 3D PARCEL & INTERCEPTION DIORAMA (.lp-3d-stage)
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .lp-3d-stage {
   position: relative;
   width: 100%;
@@ -6209,9 +6209,9 @@ html {
   border-top: 1px solid rgba(255, 255, 255, 0.09);
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.3 TRANSLUCENT FROSTED SYMBOL NAMEPLATES (.rs-nameplate)
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .rs-nameplate {
   position: relative;
   width: 156px;
@@ -6292,9 +6292,9 @@ html {
   white-space: nowrap;
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    V4.3 HORIZONTAL TRACK 100DVH LOCK & DECLUTTERED RADAR SPLIT
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .nt-hscroll__sticky,
 .nt-hscroll__stage {
   position: sticky;
@@ -6554,8 +6554,9 @@ html {
 }
 
 /* ==========================================================================
-   CHAPTER 3.5: FULL-SIZE APPLE IPHONE DUO (940x620, ZERO FLOATING INNER BOX)
+   CHAPTER 3.5: FULL-SIZE APPLE IPHONE DUO (3D BOOK UNFOLD + SPLIT-VIEW OS)
    ========================================================================== */
+
 .rs-duo-master-track {
   position: relative;
   height: 380vh;
@@ -6606,140 +6607,102 @@ html {
   z-index: 20;
 }
 
-.rs-fold-kicker {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.72rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--signal, rgb(255 59 29));
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-.rs-fold-title {
-  font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: clamp(1.35rem, 2.2vw, 1.9rem);
-  font-weight: 700;
-  margin: 0;
-  color: var(--text-1, rgb(244 241 234));
-}
-
-.rs-fold-title em {
-  font-family: "Instrument Serif", serif;
-  font-style: italic;
-  font-weight: 400;
-  color: var(--emerald, rgb(34 197 94));
-}
-
-.rs-fold-controls {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.rs-fold-chip {
-  font-family: "JetBrains Mono", monospace;
-  font-size: 0.74rem;
-  padding: 0.42rem 0.8rem;
-  border-radius: 999px;
-  background: rgb(244 241 234 / 6%);
-  color: rgb(244 241 234 / 75%);
-  border: 1px solid rgb(244 241 234 / 14%);
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.rs-fold-chip.is-active,
-.rs-fold-chip:hover {
-  background: var(--signal, rgb(255 59 29));
-  color: var(--bg-void, rgb(14 14 13));
-  border-color: var(--signal, rgb(255 59 29));
-  font-weight: 600;
-}
-
 .rs-duo-stage-center {
   flex: 1;
   width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  perspective: 1500px;
+  perspective-origin: 50% 48%;
 }
 
-/* 940px × 620px FLAT IPHONE DUO RIG (NO 3D ROTATION — flat clip-path unmask) */
 .rs-duo-rig-wrapper {
   position: relative;
   width: 940px;
   height: 620px;
-  transform-style: flat;
+  display: flex;
+  transform-style: preserve-3d;
   will-change: transform;
 }
 
-/* Static titanium chassis. Closed: clipped to the right half (single cover phone).
-   Open: the clip's left edge sweeps 50% -> 0%, unmasking the 940px dual-page screen. */
-.rs-duo-chassis {
-  position: absolute;
-  inset: 0;
-  border-radius: 48px;
-  background: linear-gradient(
-    135deg,
-    rgb(212 208 200) 0%,
-    rgb(138 133 124) 48%,
-    rgb(63 61 56) 100%
-  );
-  box-shadow:
-    0 32px 75px rgb(0 0 0 / 80%),
-    inset 0 1px 2px rgb(255 255 255 / 60%);
-  will-change: clip-path;
+.rs-duo-wing {
+  position: relative;
+  width: 470px;
+  height: 620px;
+  transform-style: preserve-3d;
+  flex-shrink: 0;
+  will-change: transform;
 }
 
-/* Flat cover lock screen over the right half. Dissolves with a frosted blur. */
-.rs-duo-cover {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  width: 50%;
-  height: 100%;
-  border-radius: 48px;
-  padding: 10px;
-  box-sizing: border-box;
-  background: linear-gradient(
-    135deg,
-    rgb(212 208 200) 0%,
-    rgb(138 133 124) 48%,
-    rgb(63 61 56) 100%
-  );
-  box-shadow:
-    0 32px 75px rgb(0 0 0 / 80%),
-    inset 0 1px 2px rgb(255 255 255 / 60%);
-  z-index: 30;
-  will-change: opacity, filter;
+.rs-duo-wing--left {
+  transform-origin: right center;
+  z-index: 12;
 }
 
-.rs-duo-cover .rs-desert-wallpaper {
-  border-radius: 38px;
+.rs-duo-wing--right {
+  transform-origin: left center;
+  z-index: 4;
 }
 
-/* Brushed Natural Titanium Hinge Spine along the center fold line */
 .rs-duo-hinge-spine {
   position: absolute;
-  top: 10px;
-  bottom: 10px;
-  left: 50%;
-  transform: translateX(-50%);
+  top: 14px;
+  bottom: 14px;
+  right: -4px;
   width: 8px;
-  border-radius: 3px;
+  border-radius: 4px;
   background: linear-gradient(
     90deg,
-    rgb(63 61 56) 0%,
-    rgb(212 208 200) 50%,
+    rgb(82 79 73) 0%,
+    rgb(225 220 210) 50%,
     rgb(63 61 56) 100%
   );
-  box-shadow: 0 0 10px rgb(0 0 0 / 80%);
-  z-index: 25;
+  box-shadow: 0 0 14px rgb(0 0 0 / 75%);
   pointer-events: none;
+  transform: translateZ(-2px);
 }
 
-/* DESERT DUNES WALLPAPER */
+.rs-duo-wing-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  background: linear-gradient(
+    135deg,
+    rgb(218 213 204) 0%,
+    rgb(142 136 126) 48%,
+    rgb(72 69 63) 100%
+  );
+  box-shadow:
+    0 34px 80px rgb(0 0 0 / 82%),
+    inset 0 1px 2px rgb(255 255 255 / 65%);
+  box-sizing: border-box;
+}
+
+/* Front face of Left Wing = Outer Cover Screen when folded (180deg) */
+.rs-duo-wing-face--front {
+  transform: rotateY(180deg) translateZ(1px);
+  border-radius: 46px;
+  padding: 10px;
+}
+
+/* Back face of Left Wing = Inner Left Display when unfolded (0deg) */
+.rs-duo-wing-face--back {
+  transform: rotateY(0deg) translateZ(1px);
+  border-radius: 46px 0 0 46px;
+  padding: 10px 0 10px 10px;
+  box-shadow: inset 0 1px 2px rgb(255 255 255 / 65%);
+}
+
+/* Face of Right Wing = Inner Right Display */
+.rs-duo-wing-face--right {
+  transform: translateZ(0);
+  border-radius: 0 46px 46px 0;
+  padding: 10px 10px 10px 0;
+}
+
+/* Continuous Desert Titanium Wallpaper across both wings */
 .rs-desert-wallpaper {
   width: 100%;
   height: 100%;
@@ -6748,138 +6711,182 @@ html {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  border: 4px solid rgb(9 9 11);
   box-sizing: border-box;
   background:
     radial-gradient(
-      110% 55% at 50% 100%,
+      120% 60% at 50% 100%,
       rgb(216 204 184) 0%,
       rgb(181 164 139) 42%,
       transparent 43%
     ),
     radial-gradient(
-      120% 50% at 30% 72%,
+      120% 52% at 35% 72%,
       rgb(92 83 70) 0%,
       rgb(61 55 46) 48%,
       transparent 49%
     ),
     linear-gradient(
       180deg,
-      rgb(124 151 173) 0%,
-      rgb(184 196 204) 36%,
-      rgb(223 213 197) 68%,
+      rgb(112 142 168) 0%,
+      rgb(178 192 202) 38%,
+      rgb(223 213 197) 70%,
       rgb(199 185 163) 100%
     );
 }
 
-.rs-desert-wallpaper--left {
-  border-radius: 38px;
+.rs-desert-wallpaper--outer {
+  border-radius: 36px;
+  border: 4px solid rgb(9 9 11);
 }
 
+/* Inner Left Display: NO right bezel so the two halves meet seamlessly */
 .rs-desert-wallpaper--inner-left {
-  border-radius: 38px 0 0 38px;
-  border-right: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 36px 0 0 36px;
+  border-top: 4px solid rgb(9 9 11);
+  border-bottom: 4px solid rgb(9 9 11);
+  border-left: 4px solid rgb(9 9 11);
+  border-right: none;
+  background-size: 912px 592px;
+  background-position: left center;
+  background-repeat: no-repeat;
 }
 
+/* Inner Right Display: NO left bezel so the two halves meet seamlessly */
 .rs-desert-wallpaper--inner-right {
-  border-radius: 0 38px 38px 0;
+  border-radius: 0 36px 36px 0;
+  border-top: 4px solid rgb(9 9 11);
+  border-bottom: 4px solid rgb(9 9 11);
+  border-right: 4px solid rgb(9 9 11);
   border-left: none;
+  background-size: 912px 592px;
+  background-position: right center;
+  background-repeat: no-repeat;
+}
+
+/* Subtle OLED Crease Specular Reflection (fades out as wing locks flat) */
+.rs-inner-crease-sheen {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 22px;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.rs-inner-crease-sheen--left {
+  right: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(0 0 0 / 28%) 75%,
+    rgb(255 255 255 / 22%) 100%
+  );
+}
+
+.rs-inner-crease-sheen--right {
+  left: 0;
+  background: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 22%) 0%,
+    rgb(0 0 0 / 28%) 25%,
+    transparent 100%
+  );
 }
 
 .rs-right-wing-fold-shadow {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, rgb(0 0 0 / 88%) 0%, rgb(0 0 0 / 45%) 50%, transparent 100%);
+  background: linear-gradient(
+    90deg,
+    rgb(0 0 0 / 92%) 0%,
+    rgb(0 0 0 / 58%) 48%,
+    rgb(0 0 0 / 15%) 100%
+  );
   pointer-events: none;
+  z-index: 18;
 }
 
-.rs-cover-top-sensors {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.75rem;
-  padding: 1.25rem 1.4rem 0;
-}
-
-.rs-cover-lens {
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgb(30 41 59) 25%, rgb(9 9 11) 65%);
-  border: 2px solid rgb(255 255 255 / 15%);
-}
-
-.rs-cover-signal-ring {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 2px dashed rgb(255 255 255 / 75%);
+/* Outer Cover Status Bar & Lock Screen */
+.rs-cover-statusbar {
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.5rem 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: rgb(255 255 255);
 }
 
-/* ==========================================================================
-   SHARED LOCK SCREEN LAYER (9:41 + TRANSLUCENT WHATSAPP NOTIFICATION TOGETHER!)
-   ========================================================================== */
+.rs-cover-island {
+  width: 82px;
+  height: 22px;
+  border-radius: 999px;
+  background: rgb(9 9 11);
+}
+
+.rs-cover-statusbar__icons {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
 .rs-shared-lockscreen-layer {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 1.5rem;
+  justify-content: center;
+  gap: 1.75rem;
   padding: 0 1.6rem;
-  margin-top: -1.5rem;
 }
 
-.rs-shared-lockscreen-layer--ghost {
-  margin-top: 2.8rem;
-  transform: scaleX(-1);
+.rs-inner-ghost-lock {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   pointer-events: none;
+  z-index: 12;
 }
 
 .rs-big-lock-clock {
   text-align: center;
-  color: rgb(255 255 255 / 92%);
+  color: rgb(255 255 255 / 95%);
 }
 
 .rs-big-lock-date {
   font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  text-shadow: 0 2px 10px rgb(0 0 0 / 18%);
+  text-shadow: 0 2px 10px rgb(0 0 0 / 22%);
 }
 
 .rs-big-lock-time {
   font-family: "Plus Jakarta Sans", sans-serif;
-  font-size: 7.4rem;
+  font-size: 6.8rem;
   font-weight: 800;
   line-height: 0.92;
   letter-spacing: -0.04em;
-  background: linear-gradient(180deg, rgb(255 255 255) 20%, rgb(255 255 255 / 72%) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  filter: drop-shadow(0 8px 24px rgb(0 0 0 / 22%));
+  color: rgb(255 255 255);
+  text-shadow: 0 10px 28px rgb(0 0 0 / 26%);
 }
 
-/* TRANSLUCENT FROSTED LOCK SCREEN WHATSAPP NOTIFICATION */
+/* GPU-Safe Translucent Glass Notification (No backdrop-filter inside preserve-3d!) */
 .rs-glass-lock-notif {
   width: 100%;
   max-width: 390px;
   text-align: left;
   background: linear-gradient(
     135deg,
-    rgb(255 255 255 / 34%) 0%,
-    rgb(255 255 255 / 16%) 100%
-  ) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  border: 1px solid rgb(255 255 255 / 48%) !important;
+    rgb(38 44 52 / 78%) 0%,
+    rgb(24 28 34 / 68%) 100%
+  );
+  border: 1px solid rgb(255 255 255 / 42%);
   box-shadow:
-    0 18px 40px rgb(0 0 0 / 22%),
-    inset 0 1px 0 rgb(255 255 255 / 65%) !important;
+    0 18px 40px rgb(0 0 0 / 28%),
+    inset 0 1px 0 rgb(255 255 255 / 55%);
   border-radius: 24px;
   padding: 0.95rem 1.1rem;
   display: flex;
@@ -6928,31 +6935,33 @@ html {
   justify-content: space-between;
   font-size: 0.82rem;
   margin-bottom: 0.2rem;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 28%);
 }
 
 .rs-glass-lock-notif__copy p {
   margin: 0;
   font-size: 0.76rem;
   line-height: 1.35;
-  color: rgb(255 255 255 / 95%);
-  text-shadow: 0 1px 2px rgb(0 0 0 / 25%);
+  color: rgb(255 255 255 / 92%);
+}
+
+.rs-cover-bottom-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0 1.5rem 0.75rem;
 }
 
 .rs-cover-bottom-shortcuts {
   display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.7rem;
-  padding: 0 1.4rem 1.4rem;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .rs-shortcut-circle {
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: rgb(255 255 255 / 24%);
-  backdrop-filter: blur(16px);
+  background: rgb(24 28 34 / 58%);
   border: 1px solid rgb(255 255 255 / 38%);
   display: flex;
   align-items: center;
@@ -6960,79 +6969,54 @@ html {
   color: rgb(255 255 255);
 }
 
-/* ==========================================================================
-   FULL-BLEED PANORAMIC INNER SCREEN (912px × 592px, FILLS ENTIRE BEZEL!)
-   ========================================================================== */
-.rs-duo-fullbleed-screen {
-  position: absolute;
-  inset: 14px;
-  border-radius: 34px;
-  overflow: hidden;
-  z-index: 20;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  background:
-    radial-gradient(
-      110% 55% at 50% 100%,
-      rgb(216 204 184) 0%,
-      rgb(181 164 139) 42%,
-      transparent 43%
-    ),
-    radial-gradient(
-      120% 50% at 30% 72%,
-      rgb(92 83 70) 0%,
-      rgb(61 55 46) 48%,
-      transparent 49%
-    ),
-    linear-gradient(
-      180deg,
-      rgb(124 151 173) 0%,
-      rgb(184 196 204) 36%,
-      rgb(223 213 197) 68%,
-      rgb(199 185 163) 100%
-    );
-}
-
-.rs-unified-statusbar {
+/* Inner Wing Status Bars & Wing-Mounted Home Screen Pages */
+.rs-wing-statusbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.7rem 1.8rem 0.3rem;
+  padding: 0.7rem 1.5rem 0.3rem;
   font-size: 0.82rem;
   font-weight: 700;
   color: rgb(255 255 255);
   text-shadow: 0 1px 3px rgb(0 0 0 / 35%);
-  z-index: 25;
+  z-index: 10;
 }
 
-.rs-unified-statusbar__left,
-.rs-unified-statusbar__right {
+.rs-wing-statusbar--left {
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+.rs-wing-statusbar--right {
+  justify-content: space-between;
+}
+
+.rs-wing-statusbar__icons {
   display: flex;
   align-items: center;
   gap: 0.45rem;
 }
 
 .rs-unified-island {
-  width: 96px;
-  height: 24px;
+  width: 88px;
+  height: 22px;
   border-radius: 999px;
   background: rgb(9 9 11);
 }
 
-/* STAGE 2: FULL-BLEED 2-PAGE HOME SCREEN */
-.rs-duo-home-fullbleed {
+.rs-wing-home-page {
   position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 0.8rem 2.2rem 1rem;
+  padding: 0.65rem 1.5rem 0.9rem;
   box-sizing: border-box;
+  z-index: 10;
+  will-change: transform, opacity;
 }
 
-/* iOS-style wallpaper legibility scrim behind app icons + dock */
-.rs-duo-home-fullbleed::after {
+/* Legibility scrim so white iOS labels stay readable over the dune highlights */
+.rs-wing-home-page::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -7041,55 +7025,37 @@ html {
   background: linear-gradient(
     180deg,
     rgb(12 12 14 / 0%) 0%,
-    rgb(12 12 14 / 12%) 24%,
-    rgb(12 12 14 / 30%) 55%,
-    rgb(12 12 14 / 34%) 100%
+    rgb(12 12 14 / 10%) 22%,
+    rgb(12 12 14 / 28%) 52%,
+    rgb(12 12 14 / 32%) 100%
   );
 }
 
-.rs-duo-home-fullbleed > * {
+.rs-wing-home-page > * {
   position: relative;
   z-index: 1;
-}
-
-.rs-duo-two-pages-grid {
-  flex: 1;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3rem;
-  align-items: start;
-}
-
-.rs-duo-book-page {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
 }
 
 .rs-duo-top-widgets {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  min-height: 132px;
+  gap: 0.9rem;
+  min-height: 128px;
 }
 
-/* Translucent Frosted Widgets */
 .rs-frosted-widget {
   background: linear-gradient(
     145deg,
-    rgb(255 255 255 / 30%) 0%,
-    rgb(255 255 255 / 14%) 100%
+    rgb(32 42 54 / 72%) 0%,
+    rgb(22 28 38 / 58%) 100%
   );
-  backdrop-filter: blur(26px) saturate(170%);
-  -webkit-backdrop-filter: blur(26px) saturate(170%);
-  border: 1px solid rgb(255 255 255 / 44%);
+  border: 1px solid rgb(255 255 255 / 42%);
   box-shadow:
-    0 14px 32px rgb(0 0 0 / 18%),
-    inset 0 1px 0 rgb(255 255 255 / 60%);
-  border-radius: 24px;
-  padding: 0.9rem 1.05rem;
+    0 14px 32px rgb(0 0 0 / 22%),
+    inset 0 1px 0 rgb(255 255 255 / 50%);
+  border-radius: 22px;
+  padding: 0.85rem 1rem;
   color: rgb(255 255 255);
-  text-shadow: 0 1px 3px rgb(0 0 0 / 28%);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -7099,7 +7065,7 @@ html {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   font-weight: 700;
 }
 
@@ -7116,7 +7082,7 @@ html {
 }
 
 .rs-frosted-widget__temp {
-  font-size: 2.1rem;
+  font-size: 2rem;
   font-weight: 800;
   line-height: 1;
 }
@@ -7128,28 +7094,25 @@ html {
 .rs-frosted-widget__foot {
   display: flex;
   flex-direction: column;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  opacity: 0.92;
 }
 
-/* Right Page Translucent Frosted WhatsApp Notification Banner */
 .rs-frosted-wa-banner {
-  min-height: 132px;
+  min-height: 128px;
   box-sizing: border-box;
   background: linear-gradient(
     135deg,
-    rgb(255 255 255 / 34%) 0%,
-    rgb(255 255 255 / 16%) 100%
+    rgb(26 38 48 / 78%) 0%,
+    rgb(18 26 34 / 66%) 100%
   );
-  backdrop-filter: blur(28px) saturate(180%);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  border: 1px solid rgb(255 255 255 / 48%);
+  border: 1px solid rgb(255 255 255 / 46%);
   box-shadow:
-    0 16px 36px rgb(0 0 0 / 22%),
-    inset 0 1px 0 rgb(255 255 255 / 65%);
-  border-radius: 24px;
-  padding: 1rem 1.15rem;
+    0 16px 36px rgb(0 0 0 / 26%),
+    inset 0 1px 0 rgb(255 255 255 / 55%);
+  border-radius: 22px;
+  padding: 0.9rem 1.05rem;
   color: rgb(255 255 255);
-  text-shadow: 0 1px 3px rgb(0 0 0 / 28%);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -7160,47 +7123,46 @@ html {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .rs-frosted-wa-banner__brand {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
 .rs-frosted-wa-banner__brand strong {
   display: block;
-  font-size: 0.86rem;
+  font-size: 0.84rem;
 }
 
 .rs-frosted-wa-banner__brand span {
-  font-size: 0.7rem;
-  opacity: 0.9;
+  font-size: 0.68rem;
+  opacity: 0.88;
 }
 
 .rs-open-wa-pill {
   background: rgb(37 211 102);
   color: rgb(9 9 11);
   font-weight: 800;
-  font-size: 0.74rem;
-  padding: 0.42rem 0.85rem;
+  font-size: 0.72rem;
+  padding: 0.38rem 0.78rem;
   border-radius: 999px;
-  text-shadow: none;
   white-space: nowrap;
 }
 
 .rs-frosted-wa-banner__body {
   margin: 0;
-  font-size: 0.78rem;
-  line-height: 1.38;
+  font-size: 0.75rem;
+  line-height: 1.36;
+  color: rgb(255 255 255 / 94%);
 }
 
-/* 4x2 iOS App Icon Grids on Each Page */
 .rs-duo-icon-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 1.25rem 0.9rem;
+  gap: 1.1rem 0.75rem;
   justify-items: center;
 }
 
@@ -7208,13 +7170,14 @@ html {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.38rem;
-  font-size: 0.74rem;
+  gap: 0.35rem;
+  font-size: 0.72rem;
   font-weight: 600;
   color: rgb(255 255 255);
   text-shadow: 0 1px 3px rgb(0 0 0 / 72%), 0 0 10px rgb(0 0 0 / 38%);
   background: none;
   border: none;
+  padding: 0;
 }
 
 .rs-duo-app-item--btn {
@@ -7222,21 +7185,21 @@ html {
 }
 
 .rs-squircle-60 {
-  width: 60px;
-  height: 60px;
-  border-radius: 16px;
+  width: 58px;
+  height: 58px;
+  border-radius: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: rgb(255 255 255);
   position: relative;
-  box-shadow: 0 8px 20px rgb(0 0 0 / 28%);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 32%);
 }
 
 .rs-squircle-52 {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
+  width: 50px;
+  height: 50px;
+  border-radius: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7303,22 +7266,43 @@ html {
   text-shadow: 0 0 12px rgb(37 211 102 / 95%), 0 1px 3px rgb(0 0 0 / 75%);
 }
 
-.rs-duo-dock-wrap {
+/* Split Dock across the two 3D wings that visually joins at the center seam */
+.rs-wing-dock-half {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 0.65rem;
+  padding-top: 0.25rem;
+}
+
+.rs-wing-dock-half--left {
+  justify-content: flex-end;
+  margin-right: -1.5rem;
+}
+
+.rs-wing-dock-half--right {
+  justify-content: flex-start;
+  margin-left: -1.5rem;
 }
 
 .rs-frosted-ios-dock {
   display: flex;
   align-items: center;
-  gap: 1.15rem;
-  padding: 0.65rem 1.35rem;
-  border-radius: 28px;
-  background: rgb(255 255 255 / 28%);
-  backdrop-filter: blur(28px);
-  border: 1px solid rgb(255 255 255 / 44%);
+  gap: 1rem;
+  padding: 0.6rem 1.1rem;
+  background: rgb(28 34 42 / 68%);
+  border-top: 1px solid rgb(255 255 255 / 42%);
+  border-bottom: 1px solid rgb(255 255 255 / 42%);
+}
+
+.rs-frosted-ios-dock--left {
+  border-radius: 26px 0 0 26px;
+  border-left: 1px solid rgb(255 255 255 / 42%);
+  padding-right: 0.6rem;
+}
+
+.rs-frosted-ios-dock--right {
+  border-radius: 0 26px 26px 0;
+  border-right: 1px solid rgb(255 255 255 / 42%);
+  padding-left: 0.6rem;
 }
 
 .rs-dock-wa-trigger {
@@ -7332,30 +7316,146 @@ html {
   width: 120px;
   height: 4px;
   border-radius: 999px;
-  background: rgb(244 241 234 / 45%);
+  background: rgb(255 255 255 / 65%);
   margin: 0 auto;
 }
 
 .rs-ios-homebar--wide {
   width: 180px;
-  background: rgb(255 255 255 / 85%);
+  background: rgb(14 14 13 / 35%);
 }
 
 /* ==========================================================================
-   STAGES 3 & 4: FULL-BLEED 100% EDGE-TO-EDGE WHATSAPP + LIVE DASHBOARD
+   STAGE 3 & 4: FRAMED SPLIT-VIEW MULTITASKING WORKSPACE INSIDE OLED BEZEL
    ========================================================================== */
+
 .rs-duo-app-fullbleed {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: 14px;
+  border-radius: 32px;
   z-index: 40;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  background: rgb(255 255 255);
-  transform-origin: 74% 22%;
-  will-change: transform, opacity, border-radius;
+  background: rgb(14 14 13);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 12%);
+  transform-origin: 68% 28%;
+  will-change: transform, opacity;
+}
+
+.rs-app-multitask-statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 1.5rem;
+  background: rgb(14 14 13);
+  color: rgb(244 241 234);
+  font-size: 0.76rem;
+  font-weight: 700;
+  border-bottom: 1px solid rgb(244 241 234 / 10%);
+  flex-shrink: 0;
+}
+
+.rs-app-multitask-statusbar__left,
+.rs-app-multitask-statusbar__right {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.rs-app-multitask-island {
+  width: 84px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgb(0 0 0);
+  border: 1px solid rgb(255 255 255 / 12%);
+}
+
+.rs-duo-app-split-workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 10px 1fr;
+  overflow: hidden;
+  background: rgb(244 241 234);
+}
+
+.rs-duo-split-divider {
+  background: rgb(14 14 13);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rs-duo-split-pill {
+  width: 4px;
+  height: 44px;
+  border-radius: 999px;
+  background: rgb(244 241 234 / 35%);
+}
+
+.rs-app-multitask-bottom {
+  background: rgb(244 241 234);
+  padding: 0.3rem 0 0.4rem;
+  border-top: 1px solid rgb(14 14 13 / 8%);
+  flex-shrink: 0;
+}
+
+
+/* Restored supporting rules (WhatsApp thread, dashboard, header, chips) */
+.rs-fold-kicker {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--signal, rgb(255 59 29));
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.rs-fold-title {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  font-size: clamp(1.35rem, 2.2vw, 1.9rem);
+  font-weight: 700;
+  margin: 0;
+  color: var(--text-1, rgb(244 241 234));
+}
+
+.rs-fold-title em {
+  font-family: "Instrument Serif", serif;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--emerald, rgb(34 197 94));
+}
+
+.rs-fold-controls {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.rs-fold-chip {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.74rem;
+  padding: 0.42rem 0.8rem;
+  border-radius: 999px;
+  background: rgb(244 241 234 / 6%);
+  color: rgb(244 241 234 / 75%);
+  border: 1px solid rgb(244 241 234 / 14%);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rs-fold-chip.is-active,
+.rs-fold-chip:hover {
+  background: var(--signal, rgb(255 59 29));
+  color: var(--bg-void, rgb(14 14 13));
+  border-color: var(--signal, rgb(255 59 29));
+  font-weight: 600;
+}
+
+.rs-duo-cover .rs-desert-wallpaper {
+  border-radius: 38px;
 }
 
 .rs-wa-pane {
@@ -7560,7 +7660,6 @@ html {
   border-color: rgb(224 46 18 / 30%);
 }
 
-/* RIGHT 50%: LIVE RESCUESHIP COMMAND DASHBOARD */
 .rs-live-dashboard-pane {
   background: var(--bg-void, rgb(14 14 13));
   color: var(--text-1, rgb(244 241 234));
