@@ -23,6 +23,7 @@ import {
 	type RollDirection,
 	type ScreenImage,
 	type ScreenTurn,
+	drawWhatsAppNotif,
 } from "./screens";
 import { ScreenWipe } from "./wipe";
 
@@ -42,12 +43,15 @@ const FLEXIBLE_MESHES = new Set([
 	"MvKPXGSdYDVvSpk",
 ]);
 const UI_REFERENCE_EYE = new Vector3(0, 0, 40);
-const INNER_UI_FRAME = new Vector4(
+/** Local-space frame (x, y, width, height) of the flat inner display, for HTML overlay projection. */
+export const INNER_UI_FRAME = new Vector4(
 	-7.89935,
 	0.34562 - MODEL_DROP,
 	15.7987,
 	11.1035,
 );
+/** Local-space z of the inner display surface when the phone lies open. */
+export const INNER_UI_DEPTH = 0.24948;
 const OUTER_UI_FRAME = new Vector4(
 	0.23396,
 	0.27173 - MODEL_DROP,
@@ -177,6 +181,7 @@ interface Screen {
 export interface Foldable {
 	readonly root: Group;
 	setOpenness(openness: number): void;
+	setNotifPop(pop: number): void;
 	setRoll(direction: RollDirection | null, panel?: ScreenKind): void;
 	setFocus(kind: ScreenKind | null): void;
 	setViewpoint(eye: Vector3, parallax: number): void;
@@ -565,6 +570,17 @@ export function createFoldable(
 		root.position.x = (-halfWidth / 2) * (1 - value);
 		light();
 	}
+	let notifPop = -1;
+	function setNotifPop(pop: number): void {
+		const value = MathUtils.clamp(pop, 0, 1);
+		if (Math.abs(value - notifPop) < 0.003) return;
+		notifPop = value;
+		for (const kind of ["inner", "outer"] as const) {
+			const image = screens[kind].plates.chrome.image;
+			if (image instanceof HTMLCanvasElement) drawWhatsAppNotif(image, value);
+			screens[kind].plates.chrome.needsUpdate = true;
+		}
+	}
 	function dress(): void {
 		const changed = new Set<ScreenKind>();
 		for (const kind of ["inner", "outer"] as const) {
@@ -673,6 +689,7 @@ export function createFoldable(
 	return {
 		root,
 		setOpenness,
+		setNotifPop,
 		setRoll,
 		setFocus,
 		setViewpoint,
