@@ -21,9 +21,6 @@ import {
   PackageCheck,
   MessageCircle,
   Compass,
-  Activity,
-  CheckCircle2,
-  Sparkles,
   Sun,
   FileText,
   CheckSquare,
@@ -32,6 +29,12 @@ import {
   ShoppingBag,
   HeartPulse,
   CreditCard,
+  ChevronLeft,
+  Lock,
+  Plus,
+  Mic,
+  Terminal,
+  ArrowUpRight,
 } from 'lucide-react';
 import { IPhoneDuoViewer, type ScreenFrame } from './iphone-duo/IPhoneDuoViewer';
 
@@ -789,293 +792,518 @@ export const FoldfolioShowcase: React.FC = () => {
                   </div>
                 </div>
 
-                {/* LAYER 2: iOS APP-LAUNCH EXPANSION -> FULL-SCREEN WHATSAPP + LIVE DASHBOARD */}
-                <div
-                  className="rs-duo-app-launch-layer"
-                  style={{
-                    opacity: Number(Math.min(1, appExpandT * 1.35).toFixed(2)),
-                    transform: `translate3d(0, ${((1 - appExpandT) * -28).toFixed(
-                      1
-                    )}px, 0) scale(${(0.32 + appExpandT * 0.68).toFixed(3)})`,
-                    borderRadius: `${((1 - appExpandT) * 28).toFixed(0)}px`,
-                    pointerEvents: appExpandT > 0.6 ? 'auto' : 'none',
-                  }}
-                  aria-hidden={appExpandT <= 0.6}
-                  inert={appExpandT <= 0.6 ? true : undefined}
-                >
-                  <div className="rs-duo-fullscreen-split">
-                    {/* LEFT HALF: OFFICIAL iOS WHATSAPP RESCUE CHAT */}
-                    <div className="rs-wa-pane">
-                      <div className="rs-wa-header">
-                        <div className="rs-wa-avatar">RS</div>
-                        <div className="rs-wa-contact">
-                          <div className="rs-wa-contact__name">
-                            RescueShip Delivery Support <span className="rs-wa-verified">✓</span>
-                          </div>
-                          <div className="rs-wa-contact__sub">
-                            Official Business Account · Automated 90s SLA
-                          </div>
-                        </div>
-                        <div className="rs-wa-actions">
-                          <Video size={14} />
-                          <Phone size={13} />
-                        </div>
-                      </div>
+              {/* ------------------------------------------------------------
+                  LAYER C: AUTHENTIC iOS WABA THREAD + SWISS TELEMETRY INSPECTOR
+                 ------------------------------------------------------------ */}
+              <div
+                className="rs-duo-app-fullbleed"
+                style={{
+                  opacity: Number(Math.min(1, appLaunchT * 1.35).toFixed(2)),
+                  transform: `scale(${(0.92 + appLaunchT * 0.08).toFixed(3)})`,
+                  pointerEvents: isAppInteractive ? 'auto' : 'none',
+                }}
+                aria-hidden={!isAppInteractive}
+              >
+                {/* ==========================================================
+                    LEFT PANE: AUTHENTIC iOS WHATSAPP BUSINESS API (WABA) CHAT
+                   ========================================================== */}
+                <div className="rs-wa-pane">
+                  {/* Native iOS WhatsApp Top Navigation Bar */}
+                  <div className="rs-wa-header">
+                    <button
+                      type="button"
+                      className="rs-wa-back-btn"
+                      onClick={() => jumpToStage(0.68)}
+                      aria-label="Back to Home Screen"
+                    >
+                      <ChevronLeft size={22} strokeWidth={2.5} />
+                      <span className="rs-wa-unread-count">12</span>
+                    </button>
 
-                      <div className="rs-wa-progress-bar">
-                        <button
-                          type="button"
-                          className={`rs-wa-step-pill ${
-                            activePathLabel === 'PRE_DELIVERY' ? 'is-active' : ''
-                          }`}
-                          onClick={() => handleResetFlow(false)}
+                    <div className="rs-wa-avatar">
+                      <span>RS</span>
+                    </div>
+
+                    <div className="rs-wa-contact">
+                      <div className="rs-wa-contact__name">
+                        <span>RescueShip Logistics</span>
+                        {/* Official Meta Verified Badge SVG */}
+                        <svg
+                          className="rs-wa-meta-badge"
+                          viewBox="0 0 24 24"
+                          width="16"
+                          height="16"
+                          aria-label="Verified Business"
                         >
-                          Scenario 1: Pre-Delivery
-                        </button>
-                        <button
-                          type="button"
-                          className={`rs-wa-step-pill ${
-                            activePathLabel === 'NDR_INTERCEPT' ? 'is-active' : ''
-                          }`}
-                          onClick={() => handleResetFlow(true)}
-                        >
-                          Scenario 2: Fake NDR Intercept
-                        </button>
+                          <path
+                            fill="#25D366"
+                            d="M12 2l2.4 2.1 3.1-.4 1.3 2.9 2.9 1.3-.4 3.1L23.4 13l-2.1 2.4.4 3.1-2.9 1.3-1.3 2.9-3.1-.4L12 24.4l-2.4-2.1-3.1.4-1.3-2.9-2.9-1.3.4-3.1L.6 13l2.1-2.4-.4-3.1 2.9-1.3 1.3-2.9 3.1.4L12 2z"
+                          />
+                          <path
+                            fill="#FFFFFF"
+                            d="M10.4 15.8l-3.6-3.6 1.4-1.4 2.2 2.2 5.4-5.4 1.4 1.4-6.8 6.8z"
+                          />
+                        </svg>
                       </div>
-
-                      <div ref={chatScrollRef} className="rs-wa-messages">
-                        {messages.map((m) => {
-                          if (m.sender === 'system') {
-                            return (
-                              <div key={m.id} className="rs-wa-sys-pill">
-                                {m.text}
-                              </div>
-                            );
-                          }
-                          const isUser = m.sender === 'user';
-                          return (
-                            <div
-                              key={m.id}
-                              className={`rs-wa-bubble ${
-                                isUser ? 'rs-wa-bubble--user' : 'rs-wa-bubble--bot'
-                              }`}
-                            >
-                              {m.isLocationPin && (
-                                <div className="rs-wa-map-card">
-                                  <MapPin size={13} />
-                                  <span>Live GPS Pin · 28.5355° N, 77.3910° E (Gate 2)</span>
-                                </div>
-                              )}
-                              <p className="rs-wa-bubble__text">{renderWhatsAppFormattedText(m.text)}</p>
-                              <div className="rs-wa-bubble__meta">
-                                <span>{m.time}</span>
-                                {isUser && <CheckCheck size={13} className="rs-wa-ticks" />}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      <div className="rs-wa-tray">
-                        {stage === 'STAGE_1_PRE_DELIVERY' && (
-                          <div className="rs-wa-btn-group">
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn rs-wa-action-btn--primary"
-                              onClick={handlePreDeliveryUpi}
-                            >
-                              💳 Pay ₹1,190 via UPI (Pre-Delivery Path)
-                            </button>
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn"
-                              onClick={handleContinueToNdr}
-                            >
-                              🚚 Keep COD → Simulate Afternoon NDR Hit
-                            </button>
-                          </div>
-                        )}
-
-                        {stage === 'STAGE_2_NDR_HIT' && (
-                          <div className="rs-wa-btn-group">
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn rs-wa-action-btn--primary"
-                              onClick={handleNdrConfirmAvailable}
-                            >
-                              🏠 I'm Home — Lock Free Priority Re-Attempt
-                            </button>
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn rs-wa-action-btn--danger"
-                              onClick={handleBuyerCancelOrder}
-                            >
-                              ❌ Cancel Order (Triggers ₹100 UPI Save)
-                            </button>
-                          </div>
-                        )}
-
-                        {stage === 'STAGE_2_CANCEL_SAVE' && (
-                          <div className="rs-wa-btn-group">
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn rs-wa-action-btn--primary"
-                              onClick={handleAcceptCancelUpiSave}
-                            >
-                              ⚡ Pay ₹1,140 via Instant UPI (Save ₹100 Now)
-                            </button>
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn"
-                              onClick={handleNdrConfirmAvailable}
-                            >
-                              🏠 Or Keep COD & Confirm Re-Attempt
-                            </button>
-                          </div>
-                        )}
-
-                        {(stage === 'STAGE_1_PIN_PROMPT' || stage === 'STAGE_2_PIN_PROMPT') && (
-                          <div className="rs-wa-btn-group">
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn rs-wa-action-btn--emerald"
-                              onClick={handleShareLocationPin}
-                            >
-                              📍 Share WhatsApp Location Pin
-                            </button>
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn"
-                              onClick={handleSkipLocationPin}
-                            >
-                              ⏭️ Skip — Use Existing Address
-                            </button>
-                          </div>
-                        )}
-
-                        {(stage === 'STAGE_3_COMPLETED_PIN' ||
-                          stage === 'STAGE_3_COMPLETED_SKIP') && (
-                          <div className="rs-wa-btn-group rs-wa-btn-group--row">
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn"
-                              onClick={() => handleResetFlow(false)}
-                            >
-                              <RotateCcw size={12} /> Replay Pre-Delivery
-                            </button>
-                            <button
-                              type="button"
-                              className="rs-wa-action-btn"
-                              onClick={() => handleResetFlow(true)}
-                            >
-                              <RotateCcw size={12} /> Replay NDR Hit
-                            </button>
-                          </div>
-                        )}
+                      <div className="rs-wa-contact__sub">
+                        Official Business Account · Delhivery Partner
                       </div>
                     </div>
 
-                    {/* RIGHT HALF: LIVE RESCUESHIP TELEMETRY COMMAND DASHBOARD */}
-                    <div className="rs-live-dashboard-pane">
-                      <div className="rs-dash-topbar">
-                        <div className="rs-dash-live-pill">
-                          <span className="rs-dash-pulse-dot" />
-                          <span>LIVE RESCUESHIP DASHBOARD</span>
-                        </div>
-                        <span className="rs-dash-sla">{liveSlaTimer}s SLA</span>
-                      </div>
+                    <div className="rs-wa-actions">
+                      <Video size={19} strokeWidth={1.8} />
+                      <Phone size={17} strokeWidth={1.8} />
+                    </div>
+                  </div>
 
-                      {/* Top KPI Strip */}
-                      <div className="rs-dash-kpi-grid">
-                        <div className="rs-dash-kpi">
-                          <small>PARCEL AWB</small>
-                          <strong>#4023118876</strong>
-                          <span>Delhivery Surface</span>
-                        </div>
-                        <div className="rs-dash-kpi">
-                          <small>RTO BLEED PROTECTED</small>
-                          <strong className="rs-dash-emerald">₹430 / Order</strong>
-                          <span>₹200 Freight + ₹230 CAC</span>
-                        </div>
-                      </div>
+                  {/* Sleek Inspector Scenario Segmented Bar */}
+                  <div
+                    className="rs-wa-progress-bar"
+                    role="group"
+                    aria-label="Select Rescue Scenario"
+                  >
+                    <span className="rs-wa-bar-label">FLOW:</span>
+                    <div className="rs-wa-segmented-track">
+                      <button
+                        type="button"
+                        className={`rs-wa-step-pill ${
+                          activePathLabel === 'PRE_DELIVERY' ? 'is-active' : ''
+                        }`}
+                        onClick={() => handleResetFlow(false)}
+                      >
+                        01 · Morning OFD Convert
+                      </button>
+                      <button
+                        type="button"
+                        className={`rs-wa-step-pill ${
+                          activePathLabel === 'NDR_INTERCEPT' ? 'is-active' : ''
+                        }`}
+                        onClick={() => handleResetFlow(true)}
+                      >
+                        02 · Fake NDR Intercept
+                      </button>
+                    </div>
+                  </div>
 
-                      {/* Live Sequential Lifecycle Pipeline inside Dashboard */}
-                      <div className="rs-dash-pipeline">
-                        <div className="rs-dash-pipe-step is-active">
-                          <CheckCircle2 size={15} className="rs-dash-step-icon" />
-                          <div>
-                            <strong>
-                              {activePathLabel === 'PRE_DELIVERY'
-                                ? '1. Pre-Delivery Out-for-Delivery Trigger'
-                                : '1. Fake NDR Scan Intercepted (<90s SLA)'}
-                            </strong>
-                            <p>
-                              {activePathLabel === 'PRE_DELIVERY'
-                                ? 'Dispatched morning WhatsApp with ₹50 UPI incentive.'
-                                : 'Courier logged "Door Locked" with 0 IVR calls — intercepted in 38s.'}
-                            </p>
+                  {/* Authentic WhatsApp Chat Thread */}
+                  <div ref={chatScrollRef} className="rs-wa-messages">
+                    <div className="rs-wa-encryption-banner">
+                      <Lock size={11} />
+                      <span>
+                        This business uses a secure service from Meta to manage
+                        this chat.
+                      </span>
+                    </div>
+
+                    {messages.map((m, idx) => {
+                      if (m.sender === 'system') {
+                        return (
+                          <div key={m.id} className="rs-wa-sys-pill">
+                            {m.text}
                           </div>
-                        </div>
+                        );
+                      }
+                      const isUser = m.sender === 'user';
+                      const isFirstBotMsg = idx === 1 && m.sender === 'bot';
+                      const isLatestBotMsg =
+                        m.sender === 'bot' && idx === messages.length - 1;
 
+                      return (
                         <div
-                          className={`rs-dash-pipe-step ${
-                            stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
-                              ? 'is-active'
-                              : ''
+                          key={m.id}
+                          className={`rs-wa-bubble-wrap ${
+                            isUser
+                              ? 'rs-wa-bubble-wrap--user'
+                              : 'rs-wa-bubble-wrap--bot'
                           }`}
                         >
-                          <Activity size={15} className="rs-dash-step-icon" />
-                          <div>
-                            <strong>2. Buyer Action & Payment Gate</strong>
-                            <p>
-                              {stage.includes('PIN_PROMPT') || stage.includes('COMPLETED')
-                                ? 'Buyer confirmed availability inside WhatsApp.'
-                                : 'Waiting for buyer tap in the WhatsApp chat on the left...'}
-                            </p>
-                          </div>
-                        </div>
+                          <div
+                            className={`rs-wa-bubble ${
+                              isUser
+                                ? 'rs-wa-bubble--user'
+                                : 'rs-wa-bubble--bot'
+                            }`}
+                          >
+                            {/* Embedded WABA Order Summary Card on initial message */}
+                            {isFirstBotMsg && (
+                              <div className="rs-waba-order-card">
+                                <div className="rs-waba-order-card__icon">
+                                  <PackageCheck size={18} />
+                                </div>
+                                <div className="rs-waba-order-card__info">
+                                  <strong>AWB #4023118876 · Delhivery</strong>
+                                  <span>
+                                    Surface Parcel · COD Collectible: ₹1,240
+                                  </span>
+                                </div>
+                                <span className="rs-waba-order-card__tag">
+                                  OFD
+                                </span>
+                              </div>
+                            )}
 
-                        <div
-                          className={`rs-dash-pipe-step ${
-                            stage.includes('COMPLETED') ? 'is-active' : ''
-                          }`}
-                        >
-                          <Sparkles size={15} className="rs-dash-step-icon" />
-                          <div>
-                            <strong>3. Final GPS Pin / Skip Sync to Courier API</strong>
-                            <p>
-                              {stage === 'STAGE_3_COMPLETED_PIN' &&
-                                '✓ Gate landmark injected into Delhivery NDR API + Google Maps SMS sent to rider.'}
-                              {stage === 'STAGE_3_COMPLETED_SKIP' &&
-                                '✓ Buyer skipped pin; priority re-attempt locked using saved address.'}
-                              {!stage.includes('COMPLETED') &&
-                                'Final step asks for WhatsApp Location Pin alongside Skip button.'}
+                            {/* Authentic WhatsApp Location Pin Map Preview */}
+                            {m.isLocationPin && (
+                              <div className="rs-wa-map-card">
+                                <div className="rs-wa-map-card__pin">
+                                  <MapPin size={16} />
+                                </div>
+                                <div className="rs-wa-map-card__meta">
+                                  <strong>Live GPS Location Shared</strong>
+                                  <span>
+                                    28.5355° N, 77.3910° E · Gate 2, Sector 62
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            <p className="rs-wa-bubble__text">
+                              {renderWhatsAppFormattedText(m.text)}
                             </p>
+
+                            {!isUser && (
+                              <div className="rs-waba-footer-line">
+                                RescueShip Automated Dispatch · {m.time}
+                              </div>
+                            )}
+
+                            {isUser && (
+                              <div className="rs-wa-bubble__meta">
+                                <span>{m.time}</span>
+                                <CheckCheck className="rs-wa-ticks" size={14} />
+                              </div>
+                            )}
+
+                            {/* WABA Interactive Buttons Attached Directly to Latest Bot Bubble */}
+                            {isLatestBotMsg && (
+                              <div className="rs-waba-attached-actions">
+                                {stage === 'STAGE_1_PRE_DELIVERY' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn rs-wa-action-btn--primary"
+                                      onClick={handlePreDeliveryUpi}
+                                    >
+                                      <ArrowUpRight size={15} />
+                                      <span>
+                                        Pay ₹1,190 via UPI (Save ₹50 Now)
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn"
+                                      onClick={handleContinueToNdr}
+                                    >
+                                      <span>
+                                        Keep COD → Simulate Afternoon NDR Hit
+                                      </span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {stage === 'STAGE_2_NDR_HIT' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn rs-wa-action-btn--primary"
+                                      onClick={handleNdrConfirmAvailable}
+                                    >
+                                      <span>
+                                        I&apos;m Home — Lock Free Priority
+                                        Re-Attempt
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn rs-wa-action-btn--danger"
+                                      onClick={handleBuyerCancelOrder}
+                                    >
+                                      <span>
+                                        Cancel Order (Triggers ₹100 UPI Save)
+                                      </span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {stage === 'STAGE_2_CANCEL_SAVE' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn rs-wa-action-btn--primary"
+                                      onClick={handleAcceptCancelUpiSave}
+                                    >
+                                      <ArrowUpRight size={15} />
+                                      <span>
+                                        Pay ₹1,140 via Instant UPI (Save ₹100)
+                                      </span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn"
+                                      onClick={handleNdrConfirmAvailable}
+                                    >
+                                      <span>
+                                        Keep COD &amp; Confirm Re-Attempt
+                                      </span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {(stage === 'STAGE_1_PIN_PROMPT' ||
+                                  stage === 'STAGE_2_PIN_PROMPT') && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn rs-wa-action-btn--emerald"
+                                      onClick={handleShareLocationPin}
+                                    >
+                                      <MapPin size={15} />
+                                      <span>Share WhatsApp Location Pin</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn"
+                                      onClick={handleSkipLocationPin}
+                                    >
+                                      <span>Skip — Use Saved Address</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {(stage === 'STAGE_3_COMPLETED_PIN' ||
+                                  stage === 'STAGE_3_COMPLETED_SKIP') && (
+                                  <div className="rs-waba-replay-row">
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn"
+                                      onClick={() => handleResetFlow(false)}
+                                    >
+                                      <RotateCcw size={13} />
+                                      <span>Replay Pre-Delivery</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="rs-wa-action-btn"
+                                      onClick={() => handleResetFlow(true)}
+                                    >
+                                      <RotateCcw size={13} />
+                                      <span>Replay NDR Hit</span>
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Native iOS WhatsApp Bottom Composer Bar */}
+                  <div className="rs-wa-ios-composer">
+                    <span className="rs-wa-composer-icon">
+                      <Plus size={20} />
+                    </span>
+                    <div className="rs-wa-composer-pill">
+                      <span>
+                        {stage.includes('COMPLETED')
+                          ? 'Order rescue locked · AWB #4023118876'
+                          : 'Tap a quick-reply button above…'}
+                      </span>
+                    </div>
+                    <span className="rs-wa-composer-icon">
+                      <Camera size={19} />
+                    </span>
+                    <span className="rs-wa-composer-icon">
+                      <Mic size={19} />
+                    </span>
+                  </div>
+                </div>
+
+                {/* ==========================================================
+                    RIGHT PANE: SWISS ARCHITECTURAL TELEMETRY & RTO LEDGER
+                   ========================================================== */}
+                <div className="rs-live-dashboard-pane">
+                  {/* Top Architectural Header */}
+                  <div className="rs-dash-topbar">
+                    <div className="rs-dash-topbar__title">
+                      <span className="rs-dash-status-dot" />
+                      <span>RESCUESHIP TELEMETRY // AWB #4023118876</span>
+                    </div>
+                    <span className="rs-dash-sla">
+                      INTERCEPT: {liveSlaTimer}s
+                    </span>
+                  </div>
+
+                  {/* Swiss Grid Row 1: Two-Part ₹430 Indian D2C RTO Bleed Ledger */}
+                  <div className="rs-dash-ledger-grid">
+                    <div className="rs-dash-ledger-cell">
+                      <small>01 · FREIGHT &amp; QC BURN</small>
+                      <strong>₹200</strong>
+                      <span>₹80 Fwd + ₹80 Rev + ₹40 Pack</span>
+                    </div>
+                    <div className="rs-dash-ledger-cell">
+                      <small>02 · SUNK AD CAC</small>
+                      <strong>₹230</strong>
+                      <span>Meta / Google Paid Acquisition</span>
+                    </div>
+                    <div
+                      className={`rs-dash-ledger-cell rs-dash-ledger-cell--total ${
+                        stage.includes('COMPLETED') ||
+                        stage.includes('PIN_PROMPT')
+                          ? 'is-saved'
+                          : 'is-at-risk'
+                      }`}
+                    >
+                      <small>
+                        {stage.includes('COMPLETED') ||
+                        stage.includes('PIN_PROMPT')
+                          ? '✓ TOTAL BLEED SAVED'
+                          : '⚠ TOTAL BLEED AT RISK'}
+                      </small>
+                      <strong>₹430 / RTO</strong>
+                      <span>
+                        {stage.includes('COMPLETED')
+                          ? 'Margin Locked in Courier API'
+                          : 'Active Rescue Gate Open'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Swiss Grid Row 2: Autonomous Execution State Machine */}
+                  <div className="rs-dash-section-label">
+                    <span>EXECUTION STATE PIPELINE</span>
+                    <span>
+                      {activePathLabel === 'PRE_DELIVERY'
+                        ? 'MODE: OFD_PREPAID_CONVERT'
+                        : 'MODE: NDR_ARREST_ENGINE'}
+                    </span>
+                  </div>
+
+                  <div className="rs-dash-pipeline">
+                    <div className="rs-dash-pipe-step is-active">
+                      <div className="rs-dash-step-index">01</div>
+                      <div className="rs-dash-step-body">
+                        <div className="rs-dash-step-head">
+                          <strong>
+                            {activePathLabel === 'PRE_DELIVERY'
+                              ? 'Out-for-Delivery Webhook Ingested'
+                              : 'Fake NDR Scan Intercepted ("Door Locked")'}
+                          </strong>
+                          <span className="rs-dash-step-tag is-done">
+                            38s SLA
+                          </span>
+                        </div>
+                        <p>
+                          {activePathLabel === 'PRE_DELIVERY'
+                            ? 'Delhivery OFD scan detected at 09:15 IST. Dispatched WABA template with ₹50 UPI incentive.'
+                            : 'Courier logged "Customer Unavailable" with 0 IVR calls. Triggered instant buyer verification.'}
+                        </p>
                       </div>
+                    </div>
 
-                      {/* Bottom Live Webhook Event Ticker */}
-                      <div className="rs-dash-webhook-box">
-                        <div className="rs-dash-webhook-head">
-                          <span>COURIER WEBHOOK STREAM</span>
-                          <span>200 OK</span>
+                    <div
+                      className={`rs-dash-pipe-step ${
+                        stage.includes('PIN_PROMPT') ||
+                        stage.includes('COMPLETED') ||
+                        stage === 'STAGE_2_CANCEL_SAVE'
+                          ? 'is-active'
+                          : ''
+                      }`}
+                    >
+                      <div className="rs-dash-step-index">02</div>
+                      <div className="rs-dash-step-body">
+                        <div className="rs-dash-step-head">
+                          <strong>
+                            Buyer Intent &amp; UPI Payment Gate
+                          </strong>
+                          <span
+                            className={`rs-dash-step-tag ${
+                              stage.includes('PIN_PROMPT') ||
+                              stage.includes('COMPLETED')
+                                ? 'is-done'
+                                : 'is-wait'
+                            }`}
+                          >
+                            {stage.includes('PIN_PROMPT') ||
+                            stage.includes('COMPLETED')
+                              ? 'VERIFIED'
+                              : 'AWAITING TAP'}
+                          </span>
                         </div>
-                        <code>
-                          {stage === 'STAGE_3_COMPLETED_PIN'
-                            ? 'POST /ndr/reattempt { lat: 28.5355, lng: 77.3910, sms_rider: true }'
-                            : stage === 'STAGE_3_COMPLETED_SKIP'
-                            ? 'POST /ndr/reattempt { use_saved_address: true, priority: "HIGH" }'
-                            : stage === 'STAGE_2_CANCEL_SAVE'
-                            ? 'POST /retention/upi-hold { status: "UPI_DISCOUNT_OFFERED", window_sec: 7200 }'
-                            : stage === 'STAGE_2_NDR_HIT'
-                            ? 'STREAM /webhooks/delhivery/ndr-fake-scan { code: "DOOR_LOCKED", ivr_calls: 0 }'
-                            : 'STREAM /webhooks/delhivery/awb-4023118876 -> LISTENING'}
-                        </code>
+                        <p>
+                          {stage === 'STAGE_2_CANCEL_SAVE'
+                            ? 'Buyer tapped Cancel — deployed 1-shot ₹100 instant UPI discount with 2-hour payment gate.'
+                            : stage.includes('PIN_PROMPT') ||
+                                stage.includes('COMPLETED')
+                              ? 'Buyer availability / UPI settlement verified inside WhatsApp thread.'
+                              : 'Waiting for buyer interaction inside the WhatsApp Business thread on the left.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`rs-dash-pipe-step ${
+                        stage.includes('COMPLETED') ? 'is-active' : ''
+                      }`}
+                    >
+                      <div className="rs-dash-step-index">03</div>
+                      <div className="rs-dash-step-body">
+                        <div className="rs-dash-step-head">
+                          <strong>
+                            Courier NDR API &amp; Field Rider Dispatch
+                          </strong>
+                          <span
+                            className={`rs-dash-step-tag ${
+                              stage.includes('COMPLETED')
+                                ? 'is-done'
+                                : 'is-wait'
+                            }`}
+                          >
+                            {stage === 'STAGE_3_COMPLETED_PIN'
+                              ? 'GPS PIN SYNCED'
+                              : stage === 'STAGE_3_COMPLETED_SKIP'
+                                ? 'ADDRESS LOCKED'
+                                : 'STANDBY'}
+                          </span>
+                        </div>
+                        <p>
+                          {stage === 'STAGE_3_COMPLETED_PIN' &&
+                            'Reverse-geocoded gate landmark injected into Delhivery NDR API + Google Maps SMS dispatched to rider.'}
+                          {stage === 'STAGE_3_COMPLETED_SKIP' &&
+                            'Priority re-attempt locked in Delhivery NDR API using buyer’s verified saved address.'}
+                          {!stage.includes('COMPLETED') &&
+                            'Captures live WhatsApp GPS pin (or saved address) and pushes re-attempt mandate to carrier API.'}
+                        </p>
                       </div>
                     </div>
                   </div>
+
+                  {/* Swiss Grid Row 3: Live Carrier Webhook & Rider SMS Inspector */}
+                  <div className="rs-dash-webhook-box">
+                    <div className="rs-dash-webhook-head">
+                      <span>
+                        <Terminal size={12} style={{ verticalAlign: '-1px', marginRight: '6px' }} />
+                        CARRIER API PAYLOAD // DELHIVERY_NDR_V2
+                      </span>
+                      <span className="rs-dash-http-status">HTTP 200 OK</span>
+                    </div>
+                    <pre className="rs-dash-code-block">
+                      {stage === 'STAGE_3_COMPLETED_PIN'
+                        ? `POST /api/v2/ndr/4023118876/reattempt
+{ "action": "REATTEMPT_PRIORITY", "lat": 28.5355, "lng": 77.3910,
+  "rider_sms": "maps.google.com/?q=28.5355,77.3910 (Gate 2, Sec 62)" }`
+                        : stage === 'STAGE_3_COMPLETED_SKIP'
+                          ? `POST /api/v2/ndr/4023118876/reattempt
+{ "action": "REATTEMPT_PRIORITY", "address_mode": "SAVED_VERIFIED",
+  "rto_arrest_credit": "INR_430_PROTECTED" }`
+                          : `STREAM /webhooks/delhivery/awb-4023118876
+{ "awb": "4023118876", "cod_amount": 1240, "sla_window_sec": 90,
+  "status": "${stage}" }`}
+                    </pre>
+                  </div>
                 </div>
+              </div>
               </div>
             </div>
           </div>
