@@ -9020,7 +9020,7 @@ html {
 
 
 /* ==========================================================================
-   STAGE 4 REDESIGN: AUTHENTIC iOS WABA CHAT + SWISS TELEMETRY INSPECTOR
+   STAGE 4: SIMPLE, CLEAN, LARGE-TEXT WHATSAPP & 3-STEP SUMMARY
    ========================================================================== */
 
 #foldfolio-demo .rs-duo-app-fullbleed {
@@ -9030,67 +9030,46 @@ html {
   height: 100% !important;
   z-index: 40 !important;
   display: grid !important;
-  grid-template-columns: 48% 52% !important;
-  background: rgb(14 14 13) !important;
-  border: 2px solid rgb(24 24 26) !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
+  grid-template-columns: 1fr 1fr !important;
+  background: rgb(18 18 17) !important;
   border-radius: 28px !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
   transform-origin: 50% 34% !important;
 }
 
-/* ---------- LEFT PANE: iOS WHATSAPP BUSINESS THREAD ---------- */
+/* ---------- LEFT PANE: CLEAN WHATSAPP ---------- */
 #foldfolio-demo .rs-wa-pane {
   display: flex !important;
   flex-direction: column !important;
   height: 100% !important;
   background: rgb(239 234 226) !important;
-  border-right: 1px solid rgb(209 215 219) !important;
+  border-right: 1px solid rgb(210 205 196) !important;
   overflow: hidden !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif !important;
+  box-sizing: border-box !important;
 }
 
 #foldfolio-demo .rs-wa-header {
   display: flex !important;
   align-items: center !important;
-  gap: 0.55rem !important;
-  padding: 0.65rem 0.85rem !important;
-  background: rgb(247 248 250) !important;
-  border-bottom: 1px solid rgb(222 226 230) !important;
-  color: rgb(17 27 33) !important;
+  gap: 0.85rem !important;
+  padding: 0.9rem 1.15rem !important;
+  background: rgb(7 94 84) !important;
+  color: rgb(255 255 255) !important;
   flex-shrink: 0 !important;
 }
 
-#foldfolio-demo .rs-wa-back-btn {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 1px !important;
-  background: none !important;
-  border: none !important;
-  padding: 0 2px 0 0 !important;
-  color: rgb(0 122 255) !important;
-  font-size: 0.92rem !important;
-  font-weight: 600 !important;
-  cursor: pointer !important;
-}
-
-#foldfolio-demo .rs-wa-unread-count {
-  font-size: 0.86rem !important;
-  margin-left: -2px !important;
-}
-
 #foldfolio-demo .rs-wa-avatar {
-  width: 36px !important;
-  height: 36px !important;
+  width: 42px !important;
+  height: 42px !important;
   border-radius: 50% !important;
-  background: rgb(14 14 13) !important;
-  color: rgb(244 241 234) !important;
-  font-size: 0.78rem !important;
+  background: rgb(37 211 102) !important;
+  color: rgb(9 9 11) !important;
+  font-size: 0.95rem !important;
   font-weight: 800 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  border: 1px solid rgb(0 0 0 / 12%) !important;
   flex-shrink: 0 !important;
 }
 
@@ -9100,323 +9079,194 @@ html {
 }
 
 #foldfolio-demo .rs-wa-contact__name {
+  font-size: 1.15rem !important;
+  font-weight: 800 !important;
+  color: rgb(255 255 255) !important;
   display: flex !important;
   align-items: center !important;
-  gap: 5px !important;
-  font-size: 0.96rem !important;
-  font-weight: 700 !important;
-  color: rgb(17 27 33) !important;
-  line-height: 1.2 !important;
+  gap: 0.35rem !important;
 }
 
-#foldfolio-demo .rs-wa-meta-badge {
-  flex-shrink: 0 !important;
+#foldfolio-demo .rs-wa-verified {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 18px !important;
+  height: 18px !important;
+  border-radius: 50% !important;
+  background: rgb(37 211 102) !important;
+  color: rgb(255 255 255) !important;
+  font-size: 0.72rem !important;
+  font-weight: 900 !important;
 }
 
 #foldfolio-demo .rs-wa-contact__sub {
-  font-size: 0.74rem !important;
-  color: rgb(102 119 129) !important;
-  font-weight: 500 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  font-size: 0.85rem !important;
+  color: rgb(255 255 255 / 82%) !important;
 }
 
-#foldfolio-demo .rs-wa-actions {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.85rem !important;
-  color: rgb(0 122 255) !important;
-  padding-right: 0.2rem !important;
-}
-
-/* Compact Segmented Flow Toolbar */
+/* 2 Large Scenario Tabs */
 #foldfolio-demo .rs-wa-progress-bar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
+  display: grid !important;
+  grid-template-columns: 1fr 1fr !important;
   gap: 0.5rem !important;
-  padding: 0.4rem 0.75rem !important;
-  background: rgb(240 242 245) !important;
-  border-bottom: 1px solid rgb(218 222 226) !important;
+  padding: 0.55rem 0.9rem !important;
+  background: rgb(230 225 216) !important;
+  border-bottom: 1px solid rgb(212 207 198) !important;
   flex-shrink: 0 !important;
 }
 
-#foldfolio-demo .rs-wa-bar-label {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.68rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: rgb(84 101 111) !important;
-}
-
-#foldfolio-demo .rs-wa-segmented-track {
-  display: flex !important;
-  flex: 1 !important;
-  background: rgb(226 230 234) !important;
-  padding: 2px !important;
-  border-radius: 8px !important;
-  gap: 2px !important;
-}
-
 #foldfolio-demo .rs-wa-step-pill {
-  flex: 1 !important;
-  border: none !important;
-  border-radius: 6px !important;
-  padding: 0.32rem 0.5rem !important;
-  font-size: 0.76rem !important;
+  padding: 0.5rem 0.75rem !important;
+  border-radius: 10px !important;
+  font-size: 0.92rem !important;
   font-weight: 700 !important;
-  background: transparent !important;
-  color: rgb(84 101 111) !important;
+  border: 1px solid rgb(0 0 0 / 10%) !important;
+  background: rgb(255 255 255 / 70%) !important;
+  color: rgb(40 40 38) !important;
   cursor: pointer !important;
+  text-align: center !important;
   transition: all 0.15s ease !important;
 }
 
 #foldfolio-demo .rs-wa-step-pill.is-active {
-  background: rgb(255 255 255) !important;
-  color: rgb(17 27 33) !important;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 12%) !important;
+  background: rgb(18 18 17) !important;
+  color: rgb(255 255 255) !important;
+  border-color: rgb(18 18 17) !important;
 }
 
-/* Chat Wallpaper & Message Area */
+/* Chat Messages */
 #foldfolio-demo .rs-wa-messages {
   flex: 1 !important;
   overflow-y: auto !important;
-  padding: 0.65rem 0.85rem !important;
+  padding: 1rem 1.1rem !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.55rem !important;
-  background-color: rgb(239 234 226) !important;
-  background-image: radial-gradient(
-    rgb(17 27 33 / 4%) 1px,
-    transparent 0
-  ) !important;
-  background-size: 18px 18px !important;
-}
-
-#foldfolio-demo .rs-wa-encryption-banner {
-  align-self: center !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 5px !important;
-  background: rgb(255 245 196) !important;
-  color: rgb(84 101 111) !important;
-  font-size: 0.68rem !important;
-  font-weight: 500 !important;
-  padding: 0.3rem 0.65rem !important;
-  border-radius: 8px !important;
-  box-shadow: 0 1px 1px rgb(11 20 26 / 8%) !important;
-  text-align: center !important;
-  max-width: 94% !important;
-}
-
-#foldfolio-demo .rs-wa-sys-pill {
-  align-self: center !important;
-  background: rgb(255 255 255 / 92%) !important;
-  color: rgb(84 101 111) !important;
-  font-size: 0.72rem !important;
-  font-weight: 600 !important;
-  padding: 0.25rem 0.65rem !important;
-  border-radius: 7px !important;
-  box-shadow: 0 1px 1px rgb(11 20 26 / 8%) !important;
-}
-
-#foldfolio-demo .rs-wa-bubble-wrap {
-  display: flex !important;
-  width: 100% !important;
-}
-
-#foldfolio-demo .rs-wa-bubble-wrap--bot {
-  justify-content: flex-start !important;
-}
-
-#foldfolio-demo .rs-wa-bubble-wrap--user {
-  justify-content: flex-end !important;
+  gap: 0.75rem !important;
 }
 
 #foldfolio-demo .rs-wa-bubble {
   max-width: 92% !important;
-  border-radius: 12px !important;
-  padding: 0.65rem 0.8rem !important;
-  box-shadow: 0 1px 1.5px rgb(11 20 26 / 14%) !important;
-  position: relative !important;
+  padding: 0.9rem 1.1rem !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 8%) !important;
 }
 
 #foldfolio-demo .rs-wa-bubble--bot {
   background: rgb(255 255 255) !important;
   color: rgb(17 27 33) !important;
-  border-top-left-radius: 2px !important;
-  padding-bottom: 0.45rem !important;
+  align-self: flex-start !important;
+  border-top-left-radius: 4px !important;
 }
 
 #foldfolio-demo .rs-wa-bubble--user {
   background: rgb(217 253 211) !important;
   color: rgb(17 27 33) !important;
-  border-top-right-radius: 2px !important;
+  align-self: flex-end !important;
+  border-top-right-radius: 4px !important;
 }
 
-/* Embedded WABA Order Card inside First Bot Bubble */
-#foldfolio-demo .rs-waba-order-card {
+#foldfolio-demo .rs-wa-map-card {
   display: flex !important;
   align-items: center !important;
-  gap: 0.55rem !important;
-  background: rgb(244 246 248) !important;
-  border: 1px solid rgb(226 230 234) !important;
+  gap: 0.5rem !important;
+  padding: 0.6rem 0.8rem !important;
   border-radius: 8px !important;
-  padding: 0.45rem 0.6rem !important;
-  margin-bottom: 0.5rem !important;
-}
-
-#foldfolio-demo .rs-waba-order-card__icon {
-  width: 32px !important;
-  height: 32px !important;
-  border-radius: 7px !important;
-  background: rgb(14 14 13) !important;
-  color: rgb(255 255 255) !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-waba-order-card__info {
-  flex: 1 !important;
-  min-width: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-#foldfolio-demo .rs-waba-order-card__info strong {
-  font-size: 0.78rem !important;
-  color: rgb(17 27 33) !important;
-}
-
-#foldfolio-demo .rs-waba-order-card__info span {
-  font-size: 0.7rem !important;
-  color: rgb(84 101 111) !important;
-}
-
-#foldfolio-demo .rs-waba-order-card__tag {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.66rem !important;
-  font-weight: 700 !important;
-  padding: 2px 6px !important;
-  border-radius: 4px !important;
   background: rgb(220 252 231) !important;
-  color: rgb(21 128 61) !important;
+  color: rgb(22 101 52) !important;
+  font-size: 0.92rem !important;
+  font-weight: 700 !important;
+  margin-bottom: 0.5rem !important;
+  border: 1px solid rgb(187 247 208) !important;
 }
 
 #foldfolio-demo .rs-wa-bubble__text {
   margin: 0 !important;
-  font-size: 0.88rem !important;
-  line-height: 1.42 !important;
+  font-size: 1.08rem !important;
+  line-height: 1.45 !important;
+  font-weight: 500 !important;
   color: rgb(17 27 33) !important;
   white-space: pre-line !important;
 }
 
-#foldfolio-demo .rs-waba-footer-line {
-  font-size: 0.68rem !important;
-  color: rgb(134 150 160) !important;
+#foldfolio-demo .rs-wa-bubble__meta {
+  font-size: 0.78rem !important;
+  color: rgb(102 119 129) !important;
   margin-top: 0.35rem !important;
   display: flex !important;
-  justify-content: space-between !important;
-}
-
-/* Attached WABA Interactive Buttons inside the Bot Bubble */
-#foldfolio-demo .rs-waba-attached-actions {
-  margin: 0.5rem -0.8rem -0.45rem !important;
-  border-top: 1px solid rgb(233 237 239) !important;
-  display: flex !important;
-  flex-direction: column !important;
-  background: rgb(255 255 255) !important;
-  border-radius: 0 0 12px 12px !important;
-  overflow: hidden !important;
-}
-
-#foldfolio-demo .rs-waba-attached-actions .rs-wa-action-btn {
-  width: 100% !important;
-  background: rgb(255 255 255) !important;
-  border: none !important;
-  border-bottom: 1px solid rgb(233 237 239) !important;
-  border-radius: 0 !important;
-  padding: 0.62rem 0.75rem !important;
-  font-size: 0.84rem !important;
-  font-weight: 700 !important;
-  color: rgb(0 168 132) !important;
-  display: flex !important;
+  justify-content: flex-end !important;
   align-items: center !important;
-  justify-content: center !important;
-  gap: 0.4rem !important;
-  cursor: pointer !important;
-  transition: background-color 0.15s ease !important;
-  box-shadow: none !important;
+  gap: 4px !important;
 }
 
-#foldfolio-demo .rs-waba-attached-actions .rs-wa-action-btn:last-child {
-  border-bottom: none !important;
+#foldfolio-demo .rs-wa-ticks {
+  color: rgb(83 189 235) !important;
 }
 
-#foldfolio-demo .rs-waba-attached-actions .rs-wa-action-btn:hover {
-  background: rgb(240 253 244) !important;
-}
-
-#foldfolio-demo .rs-waba-attached-actions .rs-wa-action-btn--primary {
-  background: rgb(240 253 244) !important;
-  color: rgb(21 128 61) !important;
-}
-
-#foldfolio-demo .rs-waba-attached-actions .rs-wa-action-btn--danger {
-  color: rgb(224 46 18) !important;
-}
-
-#foldfolio-demo .rs-waba-replay-row {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-}
-
-#foldfolio-demo .rs-waba-replay-row .rs-wa-action-btn:first-child {
-  border-right: 1px solid rgb(233 237 239) !important;
-  border-bottom: none !important;
-}
-
-/* Native iOS WhatsApp Bottom Composer Bar */
-#foldfolio-demo .rs-wa-ios-composer {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.55rem !important;
-  padding: 0.5rem 0.75rem !important;
-  background: rgb(247 248 250) !important;
-  border-top: 1px solid rgb(222 226 230) !important;
+/* Bottom Action Tray */
+#foldfolio-demo .rs-wa-tray {
+  padding: 0.85rem 1rem !important;
+  background: rgb(245 242 236) !important;
+  border-top: 1px solid rgb(218 213 204) !important;
   flex-shrink: 0 !important;
 }
 
-#foldfolio-demo .rs-wa-composer-icon {
-  color: rgb(0 122 255) !important;
+#foldfolio-demo .rs-wa-btn-group {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.55rem !important;
+}
+
+#foldfolio-demo .rs-wa-btn-group--row {
+  flex-direction: row !important;
+}
+
+#foldfolio-demo .rs-wa-action-btn {
+  width: 100% !important;
+  padding: 0.82rem 1rem !important;
+  border-radius: 12px !important;
+  font-size: 1.02rem !important;
+  font-weight: 700 !important;
+  border: 1.5px solid rgb(18 18 17 / 15%) !important;
+  background: rgb(255 255 255) !important;
+  color: rgb(18 18 17) !important;
+  cursor: pointer !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  gap: 0.45rem !important;
+  transition: transform 0.12s ease, background 0.12s ease !important;
 }
 
-#foldfolio-demo .rs-wa-composer-pill {
-  flex: 1 !important;
-  background: rgb(255 255 255) !important;
-  border: 1px solid rgb(218 222 226) !important;
-  border-radius: 999px !important;
-  padding: 0.38rem 0.85rem !important;
-  font-size: 0.76rem !important;
-  color: rgb(134 150 160) !important;
+#foldfolio-demo .rs-wa-action-btn:hover {
+  transform: translateY(-1px) !important;
 }
 
-/* ---------- RIGHT PANE: SWISS ARCHITECTURAL TELEMETRY INSPECTOR ---------- */
+#foldfolio-demo .rs-wa-action-btn--primary {
+  background: rgb(22 163 74) !important;
+  color: rgb(255 255 255) !important;
+  border-color: rgb(22 163 74) !important;
+}
+
+#foldfolio-demo .rs-wa-action-btn--primary:hover {
+  background: rgb(21 128 61) !important;
+}
+
+#foldfolio-demo .rs-wa-action-btn--danger {
+  color: rgb(220 38 38) !important;
+  border-color: rgb(220 38 38 / 30%) !important;
+}
+
+/* ---------- RIGHT PANE: SIMPLE 3-STEP LIVE SUMMARY ---------- */
 #foldfolio-demo .rs-live-dashboard-pane {
   display: flex !important;
   flex-direction: column !important;
-  justify-content: flex-start !important;
-  gap: 0 !important;
-  height: 100% !important;
-  padding: 0 !important;
-  background: rgb(14 14 13) !important;
+  justify-content: space-between !important;
+  padding: 1.25rem 1.35rem !important;
+  background: rgb(18 18 17) !important;
   color: rgb(244 241 234) !important;
+  gap: 1rem !important;
+  box-sizing: border-box !important;
   overflow: hidden !important;
 }
 
@@ -9424,236 +9274,164 @@ html {
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
-  padding: 0.75rem 1.1rem !important;
-  background: rgb(20 20 19) !important;
-  border-bottom: 1px solid rgb(244 241 234 / 12%) !important;
+  padding: 0 !important;
+  border: none !important;
+  background: transparent !important;
   flex-shrink: 0 !important;
 }
 
-#foldfolio-demo .rs-dash-topbar__title {
+#foldfolio-demo .rs-dash-live-pill {
+  font-size: 0.92rem !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.05em !important;
+  color: rgb(134 239 172) !important;
   display: flex !important;
   align-items: center !important;
-  gap: 0.5rem !important;
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.75rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.04em !important;
-  color: rgb(244 241 234) !important;
+  gap: 0.55rem !important;
 }
 
-#foldfolio-demo .rs-dash-status-dot {
-  width: 7px !important;
-  height: 7px !important;
+#foldfolio-demo .rs-dash-pulse-dot {
+  width: 8px !important;
+  height: 8px !important;
   border-radius: 50% !important;
-  background: rgb(34 197 94) !important;
+  background: rgb(74 222 128) !important;
+  box-shadow: 0 0 8px rgb(74 222 128 / 70%) !important;
+  display: inline-block !important;
+  animation: rsPulseGreen 2s infinite ease-in-out !important;
 }
 
-#foldfolio-demo .rs-dash-sla {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.72rem !important;
-  font-weight: 700 !important;
-  padding: 0.22rem 0.55rem !important;
-  border-radius: 4px !important;
-  background: rgb(244 241 234 / 8%) !important;
-  color: rgb(244 241 234) !important;
-  border: 1px solid rgb(244 241 234 / 16%) !important;
+@keyframes rsPulseGreen {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
 }
 
-/* 3-Column Swiss RTO Bleed Ledger */
-#foldfolio-demo .rs-dash-ledger-grid {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr 1.15fr !important;
-  border-bottom: 1px solid rgb(244 241 234 / 12%) !important;
+/* Big Hero Card */
+#foldfolio-demo .rs-dash-hero-card {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 1.1rem 1.25rem !important;
+  border-radius: 16px !important;
+  background: rgb(28 28 26) !important;
+  border: 1px solid rgb(244 241 234 / 14%) !important;
   flex-shrink: 0 !important;
 }
 
-#foldfolio-demo .rs-dash-ledger-cell {
-  padding: 0.75rem 0.9rem !important;
-  border-right: 1px solid rgb(244 241 234 / 10%) !important;
+#foldfolio-demo .rs-dash-hero-card__left {
   display: flex !important;
   flex-direction: column !important;
-  gap: 0.18rem !important;
+  gap: 0.2rem !important;
 }
 
-#foldfolio-demo .rs-dash-ledger-cell:last-child {
-  border-right: none !important;
-}
-
-#foldfolio-demo .rs-dash-ledger-cell small {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.64rem !important;
+#foldfolio-demo .rs-dash-hero-card__left small {
+  font-size: 0.78rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.05em !important;
-  color: rgb(244 241 234 / 58%) !important;
+  color: rgb(244 241 234 / 65%) !important;
 }
 
-#foldfolio-demo .rs-dash-ledger-cell strong {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 1.28rem !important;
+#foldfolio-demo .rs-dash-hero-card__left strong {
+  font-size: 1.85rem !important;
   font-weight: 800 !important;
-  color: rgb(244 241 234) !important;
-  line-height: 1.15 !important;
-}
-
-#foldfolio-demo .rs-dash-ledger-cell span {
-  font-size: 0.7rem !important;
-  color: rgb(244 241 234 / 68%) !important;
-}
-
-#foldfolio-demo .rs-dash-ledger-cell--total.is-at-risk {
-  background: rgb(255 59 29 / 10%) !important;
-}
-
-#foldfolio-demo .rs-dash-ledger-cell--total.is-at-risk small,
-#foldfolio-demo .rs-dash-ledger-cell--total.is-at-risk strong {
-  color: rgb(255 92 64) !important;
-}
-
-#foldfolio-demo .rs-dash-ledger-cell--total.is-saved {
-  background: rgb(34 197 94 / 12%) !important;
-}
-
-#foldfolio-demo .rs-dash-ledger-cell--total.is-saved small,
-#foldfolio-demo .rs-dash-ledger-cell--total.is-saved strong {
   color: rgb(74 222 128) !important;
+  line-height: 1.1 !important;
 }
 
-/* Section Divider Bar */
-#foldfolio-demo .rs-dash-section-label {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: 0.42rem 1.1rem !important;
-  background: rgb(244 241 234 / 4%) !important;
-  border-bottom: 1px solid rgb(244 241 234 / 10%) !important;
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.65rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: rgb(244 241 234 / 60%) !important;
-  flex-shrink: 0 !important;
+#foldfolio-demo .rs-dash-hero-card__left span {
+  font-size: 0.88rem !important;
+  font-weight: 500 !important;
+  color: rgb(244 241 234 / 80%) !important;
 }
 
-/* Swiss Architectural Execution Pipeline */
+#foldfolio-demo .rs-dash-status-badge {
+  padding: 0.45rem 0.85rem !important;
+  border-radius: 999px !important;
+  font-size: 0.86rem !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+#foldfolio-demo .rs-dash-status-badge.is-active {
+  background: rgb(255 59 29 / 18%) !important;
+  color: rgb(255 115 92) !important;
+  border: 1px solid rgb(255 59 29 / 35%) !important;
+}
+
+#foldfolio-demo .rs-dash-status-badge.is-saved {
+  background: rgb(34 197 94 / 20%) !important;
+  color: rgb(134 239 172) !important;
+  border: 1px solid rgb(34 197 94 / 45%) !important;
+}
+
+/* 3 Large Step Cards */
 #foldfolio-demo .rs-dash-pipeline {
   flex: 1 !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 0 !important;
-  padding: 0 !important;
+  justify-content: space-between !important;
+  gap: 0.75rem !important;
 }
 
 #foldfolio-demo .rs-dash-pipe-step {
   flex: 1 !important;
   display: flex !important;
-  align-items: flex-start !important;
-  gap: 0.85rem !important;
-  padding: 0.75rem 1.1rem !important;
-  margin: 0 !important;
-  border: none !important;
-  border-bottom: 1px solid rgb(244 241 234 / 10%) !important;
-  border-radius: 0 !important;
-  background: transparent !important;
-  opacity: 0.5 !important;
-  transition: all 0.2s ease !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  padding: 1rem 1.15rem !important;
+  border-radius: 14px !important;
+  background: rgb(26 26 24) !important;
+  border: 1px solid rgb(244 241 234 / 10%) !important;
+  opacity: 0.55 !important;
+  transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease !important;
 }
 
 #foldfolio-demo .rs-dash-pipe-step.is-active {
   opacity: 1 !important;
-  background: rgb(244 241 234 / 3%) !important;
-  border-left: 3px solid rgb(34 197 94) !important;
+  background: rgb(22 163 74 / 14%) !important;
+  border: 1.5px solid rgb(74 222 128 / 50%) !important;
 }
 
-#foldfolio-demo .rs-dash-step-index {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.76rem !important;
+#foldfolio-demo .rs-dash-step-num {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: rgb(244 241 234 / 12%) !important;
+  color: rgb(244 241 234) !important;
+  font-size: 1rem !important;
   font-weight: 800 !important;
-  color: rgb(244 241 234 / 50%) !important;
-  padding-top: 2px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
 }
 
-#foldfolio-demo .rs-dash-pipe-step.is-active .rs-dash-step-index {
-  color: rgb(74 222 128) !important;
+#foldfolio-demo .rs-dash-pipe-step.is-active .rs-dash-step-num {
+  background: rgb(34 197 94) !important;
+  color: rgb(9 9 11) !important;
 }
 
-#foldfolio-demo .rs-dash-step-body {
+#foldfolio-demo .rs-dash-step-text {
   flex: 1 !important;
   min-width: 0 !important;
 }
 
-#foldfolio-demo .rs-dash-step-head {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  gap: 0.5rem !important;
-  margin-bottom: 0.22rem !important;
+#foldfolio-demo .rs-dash-step-text strong {
+  display: block !important;
+  font-size: 1.08rem !important;
+  font-weight: 800 !important;
+  color: rgb(255 255 255) !important;
+  margin-bottom: 0.25rem !important;
 }
 
-#foldfolio-demo .rs-dash-step-head strong {
-  font-size: 0.88rem !important;
-  font-weight: 700 !important;
-  color: rgb(244 241 234) !important;
+#foldfolio-demo .rs-dash-step-text p {
   margin: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-step-tag {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.62rem !important;
-  font-weight: 700 !important;
-  padding: 2px 6px !important;
-  border-radius: 3px !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-step-tag.is-done {
-  background: rgb(34 197 94 / 16%) !important;
-  color: rgb(74 222 128) !important;
-}
-
-#foldfolio-demo .rs-dash-step-tag.is-wait {
-  background: rgb(244 241 234 / 10%) !important;
-  color: rgb(244 241 234 / 70%) !important;
-}
-
-#foldfolio-demo .rs-dash-pipe-step p {
-  margin: 0 !important;
-  font-size: 0.78rem !important;
+  font-size: 0.94rem !important;
   line-height: 1.38 !important;
-  color: rgb(244 241 234 / 78%) !important;
-}
-
-/* Bottom Carrier Webhook Payload Inspector */
-#foldfolio-demo .rs-dash-webhook-box {
-  margin: 0 !important;
-  border: none !important;
-  border-top: 1px solid rgb(244 241 234 / 14%) !important;
-  border-radius: 0 !important;
-  padding: 0.65rem 1.1rem !important;
-  background: rgb(10 10 9) !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-webhook-head {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.66rem !important;
-  font-weight: 700 !important;
-  color: rgb(244 241 234 / 60%) !important;
-  margin-bottom: 0.35rem !important;
-}
-
-#foldfolio-demo .rs-dash-http-status {
-  color: rgb(74 222 128) !important;
-}
-
-#foldfolio-demo .rs-dash-code-block {
-  margin: 0 !important;
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.72rem !important;
-  line-height: 1.42 !important;
-  color: rgb(212 208 200) !important;
-  white-space: pre-wrap !important;
-  word-break: break-word !important;
+  color: rgb(244 241 234 / 88%) !important;
 }
