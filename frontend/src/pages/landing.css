@@ -8980,3 +8980,40 @@ html {
   font-size: 0.98rem !important;
   line-height: 1.48 !important;
 }
+
+
+/* ==========================================================================
+   OUTER LOCK SCREEN NOTIFICATION: CRISP VECTOR TEXT & FULL 412PX WIDTH
+   ========================================================================== */
+
+/* Scale via CSS zoom on the stage container instead of 3D matrix scale(0.75)
+   so Chromium rasterizes all lock screen text at 100% native Retina sharpness */
+#foldfolio-demo .rs-duo-stage-center,
+#foldfolio-demo .rs-duo-center-viewport {
+  zoom: 0.76;
+}
+
+#foldfolio-demo .rs-shared-lockscreen-layer {
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 16px !important;
+  align-items: center !important;
+  overflow: visible !important;
+}
+
+#foldfolio-demo .rs-glass-lock-notif {
+  max-width: none !important;
+  text-shadow: none !important;
+  filter: none !important;
+  -webkit-font-smoothing: antialiased !important;
+  -moz-osx-font-smoothing: grayscale !important;
+  text-rendering: geometricPrecision !important;
+}
+
+#foldfolio-demo .rs-glass-lock-notif__row,
+#foldfolio-demo .rs-glass-lock-notif__row strong,
+#foldfolio-demo .rs-glass-lock-notif__row span,
+#foldfolio-demo .rs-glass-lock-notif__copy p {
+  text-shadow: none !important;
+  filter: none !important;
+}

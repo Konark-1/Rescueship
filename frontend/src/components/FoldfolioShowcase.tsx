@@ -162,9 +162,9 @@ export const FoldfolioShowcase: React.FC = () => {
 
   const chassisShiftX = -(1 - unfoldT) * 235;
 
-  // Notification width expands from 436px (folded) -> 740px wide banner (unfolded)
-  const notifWidthPx = Math.round(410 + unfoldT * 340);
-  const notifRadiusPx = Math.round(20 - unfoldT * 2);
+  // Notification width expands from 412px (folded) -> 680px wide banner (unfolded)
+  const notifWidthPx = Math.round(412 + unfoldT * 268);
+  const notifRadiusPx = Math.round(22 - unfoldT * 4);
 
   const lockSlideUpY = -(unlockT * 105);
   const lockLayerOpacity = Math.max(0, 1 - Math.max(0, (unlockT - 0.65) / 0.35));
@@ -598,7 +598,7 @@ export const FoldfolioShowcase: React.FC = () => {
                 className="rs-duo-leaf rs-duo-leaf--left"
                 style={{
                   transformOrigin: 'right center',
-                  transform: `rotateY(${currentAngle.toFixed(2)}deg) translateZ(${currentAngle > 90 ? 4 : 0}px)`,
+                  transform: `rotateY(${currentAngle.toFixed(2)}deg) translate3d(0, 0, 0)`,
                   transformStyle: 'preserve-3d',
                   willChange: 'transform',
                   zIndex: 10,
@@ -653,44 +653,46 @@ export const FoldfolioShowcase: React.FC = () => {
                       className="rs-glass-lock-notif"
                       style={{
                         width: `${notifWidthPx}px`,
-                        maxWidth: 'calc(100% - 36px)',
-                        minHeight: 'unset',
+                        minWidth: `${notifWidthPx}px`,
+                        maxWidth: 'none',
                         height: 'auto',
-                        padding: '14px 18px',
+                        minHeight: '104px',
+                        padding: '16px 20px',
                         borderRadius: `${notifRadiusPx}px`,
                         background:
-                          'linear-gradient(135deg, rgba(14, 18, 24, 0.78) 0%, rgba(14, 18, 24, 0.62) 100%)',
-                        backdropFilter: 'blur(28px) saturate(190%)',
-                        WebkitBackdropFilter: 'blur(28px) saturate(190%)',
-                        border: '1.5px solid rgba(255, 255, 255, 0.62)',
-                        boxShadow: '0 22px 48px rgba(0, 0, 0, 0.45)',
+                          'linear-gradient(135deg, rgba(14, 18, 24, 0.90) 0%, rgba(14, 18, 24, 0.78) 100%)',
+                        backdropFilter: 'blur(24px) saturate(180%)',
+                        WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+                        border: '1.5px solid rgba(255, 255, 255, 0.65)',
+                        boxShadow: '0 20px 44px rgba(0, 0, 0, 0.45)',
                         display: 'flex',
                         flexDirection: 'row',
                         alignItems: 'center',
                         justifyContent: 'flex-start',
-                        gap: '14px',
+                        gap: '16px',
                         margin: '0 auto',
                         boxSizing: 'border-box',
-                        overflow: 'hidden',
+                        WebkitFontSmoothing: 'antialiased',
+                        textRendering: 'geometricPrecision',
                       }}
                       onClick={() => jumpToStage(0.68)}
                     >
                       <div
                         className="rs-wa-squircle-sm"
                         style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '13px',
+                          width: '52px',
+                          height: '52px',
+                          borderRadius: '14px',
                           flexShrink: 0,
                         }}
                       >
-                        <MessageCircle size={26} />
+                        <MessageCircle size={28} />
                         <span
                           className="rs-notif-badge"
                           style={{
-                            width: '20px',
-                            height: '20px',
-                            fontSize: '11px',
+                            width: '22px',
+                            height: '22px',
+                            fontSize: '12px',
                             fontWeight: 800,
                           }}
                         >
@@ -712,29 +714,29 @@ export const FoldfolioShowcase: React.FC = () => {
                             justifyContent: 'space-between',
                             alignItems: 'center',
                             gap: '10px',
-                            marginBottom: '4px',
+                            marginBottom: '6px',
+                            textShadow: 'none',
                           }}
                         >
                           <strong
                             style={{
-                              fontSize: '15.5px',
+                              fontSize: '19px',
                               fontWeight: 800,
                               lineHeight: 1.2,
                               color: '#ffffff',
                               letterSpacing: '-0.01em',
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
+                              textShadow: 'none',
                             }}
                           >
                             RescueShip Delivery Support ✓
                           </strong>
                           <span
                             style={{
-                              fontSize: '12px',
+                              fontSize: '14px',
                               fontWeight: 700,
-                              color: 'rgba(255, 255, 255, 0.88)',
+                              color: 'rgba(255, 255, 255, 0.85)',
                               flexShrink: 0,
+                              textShadow: 'none',
                             }}
                           >
                             now
@@ -743,12 +745,12 @@ export const FoldfolioShowcase: React.FC = () => {
                         <p
                           style={{
                             margin: 0,
-                            fontSize: '14px',
+                            fontSize: '16.5px',
                             fontWeight: 600,
                             lineHeight: 1.38,
-                            color: 'rgba(255, 255, 255, 0.98)',
+                            color: '#ffffff',
                             textAlign: 'left',
-                            wordBreak: 'break-word',
+                            textShadow: 'none',
                           }}
                         >
                           🚚 AWB #4023118876: Delhivery marked “Door Locked”.
