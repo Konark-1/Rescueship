@@ -73,16 +73,16 @@ function splitClock(plate: HTMLImageElement): ClockPlates {
    the wide 680px rectangular banner that spans the hinge once the phone opens.
    The wipe blend between the two plates IS the unfold-linked extension.
    ========================================================================== */
-const NOTIF_CARD = { height: 168, top: 486 };
+const NOTIF_CARD = { height: 118, top: 486 };
 const NOTIF_STYLE = {
   // width/radius in panel screen-px (774 basis outer, 1600 basis inner); fonts in px too.
-  outer: { centerX: 430, width: 380, radius: 22, titleFont: 15.5, bodyFont: 13, timeFont: 11.5 },
-  inner: { centerX: 1082, width: 680, radius: 16, titleFont: 17, bodyFont: 14, timeFont: 12 },
+  outer: { centerX: 387, width: 410, radius: 20, titleFont: 15.5, bodyFont: 14, timeFont: 12 },
+  inner: { centerX: 800, width: 750, radius: 20, titleFont: 24, bodyFont: 20.5, timeFont: 17 },
 } as const;
 const WHATSAPP_PATH =
   'M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771z';
 const NOTIF_BODY =
-  '🚚 AWB #4023118876: Fake “Door Locked” scan intercepted (1.42 km away). Scroll to unfold.';
+  '🚚 AWB #4023118876: Delhivery marked “Door Locked”. Are you home? Scroll to confirm.';
 
 function plateUnit(height: number): number {
   // The plates supersample the 774/1600 x 1125 panels; one screen-pixel in plate pixels.
@@ -146,8 +146,8 @@ export function drawWhatsAppNotif(
   const y = -cardH / 2;
   // Frosted glass card
   const fill = context.createLinearGradient(x, y, x + cardW, y + cardH);
-  fill.addColorStop(0, 'rgba(255, 255, 255, 0.32)');
-  fill.addColorStop(1, 'rgba(255, 255, 255, 0.16)');
+  fill.addColorStop(0, 'rgba(18, 22, 28, 0.68)');
+  fill.addColorStop(1, 'rgba(18, 22, 28, 0.50)');
   context.beginPath();
   context.roundRect(x, y, cardW, cardH, radius);
   context.fillStyle = fill;
@@ -157,11 +157,12 @@ export function drawWhatsAppNotif(
   context.stroke();
 
   // WhatsApp green squircle icon + red badge (left-anchored, iOS banner style)
-  const icon = 46 * unit;
-  const iconX = x + 16 * unit;
+  const isInner = canvas.width > 1600;
+  const icon = (isInner ? 58 : 48) * unit;
+  const iconX = x + (isInner ? 18 : 16) * unit;
   const iconY = y + (cardH - icon) / 2;
   context.beginPath();
-  context.roundRect(iconX, iconY, icon, icon, 12 * unit);
+  context.roundRect(iconX, iconY, icon, icon, (isInner ? 16 : 14) * unit);
   context.fillStyle = '#25D366';
   context.fill();
   const glyph = new Path2D(WHATSAPP_PATH);
@@ -173,41 +174,40 @@ export function drawWhatsAppNotif(
   context.fill(glyph);
   context.restore();
   context.beginPath();
-  context.arc(iconX + icon - 2 * unit, iconY + 2 * unit, 10 * unit, 0, Math.PI * 2);
+  context.arc(iconX + icon - 2 * unit, iconY + 2 * unit, (isInner ? 12 : 10) * unit, 0, Math.PI * 2);
   context.fillStyle = '#FF3B1D';
   context.fill();
   context.fillStyle = '#ffffff';
-  context.font = `800 ${12 * unit}px "Plus Jakarta Sans", -apple-system, sans-serif`;
+  context.font = `800 ${(isInner ? 14 : 11) * unit}px "Plus Jakarta Sans", -apple-system, sans-serif`;
   context.textAlign = 'center';
   context.textBaseline = 'middle';
-  context.fillText('1', iconX + icon - 2 * unit, iconY + 2.6 * unit);
+  context.fillText('1', iconX + icon - 2 * unit, iconY + 2.5 * unit);
 
-  // Centered copy inside the remaining banner body
-  const copyLeft = iconX + icon + 14 * unit;
-  const copyRight = x + cardW - 18 * unit;
+  // Left-aligned copy inside the remaining banner body
+  const copyLeft = iconX + icon + (isInner ? 18 : 14) * unit;
+  const copyRight = x + cardW - (isInner ? 20 : 16) * unit;
   const copyWidth = copyRight - copyLeft;
-  const copyCenter = (copyLeft + copyRight) / 2;
   context.textBaseline = 'alphabetic';
 
-  // Title row: centered title, "now" pinned to the right edge
+  // Title row: left-aligned title, "now" pinned to the right edge
   context.fillStyle = '#ffffff';
-  context.font = `700 ${style.titleFont * unit}px -apple-system, "SF Pro Display", "Plus Jakarta Sans", sans-serif`;
-  context.textAlign = 'center';
-  context.fillText('RescueShip Delivery Support ✓', copyCenter, y + 34 * unit);
-  context.fillStyle = 'rgba(255, 255, 255, 0.78)';
-  context.font = `600 ${style.timeFont * unit}px -apple-system, "Plus Jakarta Sans", sans-serif`;
+  context.font = `800 ${style.titleFont * unit}px -apple-system, "SF Pro Display", "Plus Jakarta Sans", sans-serif`;
+  context.textAlign = 'left';
+  context.fillText('RescueShip Delivery Support ✓', copyLeft, y + (isInner ? 38 : 36) * unit);
+  context.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  context.font = `700 ${style.timeFont * unit}px -apple-system, "Plus Jakarta Sans", sans-serif`;
   context.textAlign = 'right';
-  context.fillText('now', copyRight, y + 34 * unit);
+  context.fillText('now', copyRight, y + (isInner ? 38 : 36) * unit);
 
-  // Body: word-wrapped + centered under the title
-  context.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  context.font = `500 ${style.bodyFont * unit}px -apple-system, "Plus Jakarta Sans", sans-serif`;
-  context.textAlign = 'center';
-  const lines = wrapText(context, NOTIF_BODY, copyWidth - 14 * unit);
-  const bodyTop = y + 58 * unit;
-  const lineGap = style.bodyFont * unit * 1.38;
+  // Body: word-wrapped + left-aligned under the title
+  context.fillStyle = 'rgba(255, 255, 255, 0.98)';
+  context.font = `600 ${style.bodyFont * unit}px -apple-system, "Plus Jakarta Sans", sans-serif`;
+  context.textAlign = 'left';
+  const lines = wrapText(context, NOTIF_BODY, copyWidth);
+  const bodyTop = y + (isInner ? 72 : 65) * unit;
+  const lineGap = style.bodyFont * unit * 1.34;
   lines.forEach((line, index) => {
-    context.fillText(line, copyCenter, bodyTop + index * lineGap);
+    context.fillText(line, copyLeft, bodyTop + index * lineGap);
   });
   context.restore();
 }
