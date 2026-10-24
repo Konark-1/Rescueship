@@ -24,6 +24,7 @@ export const RIG_SCALE = 0.75;
 interface IPhoneDuoViewerProps {
   openness: number; // 0 (closed) -> 1 (flat open)
   notifPop?: number; // 0 (hidden) -> 1 (settled WhatsApp notification on the clock plane)
+  unlock?: number; // 0 (locked) -> 1 (unlocked)
   className?: string;
   style?: React.CSSProperties;
   onLoaded?: () => void;
@@ -33,6 +34,7 @@ interface IPhoneDuoViewerProps {
 export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
   openness,
   notifPop = 0,
+  unlock = 0,
   className = '',
   style,
   onLoaded,
@@ -43,6 +45,7 @@ export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
   const foldableRef = useRef<Foldable | null>(null);
   const opennessRef = useRef<number>(openness);
   const notifPopRef = useRef<number>(notifPop);
+  const unlockRef = useRef<number>(unlock);
   const onLoadedRef = useRef(onLoaded);
   const onScreenFrameRef = useRef(onScreenFrame);
   const lastFrameRef = useRef<ScreenFrame | null>(null);
@@ -68,6 +71,13 @@ export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
   useEffect(() => {
     notifPopRef.current = notifPop;
   }, [notifPop]);
+  useEffect(() => {
+    unlockRef.current = unlock;
+    if (foldableRef.current) {
+      foldableRef.current.setUnlock(unlock);
+    }
+  }, [unlock]);
+
 
   // Project the flat inner display quad into host pixels so HTML overlays can
   // register pixel-perfectly with the WebGL phone screen.
@@ -174,6 +184,7 @@ export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
         // Set initial state
         foldable.setOpenness(opennessRef.current);
         foldable.setNotifPop(notifPopRef.current);
+        foldable.setUnlock(unlockRef.current);
         foldable.warmUp();
 
         setIsLoaded(true);
@@ -189,6 +200,7 @@ export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
           const currentOpen = opennessRef.current;
           foldable.setOpenness(currentOpen);
           foldable.setNotifPop(notifPopRef.current);
+          foldable.setUnlock(unlockRef.current);
           foldable.advanceBlend(delta);
 
           // Camera framing based on openness

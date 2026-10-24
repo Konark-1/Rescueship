@@ -151,6 +151,7 @@ export interface WipeLayers {
     readonly duneFrame: Vector4;
   } | null;
   readonly clock: { readonly time: Texture; readonly chrome: Texture } | null;
+  readonly plateOpacity?: number;
 }
 
 function createTarget(width: number, height: number, anisotropy: number): WebGLRenderTarget {
@@ -265,7 +266,7 @@ export class ScreenWipe {
     compose.landscapeOpacity!.value = landscape ? 1 : 0;
     compose.timeMap!.value = source.clock?.time ?? source.backdrop;
     compose.chromeMap!.value = source.clock?.chrome ?? source.backdrop;
-    compose.plateOpacity!.value = source.clock ? 1 : 0;
+    compose.plateOpacity!.value = source.clock ? (source.plateOpacity ?? 1) : 0;
     (compose.backdropFrame!.value as Vector4).copy(source.backdropFrame);
     if (landscape) {
       (compose.skyFrame!.value as Vector4).copy(landscape.skyFrame);

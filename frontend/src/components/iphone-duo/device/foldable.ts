@@ -1,5 +1,6 @@
 import {
 	BufferAttribute,
+	LinearFilter,
 	type Color,
 	Group,
 	MathUtils,
@@ -182,6 +183,7 @@ export interface Foldable {
 	readonly root: Group;
 	setOpenness(openness: number): void;
 	setNotifPop(pop: number): void;
+	setUnlock(unlock: number): void;
 	setRoll(direction: RollDirection | null, panel?: ScreenKind): void;
 	setFocus(kind: ScreenKind | null): void;
 	setViewpoint(eye: Vector3, parallax: number): void;
@@ -252,6 +254,11 @@ function createTexture(
 	texture.colorSpace = SRGBColorSpace;
 	texture.anisotropy = anisotropy;
 	texture.premultiplyAlpha = premultiplied;
+	if (typeof HTMLCanvasElement !== "undefined" && image instanceof HTMLCanvasElement) {
+		texture.minFilter = LinearFilter;
+		texture.magFilter = LinearFilter;
+		texture.generateMipmaps = false;
+	}
 	texture.needsUpdate = true;
 	return texture;
 }
@@ -580,6 +587,14 @@ export function createFoldable(
 			if (image instanceof HTMLCanvasElement) drawWhatsAppNotif(image, value);
 			screens[kind].plates.chrome.needsUpdate = true;
 		}
+		dirty = true;
+	}
+	let unlock = 0;
+	function setUnlock(value: number): void {
+		const clamped = MathUtils.clamp(value, 0, 1);
+		if (Math.abs(clamped - unlock) < 0.005) return;
+		unlock = clamped;
+		dirty = true;
 	}
 	function dress(): void {
 		const changed = new Set<ScreenKind>();
@@ -656,6 +671,7 @@ export function createFoldable(
 						}
 					: null,
 				clock: look.clock ? screen.plates : null,
+				plateOpacity: Math.max(0, 1 - unlock * 1.8),
 			},
 			look.settled ? 0 : swept,
 		);
@@ -690,6 +706,7 @@ export function createFoldable(
 		root,
 		setOpenness,
 		setNotifPop,
+		setUnlock,
 		setRoll,
 		setFocus,
 		setViewpoint,
