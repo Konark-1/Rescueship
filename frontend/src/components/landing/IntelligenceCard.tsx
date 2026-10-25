@@ -23,8 +23,8 @@ export function IntelligenceCard() {
         <div className="intel__card">
           <div className="intel__file-bar">
             <span className="intel__file-name">pincode_watchtower.csv</span>
-            <span className="intel__file-status">● LIVE TELEMETRY</span>
-            <span className="intel__file-tag">5 METRO CLUSTERS</span>
+            <span className="intel__file-status">● SAMPLE TELEMETRY</span>
+            <span className="intel__file-tag">BENCHMARK COHORT</span>
           </div>
 
           <div className="intel__table-wrap" tabIndex={0} role="region" aria-label="Sample pincode risk report table">

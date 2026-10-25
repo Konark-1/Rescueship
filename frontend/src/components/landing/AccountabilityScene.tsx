@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, PhoneOff, ShieldCheck } from 'lucide-react';
+import { MapPin, Clock, ShieldCheck } from 'lucide-react';
 
 export const AccountabilityScene: React.FC = () => {
   return (
@@ -16,30 +16,30 @@ export const AccountabilityScene: React.FC = () => {
             <circle cx="150" cy="110" r="34" className="nt-radar-ring nt-radar-ring--inner" />
             <circle cx="150" cy="110" r="68" className="nt-radar-ring nt-radar-ring--safe" />
             <circle cx="150" cy="110" r="98" className="nt-radar-ring nt-radar-ring--outer" />
-            <text x="150" y="36" textAnchor="middle" className="nt-radar-label">300m Doorstep Zone</text>
+            <text x="150" y="36" textAnchor="middle" className="nt-radar-label">Verified WhatsApp Location Pin</text>
             <line x1="150" y1="110" x2="305" y2="56" className="nt-radar-breach-line" />
-            <rect x="196" y="64" width="84" height="20" rx="6" className="nt-radar-pill-bg" />
-            <text x="238" y="78" textAnchor="middle" className="nt-radar-pill-text">1.42 km drift</text>
+            <rect x="180" y="64" width="116" height="20" rx="6" className="nt-radar-pill-bg" />
+            <text x="238" y="78" textAnchor="middle" className="nt-radar-pill-text">Live SMS Route Link</text>
             <circle cx="150" cy="110" r="12" className="nt-radar-pin-pulse nt-radar-pin-pulse--emerald" />
             <circle cx="150" cy="110" r="5" className="nt-radar-pin-core nt-radar-pin-core--emerald" />
-            <text x="150" y="136" textAnchor="middle" className="nt-radar-pin-caption">Buyer Home</text>
+            <text x="150" y="136" textAnchor="middle" className="nt-radar-pin-caption">Buyer GPS Pin</text>
             <circle cx="305" cy="56" r="12" className="nt-radar-pin-pulse nt-radar-pin-pulse--danger" />
             <circle cx="305" cy="56" r="5" className="nt-radar-pin-core nt-radar-pin-core--danger" />
-            <text x="305" y="36" textAnchor="middle" className="nt-radar-pin-caption nt-radar-pin-caption--danger">Rider Scan</text>
+            <text x="305" y="36" textAnchor="middle" className="nt-radar-pin-caption nt-radar-pin-caption--danger">Assigned Rider</text>
           </svg>
         </div>
         <div className="nt-radar-clean__stats">
           <div>
-            <strong>1.42 km</strong>
-            <span>Geofence Drift</span>
-          </div>
-          <div>
-            <strong>0 sec</strong>
-            <span>IVR Call Time</span>
-          </div>
-          <div>
             <strong>4 min</strong>
-            <span>OFD → Fail</span>
+            <span>OFD → Fail (Velocity)</span>
+          </div>
+          <div>
+            <strong>&lt; 90s</strong>
+            <span>Buyer Response</span>
+          </div>
+          <div>
+            <strong>100%</strong>
+            <span>Gate Landmark Sync</span>
           </div>
         </div>
       </div>
@@ -49,24 +49,24 @@ export const AccountabilityScene: React.FC = () => {
         <article className="nt-radar-row">
           <div className="nt-radar-row__icon"><MapPin size={18} /></div>
           <div className="nt-radar-row__body">
-            <h4>Geofence &amp; Velocity Proof</h4>
-            <p>Flags any failed delivery logged &gt;300m from the buyer’s pin or under 15 minutes from dispatch.</p>
+            <h4>Buyer GPS Pin &amp; Landmark Sync</h4>
+            <p>Captures live WhatsApp location pin directly from the buyer and reverse-geocodes exact gate landmarks via Nominatim.</p>
           </div>
-          <span className="nt-radar-row__badge">&lt; 300m Gate</span>
+          <span className="nt-radar-row__badge">Live GPS Pin</span>
         </article>
         <article className="nt-radar-row">
-          <div className="nt-radar-row__icon"><PhoneOff size={18} /></div>
+          <div className="nt-radar-row__icon"><Clock size={18} /></div>
           <div className="nt-radar-row__body">
-            <h4>Zero-Call IVR &amp; Night-Dump Audit</h4>
-            <p>Catches riders logging “Unreachable” with 0s call duration or dumping 10+ parcels after 9:30 PM.</p>
+            <h4>Velocity &amp; Night-Dump Audit</h4>
+            <p>Flags suspicious failures logged under 15 minutes from dispatch or batch dumps logged during odd hours (after 9:30 PM).</p>
           </div>
-          <span className="nt-radar-row__badge">0s Call Audit</span>
+          <span className="nt-radar-row__badge">Velocity Check</span>
         </article>
         <article className="nt-radar-row">
           <div className="nt-radar-row__icon"><ShieldCheck size={18} /></div>
           <div className="nt-radar-row__body">
-            <h4>Live Buyer Counter-Proof</h4>
-            <p>Pairs the customer’s 90s WhatsApp reply &amp; live GPS pin to auto-escalate and lock a re-attempt.</p>
+            <h4>Sub-90s Buyer Counter-Proof</h4>
+            <p>Captures instant customer denial (&ldquo;Nobody came / No call&rdquo;), auto-escalates the fake scan, and locks a free carrier re-attempt.</p>
           </div>
           <span className="nt-radar-row__badge">Auto-Escalate</span>
         </article>

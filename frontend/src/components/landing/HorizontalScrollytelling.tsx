@@ -33,9 +33,9 @@ const PIPELINE_STAGES = [
     label: 'Fake Scan Detected',
     carrier: 'DELHIVERY_SURFACE · AWB #4023118876',
     status: 'FAKE ATTEMPT DETECTED (99.4%)',
-    telemetry: 'Rider marked "Door Locked" 1.42km outside buyer geofence · 0s telephony talk time.',
+    telemetry: 'Rider marked "Door Locked" 4 minutes after dispatch · velocity anomaly flagged.',
     action: 'Webhook fired to RescueShip engine within 400ms.',
-    payload: 'POST /api/webhooks/carrier/ndr {"awb": "4023118876", "reason": "CUSTOMER_UNAVAILABLE", "drift": "1.42km"}',
+    payload: 'POST /api/webhooks/carrier/delhivery {"awb": "4023118876", "status": "undelivered", "remarks": "Door Locked"}',
     pnl: {
       headline: 'At-Risk Gross Value',
       value: '₹1,240',
@@ -68,7 +68,7 @@ const PIPELINE_STAGES = [
     carrier: 'BUYER LIVE VERIFICATION',
     status: 'BUYER COUNTER-PROOF CONFIRMED',
     telemetry: 'Buyer taps "I am Home Now" and shares precise GPS location pin (+12.9716, +77.5946).',
-    action: 'Counter-proof encrypted with DPDP-compliant telemetry hash.',
+    action: 'Reverse-geocodes exact landmark and generates direct Google Maps navigation route.',
     payload: 'BUYER_REPLY {"status": "HOME_PRESENT", "lat": 12.9716, "lng": 77.5946, "notes": "Tower B, Flat 402, 4th floor"}',
     pnl: {
       headline: 'COD Pre-Paid Conversion',
@@ -82,11 +82,11 @@ const PIPELINE_STAGES = [
     id: 3,
     time: '+82s',
     label: 'Carrier Reroute Synced',
-    carrier: 'DELHIVERY HUB ESCALATION',
-    status: 'SUPERVISOR TICKET #8812 LOCKED',
-    telemetry: 'Driver handheld device receives supervisor re-attempt lock and updated GPS route.',
-    action: 'Carrier SLA penalty invoked; next-day morning delivery committed.',
-    payload: 'CARRIER_OVERRIDE {"ticket": "DEL-BLR-8812", "action": "FORCE_REDELIVERY", "slot": "TOMORROW_10AM", "penalty_invoked": true}',
+    carrier: 'DELHIVERY NDR API SYNC',
+    status: 'RE-ATTEMPT & GPS ROUTE COMMITTED',
+    telemetry: 'Pushes verified address & gate landmark into Delhivery NDR API; dispatches Google Maps deep-link to rider phone.',
+    action: 'Automated RE-ATTEMPT committed to carrier API; rider SMS route sent.',
+    payload: 'API_DISPATCH {"endpoint": "/api/p/update", "waybill": "4023118876", "act": "RE-ATTEMPT", "rider_sms_routed": true}',
     pnl: {
       headline: 'Net Recovered Capital',
       value: '₹1,240',
@@ -104,13 +104,13 @@ const REEL_BEATS = [
   { time: '11:47:30', role: 'rescue', title: 'Rescue dispatched', desc: 'Webhook fires · RescueShip contacts customer on WhatsApp inside 30s.' },
   { time: '11:48:15', role: 'reply', title: 'Customer replies', desc: 'Customer taps "I am home" · shares live location pin.' },
   { time: '11:49', role: 'carrier', title: 'Carrier sync', desc: 'Escalation raised · attempt flagged · next-day slot committed to carrier.' },
-  { time: '14:30', role: 'redeliv', title: 'Re-delivery', desc: 'Out for delivery again — driver receives supervisor notification.' },
+  { time: '14:30', role: 'redeliv', title: 'Re-delivery', desc: 'Out for delivery again — driver navigates via verified WhatsApp GPS link.' },
   { time: '15:20', role: 'ok', title: 'Delivered · Saved', desc: 'Cash collected · ₹1,240 saved from RTO return transit.' },
 ];
 
 const FILMSTRIP_SLIDES = [
   { index: '01', code: 'BLEED', label: '₹430 / RTO Bleed Math' },
-  { index: '02', code: 'THE LIE', label: '1.42 km Rider GPS Drift' },
+  { index: '02', code: 'THE LIE', label: 'The 4-Minute Fake Scan' },
   { index: '03', code: 'INTERCEPT', label: '90s WhatsApp + Order Board' },
   { index: '04', code: 'CLOSED LOOP', label: '4-Stage NDR API Pipeline' },
 ] as const;
@@ -463,7 +463,7 @@ export function HorizontalScrollytelling({
                 From fake scan to re-delivery <em className="nt-serif">in 90 seconds.</em>
               </h2>
               <p className="nt-panel-sub">
-                Watch how an unverified fake scan is autonomously intercepted, verified with buyer GPS counter-proof, and re-scheduled with courier supervisors before reverse return transit locks.
+                Watch how an unverified fake scan is autonomously intercepted, verified with buyer GPS counter-proof, and re-scheduled via courier NDR APIs before reverse return transit locks.
               </p>
 
               {/* 1. 21st.dev AnimatedBeam 4-Stage Horizontal Pipeline */}

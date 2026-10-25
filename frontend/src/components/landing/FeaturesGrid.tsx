@@ -29,10 +29,10 @@ const ENGINES: FeatureEngine[] = [
   },
   {
     num: '02',
-    title: 'Geofence & Zero-Call Audit Engine',
+    title: 'Sub-90s Buyer Denial Audit Engine',
     description:
-      'Cross-checks the rider scan coordinates against a 300m buyer doorstep geofence and flags fake "Door Locked" attempts made 1.42 km away with zero IVR calls.',
-    pillText: '300M GEOFENCE PROOF',
+      'Triggers an instant WhatsApp verification within 90s of an "Unreachable" or "Door Locked" scan. When the customer confirms "Nobody came", RescueShip auto-flags the attempt as fake.',
+    pillText: 'SUB-90s BUYER VERIFICATION',
     pillTone: 'emerald',
     Icon: Radar,
   },
@@ -67,8 +67,8 @@ const ENGINES: FeatureEngine[] = [
     num: '06',
     title: 'Pre-Delivery COD Risk & Pincode Shield',
     description:
-      'Scores high-risk COD orders across 29,000+ Indian pincodes prior to dispatch—prompting instant UPI conversion or address verification before freight is burned.',
-    pillText: '5 METROS + 29K PINCODES',
+      'Evaluates high-risk COD orders against historical failure clusters and pincode rules prior to dispatch—prompting instant UPI conversion or address verification before freight is burned.',
+    pillText: 'METRO RISK RULES + ADVANCE COD',
     pillTone: 'neutral',
     Icon: ShieldAlert,
   },

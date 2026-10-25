@@ -148,7 +148,7 @@ export function RescueScene({ active, reduced = false, codIncentive }: RescueSce
   function doHome() {
     setPhase('8:02 PM · evening exception scan');
     say('Yes I’m home! Nobody came to my door! 😤',
-      '⚡ attempt flagged suspicious · OFD→NDR: 4 min · Supervisor #8812 escalated',
+      '⚡ attempt flagged suspicious · OFD→NDR: 4 min · carrier re-attempt escalated',
       'Thanks for confirming, Priya! Evening hub dispatches close at 8 PM, so a same‑day re‑visit isn’t possible tonight — we’ve flagged this attempt for review and reserved First‑Slot Priority Delivery for you tomorrow, 9 AM–12 PM. 🚚',
       () => finish('✅ ORDER RESCUED · RTO prevented', 'ok', 'Order rescued · priority slot reserved · trust restored', 'ok'),
       'warn');

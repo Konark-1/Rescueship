@@ -71,10 +71,10 @@ export function HeroCardStack({ recovered, rescuedCount, reduced = false, feedLi
               <div className="lp-iso-card__title">Premises Closed · Customer Unavailable</div>
               <div className="lp-iso-card__meta">
                 <span className="lp-iso-card__meta-item">
-                  <MapPin size={11} aria-hidden="true" /> 1.42 km outside geofence
+                  <MapPin size={11} aria-hidden="true" /> 4 mins from dispatch · velocity anomaly
                 </span>
                 <span className="lp-iso-card__meta-item">
-                  <PhoneOff size={11} aria-hidden="true" /> 0s call duration
+                  <PhoneOff size={11} aria-hidden="true" /> Buyer confirms "nobody came"
                 </span>
               </div>
             </div>
@@ -112,7 +112,7 @@ export function HeroCardStack({ recovered, rescuedCount, reduced = false, feedLi
             <div className="lp-iso-card__header">
               <div className="lp-iso-card__carrier">
                 <span className="lp-iso-card__dot lp-iso-card__dot--emerald" />
-                <span className="lp-iso-card__tag">CARRIER OVERRIDE · SUPERVISOR SYNC</span>
+                <span className="lp-iso-card__tag">CARRIER API SYNC · RE-ATTEMPT</span>
               </div>
               <span className="lp-iso-card__badge lp-iso-card__badge--success">
                 <CheckCircle2 size={11} aria-hidden="true" />
@@ -123,8 +123,8 @@ export function HeroCardStack({ recovered, rescuedCount, reduced = false, feedLi
               <div className="lp-iso-card__success-row">
                 <ShieldCheck size={16} className="lp-iso-card__success-icon" aria-hidden="true" />
                 <div>
-                  <div className="lp-iso-card__title">Re-Delivery Locked on Driver App</div>
-                  <div className="lp-iso-card__sub">Supervisor ticket #8812 acknowledged · Next day 10:00 AM committed</div>
+                  <div className="lp-iso-card__title">Re-Delivery Committed via Carrier API</div>
+                  <div className="lp-iso-card__sub">Delhivery API re-attempt confirmed · Next day 10:00 AM committed</div>
                 </div>
               </div>
             </div>

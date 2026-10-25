@@ -528,7 +528,7 @@ export default function LandingPage() {
                 <span className="lp-3d-badge__dot lp-3d-badge__dot--danger" />
                 <div>
                   <strong>Rider Logged “Door Locked”</strong>
-                  <span>1.42 km from home · 0 calls made</span>
+                  <span>Logged in 4 mins · Customer Home</span>
                 </div>
               </div>
 
@@ -552,7 +552,7 @@ export default function LandingPage() {
             <div className="lp-stats lp-3d-stage__stats" role="group" aria-label="Sample recovery metrics">
               <div className="lp-stat">
                 <div className="lp-stat__n">₹{recovered.toLocaleString('en-IN')}</div>
-                <div className="lp-stat__l">Recovered · sample</div>
+                <div className="lp-stat__l">Simulated monthly save · sample</div>
               </div>
               <div className="lp-stat">
                 <div className="lp-stat__n">{rescuedCount}</div>
@@ -593,7 +593,7 @@ export default function LandingPage() {
       <section className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The Indian COD crisis">
         <div className="lp-chapter__header" aria-hidden="true">
           <span className="lp-chapter__mark lp-chapter__mark--tl">+</span>
-          <span className="lp-chapter__meta">CHAPTER 02 // THE INDIAN COD CRISIS · 1.2M+ SHIPMENTS AUDITED</span>
+          <span className="lp-chapter__meta">CHAPTER 02 // THE INDIAN COD CRISIS · SUB-90s AUTONOMOUS RECOVERY</span>
           <span className="lp-chapter__mark lp-chapter__mark--tr">+</span>
         </div>
 
@@ -602,7 +602,7 @@ export default function LandingPage() {
             <span className="nt-panel-kicker nt-panel-kicker--paper">NATIONAL TELEMETRY BENCHMARK</span>
             <h2 className="nt-crisis-h2 nt-display">
               The Indian COD Crisis:{' '}
-              <em className="nt-serif">Verified across 1.2M+ shipments.</em>
+              <em className="nt-serif">Where D2C margins bleed on fake scans.</em>
             </h2>
             <p className="nt-crisis-lead">
               Courier drivers routinely log fake &ldquo;Customer Unavailable&rdquo; scans to beat shift quotas. For Indian D2C brands, every undetected fake scan burns gross margins and inflates reverse RTO transit.
@@ -614,13 +614,13 @@ export default function LandingPage() {
             <div className="nt-crisis-card">
               <div className="nt-crisis-card__top">
                 <span className="nt-crisis-card__stat">64%</span>
-                <span className="nt-crisis-card__pill nt-crisis-card__pill--alert">TELEMETRY AUDIT</span>
+                <span className="nt-crisis-card__pill nt-crisis-card__pill--alert">INDUSTRY BENCHMARK</span>
               </div>
-              <h3 className="nt-crisis-card__title">Fake Rider Scans</h3>
+              <h3 className="nt-crisis-card__title">Fake Delivery Marks</h3>
               <p className="nt-crisis-card__desc">
-                Over 6 in 10 &ldquo;Customer Unavailable&rdquo; marks occur without the courier driver ever approaching the customer&apos;s 300-meter geofence corridor or initiating a phone call.
+                Over 6 in 10 &ldquo;Customer Unavailable&rdquo; NDRs occur when customers are home and waiting. Without instant verification, carriers initiate return transit automatically.
               </p>
-              <div className="nt-crisis-card__foot">Verified via 1,200,000+ AWB GPS &amp; telephony logs</div>
+              <div className="nt-crisis-card__foot">Estimated across Indian e-commerce COD logistics data</div>
             </div>
 
             {/* Proof Card 2 */}
