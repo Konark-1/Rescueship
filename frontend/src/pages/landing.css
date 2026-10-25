@@ -9435,3 +9435,38 @@ html {
   line-height: 1.38 !important;
   color: rgb(244 241 234 / 88%) !important;
 }
+
+/* Clean, simple header — no green italics, no red monospace jargon */
+#foldfolio-demo .rs-duo-header-bar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  padding: 0.5rem 0 1rem !important;
+}
+
+#foldfolio-demo .rs-duo-header-simple {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 0.35rem !important;
+}
+
+#foldfolio-demo .rs-fold-kicker {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.1em !important;
+  color: rgb(244 241 234 / 60%) !important;
+  text-transform: uppercase !important;
+}
+
+#foldfolio-demo .rs-fold-title {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 1.85rem !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+  color: rgb(244 241 234) !important;
+  margin: 0 !important;
+}
+

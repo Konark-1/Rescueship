@@ -410,52 +410,12 @@ export const FoldfolioShowcase: React.FC = () => {
       aria-label="Interactive iPhone Duo Unfold & WhatsApp Live Dashboard Showcase"
     >
       <div className="rs-duo-sticky-stage">
-        {/* Top Header + 4-Stage Scroll Progress Chips */}
-        <div className="rs-duo-top-header">
-          <div>
-            <span className="rs-fold-kicker">APPLE iPHONE DUO UNFOLD · SCROLL-DRIVEN FLOW</span>
+        <div className="rs-duo-header-bar">
+          <div className="rs-duo-header-simple">
+            <span className="rs-fold-kicker">LIVE DEMO</span>
             <h2 className="rs-fold-title">
-              Unfolds like a book on scroll. <em>Expands into live WhatsApp & Dashboard.</em>
+              How RescueShip saves failed deliveries on WhatsApp
             </h2>
-          </div>
-
-          <div className="rs-fold-controls" role="tablist" aria-label="iPhone Duo Scroll Stages">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP < 0.22}
-              className={`rs-fold-chip ${activeP < 0.22 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.08)}
-            >
-              1. Outer Lock Screen
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP >= 0.22 && activeP < 0.54}
-              className={`rs-fold-chip ${activeP >= 0.22 && activeP < 0.54 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.48)}
-            >
-              2. Unfolded Lock
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP >= 0.54 && activeP < 0.72}
-              className={`rs-fold-chip ${activeP >= 0.54 && activeP < 0.72 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.68)}
-            >
-              3. Unlocked Home
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP >= 0.72}
-              className={`rs-fold-chip ${activeP >= 0.72 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.88)}
-            >
-              4. Live Chat + Dashboard
-            </button>
           </div>
         </div>
 
