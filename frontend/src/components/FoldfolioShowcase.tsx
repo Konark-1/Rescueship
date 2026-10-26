@@ -75,6 +75,20 @@ function renderWhatsAppFormattedText(text: string) {
   });
 }
 
+const STAGE_RAIL_STEPS = [
+  { index: '01', title: 'Lock Intercept', sub: 'Instant WhatsApp NDR ping' },
+  { index: '02', title: 'Continuity Unfold', sub: 'Full-bleed display expand' },
+  { index: '03', title: 'Buyer Workspace', sub: '1-tap WhatsApp launch' },
+  { index: '04', title: 'Dual-Pane Rescue', sub: 'Live UPI & GPS pin sync' },
+];
+
+const RTO_LEDGER_ROWS = [
+  { label: 'Forward Courier', code: 'FWD_BURN', amount: '₹80' },
+  { label: 'Reverse RTO Freight', code: 'REV_BURN', amount: '₹80' },
+  { label: 'Packaging & QC', code: 'PACK_QC', amount: '₹40' },
+  { label: 'Sunk Paid Ad CAC', code: 'META_CAC', amount: '₹230' },
+];
+
 export const FoldfolioShowcase: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -406,24 +420,169 @@ export const FoldfolioShowcase: React.FC = () => {
     <section
       ref={containerRef}
       id="foldfolio-demo"
-      className="rs-duo-scroll-track"
+      className="rs-duo-scroll-track rs-duo-master-track"
       aria-label="Interactive iPhone Duo Unfold & WhatsApp Live Dashboard Showcase"
     >
-      <div className="rs-duo-sticky-stage">
+      <div className="rs-duo-sticky-stage rs-duo-sticky-frame">
+        {/* ================================================================
+            TOP ARCHITECTURAL HEADER BAR (Matches Chapter 4 Editorial System)
+           ================================================================ */}
         <div className="rs-duo-header-bar">
-          <div className="rs-duo-header-simple">
-            <span className="rs-fold-kicker">LIVE DEMO</span>
-            <h2 className="rs-fold-title">
-              How RescueShip saves failed deliveries on WhatsApp
+          <div className="rs-swiss-header-left">
+            <span className="rs-swiss-kicker">
+              // CHAPTER 03.5 · INTERACTIVE HARDWARE SANDBOX //
+            </span>
+            <h2 className="rs-swiss-title">
+              How RescueShip saves <em>failed deliveries on WhatsApp.</em>
             </h2>
           </div>
+
+          <div
+            className="rs-swiss-stage-tabs"
+            role="tablist"
+            aria-label="Interactive Demo Stages"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeP < 0.22}
+              className={`rs-swiss-tab ${activeP < 0.22 ? 'is-active' : ''}`}
+              onClick={() => jumpToStage(0.08)}
+            >
+              <span>01</span> Lock Screen
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeP >= 0.22 && activeP < 0.54}
+              className={`rs-swiss-tab ${
+                activeP >= 0.22 && activeP < 0.54 ? 'is-active' : ''
+              }`}
+              onClick={() => jumpToStage(0.48)}
+            >
+              <span>02</span> Unfold
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeP >= 0.54 && activeP < 0.72}
+              className={`rs-swiss-tab ${
+                activeP >= 0.54 && activeP < 0.72 ? 'is-active' : ''
+              }`}
+              onClick={() => jumpToStage(0.68)}
+            >
+              <span>03</span> Home
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeP >= 0.72}
+              className={`rs-swiss-tab ${activeP >= 0.72 ? 'is-active' : ''}`}
+              onClick={() => jumpToStage(0.88)}
+            >
+              <i className="rs-swiss-live-dot" />
+              <span>04</span> Live Chat
+            </button>
+          </div>
+        </div>
+
+        {/* ================================================================
+            FLAT SWISS ARCHITECTURAL SIDE RAILS (Zero 3D Tilt, Zero Overlap)
+           ================================================================ */}
+        <div className="rs-duo-3d-flank-layer" aria-hidden="true">
+          {/* LEFT RAIL: Live Scroll Stage Telemetry */}
+          <aside className="rs-swiss-rail rs-swiss-rail--left">
+            <div className="rs-swiss-rail__head">
+              <span>SEQUENCE // 01–04</span>
+              <span>{Math.round(activeP * 100)}%</span>
+            </div>
+
+            <div className="rs-swiss-timeline">
+              {STAGE_RAIL_STEPS.map((step, idx) => {
+                const isCurrent =
+                  (idx === 0 && activeP < 0.22) ||
+                  (idx === 1 && activeP >= 0.22 && activeP < 0.54) ||
+                  (idx === 2 && activeP >= 0.54 && activeP < 0.72) ||
+                  (idx === 3 && activeP >= 0.72);
+                const isPassed =
+                  (idx === 0 && activeP >= 0.22) ||
+                  (idx === 1 && activeP >= 0.54) ||
+                  (idx === 2 && activeP >= 0.72);
+
+                return (
+                  <div
+                    key={step.index}
+                    className={`rs-swiss-step ${
+                      isCurrent ? 'is-current' : isPassed ? 'is-passed' : ''
+                    }`}
+                  >
+                    <div className="rs-swiss-step__row">
+                      <span className="rs-swiss-step__idx">{step.index}</span>
+                      <strong className="rs-swiss-step__title">
+                        {step.title}
+                      </strong>
+                    </div>
+                    <span className="rs-swiss-step__sub">{step.sub}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="rs-swiss-rail__foot">
+              <span>AWB #4023118876</span>
+              <span>DELHIVERY SURFACE</span>
+            </div>
+          </aside>
+
+          {/* RIGHT RAIL: Swiss Tabular ₹430 RTO Bleed Ledger */}
+          <aside className="rs-swiss-rail rs-swiss-rail--right">
+            <div className="rs-swiss-rail__head">
+              <span>UNIT ECONOMICS</span>
+              <span>INR / ORDER</span>
+            </div>
+
+            <div className="rs-swiss-ledger">
+              {RTO_LEDGER_ROWS.map((row) => (
+                <div key={row.code} className="rs-swiss-ledger__row">
+                  <div className="rs-swiss-ledger__meta">
+                    <strong>{row.label}</strong>
+                    <small>{row.code}</small>
+                  </div>
+                  <span className="rs-swiss-ledger__val">{row.amount}</span>
+                </div>
+              ))}
+
+              <div
+                className={`rs-swiss-ledger__total ${
+                  stage.includes('COMPLETED') || activeP >= 0.72
+                    ? 'is-protected'
+                    : ''
+                }`}
+              >
+                <div>
+                  <small>TOTAL BLEED / RTO</small>
+                  <strong>
+                    {stage.includes('COMPLETED')
+                      ? 'Margin Protected'
+                      : 'Protected per Order'}
+                  </strong>
+                </div>
+                <span className="rs-swiss-ledger__sum">₹430</span>
+              </div>
+            </div>
+
+            <div className="rs-swiss-rail__foot">
+              <span>DIRECT + CAC SUBTOTAL</span>
+              <span>₹200 + ₹230</span>
+            </div>
+          </aside>
         </div>
 
         {/* ===============================================================
             AUTHENTIC 3D IPHONE DUO CHASSIS STAGE (akashtdev/iphone-duo-animation)
             Left Leaf physically swings open 180deg -> 0deg around Center Spine!
            =============================================================== */}
-        <div className="rs-duo-center-viewport" ref={viewportRef}>
+        <div className="rs-duo-stage-center rs-duo-center-viewport" ref={viewportRef}>
           {/* AUTHENTIC 3D WEBGL IPHONE DUO (akashtdev/iphone-duo-animation) */}
           {!prefersReducedMotion && (
             <IPhoneDuoViewer

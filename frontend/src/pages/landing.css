@@ -9436,37 +9436,331 @@ html {
   color: rgb(244 241 234 / 88%) !important;
 }
 
-/* Clean, simple header — no green italics, no red monospace jargon */
-#foldfolio-demo .rs-duo-header-bar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-align: center !important;
-  padding: 0.5rem 0 1rem !important;
+/* ==========================================================================
+   SWISS ARCHITECTURAL STUDIO HEADER & SIDE RAILS (ZERO 3D TILT, ZERO OVERLAP)
+   ========================================================================== */
+
+#foldfolio-demo.rs-duo-master-track,
+#foldfolio-demo .rs-duo-sticky-frame {
+  width: 100% !important;
+  max-width: 100vw !important;
+  overflow-x: clip !important;
+  overflow-y: visible !important;
 }
 
-#foldfolio-demo .rs-duo-header-simple {
+/* ---------- 1. SWISS EDITORIAL HEADER BAR (Matches Chapter 4) ---------- */
+#foldfolio-demo .rs-duo-header-bar {
+  width: 100% !important;
+  max-width: 1360px !important;
+  margin: 0 auto !important;
+  padding: 0.4rem 2rem 0.65rem !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: space-between !important;
+  gap: 1.5rem !important;
+  border-bottom: 1px solid rgb(244 241 234 / 10%) !important;
+  box-sizing: border-box !important;
+  z-index: 35 !important;
+}
+
+#foldfolio-demo .rs-swiss-header-left {
   display: flex !important;
   flex-direction: column !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  gap: 0.3rem !important;
 }
 
-#foldfolio-demo .rs-fold-kicker {
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 0.78rem !important;
+#foldfolio-demo .rs-swiss-kicker {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.72rem !important;
   font-weight: 700 !important;
   letter-spacing: 0.1em !important;
-  color: rgb(244 241 234 / 60%) !important;
+  color: rgb(255 59 29) !important;
   text-transform: uppercase !important;
 }
 
-#foldfolio-demo .rs-fold-title {
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 1.85rem !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.02em !important;
-  color: rgb(244 241 234) !important;
+#foldfolio-demo .rs-swiss-title {
   margin: 0 !important;
+  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif !important;
+  font-size: clamp(1.55rem, 2.3vw, 2.15rem) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1.12 !important;
+  color: rgb(244 241 234) !important;
 }
+
+#foldfolio-demo .rs-swiss-title em {
+  font-family: "Instrument Serif", Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  font-size: 1.08em !important;
+  letter-spacing: -0.01em !important;
+  color: rgb(244 241 234 / 85%) !important;
+  margin-left: 0.12em !important;
+}
+
+/* Minimal Architectural Stage Tabs */
+#foldfolio-demo .rs-swiss-stage-tabs {
+  display: inline-flex !important;
+  align-items: center !important;
+  background: rgb(244 241 234 / 4%) !important;
+  border: 1px solid rgb(244 241 234 / 12%) !important;
+  border-radius: 8px !important;
+  padding: 3px !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+#foldfolio-demo .rs-swiss-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 0.4rem !important;
+  padding: 0.4rem 0.75rem !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  color: rgb(244 241 234 / 58%) !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+}
+
+#foldfolio-demo .rs-swiss-tab span {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.68rem !important;
+  opacity: 0.65 !important;
+}
+
+#foldfolio-demo .rs-swiss-tab:hover {
+  color: rgb(244 241 234) !important;
+}
+
+#foldfolio-demo .rs-swiss-tab.is-active {
+  background: rgb(244 241 234) !important;
+  color: rgb(14 14 13) !important;
+  font-weight: 700 !important;
+}
+
+#foldfolio-demo .rs-swiss-tab.is-active span {
+  opacity: 1 !important;
+}
+
+#foldfolio-demo .rs-swiss-live-dot {
+  width: 6px !important;
+  height: 6px !important;
+  border-radius: 50% !important;
+  background: rgb(34 197 94) !important;
+  display: inline-block !important;
+}
+
+/* ---------- 2. FLAT SWISS ARCHITECTURAL SIDE RAILS (ZERO OVERLAP) ---------- */
+#foldfolio-demo .rs-duo-3d-flank-layer {
+  position: absolute !important;
+  top: 88px !important;
+  bottom: 16px !important;
+  left: 50% !important;
+  width: 100vw !important;
+  max-width: 1360px !important;
+  transform: translateX(-50%) !important;
+  pointer-events: none !important;
+  z-index: 4 !important;
+  mask-image: none !important;
+  -webkit-mask-image: none !important;
+}
+
+#foldfolio-demo .rs-swiss-rail {
+  position: absolute !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 210px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  border-top: 1px solid rgb(244 241 234 / 14%) !important;
+  border-bottom: 1px solid rgb(244 241 234 / 14%) !important;
+  padding: 0.75rem 0 !important;
+  gap: 0.85rem !important;
+}
+
+/* Pinned to the outer studio edges — clears the 714px unfolded phone completely */
+#foldfolio-demo .rs-swiss-rail--left {
+  left: 2rem !important;
+}
+
+#foldfolio-demo .rs-swiss-rail--right {
+  right: 2rem !important;
+}
+
+#foldfolio-demo .rs-swiss-rail__head,
+#foldfolio-demo .rs-swiss-rail__foot {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.62rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.08em !important;
+  color: rgb(244 241 234 / 42%) !important;
+}
+
+/* Left Rail: Vertical Stage Sequence */
+#foldfolio-demo .rs-swiss-timeline {
+  display: flex !important;
+  flex-direction: column !important;
+  border-left: 1px solid rgb(244 241 234 / 12%) !important;
+  padding-left: 0.85rem !important;
+  gap: 1.05rem !important;
+}
+
+#foldfolio-demo .rs-swiss-step {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 0.15rem !important;
+  position: relative !important;
+  opacity: 0.38 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+#foldfolio-demo .rs-swiss-step.is-passed {
+  opacity: 0.62 !important;
+}
+
+#foldfolio-demo .rs-swiss-step.is-current {
+  opacity: 1 !important;
+}
+
+#foldfolio-demo .rs-swiss-step.is-current::before {
+  content: "" !important;
+  position: absolute !important;
+  left: -0.85rem !important;
+  top: 2px !important;
+  bottom: 2px !important;
+  width: 2px !important;
+  background: rgb(255 59 29) !important;
+}
+
+#foldfolio-demo .rs-swiss-step__row {
+  display: flex !important;
+  align-items: baseline !important;
+  gap: 0.45rem !important;
+}
+
+#foldfolio-demo .rs-swiss-step__idx {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.66rem !important;
+  font-weight: 700 !important;
+  color: rgb(255 59 29) !important;
+}
+
+#foldfolio-demo .rs-swiss-step__title {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 0.84rem !important;
+  font-weight: 700 !important;
+  color: rgb(244 241 234) !important;
+  letter-spacing: -0.01em !important;
+}
+
+#foldfolio-demo .rs-swiss-step__sub {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 0.72rem !important;
+  color: rgb(244 241 234 / 65%) !important;
+  padding-left: 1.35rem !important;
+}
+
+/* Right Rail: Swiss Tabular RTO Bleed Ledger */
+#foldfolio-demo .rs-swiss-ledger {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 0.48rem 0 !important;
+  border-bottom: 1px solid rgb(244 241 234 / 8%) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__meta {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__meta strong {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  color: rgb(244 241 234 / 88%) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__meta small {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.58rem !important;
+  letter-spacing: 0.06em !important;
+  color: rgb(244 241 234 / 38%) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__val {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.86rem !important;
+  font-weight: 700 !important;
+  color: rgb(244 241 234) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__total {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 0.65rem 0 0.2rem !important;
+  margin-top: 0.15rem !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__total small {
+  display: block !important;
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 0.6rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.06em !important;
+  color: rgb(255 59 29) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__total.is-protected small {
+  color: rgb(34 197 94) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__total strong {
+  font-family: "Plus Jakarta Sans", sans-serif !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  color: rgb(244 241 234 / 75%) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__sum {
+  font-family: "JetBrains Mono", monospace !important;
+  font-size: 1.35rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+  color: rgb(244 241 234) !important;
+}
+
+#foldfolio-demo .rs-swiss-ledger__total.is-protected .rs-swiss-ledger__sum {
+  color: rgb(74 222 128) !important;
+}
+
+/* Hide side rails when viewport is too narrow for 714px phone + 2x210px rails */
+@media (max-width: 1260px) {
+  #foldfolio-demo .rs-duo-3d-flank-layer {
+    display: none !important;
+  }
+
+  #foldfolio-demo .rs-duo-header-bar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+}
+
+
 
