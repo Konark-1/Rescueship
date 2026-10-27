@@ -35,8 +35,8 @@ const RouteLoadingFallback: React.FC = () => (
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: '100vh',
-    backgroundColor: '#f4f6f8',
-    color: '#5c6370',
+    backgroundColor: '#09090b',
+    color: '#a1a1aa',
     fontSize: '0.9rem',
   }}>
     Loading...

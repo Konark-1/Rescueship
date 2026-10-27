@@ -33,6 +33,17 @@ export interface UseFinancialROIReturn {
   refetch: () => Promise<void>;
 }
 
+const ROI_CACHE_KEY = 'rs_roi_cache_v1';
+
+const getCachedROI = (): FinancialROIData | null => {
+  try {
+    const raw = sessionStorage.getItem(ROI_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
 export function useFinancialROI(startDate?: string, endDate?: string): UseFinancialROIReturn {
   const { data, isLoading, error: queryError, refetch } = useQuery({
     queryKey: ['analytics-roi', startDate, endDate],
@@ -47,16 +58,16 @@ export function useFinancialROI(startDate?: string, endDate?: string): UseFinanc
   });
 
   const roi = useMemo<FinancialROIData>(() => {
-    if (!data) return DEFAULT_ROI_DATA;
+    if (!data) return getCachedROI() || DEFAULT_ROI_DATA;
     const source = data.data || data;
-    if (!source || typeof source !== 'object') return DEFAULT_ROI_DATA;
+    if (!source || typeof source !== 'object') return getCachedROI() || DEFAULT_ROI_DATA;
 
     const netSavings = Number(source.netSavings ?? source.grossSavings ?? 0);
     const rescueRate = Number(source.rescueRate ?? 0);
     const codToPrepaidGmv = Number(source.codToPrepaidGmv ?? source.retainedGmv ?? 0);
     const roiMultiple = Number(source.roiMultiple ?? 1.0);
 
-    return {
+    const computed: FinancialROIData = {
       rescuedOrders: Number(source.rescuedOrders ?? 0),
       avgFreightSavedPerOrder: Number(source.avgFreightSavedPerOrder ?? 140),
       freightSavings: Number(source.freightSavings ?? 0),
@@ -78,6 +89,12 @@ export function useFinancialROI(startDate?: string, endDate?: string): UseFinanc
         endDate: source.period?.endDate || DEFAULT_ROI_DATA.period.endDate,
       },
     };
+
+    try {
+      sessionStorage.setItem(ROI_CACHE_KEY, JSON.stringify(computed));
+    } catch {}
+
+    return computed;
   }, [data]);
 
   return {

@@ -4,13 +4,12 @@ import {
   useSpring,
   useMotionValueEvent,
   useReducedMotion,
+  AnimatePresence,
+  motion,
 } from 'motion/react';
 import {
-  MapPin,
-  CheckCheck,
-  Navigation,
   Phone,
-  RotateCcw,
+  Navigation,
   Wifi,
   BatteryCharging,
   Camera,
@@ -31,67 +30,12 @@ import {
 } from 'lucide-react';
 import { IPhoneDuoViewer, type ScreenFrame } from './iphone-duo/IPhoneDuoViewer';
 
-interface ChatMessage {
-  id: string;
-  sender: 'bot' | 'user' | 'system';
-  text: string;
-  time: string;
-  isLocationPin?: boolean;
-}
-
-type FlowStage =
-  | 'STAGE_1_PRE_DELIVERY'
-  | 'STAGE_1_PIN_PROMPT'
-  | 'STAGE_2_NDR_HIT'
-  | 'STAGE_2_CANCEL_SAVE'
-  | 'STAGE_2_PIN_PROMPT'
-  | 'STAGE_3_COMPLETED_PIN'
-  | 'STAGE_3_COMPLETED_SKIP';
-
-const INITIAL_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg-pre-1',
-    sender: 'bot',
-    text: '🚚 *Out for Delivery:* Order *#4023118876* (COD ₹1,240) is arriving today.\n\nPay via UPI now to save ₹50, or keep COD:',
-    time: '09:15 AM',
-  },
-];
-
-function renderWhatsAppFormattedText(text: string) {
-  const lines = text.split('\n');
-  return lines.map((line, lineIdx) => {
-    const parts = line.split(/(\*[^*]+\*)/g);
-    return (
-      <React.Fragment key={lineIdx}>
-        {parts.map((part, partIdx) => {
-          if (part.startsWith('*') && part.endsWith('*') && part.length > 2) {
-            return <strong key={partIdx}>{part.slice(1, -1)}</strong>;
-          }
-          return part;
-        })}
-        {lineIdx < lines.length - 1 && <br />}
-      </React.Fragment>
-    );
-  });
-}
-
-const STAGE_RAIL_STEPS = [
-  { index: '01', title: 'Lock Intercept', sub: 'Instant WhatsApp NDR ping' },
-  { index: '02', title: 'Continuity Unfold', sub: 'Full-bleed display expand' },
-  { index: '03', title: 'Buyer Workspace', sub: '1-tap WhatsApp launch' },
-  { index: '04', title: 'Dual-Pane Rescue', sub: 'Live UPI & GPS pin sync' },
-];
-
-const RTO_LEDGER_ROWS = [
-  { label: 'Forward Courier', code: 'FWD_BURN', amount: '₹80' },
-  { label: 'Reverse RTO Freight', code: 'REV_BURN', amount: '₹80' },
-  { label: 'Packaging & QC', code: 'PACK_QC', amount: '₹40' },
-  { label: 'Sunk Paid Ad CAC', code: 'META_CAC', amount: '₹230' },
-];
+type ScenarioMode = 'ndr' | 'ofd';
+type NdrStep = 'initial' | 'im_home' | 'cancel_offer' | 'pin_dropped' | 'saved_via_upi';
+type OfdStep = 'initial' | 'prepaid_paid' | 'pin_dropped' | 'skipped_pin';
 
 export const FoldfolioShowcase: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
-  const chatScrollRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
   const positionerRef = useRef<HTMLDivElement>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
@@ -174,20 +118,58 @@ export const FoldfolioShowcase: React.FC = () => {
   const swingArcTiltX = Math.sin(openness * Math.PI) * 7;
   const swingArcTiltY = -7 * (1 - openness);
   const appExpandT = appLaunchT;
-  const dashboardLive = isAppInteractive;
 
-  // Sequential WhatsApp flow state
-  const [stage, setStage] = useState<FlowStage>('STAGE_1_PRE_DELIVERY');
-  const [activePathLabel, setActivePathLabel] = useState<'PRE_DELIVERY' | 'NDR_INTERCEPT'>(
-    'PRE_DELIVERY'
-  );
-  const [messages, setMessages] = useState<ChatMessage[]>(INITIAL_MESSAGES);
+  // Stage 4 Split-View Scenario State
+  const [scenario, setScenario] = useState<ScenarioMode>('ndr');
+  const [ndrStep, setNdrStep] = useState<NdrStep>('initial');
+  const [ofdStep, setOfdStep] = useState<OfdStep>('initial');
+  const waStreamRef = useRef<HTMLDivElement>(null);
+
+  const isRescued =
+    (scenario === 'ndr' && (ndrStep === 'pin_dropped' || ndrStep === 'saved_via_upi')) ||
+    (scenario === 'ofd' && ofdStep !== 'initial');
+
+  const netSavedAmount =
+    scenario === 'ndr'
+      ? ndrStep === 'saved_via_upi'
+        ? '₹330'
+        : '₹430'
+      : '₹380';
+
+  const activeStage =
+    activeP < 0.22
+      ? {
+          backdropWord: 'INTERCEPT',
+          pillTitle: 'Courier marks “Door Locked”',
+          pillSub: 'Instant WhatsApp ping lands on the lock screen.',
+          accent: 'vermilion',
+        }
+      : activeP < 0.54
+        ? {
+            backdropWord: 'CONTINUITY',
+            pillTitle: 'Unfold to inspect the order',
+            pillSub: 'iOS notification expands seamlessly across the hinge.',
+            accent: 'vermilion',
+          }
+        : activeP < 0.72
+          ? {
+              backdropWord: 'WORKSPACE',
+              pillTitle: 'Swipe up to launch Split-View',
+              pillSub: 'Transitioning from Home Screen into live rescue mode.',
+              accent: 'emerald',
+            }
+          : {
+              backdropWord: 'AUTONOMOUS',
+              pillTitle: 'Interactive Sandbox — Tap inside WhatsApp',
+              pillSub: 'Test both rescue flows live inside the unfolded display.',
+              accent: 'emerald',
+            };
 
   useEffect(() => {
-    if (chatScrollRef.current) {
-      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    if (waStreamRef.current) {
+      waStreamRef.current.scrollTop = waStreamRef.current.scrollHeight;
     }
-  }, [messages, stage, dashboardLive]);
+  }, [ndrStep, ofdStep, scenario]);
 
   // Registers the panoramic HTML overlay with the WebGL phone's projected
   // inner-screen quad so the home screen / WhatsApp app fill the actual display
@@ -236,167 +218,7 @@ export const FoldfolioShowcase: React.FC = () => {
     return () => window.removeEventListener('resize', applyFallback);
   }, [webglReady]);
 
-  const appendMessages = (newMsgs: ChatMessage[]) => {
-    setMessages((prev) => [...prev, ...newMsgs]);
-  };
 
-  // --- SEQUENTIAL LIFECYCLE HANDLERS ---
-  const handlePreDeliveryUpi = () => {
-    setActivePathLabel('PRE_DELIVERY');
-    appendMessages([
-      {
-        id: `u-upi-${Date.now()}`,
-        sender: 'user',
-        text: '💳 Pay ₹1,190 via UPI (Save ₹50)',
-        time: '09:16 AM',
-      },
-      {
-        id: `b-upi-${Date.now()}`,
-        sender: 'bot',
-        text: '✅ *₹1,190 UPI Received!* Order converted to Priority Prepaid.\n\n📍 Share your Location Pin for fast gate delivery, or skip:',
-        time: '09:16 AM',
-      },
-    ]);
-    setStage('STAGE_1_PIN_PROMPT');
-  };
-
-  const handleContinueToNdr = () => {
-    setActivePathLabel('NDR_INTERCEPT');
-    appendMessages([
-      {
-        id: `u-cod-${Date.now()}`,
-        sender: 'user',
-        text: '🚚 Keep COD → Test Fake NDR Alert',
-        time: '09:16 AM',
-      },
-      {
-        id: `b-ndr-${Date.now()}`,
-        sender: 'bot',
-        text: '⚠️ *Delivery Alert:* Delhivery marked your order *"Door Locked"*.\n\nAre you home right now for a free priority re-attempt?',
-        time: '02:47 PM',
-      },
-    ]);
-    setStage('STAGE_2_NDR_HIT');
-  };
-
-  const handleNdrConfirmAvailable = () => {
-    setActivePathLabel('NDR_INTERCEPT');
-    appendMessages([
-      {
-        id: `u-here-${Date.now()}`,
-        sender: 'user',
-        text: "🏠 I'm Home — Re-Deliver Today",
-        time: '02:48 PM',
-      },
-      {
-        id: `b-pin-req-${Date.now()}`,
-        sender: 'bot',
-        text: '🛡️ *Free Re-Attempt Locked!*\n\n📍 Share your WhatsApp Location Pin so the rider finds your gate, or skip:',
-        time: '02:48 PM',
-      },
-    ]);
-    setStage('STAGE_2_PIN_PROMPT');
-  };
-
-  const handleBuyerCancelOrder = () => {
-    setActivePathLabel('NDR_INTERCEPT');
-    appendMessages([
-      {
-        id: `u-cancel-${Date.now()}`,
-        sender: 'user',
-        text: '❌ Cancel Order (Test ₹100 Save Offer)',
-        time: '02:48 PM',
-      },
-      {
-        id: `b-save-${Date.now()}`,
-        sender: 'bot',
-        text: 'Before cancelling, claim a *₹100 Instant UPI Discount* (Pay *₹1,140* instead of ₹1,240 to deliver today):',
-        time: '02:48 PM',
-      },
-    ]);
-    setStage('STAGE_2_CANCEL_SAVE');
-  };
-
-  const handleAcceptCancelUpiSave = () => {
-    appendMessages([
-      {
-        id: `u-save-upi-${Date.now()}`,
-        sender: 'user',
-        text: '⚡ Pay ₹1,140 via UPI (Save ₹100)',
-        time: '02:49 PM',
-      },
-      {
-        id: `b-save-pin-${Date.now()}`,
-        sender: 'bot',
-        text: '✅ *₹1,140 Paid via UPI!* Cancellation reversed.\n\n📍 Share your Location Pin for priority delivery, or skip:',
-        time: '02:49 PM',
-      },
-    ]);
-    setStage('STAGE_2_PIN_PROMPT');
-  };
-
-  const handleShareLocationPin = () => {
-    appendMessages([
-      {
-        id: `u-pin-${Date.now()}`,
-        sender: 'user',
-        text: '📍 Location Pin Shared · Sector 62, Noida',
-        time: '02:49 PM',
-        isLocationPin: true,
-      },
-      {
-        id: `b-done-pin-${Date.now()}`,
-        sender: 'bot',
-        text: '✅ *Location Pin Sent to Rider!* Priority delivery is locked for today.',
-        time: '02:49 PM',
-      },
-    ]);
-    setStage('STAGE_3_COMPLETED_PIN');
-  };
-
-  const handleSkipLocationPin = () => {
-    appendMessages([
-      {
-        id: `u-skip-${Date.now()}`,
-        sender: 'user',
-        text: '⏭️ Skip — Use Saved Address',
-        time: '02:49 PM',
-      },
-      {
-        id: `b-done-skip-${Date.now()}`,
-        sender: 'bot',
-        text: '✅ *Re-Delivery Confirmed!* Rider will deliver to your saved address today.',
-        time: '02:49 PM',
-      },
-    ]);
-    setStage('STAGE_3_COMPLETED_SKIP');
-  };
-
-  const handleResetFlow = (startAtNdr = false) => {
-    if (!startAtNdr) {
-      setMessages(INITIAL_MESSAGES);
-      setActivePathLabel('PRE_DELIVERY');
-      setStage('STAGE_1_PRE_DELIVERY');
-    } else {
-      setActivePathLabel('NDR_INTERCEPT');
-      setMessages([
-        ...INITIAL_MESSAGES,
-        {
-          id: 'u-cod-jump',
-          sender: 'user',
-          text: '🚚 Keep COD → Test Fake NDR Alert',
-          time: '09:16 AM',
-        },
-        {
-          id: 'b-ndr-jump',
-          sender: 'bot',
-          text: '⚠️ *Delivery Alert:* Delhivery marked your order *"Door Locked"*.\n\nAre you home right now for a free priority re-attempt?',
-          time: '02:47 PM',
-        },
-      ]);
-      setStage('STAGE_2_NDR_HIT');
-    }
-  };
 
   const jumpToStage = (targetProgress: number) => {
     manualLockTimeRef.current = Date.now();
@@ -424,158 +246,35 @@ export const FoldfolioShowcase: React.FC = () => {
       aria-label="Interactive iPhone Duo Unfold & WhatsApp Live Dashboard Showcase"
     >
       <div className="rs-duo-sticky-stage rs-duo-sticky-frame">
-        {/* ================================================================
-            TOP ARCHITECTURAL HEADER BAR (Matches Chapter 4 Editorial System)
-           ================================================================ */}
-        <div className="rs-duo-header-bar">
-          <div className="rs-swiss-header-left">
-            <span className="rs-swiss-kicker">
-              // CHAPTER 03.5 · INTERACTIVE HARDWARE SANDBOX //
-            </span>
-            <h2 className="rs-swiss-title">
-              How RescueShip saves <em>failed deliveries on WhatsApp.</em>
-            </h2>
-          </div>
-
-          <div
-            className="rs-swiss-stage-tabs"
-            role="tablist"
-            aria-label="Interactive Demo Stages"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP < 0.22}
-              className={`rs-swiss-tab ${activeP < 0.22 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.08)}
-            >
-              <span>01</span> Lock Screen
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP >= 0.22 && activeP < 0.54}
-              className={`rs-swiss-tab ${
-                activeP >= 0.22 && activeP < 0.54 ? 'is-active' : ''
-              }`}
-              onClick={() => jumpToStage(0.48)}
-            >
-              <span>02</span> Unfold
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP >= 0.54 && activeP < 0.72}
-              className={`rs-swiss-tab ${
-                activeP >= 0.54 && activeP < 0.72 ? 'is-active' : ''
-              }`}
-              onClick={() => jumpToStage(0.68)}
-            >
-              <span>03</span> Home
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeP >= 0.72}
-              className={`rs-swiss-tab ${activeP >= 0.72 ? 'is-active' : ''}`}
-              onClick={() => jumpToStage(0.88)}
-            >
-              <i className="rs-swiss-live-dot" />
-              <span>04</span> Live Chat
-            </button>
-          </div>
-        </div>
-
-        {/* ================================================================
-            FLAT SWISS ARCHITECTURAL SIDE RAILS (Zero 3D Tilt, Zero Overlap)
-           ================================================================ */}
-        <div className="rs-duo-3d-flank-layer" aria-hidden="true">
-          {/* LEFT RAIL: Live Scroll Stage Telemetry */}
-          <aside className="rs-swiss-rail rs-swiss-rail--left">
-            <div className="rs-swiss-rail__head">
-              <span>SEQUENCE // 01–04</span>
-              <span>{Math.round(activeP * 100)}%</span>
-            </div>
-
-            <div className="rs-swiss-timeline">
-              {STAGE_RAIL_STEPS.map((step, idx) => {
-                const isCurrent =
-                  (idx === 0 && activeP < 0.22) ||
-                  (idx === 1 && activeP >= 0.22 && activeP < 0.54) ||
-                  (idx === 2 && activeP >= 0.54 && activeP < 0.72) ||
-                  (idx === 3 && activeP >= 0.72);
-                const isPassed =
-                  (idx === 0 && activeP >= 0.22) ||
-                  (idx === 1 && activeP >= 0.54) ||
-                  (idx === 2 && activeP >= 0.72);
-
-                return (
-                  <div
-                    key={step.index}
-                    className={`rs-swiss-step ${
-                      isCurrent ? 'is-current' : isPassed ? 'is-passed' : ''
-                    }`}
-                  >
-                    <div className="rs-swiss-step__row">
-                      <span className="rs-swiss-step__idx">{step.index}</span>
-                      <strong className="rs-swiss-step__title">
-                        {step.title}
-                      </strong>
-                    </div>
-                    <span className="rs-swiss-step__sub">{step.sub}</span>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="rs-swiss-rail__foot">
-              <span>AWB #4023118876</span>
-              <span>DELHIVERY SURFACE</span>
-            </div>
-          </aside>
-
-          {/* RIGHT RAIL: Swiss Tabular ₹430 RTO Bleed Ledger */}
-          <aside className="rs-swiss-rail rs-swiss-rail--right">
-            <div className="rs-swiss-rail__head">
-              <span>UNIT ECONOMICS</span>
-              <span>INR / ORDER</span>
-            </div>
-
-            <div className="rs-swiss-ledger">
-              {RTO_LEDGER_ROWS.map((row) => (
-                <div key={row.code} className="rs-swiss-ledger__row">
-                  <div className="rs-swiss-ledger__meta">
-                    <strong>{row.label}</strong>
-                    <small>{row.code}</small>
-                  </div>
-                  <span className="rs-swiss-ledger__val">{row.amount}</span>
-                </div>
-              ))}
-
-              <div
-                className={`rs-swiss-ledger__total ${
-                  stage.includes('COMPLETED') || activeP >= 0.72
-                    ? 'is-protected'
-                    : ''
-                }`}
+        {/* 1. VOLUMETRIC STUDIO LIGHTING & 3D PERSPECTIVE PEDESTAL */}
+        <div
+          className="rs-volumetric-stage"
+          style={
+            {
+              '--unfold-t': unfoldT,
+              '--app-t': appLaunchT,
+            } as React.CSSProperties
+          }
+          aria-hidden="true"
+        >
+          {/* Depth-Parallax Giant Editorial Watermark Behind the Phone */}
+          <div className="rs-volumetric-watermark">
+            <AnimatePresence mode="wait">
+              <motion.span
+                key={activeStage.backdropWord}
+                initial={{ opacity: 0, scale: 0.94, filter: 'blur(12px)' }}
+                animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, scale: 1.04, filter: 'blur(12px)' }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+                className="rs-volumetric-word"
               >
-                <div>
-                  <small>TOTAL BLEED / RTO</small>
-                  <strong>
-                    {stage.includes('COMPLETED')
-                      ? 'Margin Protected'
-                      : 'Protected per Order'}
-                  </strong>
-                </div>
-                <span className="rs-swiss-ledger__sum">₹430</span>
-              </div>
-            </div>
+                {activeStage.backdropWord}
+              </motion.span>
+            </AnimatePresence>
+          </div>
 
-            <div className="rs-swiss-rail__foot">
-              <span>DIRECT + CAC SUBTOTAL</span>
-              <span>₹200 + ₹230</span>
-            </div>
-          </aside>
+          {/* 3D Tilted Floor Light Ring under the iPhone */}
+          <div className="rs-volumetric-pedestal" />
         </div>
 
         {/* ===============================================================
@@ -888,266 +587,254 @@ export const FoldfolioShowcase: React.FC = () => {
                 }}
                 aria-hidden={!isAppInteractive}
               >
-                {/* LEFT PANE: CLEAN WHATSAPP CHAT */}
-                <div className="rs-wa-pane">
-                  {/* Simple Header */}
-                  <div className="rs-wa-header">
-                    <div className="rs-wa-avatar">RS</div>
-                    <div className="rs-wa-contact">
-                      <div className="rs-wa-contact__name">
-                        RescueShip Support <span className="rs-wa-verified">✓</span>
+                {/* ==========================================================
+                    STAGE 4 — INNER SCREEN iOS FOLDABLE SPLIT-VIEW WORKSPACE
+                   ========================================================== */}
+                <div className="rs-s4-modern" data-testid="foldfolio-stage4-app">
+                  {/* Floating Segmented Switcher Bar */}
+                  <header className="rs-s4-header">
+                    <div className="rs-s4-segmented" role="tablist">
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={scenario === 'ndr'}
+                        className={`rs-s4-seg-btn ${scenario === 'ndr' ? 'is-active' : ''}`}
+                        onClick={() => {
+                          setScenario('ndr');
+                          setNdrStep('initial');
+                        }}
+                      >
+                        Fake “Door Locked” Rescue
+                      </button>
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={scenario === 'ofd'}
+                        className={`rs-s4-seg-btn ${scenario === 'ofd' ? 'is-active' : ''}`}
+                        onClick={() => {
+                          setScenario('ofd');
+                          setOfdStep('initial');
+                        }}
+                      >
+                        Morning COD → Prepaid
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="rs-s4-replay"
+                      onClick={() => (scenario === 'ndr' ? setNdrStep('initial') : setOfdStep('initial'))}
+                    >
+                      Replay
+                    </button>
+                  </header>
+
+                  {/* Split Screen Canvas */}
+                  <div className="rs-s4-canvas">
+                    {/* LEFT: Clean Native WhatsApp Thread */}
+                    <div className="rs-s4-chat-card">
+                      <div className="rs-s4-chat-top">
+                        <div className="rs-s4-chat-avatar">UV</div>
+                        <div className="rs-s4-chat-brand">
+                          <strong>UrbanVeda Store ✓</strong>
+                          <span>WhatsApp Business · Verified</span>
+                        </div>
                       </div>
-                      <div className="rs-wa-contact__sub">
-                        Official WhatsApp Business
+
+                      <div className="rs-s4-chat-body" ref={waStreamRef}>
+                        {scenario === 'ndr' ? (
+                          <>
+                            <div className="rs-s4-msg is-bot">
+                              <p>
+                                Delhivery marked your <strong>₹1,899 order</strong> as{' '}
+                                <em>“Door Locked”</em> just now. Are you home at Sector 62, Noida?
+                              </p>
+                            </div>
+
+                            {ndrStep === 'initial' && (
+                              <div className="rs-s4-actions">
+                                <button
+                                  type="button"
+                                  className="rs-s4-action-btn is-green"
+                                  onClick={() => setNdrStep('im_home')}
+                                >
+                                  Yes, I’m Home — Deliver Today
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rs-s4-action-btn is-muted"
+                                  onClick={() => setNdrStep('cancel_offer')}
+                                >
+                                  Cancel Order
+                                </button>
+                              </div>
+                            )}
+
+                            {(ndrStep === 'im_home' || ndrStep === 'pin_dropped') && (
+                              <>
+                                <div className="rs-s4-msg is-user">Yes, I’m Home — Deliver Today</div>
+                                <div className="rs-s4-msg is-bot">
+                                  <p>
+                                    Priority re-attempt locked for free! Drop your <strong>1-tap Gate Pin</strong> so
+                                    the rider gets a Google Maps link.
+                                  </p>
+                                </div>
+                                {ndrStep === 'im_home' && (
+                                  <div className="rs-s4-actions">
+                                    <button
+                                      type="button"
+                                      className="rs-s4-action-btn is-green"
+                                      onClick={() => setNdrStep('pin_dropped')}
+                                    >
+                                      📍 Share Live Gate Pin
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+
+                            {(ndrStep === 'cancel_offer' || ndrStep === 'saved_via_upi') && (
+                              <>
+                                <div className="rs-s4-msg is-user">Cancel Order</div>
+                                <div className="rs-s4-msg is-bot">
+                                  <p>
+                                    Wait! Take an <strong>instant ₹100 OFF</strong> right now via UPI (Pay ₹1,799) for
+                                    priority delivery today.
+                                  </p>
+                                </div>
+                                {ndrStep === 'cancel_offer' && (
+                                  <div className="rs-s4-actions">
+                                    <button
+                                      type="button"
+                                      className="rs-s4-action-btn is-green"
+                                      onClick={() => setNdrStep('saved_via_upi')}
+                                    >
+                                      ⚡ Pay ₹1,799 via UPI (Save ₹100)
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+
+                            {isRescued && (
+                              <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                className="rs-s4-msg is-user is-pin"
+                              >
+                                📍 Gate #2 near Fortis, Sector 62 Shared
+                              </motion.div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="rs-s4-msg is-bot">
+                              <p>
+                                Your ₹1,899 COD order is out for delivery! Convert to{' '}
+                                <strong>Priority Prepaid via UPI</strong> now and get <strong>₹50 OFF</strong> (Pay
+                                ₹1,849).
+                              </p>
+                            </div>
+
+                            {ofdStep === 'initial' && (
+                              <div className="rs-s4-actions">
+                                <button
+                                  type="button"
+                                  className="rs-s4-action-btn is-green"
+                                  onClick={() => setOfdStep('prepaid_paid')}
+                                >
+                                  ⚡ Pay ₹1,849 via UPI (Save ₹50)
+                                </button>
+                              </div>
+                            )}
+
+                            {ofdStep !== 'initial' && (
+                              <>
+                                <div className="rs-s4-msg is-user">Paid ₹1,849 via UPI</div>
+                                <div className="rs-s4-msg is-bot">
+                                  <p>Prepaid locked! Drop a 1-tap Gate Pin for your delivery rider.</p>
+                                </div>
+                                {ofdStep === 'prepaid_paid' && (
+                                  <div className="rs-s4-actions">
+                                    <button
+                                      type="button"
+                                      className="rs-s4-action-btn is-green"
+                                      onClick={() => setOfdStep('pin_dropped')}
+                                    >
+                                      📍 Drop 1-Tap Gate Pin
+                                    </button>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* 2 Clear Scenario Tabs */}
-                  <div
-                    className="rs-wa-progress-bar"
-                    role="group"
-                    aria-label="Select Scenario"
-                  >
-                    <button
-                      type="button"
-                      className={`rs-wa-step-pill ${
-                        activePathLabel === 'PRE_DELIVERY' ? 'is-active' : ''
-                      }`}
-                      onClick={() => handleResetFlow(false)}
-                    >
-                      1. Pre-Delivery
-                    </button>
-                    <button
-                      type="button"
-                      className={`rs-wa-step-pill ${
-                        activePathLabel === 'NDR_INTERCEPT' ? 'is-active' : ''
-                      }`}
-                      onClick={() => handleResetFlow(true)}
-                    >
-                      2. Fake NDR Hit
-                    </button>
-                  </div>
-
-                  {/* Clean Chat Bubbles (No clutter banners) */}
-                  <div ref={chatScrollRef} className="rs-wa-messages">
-                    {messages.map((m) => {
-                      if (m.sender === 'system') return null;
-                      const isUser = m.sender === 'user';
-                      return (
-                        <div
-                          key={m.id}
-                          className={`rs-wa-bubble ${
-                            isUser ? 'rs-wa-bubble--user' : 'rs-wa-bubble--bot'
-                          }`}
-                        >
-                          {m.isLocationPin && (
-                            <div className="rs-wa-map-card">
-                              <MapPin size={16} />
-                              <span>GPS Pin Shared · Sector 62, Noida</span>
-                            </div>
-                          )}
-                          <p className="rs-wa-bubble__text">
-                            {renderWhatsAppFormattedText(m.text)}
-                          </p>
-                          <div className="rs-wa-bubble__meta">
-                            <span>{m.time}</span>
-                            {isUser && (
-                              <CheckCheck className="rs-wa-ticks" size={15} />
-                            )}
+                    {/* RIGHT: Visual Telemetry & Map Radar Showcase (Zero Monospace Wall) */}
+                    <div className="rs-s4-visual-pane">
+                      {/* Top Bento Row: Live Radar Map + Giant Savings Card */}
+                      <div className="rs-s4-bento-top">
+                        {/* Visual Radar Map Card */}
+                        <div className={`rs-s4-radar-card ${isRescued ? 'is-locked' : ''}`}>
+                          <div className="rs-s4-radar-rings">
+                            <span className="rs-radar-ring r1" />
+                            <span className="rs-radar-ring r2" />
+                            <span className="rs-radar-pin">{isRescued ? '📍' : '•'}</span>
+                          </div>
+                          <div className="rs-s4-radar-caption">
+                            <strong>{isRescued ? 'Gate Pin Synced' : 'Awaiting Buyer Pin'}</strong>
+                            <span>{isRescued ? 'Google Maps link sent to rider' : 'Noida Sector 62 Hub'}</span>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
 
-                  {/* Big, Easy-to-Read Action Buttons */}
-                  <div className="rs-wa-tray">
-                    {stage === 'STAGE_1_PRE_DELIVERY' && (
-                      <div className="rs-wa-btn-group">
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn rs-wa-action-btn--primary"
-                          onClick={handlePreDeliveryUpi}
-                        >
-                          💳 Pay ₹1,190 via UPI (Save ₹50)
-                        </button>
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn"
-                          onClick={handleContinueToNdr}
-                        >
-                          🚚 Keep COD → Test Fake NDR Alert
-                        </button>
+                        {/* Giant ₹430 Saved Hero Card */}
+                        <div className="rs-s4-savings-card">
+                          <span className="rs-s4-savings-label">RTO LOSS PREVENTED</span>
+                          <strong className="rs-s4-savings-value">{netSavedAmount}</strong>
+                          <div className="rs-s4-savings-bar">
+                            <span className="bar-courier" title="₹200 Direct Courier & Pack" />
+                            <span className="bar-cac" title="₹230 Sunk Paid Ad CAC" />
+                          </div>
+                          <div className="rs-s4-savings-legend">
+                            <span>₹200 Shipping</span>
+                            <span>+ ₹230 Ad CAC</span>
+                          </div>
+                        </div>
                       </div>
-                    )}
 
-                    {stage === 'STAGE_2_NDR_HIT' && (
-                      <div className="rs-wa-btn-group">
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn rs-wa-action-btn--primary"
-                          onClick={handleNdrConfirmAvailable}
-                        >
-                          🏠 I&apos;m Home — Re-Deliver Today
-                        </button>
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn rs-wa-action-btn--danger"
-                          onClick={handleBuyerCancelOrder}
-                        >
-                          ❌ Cancel Order (Test ₹100 Save Offer)
-                        </button>
-                      </div>
-                    )}
+                      {/* Bottom Visual Step Progression */}
+                      <div className="rs-s4-steps-card">
+                        <div className="rs-s4-step is-complete">
+                          <span className="rs-step-dot">✓</span>
+                          <div>
+                            <strong>Courier Event Caught Instantly</strong>
+                            <span>{scenario === 'ndr' ? 'Delhivery marked “Door Locked”' : 'Order marked Out for Delivery'}</span>
+                          </div>
+                        </div>
 
-                    {stage === 'STAGE_2_CANCEL_SAVE' && (
-                      <div className="rs-wa-btn-group">
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn rs-wa-action-btn--primary"
-                          onClick={handleAcceptCancelUpiSave}
-                        >
-                          ⚡ Pay ₹1,140 via UPI (Save ₹100)
-                        </button>
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn"
-                          onClick={handleNdrConfirmAvailable}
-                        >
-                          🏠 Keep COD &amp; Re-Deliver
-                        </button>
-                      </div>
-                    )}
+                        <div className={`rs-s4-step ${ndrStep !== 'initial' || ofdStep !== 'initial' ? 'is-complete' : 'is-active'}`}>
+                          <span className="rs-step-dot">{ndrStep !== 'initial' || ofdStep !== 'initial' ? '✓' : '2'}</span>
+                          <div>
+                            <strong>Buyer Verified on WhatsApp</strong>
+                            <span>
+                              {ndrStep === 'saved_via_upi'
+                                ? 'Saved via ₹100 instant UPI offer'
+                                : scenario === 'ofd' && ofdStep !== 'initial'
+                                  ? 'Converted COD to Prepaid (₹50 off)'
+                                  : 'Zero-discount priority re-attempt'}
+                            </span>
+                          </div>
+                        </div>
 
-                    {(stage === 'STAGE_1_PIN_PROMPT' ||
-                      stage === 'STAGE_2_PIN_PROMPT') && (
-                      <div className="rs-wa-btn-group">
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn rs-wa-action-btn--primary"
-                          onClick={handleShareLocationPin}
-                        >
-                          📍 Share WhatsApp Location Pin
-                        </button>
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn"
-                          onClick={handleSkipLocationPin}
-                        >
-                          ⏭️ Skip — Use Saved Address
-                        </button>
-                      </div>
-                    )}
-
-                    {(stage === 'STAGE_3_COMPLETED_PIN' ||
-                      stage === 'STAGE_3_COMPLETED_SKIP') && (
-                      <div className="rs-wa-btn-group rs-wa-btn-group--row">
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn"
-                          onClick={() => handleResetFlow(false)}
-                        >
-                          <RotateCcw size={15} /> Replay Pre-Delivery
-                        </button>
-                        <button
-                          type="button"
-                          className="rs-wa-action-btn"
-                          onClick={() => handleResetFlow(true)}
-                        >
-                          <RotateCcw size={15} /> Replay NDR Hit
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* RIGHT PANE: SIMPLE 3-STEP LIVE SUMMARY */}
-                <div className="rs-live-dashboard-pane">
-                  <div className="rs-dash-topbar">
-                    <div className="rs-dash-live-pill">
-                      <span className="rs-dash-pulse-dot" />
-                      <span>WHAT RESCUESHIP IS DOING LIVE</span>
-                    </div>
-                  </div>
-
-                  {/* Big Hero Value Card */}
-                  <div className="rs-dash-hero-card">
-                    <div className="rs-dash-hero-card__left">
-                      <small>RTO LOSS PREVENTED</small>
-                      <strong>₹430 Saved</strong>
-                      <span>₹200 Courier Shipping + ₹230 Ad CAC</span>
-                    </div>
-                    <span
-                      className={`rs-dash-status-badge ${
-                        stage.includes('COMPLETED') ||
-                        stage.includes('PIN_PROMPT')
-                          ? 'is-saved'
-                          : 'is-active'
-                      }`}
-                    >
-                      {stage.includes('COMPLETED')
-                        ? '✓ Order Rescued'
-                        : '⚡ Rescue Active'}
-                    </span>
-                  </div>
-
-                  {/* 3 Simple, Large, Easy-to-Read Steps */}
-                  <div className="rs-dash-pipeline">
-                    <div className="rs-dash-pipe-step is-active">
-                      <div className="rs-dash-step-num">1</div>
-                      <div className="rs-dash-step-text">
-                        <strong>
-                          {activePathLabel === 'PRE_DELIVERY'
-                            ? 'Morning Delivery Alert Sent'
-                            : 'Fake "Door Locked" Caught in 38s'}
-                        </strong>
-                        <p>
-                          {activePathLabel === 'PRE_DELIVERY'
-                            ? 'Sent WhatsApp message with ₹50 UPI discount.'
-                            : 'Courier marked Door Locked with 0 calls. Alerted buyer instantly.'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`rs-dash-pipe-step ${
-                        stage.includes('PIN_PROMPT') ||
-                        stage.includes('COMPLETED') ||
-                        stage === 'STAGE_2_CANCEL_SAVE'
-                          ? 'is-active'
-                          : ''
-                      }`}
-                    >
-                      <div className="rs-dash-step-num">2</div>
-                      <div className="rs-dash-step-text">
-                        <strong>Buyer Confirms on WhatsApp</strong>
-                        <p>
-                          {stage === 'STAGE_2_CANCEL_SAVE'
-                            ? 'Offered ₹100 instant UPI discount to prevent cancellation.'
-                            : stage.includes('PIN_PROMPT') ||
-                                stage.includes('COMPLETED')
-                              ? 'Buyer confirmed availability / UPI payment in chat.'
-                              : 'Waiting for you to tap an option on the left…'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div
-                      className={`rs-dash-pipe-step ${
-                        stage.includes('COMPLETED') ? 'is-active' : ''
-                      }`}
-                    >
-                      <div className="rs-dash-step-num">3</div>
-                      <div className="rs-dash-step-text">
-                        <strong>Rider Gets GPS Pin &amp; Re-Delivers</strong>
-                        <p>
-                          {stage === 'STAGE_3_COMPLETED_PIN'
-                            ? 'Sent Google Maps GPS link to courier rider for gate delivery.'
-                            : stage === 'STAGE_3_COMPLETED_SKIP'
-                              ? 'Scheduled priority re-attempt using buyer’s saved address.'
-                              : 'Sends live GPS location to the courier rider so delivery succeeds.'}
-                        </p>
+                        <div className={`rs-s4-step ${isRescued ? 'is-complete' : ''}`}>
+                          <span className="rs-step-dot">{isRescued ? '✓' : '3'}</span>
+                          <div>
+                            <strong>Rider Dispatched with Gate Landmark</strong>
+                            <span>Reverse-geocoded landmark pushed to courier API</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1156,6 +843,26 @@ export const FoldfolioShowcase: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* 2. SINGLE FLOATING DYNAMIC ISLAND CAPTION PILL (BOTTOM) */}
+        <div className="rs-floating-island-wrap">
+          <motion.div layout className="rs-floating-island">
+            <span className={`rs-island-pulse is-${activeStage.accent}`} />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeStage.pillTitle}
+                initial={{ opacity: 0, y: 6, filter: 'blur(6px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -6, filter: 'blur(6px)' }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="rs-island-copy"
+              >
+                <strong>{activeStage.pillTitle}</strong>
+                <span>{activeStage.pillSub}</span>
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
     </section>

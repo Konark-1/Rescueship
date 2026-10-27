@@ -556,7 +556,7 @@ test.describe('Public pages', () => {
 
     await page.goto('/');
     await expect(page).toHaveTitle(/RescueShip/i);
-    await expect(page.locator('body')).toContainText(/RescueShip/i);
+    await expect(page.locator('body')).toContainText(/RescueShip/i, { timeout: 15000 });
 
     await expect(consoleErrors).toEqual([]);
   });

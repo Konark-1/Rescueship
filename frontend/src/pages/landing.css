@@ -9020,747 +9020,511 @@ html {
 
 
 /* ==========================================================================
-   STAGE 4: SIMPLE, CLEAN, LARGE-TEXT WHATSAPP & 3-STEP SUMMARY
+   CHAPTER 3.5 — 2026 VOLUMETRIC 3D STAGE & VISUAL SPLIT-VIEW
    ========================================================================== */
 
-#foldfolio-demo .rs-duo-app-fullbleed {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  z-index: 40 !important;
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  background: rgb(18 18 17) !important;
-  border-radius: 28px !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-  transform-origin: 50% 34% !important;
+#foldfolio-demo {
+  position: relative;
+  background: #090908;
+  color: #f4f1ea;
+  overflow: hidden;
+  scroll-snap-align: none;
 }
-
-/* ---------- LEFT PANE: CLEAN WHATSAPP ---------- */
-#foldfolio-demo .rs-wa-pane {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100% !important;
-  background: rgb(239 234 226) !important;
-  border-right: 1px solid rgb(210 205 196) !important;
-  overflow: hidden !important;
-  box-sizing: border-box !important;
-}
-
-#foldfolio-demo .rs-wa-header {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.85rem !important;
-  padding: 0.9rem 1.15rem !important;
-  background: rgb(7 94 84) !important;
-  color: rgb(255 255 255) !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-wa-avatar {
-  width: 42px !important;
-  height: 42px !important;
-  border-radius: 50% !important;
-  background: rgb(37 211 102) !important;
-  color: rgb(9 9 11) !important;
-  font-size: 0.95rem !important;
-  font-weight: 800 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-wa-contact {
-  flex: 1 !important;
-  min-width: 0 !important;
-}
-
-#foldfolio-demo .rs-wa-contact__name {
-  font-size: 1.15rem !important;
-  font-weight: 800 !important;
-  color: rgb(255 255 255) !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.35rem !important;
-}
-
-#foldfolio-demo .rs-wa-verified {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 18px !important;
-  height: 18px !important;
-  border-radius: 50% !important;
-  background: rgb(37 211 102) !important;
-  color: rgb(255 255 255) !important;
-  font-size: 0.72rem !important;
-  font-weight: 900 !important;
-}
-
-#foldfolio-demo .rs-wa-contact__sub {
-  font-size: 0.85rem !important;
-  color: rgb(255 255 255 / 82%) !important;
-}
-
-/* 2 Large Scenario Tabs */
-#foldfolio-demo .rs-wa-progress-bar {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: 0.5rem !important;
-  padding: 0.55rem 0.9rem !important;
-  background: rgb(230 225 216) !important;
-  border-bottom: 1px solid rgb(212 207 198) !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-wa-step-pill {
-  padding: 0.5rem 0.75rem !important;
-  border-radius: 10px !important;
-  font-size: 0.92rem !important;
-  font-weight: 700 !important;
-  border: 1px solid rgb(0 0 0 / 10%) !important;
-  background: rgb(255 255 255 / 70%) !important;
-  color: rgb(40 40 38) !important;
-  cursor: pointer !important;
-  text-align: center !important;
-  transition: all 0.15s ease !important;
-}
-
-#foldfolio-demo .rs-wa-step-pill.is-active {
-  background: rgb(18 18 17) !important;
-  color: rgb(255 255 255) !important;
-  border-color: rgb(18 18 17) !important;
-}
-
-/* Chat Messages */
-#foldfolio-demo .rs-wa-messages {
-  flex: 1 !important;
-  overflow-y: auto !important;
-  padding: 1rem 1.1rem !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.75rem !important;
-}
-
-#foldfolio-demo .rs-wa-bubble {
-  max-width: 92% !important;
-  padding: 0.9rem 1.1rem !important;
-  border-radius: 14px !important;
-  box-shadow: 0 2px 6px rgb(0 0 0 / 8%) !important;
-}
-
-#foldfolio-demo .rs-wa-bubble--bot {
-  background: rgb(255 255 255) !important;
-  color: rgb(17 27 33) !important;
-  align-self: flex-start !important;
-  border-top-left-radius: 4px !important;
-}
-
-#foldfolio-demo .rs-wa-bubble--user {
-  background: rgb(217 253 211) !important;
-  color: rgb(17 27 33) !important;
-  align-self: flex-end !important;
-  border-top-right-radius: 4px !important;
-}
-
-#foldfolio-demo .rs-wa-map-card {
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.5rem !important;
-  padding: 0.6rem 0.8rem !important;
-  border-radius: 8px !important;
-  background: rgb(220 252 231) !important;
-  color: rgb(22 101 52) !important;
-  font-size: 0.92rem !important;
-  font-weight: 700 !important;
-  margin-bottom: 0.5rem !important;
-  border: 1px solid rgb(187 247 208) !important;
-}
-
-#foldfolio-demo .rs-wa-bubble__text {
-  margin: 0 !important;
-  font-size: 1.08rem !important;
-  line-height: 1.45 !important;
-  font-weight: 500 !important;
-  color: rgb(17 27 33) !important;
-  white-space: pre-line !important;
-}
-
-#foldfolio-demo .rs-wa-bubble__meta {
-  font-size: 0.78rem !important;
-  color: rgb(102 119 129) !important;
-  margin-top: 0.35rem !important;
-  display: flex !important;
-  justify-content: flex-end !important;
-  align-items: center !important;
-  gap: 4px !important;
-}
-
-#foldfolio-demo .rs-wa-ticks {
-  color: rgb(83 189 235) !important;
-}
-
-/* Bottom Action Tray */
-#foldfolio-demo .rs-wa-tray {
-  padding: 0.85rem 1rem !important;
-  background: rgb(245 242 236) !important;
-  border-top: 1px solid rgb(218 213 204) !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-wa-btn-group {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.55rem !important;
-}
-
-#foldfolio-demo .rs-wa-btn-group--row {
-  flex-direction: row !important;
-}
-
-#foldfolio-demo .rs-wa-action-btn {
-  width: 100% !important;
-  padding: 0.82rem 1rem !important;
-  border-radius: 12px !important;
-  font-size: 1.02rem !important;
-  font-weight: 700 !important;
-  border: 1.5px solid rgb(18 18 17 / 15%) !important;
-  background: rgb(255 255 255) !important;
-  color: rgb(18 18 17) !important;
-  cursor: pointer !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 0.45rem !important;
-  transition: transform 0.12s ease, background 0.12s ease !important;
-}
-
-#foldfolio-demo .rs-wa-action-btn:hover {
-  transform: translateY(-1px) !important;
-}
-
-#foldfolio-demo .rs-wa-action-btn--primary {
-  background: rgb(22 163 74) !important;
-  color: rgb(255 255 255) !important;
-  border-color: rgb(22 163 74) !important;
-}
-
-#foldfolio-demo .rs-wa-action-btn--primary:hover {
-  background: rgb(21 128 61) !important;
-}
-
-#foldfolio-demo .rs-wa-action-btn--danger {
-  color: rgb(220 38 38) !important;
-  border-color: rgb(220 38 38 / 30%) !important;
-}
-
-/* ---------- RIGHT PANE: SIMPLE 3-STEP LIVE SUMMARY ---------- */
-#foldfolio-demo .rs-live-dashboard-pane {
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  padding: 1.25rem 1.35rem !important;
-  background: rgb(18 18 17) !important;
-  color: rgb(244 241 234) !important;
-  gap: 1rem !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-}
-
-#foldfolio-demo .rs-dash-topbar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 0 !important;
-  border: none !important;
-  background: transparent !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-live-pill {
-  font-size: 0.92rem !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.05em !important;
-  color: rgb(134 239 172) !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 0.55rem !important;
-}
-
-#foldfolio-demo .rs-dash-pulse-dot {
-  width: 8px !important;
-  height: 8px !important;
-  border-radius: 50% !important;
-  background: rgb(74 222 128) !important;
-  box-shadow: 0 0 8px rgb(74 222 128 / 70%) !important;
-  display: inline-block !important;
-  animation: rsPulseGreen 2s infinite ease-in-out !important;
-}
-
-@keyframes rsPulseGreen {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(0.85);
-  }
-}
-
-/* Big Hero Card */
-#foldfolio-demo .rs-dash-hero-card {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 1.1rem 1.25rem !important;
-  border-radius: 16px !important;
-  background: rgb(28 28 26) !important;
-  border: 1px solid rgb(244 241 234 / 14%) !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-hero-card__left {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.2rem !important;
-}
-
-#foldfolio-demo .rs-dash-hero-card__left small {
-  font-size: 0.78rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.05em !important;
-  color: rgb(244 241 234 / 65%) !important;
-}
-
-#foldfolio-demo .rs-dash-hero-card__left strong {
-  font-size: 1.85rem !important;
-  font-weight: 800 !important;
-  color: rgb(74 222 128) !important;
-  line-height: 1.1 !important;
-}
-
-#foldfolio-demo .rs-dash-hero-card__left span {
-  font-size: 0.88rem !important;
-  font-weight: 500 !important;
-  color: rgb(244 241 234 / 80%) !important;
-}
-
-#foldfolio-demo .rs-dash-status-badge {
-  padding: 0.45rem 0.85rem !important;
-  border-radius: 999px !important;
-  font-size: 0.86rem !important;
-  font-weight: 800 !important;
-  white-space: nowrap !important;
-}
-
-#foldfolio-demo .rs-dash-status-badge.is-active {
-  background: rgb(255 59 29 / 18%) !important;
-  color: rgb(255 115 92) !important;
-  border: 1px solid rgb(255 59 29 / 35%) !important;
-}
-
-#foldfolio-demo .rs-dash-status-badge.is-saved {
-  background: rgb(34 197 94 / 20%) !important;
-  color: rgb(134 239 172) !important;
-  border: 1px solid rgb(34 197 94 / 45%) !important;
-}
-
-/* 3 Large Step Cards */
-#foldfolio-demo .rs-dash-pipeline {
-  flex: 1 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  justify-content: space-between !important;
-  gap: 0.75rem !important;
-}
-
-#foldfolio-demo .rs-dash-pipe-step {
-  flex: 1 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 1rem !important;
-  padding: 1rem 1.15rem !important;
-  border-radius: 14px !important;
-  background: rgb(26 26 24) !important;
-  border: 1px solid rgb(244 241 234 / 10%) !important;
-  opacity: 0.55 !important;
-  transition: opacity 0.2s ease, border-color 0.2s ease, background 0.2s ease !important;
-}
-
-#foldfolio-demo .rs-dash-pipe-step.is-active {
-  opacity: 1 !important;
-  background: rgb(22 163 74 / 14%) !important;
-  border: 1.5px solid rgb(74 222 128 / 50%) !important;
-}
-
-#foldfolio-demo .rs-dash-step-num {
-  width: 36px !important;
-  height: 36px !important;
-  border-radius: 50% !important;
-  background: rgb(244 241 234 / 12%) !important;
-  color: rgb(244 241 234) !important;
-  font-size: 1rem !important;
-  font-weight: 800 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-pipe-step.is-active .rs-dash-step-num {
-  background: rgb(34 197 94) !important;
-  color: rgb(9 9 11) !important;
-}
-
-#foldfolio-demo .rs-dash-step-text {
-  flex: 1 !important;
-  min-width: 0 !important;
-}
-
-#foldfolio-demo .rs-dash-step-text strong {
-  display: block !important;
-  font-size: 1.08rem !important;
-  font-weight: 800 !important;
-  color: rgb(255 255 255) !important;
-  margin-bottom: 0.25rem !important;
-}
-
-#foldfolio-demo .rs-dash-step-text p {
-  margin: 0 !important;
-  font-size: 0.94rem !important;
-  line-height: 1.38 !important;
-  color: rgb(244 241 234 / 88%) !important;
-}
-
-/* ==========================================================================
-   SWISS ARCHITECTURAL STUDIO HEADER & SIDE RAILS (ZERO 3D TILT, ZERO OVERLAP)
-   ========================================================================== */
 
 #foldfolio-demo.rs-duo-master-track,
 #foldfolio-demo .rs-duo-sticky-frame {
-  width: 100% !important;
-  max-width: 100vw !important;
-  overflow-x: clip !important;
-  overflow-y: visible !important;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
-/* ---------- 1. SWISS EDITORIAL HEADER BAR (Matches Chapter 4) ---------- */
-#foldfolio-demo .rs-duo-header-bar {
-  width: 100% !important;
-  max-width: 1360px !important;
-  margin: 0 auto !important;
-  padding: 0.4rem 2rem 0.65rem !important;
-  display: flex !important;
-  align-items: flex-end !important;
-  justify-content: space-between !important;
-  gap: 1.5rem !important;
-  border-bottom: 1px solid rgb(244 241 234 / 10%) !important;
-  box-sizing: border-box !important;
-  z-index: 35 !important;
+/* 1. Volumetric Backdrop & 3D Perspective Floor Pedestal */
+.rs-volumetric-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 1200px;
 }
 
-#foldfolio-demo .rs-swiss-header-left {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-start !important;
-  text-align: left !important;
-  gap: 0.3rem !important;
+.rs-volumetric-watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -54%);
+  z-index: 1;
+  width: 100%;
+  text-align: center;
 }
 
-#foldfolio-demo .rs-swiss-kicker {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.72rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.1em !important;
-  color: rgb(255 59 29) !important;
-  text-transform: uppercase !important;
+.rs-volumetric-word {
+  display: inline-block;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', sans-serif);
+  font-size: clamp(5rem, 13vw, 11.5rem);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  background: linear-gradient(
+    180deg,
+    rgba(244, 241, 234, 0.08) 0%,
+    rgba(244, 241, 234, 0.01) 85%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  user-select: none;
 }
 
-#foldfolio-demo .rs-swiss-title {
-  margin: 0 !important;
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif !important;
-  font-size: clamp(1.55rem, 2.3vw, 2.15rem) !important;
-  font-weight: 700 !important;
-  letter-spacing: -0.03em !important;
-  line-height: 1.12 !important;
-  color: rgb(244 241 234) !important;
+/* 3D Tilted Studio Light Ring Beneath the Phone */
+.rs-volumetric-pedestal {
+  position: absolute;
+  bottom: 7vh;
+  width: calc(460px + (var(--unfold-t, 0) * 340px));
+  height: 260px;
+  border-radius: 50%;
+  transform: rotateX(76deg);
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 59, 29, calc(0.22 - (var(--app-t, 0) * 0.14))) 0%,
+    rgba(34, 197, 94, calc(0.06 + (var(--app-t, 0) * 0.16))) 48%,
+    transparent 100%
+  );
+  border: 1px solid rgba(244, 241, 234, 0.1);
+  box-shadow: 0 0 90px rgba(255, 59, 29, 0.12);
+  filter: blur(2px);
+  transition: width 0.2s ease-out;
 }
 
-#foldfolio-demo .rs-swiss-title em {
-  font-family: "Instrument Serif", Georgia, serif !important;
-  font-style: italic !important;
-  font-weight: 400 !important;
-  font-size: 1.08em !important;
-  letter-spacing: -0.01em !important;
-  color: rgb(244 241 234 / 85%) !important;
-  margin-left: 0.12em !important;
+/* 2. Single Floating Dynamic Island Caption Pill */
+.rs-floating-island-wrap {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
 }
 
-/* Minimal Architectural Stage Tabs */
-#foldfolio-demo .rs-swiss-stage-tabs {
-  display: inline-flex !important;
-  align-items: center !important;
-  background: rgb(244 241 234 / 4%) !important;
-  border: 1px solid rgb(244 241 234 / 12%) !important;
-  border-radius: 8px !important;
-  padding: 3px !important;
-  gap: 2px !important;
-  flex-shrink: 0 !important;
+.rs-floating-island {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: rgba(20, 20, 19, 0.78);
+  border: 1px solid rgba(244, 241, 234, 0.12);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(20px);
 }
 
-#foldfolio-demo .rs-swiss-tab {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 0.4rem !important;
-  padding: 0.4rem 0.75rem !important;
-  border: none !important;
-  border-radius: 6px !important;
-  background: transparent !important;
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 0.76rem !important;
-  font-weight: 600 !important;
-  color: rgb(244 241 234 / 58%) !important;
-  cursor: pointer !important;
-  transition: all 0.18s ease !important;
+.rs-island-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
 }
 
-#foldfolio-demo .rs-swiss-tab span {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.68rem !important;
-  opacity: 0.65 !important;
+.rs-island-pulse.is-vermilion {
+  background: #ff3b1d;
+  box-shadow: 0 0 12px #ff3b1d;
 }
 
-#foldfolio-demo .rs-swiss-tab:hover {
-  color: rgb(244 241 234) !important;
+.rs-island-pulse.is-emerald {
+  background: #22c55e;
+  box-shadow: 0 0 12px #22c55e;
 }
 
-#foldfolio-demo .rs-swiss-tab.is-active {
-  background: rgb(244 241 234) !important;
-  color: rgb(14 14 13) !important;
-  font-weight: 700 !important;
+.rs-island-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 14px;
+  white-space: nowrap;
 }
 
-#foldfolio-demo .rs-swiss-tab.is-active span {
-  opacity: 1 !important;
+.rs-island-copy strong {
+  color: #ffffff;
+  font-weight: 600;
 }
 
-#foldfolio-demo .rs-swiss-live-dot {
-  width: 6px !important;
-  height: 6px !important;
-  border-radius: 50% !important;
-  background: rgb(34 197 94) !important;
-  display: inline-block !important;
+.rs-island-copy span {
+  color: rgba(244, 241, 234, 0.62);
+  font-size: 13.5px;
 }
 
-/* ---------- 2. FLAT SWISS ARCHITECTURAL SIDE RAILS (ZERO OVERLAP) ---------- */
-#foldfolio-demo .rs-duo-3d-flank-layer {
-  position: absolute !important;
-  top: 88px !important;
-  bottom: 16px !important;
-  left: 50% !important;
-  width: 100vw !important;
-  max-width: 1360px !important;
-  transform: translateX(-50%) !important;
-  pointer-events: none !important;
-  z-index: 4 !important;
-  mask-image: none !important;
-  -webkit-mask-image: none !important;
+/* ==========================================================================
+   STAGE 4 — CLEAN VISUAL INTERACTIVE WORKSPACE INSIDE UNFOLDED SCREEN
+   ========================================================================== */
+
+.rs-duo-app-fullbleed {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 40;
+  border-radius: 28px;
+  overflow: hidden;
+  transform-origin: 50% 34%;
 }
 
-#foldfolio-demo .rs-swiss-rail {
-  position: absolute !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  width: 210px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  border-top: 1px solid rgb(244 241 234 / 14%) !important;
-  border-bottom: 1px solid rgb(244 241 234 / 14%) !important;
-  padding: 0.75rem 0 !important;
-  gap: 0.85rem !important;
+.rs-s4-modern {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 18px 18px;
+  background: radial-gradient(circle at 80% 10%, rgba(34, 197, 94, 0.08), transparent 55%), #0b0b0a;
+  color: #f4f1ea;
+  font-family: var(--font-sans, 'Plus Jakarta Sans', sans-serif);
+  box-sizing: border-box;
 }
 
-/* Pinned to the outer studio edges — clears the 714px unfolded phone completely */
-#foldfolio-demo .rs-swiss-rail--left {
-  left: 2rem !important;
+.rs-s4-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
-#foldfolio-demo .rs-swiss-rail--right {
-  right: 2rem !important;
+.rs-s4-segmented {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-#foldfolio-demo .rs-swiss-rail__head,
-#foldfolio-demo .rs-swiss-rail__foot {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.62rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.08em !important;
-  color: rgb(244 241 234 / 42%) !important;
+.rs-s4-seg-btn {
+  padding: 6px 16px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(244, 241, 234, 0.6);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-/* Left Rail: Vertical Stage Sequence */
-#foldfolio-demo .rs-swiss-timeline {
-  display: flex !important;
-  flex-direction: column !important;
-  border-left: 1px solid rgb(244 241 234 / 12%) !important;
-  padding-left: 0.85rem !important;
-  gap: 1.05rem !important;
+.rs-s4-seg-btn.is-active {
+  background: #f4f1ea;
+  color: #0e0e0d;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
 }
 
-#foldfolio-demo .rs-swiss-step {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 0.15rem !important;
-  position: relative !important;
-  opacity: 0.38 !important;
-  transition: opacity 0.2s ease !important;
+.rs-s4-replay {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f1ea;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
 }
 
-#foldfolio-demo .rs-swiss-step.is-passed {
-  opacity: 0.62 !important;
+.rs-s4-canvas {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 44% 1fr;
+  gap: 16px;
 }
 
-#foldfolio-demo .rs-swiss-step.is-current {
-  opacity: 1 !important;
+/* Left Card: Clean Dark WhatsApp UI */
+.rs-s4-chat-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  background: #0b141a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
 }
 
-#foldfolio-demo .rs-swiss-step.is-current::before {
-  content: "" !important;
-  position: absolute !important;
-  left: -0.85rem !important;
-  top: 2px !important;
-  bottom: 2px !important;
-  width: 2px !important;
-  background: rgb(255 59 29) !important;
+.rs-s4-chat-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #1f2c34;
 }
 
-#foldfolio-demo .rs-swiss-step__row {
-  display: flex !important;
-  align-items: baseline !important;
-  gap: 0.45rem !important;
+.rs-s4-chat-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #22c55e;
+  color: #090908;
+  font-weight: 800;
+  font-size: 12px;
+  display: grid;
+  place-items: center;
 }
 
-#foldfolio-demo .rs-swiss-step__idx {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.66rem !important;
-  font-weight: 700 !important;
-  color: rgb(255 59 29) !important;
+.rs-s4-chat-brand strong {
+  display: block;
+  font-size: 13.5px;
+  color: #ffffff;
 }
 
-#foldfolio-demo .rs-swiss-step__title {
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 0.84rem !important;
-  font-weight: 700 !important;
-  color: rgb(244 241 234) !important;
-  letter-spacing: -0.01em !important;
+.rs-s4-chat-brand span {
+  font-size: 11px;
+  color: #8696a0;
 }
 
-#foldfolio-demo .rs-swiss-step__sub {
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 0.72rem !important;
-  color: rgb(244 241 234 / 65%) !important;
-  padding-left: 1.35rem !important;
+.rs-s4-chat-body {
+  flex: 1;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
 }
 
-/* Right Rail: Swiss Tabular RTO Bleed Ledger */
-#foldfolio-demo .rs-swiss-ledger {
-  display: flex !important;
-  flex-direction: column !important;
+.rs-s4-msg {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.45;
+  max-width: 88%;
 }
 
-#foldfolio-demo .rs-swiss-ledger__row {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: 0.48rem 0 !important;
-  border-bottom: 1px solid rgb(244 241 234 / 8%) !important;
+.rs-s4-msg p {
+  margin: 0;
 }
 
-#foldfolio-demo .rs-swiss-ledger__meta {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 1px !important;
+.rs-s4-msg.is-bot {
+  background: #1f2c34;
+  color: #e9edef;
+  border-top-left-radius: 4px;
 }
 
-#foldfolio-demo .rs-swiss-ledger__meta strong {
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  color: rgb(244 241 234 / 88%) !important;
+.rs-s4-msg.is-user {
+  align-self: flex-end;
+  background: #005c4b;
+  color: #ffffff;
+  font-weight: 500;
+  border-top-right-radius: 4px;
 }
 
-#foldfolio-demo .rs-swiss-ledger__meta small {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.58rem !important;
-  letter-spacing: 0.06em !important;
-  color: rgb(244 241 234 / 38%) !important;
+.rs-s4-msg.is-pin {
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.45);
+  color: #86efac;
 }
 
-#foldfolio-demo .rs-swiss-ledger__val {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.86rem !important;
-  font-weight: 700 !important;
-  color: rgb(244 241 234) !important;
+.rs-s4-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
 }
 
-#foldfolio-demo .rs-swiss-ledger__total {
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  padding: 0.65rem 0 0.2rem !important;
-  margin-top: 0.15rem !important;
+.rs-s4-action-btn {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.12s ease;
 }
 
-#foldfolio-demo .rs-swiss-ledger__total small {
-  display: block !important;
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 0.6rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.06em !important;
-  color: rgb(255 59 29) !important;
+.rs-s4-action-btn:active {
+  transform: scale(0.98);
 }
 
-#foldfolio-demo .rs-swiss-ledger__total.is-protected small {
-  color: rgb(34 197 94) !important;
+.rs-s4-action-btn.is-green {
+  background: #22c55e;
+  color: #08120b;
 }
 
-#foldfolio-demo .rs-swiss-ledger__total strong {
-  font-family: "Plus Jakarta Sans", sans-serif !important;
-  font-size: 0.76rem !important;
-  font-weight: 600 !important;
-  color: rgb(244 241 234 / 75%) !important;
+.rs-s4-action-btn.is-muted {
+  background: #1f2c34;
+  color: #ff6b52;
+  border: 1px solid rgba(255, 107, 82, 0.3);
 }
 
-#foldfolio-demo .rs-swiss-ledger__sum {
-  font-family: "JetBrains Mono", monospace !important;
-  font-size: 1.35rem !important;
-  font-weight: 800 !important;
-  letter-spacing: -0.03em !important;
-  color: rgb(244 241 234) !important;
+/* Right Pane: Visual Bento Showcase */
+.rs-s4-visual-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
-#foldfolio-demo .rs-swiss-ledger__total.is-protected .rs-swiss-ledger__sum {
-  color: rgb(74 222 128) !important;
+.rs-s4-bento-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
 }
 
-/* Hide side rails when viewport is too narrow for 714px phone + 2x210px rails */
-@media (max-width: 1260px) {
-  #foldfolio-demo .rs-duo-3d-flank-layer {
-    display: none !important;
-  }
-
-  #foldfolio-demo .rs-duo-header-bar {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-  }
+.rs-s4-radar-card,
+.rs-s4-savings-card,
+.rs-s4-steps-card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px;
 }
 
+.rs-s4-radar-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 42%, rgba(255, 59, 29, 0.16), transparent 70%), #121211;
+}
 
+.rs-s4-radar-card.is-locked {
+  background: radial-gradient(circle at 50% 42%, rgba(34, 197, 94, 0.22), transparent 70%), #121211;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.rs-s4-radar-rings {
+  height: 92px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.rs-radar-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px dashed rgba(244, 241, 234, 0.16);
+}
+
+.rs-radar-ring.r1 {
+  width: 48px;
+  height: 48px;
+}
+
+.rs-radar-ring.r2 {
+  width: 84px;
+  height: 84px;
+}
+
+.rs-radar-pin {
+  font-size: 22px;
+  z-index: 2;
+}
+
+.rs-s4-radar-caption strong {
+  display: block;
+  font-size: 14px;
+  color: #ffffff;
+}
+
+.rs-s4-radar-caption span {
+  font-size: 12px;
+  color: rgba(244, 241, 234, 0.55);
+}
+
+/* Giant Savings Hero Card */
+.rs-s4-savings-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: #121211;
+}
+
+.rs-s4-savings-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: rgba(244, 241, 234, 0.5);
+}
+
+.rs-s4-savings-value {
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: #22c55e;
+  line-height: 1.05;
+  margin: 6px 0;
+}
+
+.rs-s4-savings-bar {
+  height: 8px;
+  border-radius: 999px;
+  display: flex;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.rs-s4-savings-bar .bar-courier {
+  width: 46.5%;
+  background: #ff3b1d;
+  border-radius: 999px;
+}
+
+.rs-s4-savings-bar .bar-cac {
+  flex: 1;
+  background: #22c55e;
+  border-radius: 999px;
+}
+
+.rs-s4-savings-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: rgba(244, 241, 234, 0.65);
+  margin-top: 6px;
+}
+
+/* Visual 3-Step Progression Card */
+.rs-s4-steps-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  background: #121211;
+}
+
+.rs-s4-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  opacity: 0.45;
+  transition: opacity 0.25s ease;
+}
+
+.rs-s4-step.is-active,
+.rs-s4-step.is-complete {
+  opacity: 1;
+}
+
+.rs-step-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f4f1ea;
+  flex-shrink: 0;
+}
+
+.rs-s4-step.is-complete .rs-step-dot {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+  border: 1px solid rgba(34, 197, 94, 0.45);
+}
+
+.rs-s4-step strong {
+  display: block;
+  font-size: 13.5px;
+  color: #ffffff;
+}
+
+.rs-s4-step span {
+  font-size: 12px;
+  color: rgba(244, 241, 234, 0.58);
+}
 

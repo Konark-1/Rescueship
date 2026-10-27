@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 
 interface User {
   id: string;
@@ -22,30 +22,26 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedToken && storedUser && storedUser !== 'undefined') {
+  const [initialState] = useState(() => {
+    try {
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      if (storedToken && storedUser && storedUser !== 'undefined') {
+        return { user: JSON.parse(storedUser) as User, token: storedToken };
+      }
+    } catch (e) {
+      console.error('Failed to parse user from localStorage', e);
       try {
-        setUser(JSON.parse(storedUser));
-        setToken(storedToken);
-      } catch (e) {
-        console.error('Failed to parse user from localStorage', e);
         localStorage.removeItem('user');
         localStorage.removeItem('token');
-      }
-    } else if (storedToken || storedUser) {
-      // Clear partial state
-      localStorage.removeItem('user');
-      localStorage.removeItem('token');
+      } catch {}
     }
-    setLoading(false);
-  }, []);
+    return { user: null, token: null };
+  });
+
+  const [user, setUser] = useState<User | null>(initialState.user);
+  const [token, setToken] = useState<string | null>(initialState.token);
+  const [loading] = useState(false);
 
   const login = (newToken: string, newUser: User) => {
     setToken(newToken);
