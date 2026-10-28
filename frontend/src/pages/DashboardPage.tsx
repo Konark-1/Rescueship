@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../services/api';
@@ -256,6 +256,16 @@ export const DashboardPage: React.FC = () => {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
+  // Triage Escalations computation (Only true anomalies need human intervention)
+  const escalationCount = useMemo(() => {
+    return ordersNeedingAttention.filter((o) => {
+      const isFake = Boolean(o.isFakeAttempt || (o.fakeRemarkScore && o.fakeRemarkScore >= 0.8));
+      const isHighFraud = Boolean(o.rtoRisk?.level === 'HIGH' && o.rtoRisk?.score && o.rtoRisk.score >= 80);
+      const isPendingReview = o.status === 'ndr_pending_review' || o.status === 'action_required';
+      return isFake || isHighFraud || isPendingReview;
+    }).length;
+  }, [ordersNeedingAttention]);
+
   return (
     <div className="dashboard-page dashboard-page--bento">
       {/* Developer-only simulator dock (Kept for Playwright E2E spec). Never shown in production. */}
@@ -368,6 +378,7 @@ export const DashboardPage: React.FC = () => {
         dailyTrend={dailyTrend}
         ndrReasons={ndrReasons}
         ordersNeedingAttention={ordersNeedingAttention}
+        escalationCount={escalationCount}
         loading={loading}
         metaTier={metaTier}
         dateRange={dateRange}

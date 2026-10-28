@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
+  Sparkles,
   AlertTriangle,
   Clock,
   Search,
@@ -64,7 +65,8 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
   keysEnabled = true,
 }) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [filterMode, setFilterMode] = useState<'all' | 'fake' | 'high_risk'>('all');
+  const [filterMode, setFilterMode] = useState<'all' | 'escalations' | 'recovering' | 'resolved'>('all');
+  const [toastNotice, setToastNotice] = useState<string | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const [now, setNow] = useState<number>(Date.now());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -91,6 +93,29 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
     };
   }, []);
 
+  const classifyBucket = useCallback((o: UrgentOrderItem): 'escalation' | 'recovering' | 'resolved' => {
+    const st = (o.status || '').toLowerCase();
+    if (st === 'ndr_rescued' || st === 'delivered' || st === 'converted_to_prepaid') {
+      return 'resolved';
+    }
+    const isFake = Boolean(o.isFakeAttempt || (o.fakeRemarkScore && o.fakeRemarkScore >= 0.8));
+    const isHighFraud = Boolean(o.rtoRisk?.level === 'HIGH' && o.rtoRisk?.score && o.rtoRisk.score >= 80);
+    const isPendingReview = st === 'ndr_pending_review' || st === 'action_required';
+    if (isFake || isHighFraud || isPendingReview) {
+      return 'escalation';
+    }
+    return 'recovering';
+  }, []);
+
+  const escalationsCount = useMemo(() => orders.filter((o) => classifyBucket(o) === 'escalation').length, [orders, classifyBucket]);
+  const recoveringCount = useMemo(() => orders.filter((o) => classifyBucket(o) === 'recovering').length, [orders, classifyBucket]);
+  const resolvedCount = useMemo(() => orders.filter((o) => classifyBucket(o) === 'resolved').length, [orders, classifyBucket]);
+
+  const handleBulkApprove = () => {
+    setToastNotice(`✓ Approved ${escalationsCount} AI resolutions: Dispatched fake-attempt disputes and address corrections to Delhivery.`);
+    setTimeout(() => setToastNotice(null), 4500);
+  };
+
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const matchesSearch =
@@ -102,11 +127,14 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
 
       if (!matchesSearch) return false;
 
-      if (filterMode === 'fake') {
-        return Boolean(o.isFakeAttempt || (o.fakeRemarkScore && o.fakeRemarkScore >= 0.7));
+      if (filterMode === 'escalations') {
+        return classifyBucket(o) === 'escalation';
       }
-      if (filterMode === 'high_risk') {
-        return o.rtoRisk?.level === 'HIGH';
+      if (filterMode === 'recovering') {
+        return classifyBucket(o) === 'recovering';
+      }
+      if (filterMode === 'resolved') {
+        return classifyBucket(o) === 'resolved';
       }
       return true;
     });
@@ -223,7 +251,7 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
             <ShieldAlert size={18} style={{ color: 'var(--amber)' }} />
             Urgent NDR Action Queue ({orders.length})
           </CardTitle>
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
             <Button
               variant={filterMode === 'all' ? 'default' : 'ghost'}
               size="sm"
@@ -233,20 +261,65 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
               All ({orders.length})
             </Button>
             <Button
-              variant={filterMode === 'fake' ? 'danger' : 'ghost'}
+              variant={filterMode === 'escalations' ? 'danger' : 'ghost'}
               size="sm"
-              onClick={() => setFilterMode('fake')}
-              style={{ fontSize: '0.75rem', height: '28px', padding: '0 10px' }}
+              onClick={() => setFilterMode('escalations')}
+              style={{
+                fontSize: '0.75rem',
+                height: '28px',
+                padding: '0 10px',
+                color: filterMode === 'escalations' ? '#fff' : '#f87171',
+                borderColor: 'rgba(239,68,68,0.3)',
+              }}
             >
-              Fake Attempts
+              Escalations ({escalationsCount})
             </Button>
             <Button
-              variant={filterMode === 'high_risk' ? 'secondary' : 'ghost'}
+              variant={filterMode === 'recovering' ? 'secondary' : 'ghost'}
               size="sm"
-              onClick={() => setFilterMode('high_risk')}
-              style={{ fontSize: '0.75rem', height: '28px', padding: '0 10px' }}
+              onClick={() => setFilterMode('recovering')}
+              style={{
+                fontSize: '0.75rem',
+                height: '28px',
+                padding: '0 10px',
+                color: filterMode === 'recovering' ? '#fff' : '#38bdf8',
+              }}
             >
-              High Risk
+              Auto-Recovering ({recoveringCount})
+            </Button>
+            <Button
+              variant={filterMode === 'resolved' ? 'outline' : 'ghost'}
+              size="sm"
+              onClick={() => setFilterMode('resolved')}
+              style={{
+                fontSize: '0.75rem',
+                height: '28px',
+                padding: '0 10px',
+                color: filterMode === 'resolved' ? '#fff' : '#34d399',
+              }}
+            >
+              Auto-Resolved ({resolvedCount})
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleBulkApprove}
+              disabled={escalationsCount === 0}
+              style={{
+                fontSize: '0.75rem',
+                height: '28px',
+                padding: '0 12px',
+                background: 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                color: '#fff',
+                border: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                marginLeft: '4px',
+              }}
+            >
+              <Sparkles size={13} />
+              Bulk Approve AI ({escalationsCount})
             </Button>
           </div>
         </div>
@@ -333,6 +406,30 @@ export const ActionQueue: React.FC<ActionQueueProps> = ({
       </CardHeader>
 
       <CardContent style={{ padding: 0 }}>
+        {toastNotice && (
+          <div
+            style={{
+              padding: '10px 16px',
+              background: 'rgba(16,185,129,0.15)',
+              borderBottom: '1px solid rgba(16,185,129,0.3)',
+              color: '#a7f3d0',
+              fontSize: '0.82rem',
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>{toastNotice}</span>
+            <button
+              type="button"
+              onClick={() => setToastNotice(null)}
+              style={{ background: 'none', border: 'none', color: '#a7f3d0', cursor: 'pointer', padding: 0 }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {loading ? (
           <div style={{ padding: '16px' }}>
             {[1, 2, 3].map((i) => (

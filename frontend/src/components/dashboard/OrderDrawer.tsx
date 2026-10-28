@@ -514,11 +514,16 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
                       <span style={{ color: 'var(--indigo-soft)', fontSize: '0.72rem', fontWeight: 600 }}>
                         STRUCTURED COURIER STANDARD
                       </span>
-                      {typeof order.aiAddress.confidence === 'number' && (
-                        <Badge variant="outline" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
-                          {Math.round(order.aiAddress.confidence * (order.aiAddress.confidence <= 1 ? 100 : 1))}% Confidence
-                        </Badge>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#10b981', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', padding: '1px 6px', borderRadius: '4px' }}>
+                          ✓ Auto-Pushed by Gemini AI
+                        </span>
+                        {typeof order.aiAddress.confidence === 'number' && (
+                          <Badge variant="outline" style={{ fontSize: '0.68rem', padding: '1px 6px' }}>
+                            {Math.round(order.aiAddress.confidence * (order.aiAddress.confidence <= 1 ? 100 : 1))}% Confidence
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>
                       {order.aiAddress.parsed}
@@ -624,10 +629,29 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({
             }}
           >
             <span style={{ color: 'var(--text-3)' }}>Storefront Record:</span>
-            <span style={{ color: 'var(--indigo-soft)', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: 500 }}>
-              {order.platform === 'shopify' ? 'Shopify Admin' : order.platform === 'woocommerce' ? 'WooCommerce Admin' : 'Store Admin'} #{order.externalOrderId}
+            <a
+              href={order.platform === 'shopify'
+                ? `https://admin.shopify.com/store/apex-goods/orders/${order.externalOrderId || order.orderId}`
+                : order.platform === 'woocommerce'
+                ? `https://apex-goods.myshopify.com/admin/orders/${order.externalOrderId || order.orderId}`
+                : `https://admin.shopify.com/store/apex-goods/orders/${order.externalOrderId || order.orderId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                color: 'var(--indigo-soft)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 600,
+                textDecoration: 'none',
+                transition: 'color 0.15s ease',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--indigo-soft)')}
+            >
+              {order.platform === 'shopify' ? 'Shopify Admin' : order.platform === 'woocommerce' ? 'WooCommerce Admin' : 'Store Admin'} #{order.externalOrderId || order.orderId}
               <ExternalLink size={13} />
-            </span>
+            </a>
           </div>
         </div>
       </aside>

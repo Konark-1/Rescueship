@@ -27,6 +27,7 @@ interface BentoDateRangePickerProps {
   value: DateRange;
   onChange: (range: DateRange, label?: string) => void;
   activePreset?: string;
+  compactTrigger?: boolean;
 }
 
 const PRESETS = [
@@ -139,6 +140,7 @@ export const BentoDateRangePicker: React.FC<BentoDateRangePickerProps> = ({
   value,
   onChange,
   activePreset = 'Last 30 Days',
+  compactTrigger = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [selecting, setSelecting] = useState<'start' | 'end'>('start');
@@ -218,7 +220,11 @@ export const BentoDateRangePicker: React.FC<BentoDateRangePickerProps> = ({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs font-medium text-zinc-300 hover:text-white hover:border-white/20 transition-all cursor-pointer"
+          className={
+            compactTrigger
+              ? 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums text-zinc-300 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer'
+              : 'flex items-center gap-2 px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-white/10 text-xs font-medium text-zinc-300 hover:text-white hover:border-white/20 transition-all cursor-pointer'
+          }
         >
           <Calendar size={13} className="text-indigo-400" />
           <span className="font-mono">{displayLabel}</span>

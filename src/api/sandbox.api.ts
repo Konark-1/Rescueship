@@ -3,6 +3,9 @@ import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 import { standardMerchantLimiter } from '../middleware/merchant-rate-limiter';
 import { sandboxService } from '../services/sandbox.service';
 import { Merchant } from '../models/Merchant';
+import { Order } from '../models/Order';
+import { NdrCase } from '../models/NdrCase';
+import { normalizeIndianPhone } from '../utils/phoneNormalizer';
 import { whatsAppService } from '../services/whatsapp.service';
 import { encryptionService } from '../services/encryption.service';
 import { logger } from '../utils/logger';
@@ -41,6 +44,75 @@ router.post('/toggle', authenticateToken, standardMerchantLimiter, async (req: A
   }
 });
 
+async function persistSimulatedOrderAndCase(merchantId: any, simNDR: any, ownerPhone?: string) {
+  try {
+    const normalizedPhone = normalizeIndianPhone(ownerPhone || '+919999999999');
+    const simOrder = await Order.findOneAndUpdate(
+      { externalOrderId: simNDR.orderId, merchantId },
+      {
+        $set: {
+          merchantId,
+          externalOrderId: simNDR.orderId,
+          platform: 'shopify',
+          customerPhone: normalizedPhone,
+          customerName: 'Merchant (Test)',
+          orderValue: 1499,
+          paymentMethod: 'cod',
+          status: 'ndr_rescue_sent',
+          awb: simNDR.awb,
+          carrier: 'shiprocket',
+          ndr: {
+            reason: simNDR.reason,
+            detectedAt: new Date(),
+            rescueMessagesSent: 1,
+            lastMessageSentAt: new Date(),
+            fakeRemarkScore: 0.15,
+            isFakeAttempt: false,
+          },
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    const categoryMap: Record<string, string> = {
+      'rto_attempt_failed': 'RTO_ARREST',
+      'customer_unavailable': 'CUSTOMER_NOT_AVAILABLE',
+      'wrong_address': 'ADDRESS_ISSUE',
+      'refused_delivery': 'CUSTOMER_REFUSED',
+    };
+    const cat = categoryMap[simNDR.reason] || 'CUSTOMER_NOT_AVAILABLE';
+
+    await NdrCase.findOneAndUpdate(
+      { awb: simNDR.awb, merchantId },
+      {
+        $set: {
+          orderId: simOrder._id,
+          merchantId,
+          awb: simNDR.awb,
+          externalOrderId: simNDR.orderId,
+          customerPhone: normalizedPhone,
+          failureReason: simNDR.reason,
+          failureCategory: cat,
+          whatsappMessageSentAt: new Date(),
+          status: 'WAITING_CUSTOMER',
+          attemptCount: 1,
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    try {
+      const { realtimeService } = require('../services/realtime.service');
+      realtimeService.emitNDRDetected(merchantId.toString(), simNDR.orderId, simNDR.reason, 'shiprocket', simNDR.awb);
+    } catch {}
+
+    return simOrder;
+  } catch (err: any) {
+    logger.warn('[Sandbox] Failed to persist simulated order/case', { error: err.message });
+    return null;
+  }
+}
+
 /**
  * POST /api/sandbox/simulate-ndr
  * Triggers a simulated NDR event → sends rescue WhatsApp to merchant's own phone.
@@ -68,6 +140,7 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
     // without hitting a 400 error.
     if (!hasLiveWhatsapp) {
       const simNDR = sandboxService.generateSimulatedNDR(merchantId, ownerPhone);
+      await persistSimulatedOrderAndCase(merchantId, simNDR, ownerPhone);
       await sandboxService.recordTestRescue(merchantId, true);
       const updatedState = await sandboxService.getSandboxState(merchantId);
 
@@ -120,6 +193,7 @@ router.post('/simulate-ndr', authenticateToken, standardMerchantLimiter, async (
 
     // Generate simulated NDR
     const simNDR = sandboxService.generateSimulatedNDR(merchantId, ownerPhone);
+    await persistSimulatedOrderAndCase(merchantId, simNDR, ownerPhone);
 
     // Resolve category and template
     const { templateMapperService } = require('../services/whatsapp/template-mapper.service');

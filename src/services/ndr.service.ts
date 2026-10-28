@@ -557,6 +557,17 @@ export class NDRService {
           return { action: 'cancel', orderId: oId };
         }
       }
+      if (act === 'ndr_yes_home' || act === 'yes_home' || act === 'confirm') {
+        return { action: 'verify_fake', subAction: 'fake', orderId: parts[1]?.trim() || undefined };
+      }
+      if (act === 'ndr_reschedule') {
+        const sub = parts.length >= 3 ? parts[1].toLowerCase() : 'tomorrow';
+        const oId = parts.length >= 3 ? parts[2]?.trim() : parts[1]?.trim();
+        return { action: 'reschedule', subAction: sub, orderId: oId || undefined };
+      }
+      if (act === 'ndr_cancel') {
+        return { action: 'cancel', orderId: parts[1]?.trim() || undefined };
+      }
       if (act === 'resched' || act === 'reschedule') {
         if (parts.length === 2) {
           return { action: 'reschedule', subAction: 'tomorrow', orderId: parts[1].trim() || undefined };
@@ -589,7 +600,7 @@ export class NDRService {
       }
     }
     const t = raw.toLowerCase();
-    if (/predelivery_confirm|yes_home|im_home|i'm home|available|yes,? i'm home/.test(t) && !/cancel|resched/.test(t)) {
+    if (/predelivery_confirm|yes_home|ndr_yes_home|im_home|i'm home|available|yes,? i'm home|confirm_delivery/.test(t) && !/cancel|resched/.test(t)) {
       return { action: 'predelivery_confirm' };
     }
     if (/did\s*not\s*visit|never\s*visited|no\s*attempt|not\s*attempted|fake|rider\s*never|nobody\s*came|did\s*not\s*come/.test(t)) {

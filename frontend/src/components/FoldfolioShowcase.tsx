@@ -4,6 +4,8 @@ import {
   useSpring,
   useMotionValueEvent,
   useReducedMotion,
+  motion,
+  AnimatePresence,
 } from 'motion/react';
 import {
   MapPin,
@@ -133,6 +135,31 @@ export const FoldfolioShowcase: React.FC = () => {
   const activeP = prefersReducedMotion
     ? manualProgress ?? scrollYProgress.get()
     : manualProgress ?? p;
+
+  const activeStage =
+    activeP < 0.22
+      ? {
+          pillTitle: 'Courier marks “Door Locked”',
+          pillSub: 'Instant WhatsApp ping lands on the lock screen.',
+          accent: 'vermilion',
+        }
+      : activeP < 0.54
+        ? {
+            pillTitle: 'Unfold to inspect the order',
+            pillSub: 'iOS notification expands seamlessly across the hinge.',
+            accent: 'vermilion',
+          }
+        : activeP < 0.72
+          ? {
+              pillTitle: 'Swipe up to launch Split-View',
+              pillSub: 'Transitioning from Home Screen into live rescue mode.',
+              accent: 'emerald',
+            }
+          : {
+              pillTitle: 'Interactive Sandbox — Tap inside WhatsApp',
+              pillSub: 'Test both rescue flows live inside the unfolded display.',
+              accent: 'emerald',
+            };
 
   // =========================================================================
   // THE 4 CONTINUOUS SCROLL PHASES (3D BOOK HINGE KINEMATICS + iOS APP LAUNCH)
@@ -1268,6 +1295,26 @@ export const FoldfolioShowcase: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        {/* FLOATING INSTRUCTION PILL (ENLARGED & CRISP) */}
+        <div className="rs-floating-island-wrap">
+          <motion.div layout className="rs-floating-island">
+            <span className={`rs-island-pulse is-${activeStage.accent}`} />
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={activeStage.pillTitle}
+                initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
+                transition={{ duration: 0.22, ease: 'easeOut' }}
+                className="rs-island-copy"
+              >
+                <strong>{activeStage.pillTitle}</strong>
+                <span>{activeStage.pillSub}</span>
+              </motion.div>
+            </AnimatePresence>
+          </motion.div>
         </div>
       </div>
     </section>
