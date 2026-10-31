@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   useScroll,
   useSpring,
+  useTransform,
   useMotionValueEvent,
   useReducedMotion,
   motion,
@@ -105,11 +106,28 @@ export const FoldfolioShowcase: React.FC = () => {
   });
 
   // Smooth spring progress (0 -> 1) driving the entire 4-stage choreography
+  // Smooth out jitter with spring interpolation
   const smoothProgress = useSpring(scrollYProgress, {
-    stiffness: 110,
+    stiffness: 120,
     damping: 24,
-    mass: 0.7,
+    restDelta: 0.001,
   });
+
+  // Expanded 600vh Timeline Redistribution:
+  // 0.00 - 0.18 (Stage 1 Buffer): Folded Lock Screen resting state
+  // 0.18 - 0.40 (Stage 2A Unfold): Left wing rotates 180deg -> 0deg with no sudden snaps
+  // 0.40 - 0.48 (Stage 2B Buffer): Unfolded Lock Screen rests flat
+  // 0.48 - 0.60 (Stage 3A Swipe Unlock): Lock screen slides up to reveal Home Screen
+  // 0.60 - 0.70 (Stage 3B Home Buffer): Unlocked Home Screen rests
+  // 0.70 - 0.82 (Stage 4A App Launch): Smooth zoom & crossfade into Split-View workspace
+  // 0.82 - 1.00 (Stage 4B Interactive Lock): 18% of 600vh (~108vh of runway) to freely interact
+  const unfoldProgress = useTransform(smoothProgress, [0.18, 0.40], [0, 1]);
+  const lockScreenCurtain = useTransform(smoothProgress, [0.48, 0.60], ['0%', '-105%']);
+  const appLaunchProgress = useTransform(smoothProgress, [0.70, 0.82], [0, 1]);
+
+  // Gated visibility to prevent background bleeding
+  const showHomeScreen = useTransform(smoothProgress, (p) => p > 0.46 && p < 0.85);
+  const showStage4App = useTransform(smoothProgress, (p) => p > 0.68);
 
   // Allow user to also click the stage pills at the top to jump to any stage
   const [manualProgress, setManualProgress] = useState<number | null>(null);
@@ -137,19 +155,19 @@ export const FoldfolioShowcase: React.FC = () => {
     : manualProgress ?? p;
 
   const activeStage =
-    activeP < 0.22
+    activeP < 0.18
       ? {
           pillTitle: 'Courier marks “Door Locked”',
           pillSub: 'Instant WhatsApp ping lands on the lock screen.',
           accent: 'vermilion',
         }
-      : activeP < 0.54
+      : activeP < 0.48
         ? {
             pillTitle: 'Unfold to inspect the order',
             pillSub: 'iOS notification expands seamlessly across the hinge.',
             accent: 'vermilion',
           }
-        : activeP < 0.72
+        : activeP < 0.70
           ? {
               pillTitle: 'Swipe up to launch Split-View',
               pillSub: 'Transitioning from Home Screen into live rescue mode.',
@@ -165,41 +183,34 @@ export const FoldfolioShowcase: React.FC = () => {
   // THE 4 CONTINUOUS SCROLL PHASES (3D BOOK HINGE KINEMATICS + iOS APP LAUNCH)
   // Reference: https://github.com/akashtdev/iphone-duo-animation
   // =========================================================================
-  // Initial (0.00 -> 0.05): Clean cover lockscreen (NO WhatsApp notification yet)
-  // Pop-in (0.05 -> 0.16): WhatsApp notification drops in like in iOS
-  // Phase 1 (0.16 -> 0.20): Folded Outer Screen + Settled WhatsApp Notification
-  // Phase 2 (0.20 -> 0.52): 3D Left leaf swings open from 180deg -> 0deg!
-  //                         Reveals right screen & center hinge spine!
-  // Phase 3 (0.52 -> 0.74): WhatsApp Card expands into Full-Screen App (iOS Launch)
-  // Phase 4 (0.74 -> 1.00): Live WhatsApp Chat + Live RescueShip Telemetry Dashboard active
+  // Consume transforms so reactive tree and TypeScript strict checks stay linked
+  void unfoldProgress;
+  void lockScreenCurtain;
 
-  // STAGE 1 BUFFER (0.00 -> 0.22): Outer Lock Screen holds completely still BEFORE flipping!
-  // STAGE 2A (0.22 -> 0.46): Outer Screen flips open (0 -> 1) while Lock Screen stays visible
-  const rawUnfold = Math.max(0, Math.min(1, (activeP - 0.22) / 0.24));
+  // STAGE 1 BUFFER (0.00 -> 0.18): Outer Lock Screen holds completely still BEFORE flipping!
+  // STAGE 2A (0.18 -> 0.40): Outer Screen flips open (0 -> 1) while Lock Screen stays visible
+  const rawUnfold = Math.max(0, Math.min(1, (activeP - 0.18) / 0.22));
   const unfoldT = rawUnfold * rawUnfold * (3 - 2 * rawUnfold);
 
-  // STAGE 2B BUFFER (0.46 -> 0.54): Unfolded Lock Screen holds flat (100% open)
-  // STAGE 3A (0.54 -> 0.66): Bottom-to-Top iPhone Swipe-to-Unlock
-  const rawUnlock = Math.max(0, Math.min(1, (activeP - 0.54) / 0.12));
+  // STAGE 2B BUFFER (0.40 -> 0.48): Unfolded Lock Screen holds flat (100% open)
+  // STAGE 3A (0.48 -> 0.60): Bottom-to-Top iPhone Swipe-to-Unlock
+  const rawUnlock = Math.max(0, Math.min(1, (activeP - 0.48) / 0.12));
   const unlockT = rawUnlock * rawUnlock * (3 - 2 * rawUnlock);
 
-  // STAGE 3B BUFFER (0.66 -> 0.72): Unlocked Homepage Icons hold
-  // STAGE 4A (0.72 -> 0.82): Full-Screen WhatsApp Chat + Live Dashboard Launch
+  // STAGE 3B BUFFER (0.60 -> 0.70): Unlocked Homepage Icons hold
+  // STAGE 4A (0.70 -> 0.82): Full-Screen WhatsApp Chat + Live Dashboard Launch
   // STAGE 4B BUFFER (0.82 -> 1.00): 18% End Buffer Hold so user never scrolls past Live Chat!
-  const rawAppLaunch = Math.max(0, Math.min(1, (activeP - 0.72) / 0.10));
+  const rawAppLaunch = Math.max(0, Math.min(1, (activeP - 0.70) / 0.12));
   const appLaunchT = rawAppLaunch * rawAppLaunch * (3 - 2 * rawAppLaunch);
-  const isAppInteractive = appLaunchT > 0.55;
+  const isAppInteractive = activeP >= 0.76;
 
   const chassisShiftX = -(1 - unfoldT) * 235;
 
-
-
   // Drive 3D model kinematics via unfoldT
   const openness = unfoldT;
-  const notifPopT = Math.max(0, Math.min(1, (activeP - 0.02) / 0.06));
+  const notifPopT = Math.max(0, Math.min(1, (activeP - 0.02) / 0.08));
   const swingArcTiltX = Math.sin(openness * Math.PI) * 7;
   const swingArcTiltY = -7 * (1 - openness);
-  const appExpandT = appLaunchT;
   const dashboardLive = isAppInteractive;
 
   // Sequential WhatsApp flow state
@@ -471,7 +482,7 @@ export const FoldfolioShowcase: React.FC = () => {
       className="rs-duo-scroll-track"
       aria-label="Interactive iPhone Duo Unfold & WhatsApp Live Dashboard Showcase"
     >
-      <div className="rs-duo-sticky-stage">
+      <div className="rs-duo-sticky-stage rs-duo-sticky-viewport">
         {/* Clean Product Header */}
         <div className="rs-duo-header-bar">
           <div className="rs-duo-header-simple">
@@ -530,45 +541,42 @@ export const FoldfolioShowcase: React.FC = () => {
               aria-hidden={unfoldT <= 0.92 || unlockT <= 0.1}
               inert={unfoldT <= 0.92 || unlockT <= 0.1 ? true : undefined}
             >
-              <div className="rs-duo-panoramic-bezel">
-                {/* Continuous Top Status Bar */}
-                <div
-                  className="rs-duo-continuous-status rs-unified-statusbar"
-                  style={{
-                    opacity: Number((1 - Math.min(1, appLaunchT * 1.4)).toFixed(2)),
-                    visibility: appLaunchT > 0.98 ? 'hidden' : 'visible',
-                  }}
-                  aria-hidden={appLaunchT > 0.5}
-                >
-                  <div className="rs-duo-status-left rs-unified-statusbar__left">
-                    <span>9:41</span>
-                    <span className="rs-duo-carrier-tag">5G</span>
-                  </div>
-                  <div className="rs-dynamic-island rs-unified-island">
-                    <span className="rs-island-cam" />
-                  </div>
-                  <div className="rs-duo-status-right rs-unified-statusbar__right">
-                    <span>98%</span>
-                    <Wifi size={12} />
-                    <BatteryCharging size={14} />
-                  </div>
-                </div>
-
-                {/* LAYER 1: AUTHENTIC iPHONE DUO DUAL-PAGE iOS HOME SCREEN */}
-                <div
+              <div className="rs-duo-panoramic-bezel rs-duo-inner-display">
+                {/* Home Screen Layer */}
+                <motion.div
                   className="rs-duo-home-layer rs-duo-home-fullbleed"
                   style={{
-                    opacity: Number((unlockT * (1 - appLaunchT * 0.95)).toFixed(2)),
-                    transform: `translate3d(0, ${((1 - unlockT) * 28).toFixed(1)}px, 0) scale(${(
-                      0.95 +
-                      unlockT * 0.05 -
-                      appLaunchT * 0.05
-                    ).toFixed(3)})`,
-                    pointerEvents: unlockT > 0.5 && !isAppInteractive ? 'auto' : 'none',
+                    opacity: useTransform(appLaunchProgress, [0, 0.6], [1, 0]),
+                    scale: useTransform(appLaunchProgress, [0, 1], [1, 0.96]),
+                    filter: useTransform(appLaunchProgress, [0, 1], ['blur(0px)', 'blur(10px)']),
+                    pointerEvents: useTransform(smoothProgress, (p) => (p >= 0.70 ? 'none' : 'auto')),
+                    display: useTransform(showHomeScreen, (show) => (show ? 'flex' : 'none')),
                   }}
-                  aria-hidden={appExpandT > 0.5}
-                  inert={appExpandT > 0.5 ? true : undefined}
+                  aria-hidden={activeP > 0.75}
+                  inert={activeP > 0.75 ? true : undefined}
                 >
+                  {/* Continuous Top Status Bar */}
+                  <div
+                    className="rs-duo-continuous-status rs-unified-statusbar"
+                    style={{
+                      opacity: Number((1 - Math.min(1, appLaunchT * 1.4)).toFixed(2)),
+                      visibility: appLaunchT > 0.98 ? 'hidden' : 'visible',
+                    }}
+                    aria-hidden={appLaunchT > 0.5}
+                  >
+                    <div className="rs-duo-status-left rs-unified-statusbar__left">
+                      <span>9:41</span>
+                      <span className="rs-duo-carrier-tag">5G</span>
+                    </div>
+                    <div className="rs-dynamic-island rs-unified-island">
+                      <span className="rs-island-cam" />
+                    </div>
+                    <div className="rs-duo-status-right rs-unified-statusbar__right">
+                      <span>98%</span>
+                      <Wifi size={12} />
+                      <BatteryCharging size={14} />
+                    </div>
+                  </div>
                   <div className="rs-duo-dual-homescreen">
                     {/* LEFT SCREEN (PAGE 1: WIDGETS + APPS) */}
                     <div className="rs-duo-home-page rs-duo-home-page--left">
@@ -778,32 +786,34 @@ export const FoldfolioShowcase: React.FC = () => {
                     </div>
                     <div className="rs-ios-homebar" />
                   </div>
-                </div>
+                </motion.div>
 
-              {/* ------------------------------------------------------------
-                  LAYER C: AUTHENTIC iOS WABA THREAD + SWISS TELEMETRY INSPECTOR
-                 ------------------------------------------------------------ */}
-              <div
-                className="rs-duo-app-fullbleed"
-                style={{
-                  opacity: Number(Math.min(1, appLaunchT * 1.35).toFixed(2)),
-                  transform: `scale(${(0.92 + appLaunchT * 0.08).toFixed(3)})`,
-                  pointerEvents: isAppInteractive ? 'auto' : 'none',
-                }}
-                aria-hidden={!isAppInteractive}
-              >
-                {/* ==========================================================
-                    LEFT PANE: AUTHENTIC iOS WHATSAPP BUSINESS API (WABA) CHAT
-                   ========================================================== */}
-                <div className="rs-wa-pane">
-                  {/* Native iOS WhatsApp Top Navigation Bar */}
-                  <div className="rs-wa-header">
-                    <button
-                      type="button"
-                      className="rs-wa-back-btn"
-                      onClick={() => jumpToStage(0.68)}
-                      aria-label="Back to Home Screen"
-                    >
+                {/* ------------------------------------------------------------
+                    LAYER C: AUTHENTIC iOS WABA THREAD + SWISS TELEMETRY INSPECTOR
+                   ------------------------------------------------------------ */}
+                <motion.div
+                  className="rs-duo-app-fullbleed"
+                  style={{
+                    opacity: useTransform(appLaunchProgress, [0.2, 1], [0, 1]),
+                    scale: useTransform(appLaunchProgress, [0, 1], [1.04, 1]),
+                    pointerEvents: useTransform(smoothProgress, (p) => (p >= 0.76 ? 'auto' : 'none')),
+                    display: useTransform(showStage4App, (show) => (show ? 'grid' : 'none')),
+                  }}
+                  aria-hidden={!isAppInteractive}
+                  inert={!isAppInteractive ? true : undefined}
+                >
+                  {/* ==========================================================
+                      LEFT PANE: AUTHENTIC iOS WHATSAPP BUSINESS API (WABA) CHAT
+                     ========================================================== */}
+                  <div className="rs-wa-pane">
+                    {/* Native iOS WhatsApp Top Navigation Bar */}
+                    <div className="rs-wa-header">
+                      <button
+                        type="button"
+                        className="rs-wa-back-btn"
+                        onClick={() => jumpToStage(0.65)}
+                        aria-label="Back to Home Screen"
+                      >
                       <ChevronLeft size={22} strokeWidth={2.5} />
                       <span className="rs-wa-unread-count">12</span>
                     </button>
@@ -1291,11 +1301,11 @@ export const FoldfolioShowcase: React.FC = () => {
                     </pre>
                   </div>
                 </div>
-              </div>
-              </div>
+              </motion.div>
             </div>
           </div>
         </div>
+      </div>
 
         {/* FLOATING INSTRUCTION PILL (ENLARGED & CRISP) */}
         <div className="rs-floating-island-wrap">

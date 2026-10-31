@@ -8743,11 +8743,54 @@ html {
    FINAL OVERRIDES: 460VH BUFFER TRACK + LARGE LIVE CHAT & DASHBOARD TEXT
    ========================================================================== */
 
+#foldfolio-demo,
 #foldfolio-demo.rs-duo-master-track,
 #foldfolio-demo.rs-duo-scroll-track {
-  height: 460vh !important;
+  position: relative !important;
+  height: 600vh !important; /* Expanded from 460vh to give each stage ample runway */
+  background: #090908 !important;
+  color: #f4f1ea !important;
   scroll-snap-align: none !important;
-  scroll-snap-stop: normal !important;
+}
+
+#foldfolio-demo .rs-duo-sticky-viewport,
+#foldfolio-demo .rs-duo-sticky-stage {
+  position: sticky !important;
+  top: 64px !important;
+  height: calc(100vh - 64px) !important;
+  width: 100% !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+/* Keep Chapter 3.5 pinned cleanly without bleeding into Chapter 4 */
+#features,
+#features-grid {
+  position: relative !important;
+  z-index: 10 !important;
+  margin-top: 0 !important;
+  background: #0e0e0d !important;
+}
+
+/* Ensure Stage 4 fills the hardware screen without popping out */
+.rs-duo-inner-display {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  border-radius: 38px !important;
+}
+
+#foldfolio-demo .rs-duo-home-layer,
+#foldfolio-demo .rs-duo-app-fullbleed {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* Home Screen WhatsApp Banner & Widgets */
