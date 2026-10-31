@@ -6,7 +6,6 @@ import {
   useMotionValueEvent,
   useReducedMotion,
   motion,
-  AnimatePresence,
 } from 'motion/react';
 import {
   MapPin,
@@ -155,28 +154,28 @@ export const FoldfolioShowcase: React.FC = () => {
     : manualProgress ?? p;
 
   const activeStage =
-    activeP < 0.18
+    activeP < 0.22
       ? {
-          pillTitle: 'Courier marks “Door Locked”',
+          pillTitle: 'Courier marks "Door Locked"',
           pillSub: 'Instant WhatsApp ping lands on the lock screen.',
-          accent: 'vermilion',
+          tone: 'signal',
         }
-      : activeP < 0.48
+      : activeP < 0.54
         ? {
             pillTitle: 'Unfold to inspect the order',
-            pillSub: 'iOS notification expands seamlessly across the hinge.',
-            accent: 'vermilion',
+            pillSub: 'iOS notification expands across the hinge.',
+            tone: 'signal',
           }
-        : activeP < 0.70
+        : activeP < 0.72
           ? {
               pillTitle: 'Swipe up to launch Split-View',
               pillSub: 'Transitioning from Home Screen into live rescue mode.',
-              accent: 'emerald',
+              tone: 'emerald',
             }
           : {
-              pillTitle: 'Interactive Sandbox — Tap inside WhatsApp',
+              pillTitle: 'Interactive Sandbox: Tap inside WhatsApp',
               pillSub: 'Test both rescue flows live inside the unfolded display.',
-              accent: 'emerald',
+              tone: 'emerald',
             };
 
   // =========================================================================
@@ -483,15 +482,17 @@ export const FoldfolioShowcase: React.FC = () => {
       aria-label="Interactive iPhone Duo Unfold & WhatsApp Live Dashboard Showcase"
     >
       <div className="rs-duo-sticky-stage rs-duo-sticky-viewport">
-        {/* Clean Product Header */}
-        <div className="rs-duo-header-bar">
+        {/* Audited Direction A Header: Zero eyebrows, zero buttons, single font family */}
+        <header className="rs-duo-header-bar">
           <div className="rs-duo-header-simple">
-            <span className="rs-fold-kicker">LIVE DEMO</span>
             <h2 className="rs-fold-title">
-              How RescueShip saves failed deliveries on WhatsApp
+              Watch a failed delivery get rescued in real time.
             </h2>
+            <p className="rs-fold-subtitle">
+              Scroll to unfold the dual display. An unverified "Door Locked" scan is intercepted on WhatsApp within 90 seconds, confirmed by the buyer, and re-dispatched to the courier.
+            </p>
           </div>
-        </div>
+        </header>
 
         {/* ===============================================================
             AUTHENTIC 3D IPHONE DUO CHASSIS STAGE (akashtdev/iphone-duo-animation)
@@ -1307,24 +1308,15 @@ export const FoldfolioShowcase: React.FC = () => {
         </div>
       </div>
 
-        {/* FLOATING INSTRUCTION PILL (ENLARGED & CRISP) */}
+        {/* Direction A Audited Pill: Solid architectural dot, clean typography */}
         <div className="rs-floating-island-wrap">
-          <motion.div layout className="rs-floating-island">
-            <span className={`rs-island-pulse is-${activeStage.accent}`} />
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeStage.pillTitle}
-                initial={{ opacity: 0, y: 6, filter: 'blur(4px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -6, filter: 'blur(4px)' }}
-                transition={{ duration: 0.22, ease: 'easeOut' }}
-                className="rs-island-copy"
-              >
-                <strong>{activeStage.pillTitle}</strong>
-                <span>{activeStage.pillSub}</span>
-              </motion.div>
-            </AnimatePresence>
-          </motion.div>
+          <div className="rs-floating-island">
+            <span className={`rs-island-dot is-${activeStage.tone}`} aria-hidden="true" />
+            <div className="rs-island-copy">
+              <strong>{activeStage.pillTitle}</strong>
+              <span>{activeStage.pillSub}</span>
+            </div>
+          </div>
         </div>
       </div>
     </section>
