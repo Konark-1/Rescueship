@@ -8785,6 +8785,8 @@ html {
   border-radius: 38px !important;
 }
 
+.rs-duo-home-layer,
+.rs-duo-app-fullbleed,
 #foldfolio-demo .rs-duo-home-layer,
 #foldfolio-demo .rs-duo-app-fullbleed {
   position: absolute !important;

@@ -125,7 +125,7 @@ export const FoldfolioShowcase: React.FC = () => {
   const appLaunchProgress = useTransform(smoothProgress, [0.70, 0.82], [0, 1]);
 
   // Gated visibility to prevent background bleeding
-  const showHomeScreen = useTransform(smoothProgress, (p) => p > 0.46 && p < 0.85);
+  const showHomeScreen = useTransform(smoothProgress, (p) => p > 0.46);
   const showStage4App = useTransform(smoothProgress, (p) => p > 0.68);
 
   // Allow user to also click the stage pills at the top to jump to any stage
