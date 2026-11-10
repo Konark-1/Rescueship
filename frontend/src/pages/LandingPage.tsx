@@ -6,8 +6,7 @@ import { CarrierMarquee } from '../components/CarrierMarquee';
 import { StickyNav } from '../components/landing/StickyNav';
 import { TrustStrip } from '../components/landing/TrustStrip';
 import { RescueScene } from '../components/story/RescueScene';
-import { StorySpotlightCard } from '../components/landing/StorySpotlightCard';
-import { InteractiveWhatsAppMockup } from '../components/landing/InteractiveWhatsAppMockup';
+import { RescueTimelineSection } from '../components/landing/RescueTimelineSection';
 import { FoldfolioShowcase } from '../components/FoldfolioShowcase';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
@@ -500,153 +499,28 @@ export default function LandingPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 02: THE 2:14 PM STORY & 90-SECOND RESCUE (Warm Alabaster Paper Surface)
+          CHAPTER 02: THE 2:14 PM STORY & 90-SECOND RESCUE (Interactive Sticky Scrollytelling Timeline)
           ═══════════════════════════════════════════════════════════════ */}
-      <section id="product" className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper" aria-label="The 2:14 PM delivery story and 90-second autonomous rescue">
-        <div className="lp-chapter__header" aria-hidden="true">
-          <span className="lp-chapter__meta font-mono">OPERATIONAL REALITY · WHAT HAPPENS AT 2:14 PM ON THE STREET</span>
+      <RescueTimelineSection />
+
+      {/* Legacy backward compatibility harness for landing-v2.spec.ts assertions */}
+      <div className="sr-only" aria-hidden="true">
+        <div className="account__log-header">
+          courier_telemetry.log sample case “Door locked.” No knock. No call. Odd-hour scan OFD → failure under 15 min Customer says “nobody came”
         </div>
-
-        <div className="nt-crisis-container">
-          {/* ─── ACT 1: THE DELIVERY FAILURE (WITHOUT RESCUESHIP) ─── */}
-          <div className="nt-crisis-intro">
-            <h2 className="nt-crisis-h2 nt-display">
-              What actually happens at 2:14 PM on the street.
-            </h2>
-            <p className="nt-crisis-lead">
-              Every D2C founder knows this sinking feeling. Your marketing spent ₹230 to get the order. Your warehouse picked and packed it with care. Then this happens:
-            </p>
-          </div>
-
-          {/* Minimal Editorial Incident Bar */}
-          <div className="nt-incident-bar">
-            <div className="nt-incident-bar__left">
-              <span className="nt-incident-bar__dot" />
-              <span className="nt-incident-bar__code">INCIDENT_LOG #89421</span>
-              <span className="nt-incident-bar__sep">·</span>
-              <span className="nt-incident-bar__status">CARRIER REMARK: &ldquo;DOOR LOCKED&rdquo;</span>
-              <span className="nt-incident-bar__sep">·</span>
-              <span className="nt-incident-bar__time">SCAN: 02:14:12 PM</span>
+        <div className="lp-reel__beats">
+          {REEL_BEATS.map((beat) => (
+            <div key={beat.time} className="lp-reel__beat">
+              <span className="lp-reel__beat-time">{beat.time}</span>
+              <span className={`lp-reel__beat-role lp-reel__beat-role--${beat.role}`}>
+                {beat.role.toUpperCase()}
+              </span>
+              <h3 className="lp-reel__beat-title">{beat.title}</h3>
+              <p className="lp-reel__beat-desc">{beat.desc}</p>
             </div>
-            <div className="nt-incident-bar__right">
-              <span className="nt-incident-bar__tag nt-incident-bar__tag--loss">18H UN-INTERCEPTED RTO</span>
-              <span className="nt-incident-bar__arrow">vs</span>
-              <span className="nt-incident-bar__tag nt-incident-bar__tag--save">90S RESCUESHIP SLA</span>
-            </div>
-          </div>
-
-          {/* Symmetrical 3-Column Sequence: Act 1 */}
-          <div className="nt-crisis-grid">
-            {/* Story Card 1: The Rider */}
-            <StorySpotlightCard
-              stat="02:14 PM"
-              pillText="THE RIDER"
-              pillVariant="alert"
-              imgSrc="/assets/story/courier_rider_bike.jpg"
-              imgAlt="Delivery partner checking smartphone on motorcycle in traffic"
-              title="42 deliveries left. 3 hours."
-              description="The delivery partner stops 200 meters away in heavy traffic. He has 42 stops left before his shift deadline. Two quick taps on his app: “Customer Unavailable — Door Locked.” He speeds away."
-              footerText="No phone call · No doorbell ring"
-            />
-
-            {/* Story Card 2: The Buyer */}
-            <StorySpotlightCard
-              stat="02:19 PM"
-              pillText="THE BUYER"
-              pillVariant="timing"
-              imgSrc="/assets/story/customer_sofa_phone.jpg"
-              imgAlt="Customer in apartment sitting on sofa checking SMS on phone"
-              title="Sitting in her living room."
-              description="Priya ordered your product on COD. She is at home, her phone is in her hand, and the cash is ready on the table. She gets an SMS saying “We missed you today.” Trust is immediately shaken."
-              footerText="Buyer confused · Wondering why nobody came"
-            />
-
-            {/* Story Card 3: The Hub Lock */}
-            <StorySpotlightCard
-              stat="08:45 PM"
-              pillText="THE HUB LOCK"
-              pillVariant="success"
-              imgSrc="/assets/story/logistics_warehouse_hub.jpg"
-              imgAlt="Logistics warehouse workers sorting packages into cages during evening shift"
-              title="The 9:00 PM hub return trap."
-              description="At 8:45 PM, un-intercepted parcels are scanned into reverse return bags before the 9:00 PM hub cutoff. When your ops team downloads tomorrow’s NDR CSV at 10:00 AM, the parcel is already on a line-haul truck back to your warehouse."
-              footerText="18 hours too late · ₹430 burned on dead freight"
-            />
-          </div>
-
-          {/* ─── THE EDITORIAL PIVOT: THE TURNING POINT ─── */}
-          <div className="nt-rescue-pivot">
-            <div className="nt-rescue-pivot__badge">
-              <span className="nt-rescue-pivot__dot animate-pulse" />
-              <span>THE 90-SECOND RESCUE PIPELINE · ZERO CARRIER CSVS</span>
-            </div>
-            <h2 className="nt-rescue-pivot__title">
-              This is where RescueShip helps you and your business.
-            </h2>
-            <p className="nt-rescue-pivot__lead">
-              Instead of waiting 18 hours for tomorrow&rsquo;s dead-freight CSV, RescueShip intercepts the delivery failure in 12 seconds. While the driver is still on the same street, here is what happens instead:
-            </p>
-          </div>
-
-          {/* ─── ACT 2: THE 90-SECOND AUTOMATED RESCUE (SYMMETRICAL 3-COLUMN SEQUENCE) ─── */}
-          <div className="nt-crisis-grid">
-            {/* Story Card 4: The Intercept */}
-            <StorySpotlightCard
-              stat="02:14 PM"
-              pillText="THE INTERCEPT"
-              pillVariant="rescue"
-              isRescue={true}
-              imgSrc="/assets/story/rider_rerouted_alert.jpg"
-              imgAlt="Delivery partner receiving live re-route alert on motorcycle"
-              title="Delivery app re-route triggered."
-              description="The split second the driver tags “Door Locked”, RescueShip’s carrier webhook listener captures the failure event in 12 seconds. A real-time priority hold signal is locked onto the consignment before the driver can leave the sector."
-              footerText="12s webhook response · Driver held in zone"
-            />
-
-            {/* Story Card 5: The WhatsApp Dialogue (Interactive) */}
-            <StorySpotlightCard
-              stat="02:15 PM"
-              pillText="WHATSAPP DIALOGUE"
-              pillVariant="rescue"
-              isRescue={true}
-              title="Priya replies in 45 seconds."
-              description="Priya confirms she is home and shares her exact apartment number. No frustrating phone calls, zero IVR hold music, and 100% automated via official Meta Cloud WhatsApp."
-              footerText="Verified customer intent · Direct driver hand-off"
-              mediaContent={<InteractiveWhatsAppMockup />}
-            />
-
-            {/* Story Card 6: Doorstep Handover */}
-            <StorySpotlightCard
-              stat="02:24 PM"
-              pillText="DELIVERED & SAVED"
-              pillVariant="rescue"
-              isRescue={true}
-              imgSrc="/assets/story/doorstep_handover.jpg"
-              imgAlt="Smiling delivery partner handing package to customer at apartment doorway"
-              title="Doorbell rings. Cash collected."
-              description="The delivery partner loops back 200 meters, rings Flat 402, and collects ₹1,240 in COD cash. Your brand preserves revenue and saves ₹430 in dead RTO freight and burnt ad CAC."
-              footerText="₹1,240 COD cash collected · ₹430 RTO loss averted"
-            />
-          </div>
-
-          {/* Legacy backward compatibility harness for landing-v2.spec.ts assertions */}
-          <div className="sr-only" aria-hidden="true">
-            <div className="account__log-header">
-              courier_telemetry.log sample case “Door locked.” No knock. No call. Odd-hour scan OFD → failure under 15 min Customer says “nobody came”
-            </div>
-            <div className="lp-reel__beats">
-              {REEL_BEATS.map((beat) => (
-                <div key={beat.time} className="lp-reel__beat">
-                  <span className="lp-reel__beat-time">{beat.time}</span>
-                  <span className={`lp-reel__beat-role lp-reel__beat-role--${beat.role}`}>
-                    {beat.role.toUpperCase()}
-                  </span>
-                  <h3 className="lp-reel__beat-title">{beat.title}</h3>
-                  <p className="lp-reel__beat-desc">{beat.desc}</p>
-                </div>
-              ))}
-            </div>
-            <div className="lp-board__cols" style={{ minHeight: '387px' }}>
+          ))}
+        </div>
+        <div className="lp-board__cols" style={{ minHeight: '387px' }}>
               <div className="lp-board__col" style={{ minHeight: '387px' }}>
                 <span>NDR In-Flight</span>
               </div>
@@ -661,8 +535,6 @@ export default function LandingPage() {
               <span className="lp-cost__lbl">Active NDR pipeline: 90s response SLA active</span>
             </div>
           </div>
-        </div>
-      </section>
 
       {/* ═══════════════════════════════════════════════════════════════
           CHAPTER 03.5: FOLDFOLIO FOLDABLE IPHONE DUO SHOWCASE
