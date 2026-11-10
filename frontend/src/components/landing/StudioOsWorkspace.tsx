@@ -34,6 +34,7 @@ export function StudioOsWorkspace({
     <div className="nt-os-workspace rs-storm-workspace-root" id="os-workspace">
       {/* Target anchor divs for smooth scrolling & test discovery */}
       <div id="calculator" className="nt-anchor-target rs-anchor-hook" />
+      <div id="calculate-rto" className="nt-anchor-target rs-anchor-hook" />
       <div id="pricing" className="nt-anchor-target rs-anchor-hook" />
       <div id="faq" className="nt-anchor-target rs-anchor-hook" />
 

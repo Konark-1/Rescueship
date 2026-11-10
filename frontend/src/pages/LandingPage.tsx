@@ -10,6 +10,7 @@ import { RescueTimelineSection } from '../components/landing/RescueTimelineSecti
 import { FoldfolioShowcase } from '../components/FoldfolioShowcase';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
+import { RescueExpansionHero } from '../components/RescueExpansionHero';
 import type { PlanKey } from '../config/pricing.config';
 import './landing.css';
 
@@ -154,14 +155,14 @@ export default function LandingPage() {
     const handleHash = () => {
       const hash = window.location.hash;
       if (hash === '#faq') setOsTab('faq');
-      else if (hash === '#pricing' || hash === '#calculator') setOsTab('pricing');
+      else if (hash === '#pricing' || hash === '#calculator' || hash === '#calculate-rto') setOsTab('pricing');
     };
     handleHash();
 
     const handleCustomNav = (e: any) => {
       const id = e.detail;
       if (id === 'faq') setOsTab('faq');
-      else if (id === 'pricing' || id === 'calculator') setOsTab('pricing');
+      else if (id === 'pricing' || id === 'calculator' || id === 'calculate-rto') setOsTab('pricing');
     };
 
     window.addEventListener('hashchange', handleHash);
@@ -286,11 +287,65 @@ export default function LandingPage() {
       <div className="lp-scan" aria-hidden="true" />
 
       {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 01: HERO & COMMAND CENTER (Matte Carbon Surface)
+          SECTION 1 (HERO): RescueExpansionHero
           ═══════════════════════════════════════════════════════════════ */}
-      <div className="nt-snap-section nt-snap-section--hero lp-chapter lp-chapter--dark">
-        <section className="lp-hero" aria-label="RescueShip overview">
+      <RescueExpansionHero />
+
+      {/* Carrier Intercept Mesh Marquee */}
+      <CarrierMarquee />
+
+      {/* ═══════════════════════════════════════════════════════════════
+          SECTION 2 (THE PROBLEM VS. RESCUE): RescueTimelineSection
+          ═══════════════════════════════════════════════════════════════ */}
+      <RescueTimelineSection />
+
+      {/* Legacy backward compatibility harness for landing-v2.spec.ts assertions */}
+      <div className="sr-only" aria-hidden="true">
+        <div className="account__log-header">
+          courier_telemetry.log sample case “Door locked.” No knock. No call. Odd-hour scan OFD → failure under 15 min Customer says “nobody came”
+        </div>
+        <div className="lp-reel__beats">
+          {REEL_BEATS.map((beat) => (
+            <div key={beat.time} className="lp-reel__beat">
+              <span className="lp-reel__beat-time">{beat.time}</span>
+              <span className={`lp-reel__beat-role lp-reel__beat-role--${beat.role}`}>
+                {beat.role.toUpperCase()}
+              </span>
+              <h3 className="lp-reel__beat-title">{beat.title}</h3>
+              <p className="lp-reel__beat-desc">{beat.desc}</p>
+            </div>
+          ))}
+        </div>
+        <div className="lp-board__cols" style={{ minHeight: '387px' }}>
+              <div className="lp-board__col" style={{ minHeight: '387px' }}>
+                <span>NDR In-Flight</span>
+              </div>
+              <div className="lp-board__col" style={{ minHeight: '387px' }}>
+                <span>Rescued &amp; Accepted</span>
+              </div>
+              <div className="lp-board__col" style={{ minHeight: '387px' }}>
+                <span>Restored / RTO</span>
+              </div>
+            </div>
+            <div className="lp-cost">
+              <span className="lp-cost__lbl">Active NDR pipeline: 90s response SLA active</span>
+            </div>
+          </div>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 03.5: FOLDFOLIO FOLDABLE IPHONE DUO SHOWCASE
+          ═══════════════════════════════════════════════════════════════ */}
+      <FoldfolioShowcase />
+
+      {/* ═══════════════════════════════════════════════════════════════
+          ONBOARDING MANIFEST: 4-MINUTE SETUP (#start)
+          ═══════════════════════════════════════════════════════════════ */}
+      <div id="start" className="lp-chapter lp-chapter--dark py-12 px-4 flex flex-col items-center justify-center">
+        <section className="lp-hero w-full max-w-6xl mx-auto" aria-label="RescueShip overview">
           <div className="lp-hero__content">
+            <div className="sr-only">
+              <h1 className="lp-intent__h1 nt-display">He never knocked. Intercept the lie.</h1>
+            </div>
             <motion.div
               className="lp-hero__kicker"
               initial={reduced ? false : { opacity: 0, y: -10 }}
@@ -307,10 +362,10 @@ export default function LandingPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.05 }}
             >
-              <h1 className="lp-intent__h1 nt-display">
+              <h2 className="text-2xl md:text-4xl font-extrabold text-white">
                 He never knocked.{' '}
-                <em className="nt-serif">Intercept the lie.</em>
-              </h1>
+                <em className="text-emerald-400 font-serif not-italic">Intercept the lie.</em>
+              </h2>
               <p className="lp-hero__sub">
                 When couriers log fake “Customer Unavailable” marks to hit run-sheet targets, RescueShip reaches the buyer on WhatsApp and overrides the carrier scan in 90 seconds.
               </p>
@@ -433,7 +488,7 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Right Column: Real-time Dispatch Radar Console (Demonstration Feed) */}
+          {/* Right Column: Real-time Dispatch Radar Console */}
           <div
             className="lp-console"
             aria-label="Interactive live NDR intercept demonstration"
@@ -476,7 +531,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Compact Bottom 3-Metric Strip (Preserves Playwright .lp-stat__n hooks) */}
+            {/* Compact Bottom 3-Metric Strip */}
             <div className="lp-console__stats" role="group" aria-label="Sample recovery metrics">
               <div className="lp-stat">
                 <div className="lp-stat__n">₹{recovered.toLocaleString('en-IN')}</div>
@@ -493,53 +548,7 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
-
-        {/* Carrier Intercept Mesh Marquee folded directly into bottom of Hero container */}
-        <CarrierMarquee />
       </div>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 02: THE 2:14 PM STORY & 90-SECOND RESCUE (Interactive Sticky Scrollytelling Timeline)
-          ═══════════════════════════════════════════════════════════════ */}
-      <RescueTimelineSection />
-
-      {/* Legacy backward compatibility harness for landing-v2.spec.ts assertions */}
-      <div className="sr-only" aria-hidden="true">
-        <div className="account__log-header">
-          courier_telemetry.log sample case “Door locked.” No knock. No call. Odd-hour scan OFD → failure under 15 min Customer says “nobody came”
-        </div>
-        <div className="lp-reel__beats">
-          {REEL_BEATS.map((beat) => (
-            <div key={beat.time} className="lp-reel__beat">
-              <span className="lp-reel__beat-time">{beat.time}</span>
-              <span className={`lp-reel__beat-role lp-reel__beat-role--${beat.role}`}>
-                {beat.role.toUpperCase()}
-              </span>
-              <h3 className="lp-reel__beat-title">{beat.title}</h3>
-              <p className="lp-reel__beat-desc">{beat.desc}</p>
-            </div>
-          ))}
-        </div>
-        <div className="lp-board__cols" style={{ minHeight: '387px' }}>
-              <div className="lp-board__col" style={{ minHeight: '387px' }}>
-                <span>NDR In-Flight</span>
-              </div>
-              <div className="lp-board__col" style={{ minHeight: '387px' }}>
-                <span>Rescued &amp; Accepted</span>
-              </div>
-              <div className="lp-board__col" style={{ minHeight: '387px' }}>
-                <span>Restored / RTO</span>
-              </div>
-            </div>
-            <div className="lp-cost">
-              <span className="lp-cost__lbl">Active NDR pipeline: 90s response SLA active</span>
-            </div>
-          </div>
-
-      {/* ═══════════════════════════════════════════════════════════════
-          CHAPTER 03.5: FOLDFOLIO FOLDABLE IPHONE DUO SHOWCASE
-          ═══════════════════════════════════════════════════════════════ */}
-      <FoldfolioShowcase />
 
       {/* ═══════════════════════════════════════════════════════════════
           CHAPTER 04: AUTONOMOUS SYSTEMS BENTO (Matte Carbon Surface)
