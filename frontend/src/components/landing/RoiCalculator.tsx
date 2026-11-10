@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
 import { estimate, recommendedPlan, planByKey, type PlanKey } from '../../config/pricing.config';
-import { Calculator, ShieldCheck, Flame, TrendingUp } from 'lucide-react';
+import { ShieldCheck, Flame, TrendingUp } from 'lucide-react';
 import { springSnappy } from '../../lib/motion';
 
 export interface RoiCalculatorProps {
@@ -26,21 +26,12 @@ export function RoiCalculator({ orders, onOrdersChange, selectedPlan }: RoiCalcu
     <section className="roi rs-storm-calc-section" aria-labelledby="roi-heading">
       <div className="roi__container">
         <div className="roi__header">
-          <span className="roi__eyebrow">
-            <Calculator size={14} aria-hidden="true" />
-            INDIAN D2C BLEED SIMULATOR · ₹430 / RTO
-          </span>
           <h2 id="roi-heading" className="roi__heading">
-            Quantify your monthly COD bleed.
+            Calculate your monthly recovery.
           </h2>
           <p className="roi__sub">
-            Drag the sliders to match your monthly store metrics and see immediate recovery projections.
+            Adjust the sliders to match your monthly store metrics and see verified recovery projections.
           </p>
-        </div>
-
-        <div className="roi__deck-bar">
-          <span className="roi__deck-tag">SIMULATOR // RS-ROI-V2</span>
-          <span className="roi__deck-status">● LIVE RECOVERY ENGINE</span>
         </div>
 
         <div className="roi__grid">

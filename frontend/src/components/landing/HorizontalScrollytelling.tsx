@@ -182,8 +182,8 @@ export function HorizontalScrollytelling({
             <div className="grid w-full max-w-[1400px] grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
               {/* Left 7 Cols: Open Editorial Typography (NO outer wrapper box) */}
               <div className="lg:col-span-7">
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#FF3B1D]">
-                  PANEL 01 // THE ₹430 BLEED EQUATION
+                <p className="font-mono text-xs tracking-wider text-[#FF3B1D]">
+                  THE UNIT ECONOMICS OF A FAKE SCAN
                 </p>
 
                 <h2 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-6xl">
@@ -323,8 +323,8 @@ export function HorizontalScrollytelling({
             <div className="grid w-full max-w-[1400px] grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
               {/* Left 6 Cols: Open Editorial Typography */}
               <div className="lg:col-span-6">
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#FF3B1D]">
-                  PANEL 02 // THE 7:00 PM HUB CUTOFF
+                <p className="font-mono text-xs tracking-wider text-[#FF3B1D]">
+                  THE 7:00 PM EVENING HUB CUTOFF
                 </p>
 
                 <h2 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-6xl">
@@ -461,8 +461,8 @@ export function HorizontalScrollytelling({
             <div className="grid w-full max-w-[1400px] grid-cols-1 items-center gap-12 lg:grid-cols-12 lg:gap-16">
               {/* Left 7 Cols: Open Editorial + 3 Clean Resolution Rows */}
               <div className="lg:col-span-7">
-                <p className="font-mono text-xs uppercase tracking-[0.2em] text-[#FF3B1D]">
-                  PANEL 03 // CLOSED-LOOP RESOLUTION
+                <p className="font-mono text-xs tracking-wider text-[#FF3B1D]">
+                  AUTOMATED RE-ATTEMPT OVERRIDE
                 </p>
 
                 <h2 className="mt-4 text-4xl font-bold tracking-tight text-white sm:text-6xl">

@@ -20,55 +20,55 @@ interface FeatureEngine {
 const ENGINES: FeatureEngine[] = [
   {
     num: '01',
-    title: 'Sub-90s NDR Webhook Intercept',
+    title: '“Customer Unavailable” Override',
     description:
-      'Ingests Shiprocket, Delhivery, Blue Dart, and ClickPost NDR webhooks in real time—firing a WhatsApp verification before the hub locks the parcel for RTO.',
+      'Sub-90s WhatsApp prompt asks if the buyer is home. When they confirm, RescueShip locks a priority carrier re-attempt before evening hub sortation.',
     pillText: '< 90s SLA · REALTIME WEBHOOK',
     pillTone: 'vermilion',
     Icon: Zap,
   },
   {
     num: '02',
-    title: 'Sub-90s Buyer Denial Audit Engine',
+    title: '“Incomplete Address” Landmark Fix',
     description:
-      'Triggers an instant WhatsApp verification within 90s of an "Unreachable" or "Door Locked" scan. When the customer confirms "Nobody came", RescueShip auto-flags the attempt as fake.',
-    pillText: 'SUB-90s BUYER VERIFICATION',
+      'Acquires native WhatsApp GPS pin from buyer, reverse-geocodes the nearest gate or landmark, and injects coordinates directly into the courier dispatch API.',
+    pillText: 'NATIVE GPS PIN + LANDMARK',
     pillTone: 'emerald',
-    Icon: Radar,
+    Icon: MapPinCheckInside,
   },
   {
     num: '03',
-    title: 'Free Priority Re-Attempt Lock',
+    title: '“Cash Not Ready” UPI Conversion',
     description:
-      'When a rider fakes an attempt, RescueShip never wastes margin on discounts—it captures buyer confirmation and locks a free priority next-day re-delivery.',
+      'Sends 1-click UPI conversion link (Razorpay/Cashfree) with 2-hour payment window to convert high-risk COD into prepaid before return transit commits.',
+    pillText: 'COD → PREPAID UPI LINK',
+    pillTone: 'emerald',
+    Icon: IndianRupee,
+  },
+  {
+    num: '04',
+    title: 'Sub-90s Webhook Intercept SLA',
+    description:
+      'Ingests Shiprocket, Delhivery, Blue Dart, and ClickPost NDR webhooks in real time—firing customer verification before the hub bags the parcel for RTO.',
+    pillText: 'CARRIER WEBHOOK LISTENERS',
+    pillTone: 'vermilion',
+    Icon: Radar,
+  },
+  {
+    num: '05',
+    title: 'Zero Margin Discount Dilution',
+    description:
+      'Fake delivery scans are challenged as carrier service failures—forcing free carrier re-attempts rather than subsidizing discounts from your margins.',
     pillText: 'ZERO MARGIN DILUTION',
     pillTone: 'emerald',
     Icon: MessageSquareCheck,
   },
   {
-    num: '04',
-    title: '1-Shot Payment-Gated Cancellation Save',
-    description:
-      'Only when a buyer explicitly taps Cancel Order, sends one polite ₹100 instant UPI discount offer with a strict 2-hour payment hold so WABA quality stays pristine.',
-    pillText: '2-HR UPI PAYMENT GATE',
-    pillTone: 'vermilion',
-    Icon: IndianRupee,
-  },
-  {
-    num: '05',
-    title: 'WhatsApp GPS Pin → Rider SMS Dispatch',
-    description:
-      'Captures native WhatsApp lat/lng pins, injects the reverse-geocoded gate landmark into the courier NDR API, and texts a Google Maps link to the field agent.',
-    pillText: 'NATIVE LOCATION PIN + SMS',
-    pillTone: 'emerald',
-    Icon: MapPinCheckInside,
-  },
-  {
     num: '06',
-    title: 'Pre-Delivery COD Risk & Pincode Shield',
+    title: 'Pre-Dispatch COD Risk Shield',
     description:
-      'Evaluates high-risk COD orders against historical failure clusters and pincode rules prior to dispatch—prompting instant UPI conversion or address verification before freight is burned.',
-    pillText: 'METRO RISK RULES + ADVANCE COD',
+      'Evaluates high-risk COD orders against historical failure clusters and pincode rules prior to dispatch to prevent dead freight before cartons leave the warehouse.',
+    pillText: 'PINCODE RISK RULES + ADVANCE COD',
     pillTone: 'neutral',
     Icon: ShieldAlert,
   },
@@ -82,16 +82,15 @@ export const FeaturesGrid: React.FC = () => {
       aria-labelledby="features-heading"
     >
       <div className="rs-mondragon-container">
-        {/* Mondragon Architectural Header */}
+        {/* Operational Section Header */}
         <header className="rs-mondragon-header">
           <div className="rs-mondragon-header__left">
-            <span className="rs-mondragon-kicker">[ CHAPTER 04 · ARCHITECTURAL ENGINES ]</span>
             <h2 id="features-heading" className="rs-mondragon-title">
-              Six autonomous engines. <em>Zero manual NDR calling.</em>
+              Three delivery failures. <em>Three automated rescues.</em>
             </h2>
           </div>
           <p className="rs-mondragon-sub">
-            Built for Indian D2C operations teams handling 500 to 50,000+ monthly COD shipments
+            Built for Indian D2C operations teams handling 500 to 10,000+ monthly COD shipments
             across Delhivery, Shiprocket, Blue Dart, and Shadowfax.
           </p>
         </header>

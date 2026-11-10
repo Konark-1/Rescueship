@@ -37,14 +37,18 @@ export function StudioOsWorkspace({
       <div id="pricing" className="nt-anchor-target rs-anchor-hook" />
       <div id="faq" className="nt-anchor-target rs-anchor-hook" />
 
-      {/* ── Studio OS Window Chrome Header ── */}
+      {/* ── High-End Workspace Navigation Segmented Control ── */}
       <div className="nt-os-window__head rs-storm-topbar">
-        <div className="nt-os-window__dots rs-storm-topbar__brand" aria-hidden="true">
-          <span className="nt-os-window__dot nt-os-window__dot--r rs-storm-dot" />
-          <span className="rs-storm-title">RESCUESHIP // SPEC LAB WORKSPACE</span>
+        <div className="flex flex-col">
+          <span className="text-[11px] font-mono text-[#b91c1c] tracking-wider uppercase font-bold">
+            FINANCIAL MODEL &amp; TARIFFS
+          </span>
+          <span className="text-sm font-bold text-[#111116] tracking-tight">
+            Unit Economics &amp; Protection Plans
+          </span>
         </div>
 
-        {/* ── Interactive File Tabs (Preserves data-testid for Playwright) ── */}
+        {/* ── Interactive Workspace Tabs (Preserves data-testid for Playwright) ── */}
         <div className="nt-os-window__tabs rs-storm-tabs" role="tablist" aria-label="Studio OS Workspace Tabs">
           <button
             type="button"
@@ -57,7 +61,7 @@ export function StudioOsWorkspace({
             onClick={() => onTabChange('pricing')}
           >
             <Calculator size={13} className="nt-os-tab__icon" aria-hidden="true" />
-            <span className="nt-os-tab__name">Calculate_RTO.sh &amp; Pricing.html</span>
+            <span className="nt-os-tab__name">ROI Calculator &amp; Pricing</span>
           </button>
 
           <button
@@ -71,7 +75,7 @@ export function StudioOsWorkspace({
             onClick={() => onTabChange('watchtower')}
           >
             <Map size={13} className="nt-os-tab__icon" aria-hidden="true" />
-            <span className="nt-os-tab__name">Metro_Audit.json</span>
+            <span className="nt-os-tab__name">Metro Risk Intelligence</span>
           </button>
 
           <button
@@ -85,13 +89,8 @@ export function StudioOsWorkspace({
             onClick={() => onTabChange('faq')}
           >
             <HelpCircle size={13} className="nt-os-tab__icon" aria-hidden="true" />
-            <span className="nt-os-tab__name">FAQ.md</span>
+            <span className="nt-os-tab__name">Operational FAQ</span>
           </button>
-        </div>
-
-        <div className="nt-os-window__status">
-          <span className="nt-os-window__pulse" />
-          <span className="nt-os-window__badge">STORM LAB // v3.0</span>
         </div>
       </div>
 
@@ -119,7 +118,6 @@ export function StudioOsWorkspace({
               {/* Right Column: Pricing & Plan Picker (No duplicate slider) */}
               <div className="nt-pricing-split__right">
                 <div className="pricing__header">
-                  <span className="pricing__eyebrow rs-storm-kicker">TARIFF SCHEDULE</span>
                   <h2 id="pricing-heading" className="pricing__heading rs-storm-heading">
                     Pick your protection. Pay for your size.
                   </h2>
