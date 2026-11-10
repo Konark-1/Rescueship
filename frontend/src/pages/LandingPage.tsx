@@ -10,7 +10,8 @@ import { RescueTimelineSection } from '../components/landing/RescueTimelineSecti
 import { FoldfolioShowcase } from '../components/FoldfolioShowcase';
 import { FeaturesGrid } from '../components/landing/FeaturesGrid';
 import { StudioOsWorkspace } from '../components/landing/StudioOsWorkspace';
-import { RescueExpansionHero } from '../components/RescueExpansionHero';
+import { RescueCommandHero } from '../components/RescueCommandHero';
+import { RescueHeroDuoSimulator } from '../components/landing/RescueHeroDuoSimulator';
 import type { PlanKey } from '../config/pricing.config';
 import './landing.css';
 
@@ -287,9 +288,11 @@ export default function LandingPage() {
       <div className="lp-scan" aria-hidden="true" />
 
       {/* ═══════════════════════════════════════════════════════════════
-          SECTION 1 (HERO): RescueExpansionHero
+          SECTION 1 (HERO): RescueCommandHero
           ═══════════════════════════════════════════════════════════════ */}
-      <RescueExpansionHero />
+      <RescueCommandHero>
+        <RescueHeroDuoSimulator />
+      </RescueCommandHero>
 
       {/* Carrier Intercept Mesh Marquee */}
       <CarrierMarquee />
