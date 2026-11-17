@@ -1,443 +1,362 @@
 "use client";
 
-import { useState, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   motion,
   AnimatePresence,
   useScroll,
   useMotionValueEvent,
 } from "motion/react";
-import { ChevronDown } from "lucide-react";
+import { InteractiveWhatsAppMockup } from "./InteractiveWhatsAppMockup";
 
-export type GalleryStep = {
-  id: string;
-  stepNum: string;
-  shortTitle: string;
+export type StoryStepItem = {
   time: string;
   badge: string;
-  image: string;
+  badgeVariant: "alert" | "timing" | "success" | "rescue";
+  image?: string;
+  imageAlt?: string;
+  mediaContent?: React.ReactNode;
   title: string;
   description: string;
-  footerLeft: string;
-  footerRight: string;
+  footer: string;
 };
 
-/* ═══════════════════════════════════════════════════════════════
-   1. OLD METHOD (18H UN-INTERCEPTED RTO TRAP) - 4 STEPS
-   ═══════════════════════════════════════════════════════════════ */
-const OLD_METHOD_STEPS: GalleryStep[] = [
+const BEFORE_STEPS: StoryStepItem[] = [
   {
-    id: "old-1",
-    stepNum: "01",
-    shortTitle: "RIDER FAILS",
     time: "02:14 PM",
-    badge: "FAKE NDR SCAN",
+    badge: "THE RIDER",
+    badgeVariant: "alert",
     image: "/assets/story/courier_rider_bike.jpg",
-    title: "1. Rider fails delivery without calling.",
+    imageAlt: "Delivery partner checking smartphone on motorcycle in traffic",
+    title: "42 deliveries left. 3 hours.",
     description:
-      'Stopped 200m away in heavy traffic with 42 stops left before shift end, the rider taps "Customer Unavailable — Door Locked" on his app and speeds away without ringing.',
-    footerLeft: "No phone call · No doorbell ring",
-    footerRight: "STEP 01 / 04",
+      'The delivery partner stops 200 meters away in heavy traffic. He has 42 stops left before his shift deadline. Two quick taps on his app: "Customer Unavailable — Door Locked." He speeds away.',
+    footer: "No phone call · No doorbell ring",
   },
   {
-    id: "old-2",
-    stepNum: "02",
-    shortTitle: "FAILED SMS",
     time: "02:19 PM",
-    badge: "BUYER CONFUSED",
+    badge: "THE BUYER",
+    badgeVariant: "timing",
     image: "/assets/story/customer_sofa_phone.jpg",
-    title: "2. Notification of failed delivery.",
+    imageAlt: "Customer in apartment sitting on sofa checking SMS on phone",
+    title: "Sitting in her living room.",
     description:
-      'The buyer is sitting at home with ₹1,240 COD cash ready on the table. Her phone buzzes with a false carrier SMS: "We missed you today." Trust is broken immediately.',
-    footerLeft: "False carrier SMS · Buyer intent lost",
-    footerRight: "STEP 02 / 04",
+      'Priya ordered your product on COD. She is at home, her phone is in her hand, and the cash is ready on the table. She gets an SMS saying "We missed you today." Trust is immediately shaken.',
+    footer: "Buyer confused · Wondering why nobody came",
   },
   {
-    id: "old-3",
-    stepNum: "03",
-    shortTitle: "HUB CUTOFF",
     time: "08:45 PM",
-    badge: "HUB CUTOFF",
+    badge: "THE HUB LOCK",
+    badgeVariant: "success",
     image: "/assets/story/logistics_warehouse_hub.jpg",
-    title: "3. Courier ships back to warehouse without attempt.",
+    imageAlt: "Logistics warehouse workers sorting packages into cages during evening shift",
+    title: "The 9:00 PM hub return trap.",
     description:
-      "At the 9:00 PM hub cutoff, un-intercepted parcels are scanned directly into reverse return bags without a real attempt and locked onto a line-haul truck.",
-    footerLeft: "Reverse scan locked · ₹430 dead freight",
-    footerRight: "STEP 03 / 04",
-  },
-  {
-    id: "old-4",
-    stepNum: "04",
-    shortTitle: "DEAD REATTEMPT",
-    time: "DAY 2 · 02:30 PM",
-    badge: "RTO LOSS",
-    image: "/assets/story/old_step_4_cancelled_order.png",
-    title: "4. Next-day reattempt fails (Order Cancelled).",
-    description:
-      '24 hours later, buyer impulse has cooled off or they bought elsewhere. The next-day reattempt is rejected at the door: "I needed it yesterday. Return it."',
-    footerLeft: "100% CAC burned · Inventory stuck 9 days",
-    footerRight: "STEP 04 / 04",
+      "At 8:45 PM, un-intercepted parcels are scanned into reverse return bags before the 9:00 PM hub cutoff. When your ops team downloads tomorrow's NDR CSV at 10:00 AM, the parcel is already on a line-haul truck back to your warehouse.",
+    footer: "18 hours too late · ₹430 burned on dead freight",
   },
 ];
 
-/* ═══════════════════════════════════════════════════════════════
-   2. OUR METHOD (RESCUESHIP 90S SAME-DAY RESOLUTION) - 4 STEPS
-   ═══════════════════════════════════════════════════════════════ */
-const OUR_METHOD_STEPS: GalleryStep[] = [
+const AFTER_STEPS: StoryStepItem[] = [
   {
-    id: "new-1",
-    stepNum: "01",
-    shortTitle: "12S INTERCEPT",
     time: "02:14 PM",
-    badge: "WEBHOOK HOLD",
+    badge: "THE INTERCEPT",
+    badgeVariant: "rescue",
     image: "/assets/story/rider_rerouted_alert.jpg",
-    title: "1. Rider fails — intercepted in 12 seconds.",
+    imageAlt: "Delivery partner receiving live re-route alert on motorcycle",
+    title: "Delivery app re-route triggered.",
     description:
-      'The split-second the rider marks "Door Locked", RescueShip catches the carrier webhook and locks a priority hold on the parcel before he leaves the street sector.',
-    footerLeft: "12s webhook capture · Rider held in sector",
-    footerRight: "STEP 01 / 04",
+      'The split second the driver tags "Door Locked", RescueShip\'s carrier webhook listener captures the failure event in 12 seconds. A real-time priority hold signal is locked onto the consignment before the driver can leave the sector.',
+    footer: "12s webhook response · Driver held in zone",
   },
   {
-    id: "new-2",
-    stepNum: "02",
-    shortTitle: "AVAILABILITY PING",
     time: "02:15 PM",
-    badge: "INSTANT VERIFY",
-    image: "/assets/story/our_step_2_whatsapp_availability.png",
-    title: "2. Phone notification confirming availability.",
+    badge: "WHATSAPP DIALOGUE",
+    badgeVariant: "rescue",
+    mediaContent: <InteractiveWhatsAppMockup />,
+    title: "Priya replies in 45 seconds.",
     description:
-      "An automated WhatsApp reaches the buyer in 45s. She taps 'Yes, I am at home in Flat 402' in 45 seconds—zero IVR calls or annoying call centers required.",
-    footerLeft: "Live buyer confirmation · 45s response",
-    footerRight: "STEP 02 / 04",
+      "Priya confirms she is home and shares her exact apartment number. No frustrating phone calls, zero IVR hold music, and 100% automated via official Meta Cloud WhatsApp.",
+    footer: "Verified customer intent · Direct driver hand-off",
   },
   {
-    id: "new-3",
-    stepNum: "03",
-    shortTitle: "COD → PREPAID",
-    time: "02:19 PM",
-    badge: "ADDRESS + UPI",
-    image: "/assets/story/our_step_3_address_pin_upi.png",
-    title: "3. Address updated & COD converted to Prepaid.",
-    description:
-      "The buyer drops her exact flat landmark/GPS pin and completes a 1-tap UPI payment link (with an optional ₹50 instant prepaid discount) to eliminate cash risk.",
-    footerLeft: "GPS pin captured · COD converted to UPI",
-    footerRight: "STEP 03 / 04",
-  },
-  {
-    id: "new-4",
-    stepNum: "04",
-    shortTitle: "SAME-DAY DELIVERY",
-    time: "03:00 PM",
-    badge: "DELIVERED SAME DAY",
+    time: "02:24 PM",
+    badge: "DELIVERED & SAVED",
+    badgeVariant: "rescue",
     image: "/assets/story/doorstep_handover.jpg",
-    title: "4. Successfully delivered same day (Zero next-day wait).",
+    imageAlt: "Smiling delivery partner handing package to customer at apartment doorway",
+    title: "Doorbell rings. Cash collected.",
     description:
-      "With verified GPS coordinates and prepaid confirmation pushed to the driver app, the rider loops back 200m and hands over the parcel same day.",
-    footerLeft: "₹1,240 revenue saved · Same-day handover",
-    footerRight: "STEP 04 / 04",
+      "The delivery partner loops back 200 meters, rings Flat 402, and collects ₹1,240 in COD cash. Your brand preserves revenue and saves ₹430 in dead RTO freight and burnt ad CAC.",
+    footer: "₹1,240 COD cash collected · ₹430 RTO loss averted",
   },
 ];
+
+function TimelineCard({
+  step,
+  index,
+  isRescue,
+}: {
+  step: StoryStepItem;
+  index: number;
+  isRescue: boolean;
+}) {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [isHovered, setIsHovered] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return;
+    const rect = cardRef.current.getBoundingClientRect();
+    setMousePos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    });
+  };
+
+  const pillStyle = isRescue
+    ? "bg-emerald-50 text-emerald-800 border-emerald-200/80"
+    : step.badgeVariant === "timing"
+    ? "bg-amber-50 text-amber-800 border-amber-200/80"
+    : step.badgeVariant === "success"
+    ? "bg-stone-100 text-stone-700 border-stone-200/80"
+    : "bg-rose-50 text-rose-800 border-rose-200/80";
+
+  return (
+    <motion.div
+      key={`${isRescue ? "after" : "before"}-${step.time}-${index}`}
+      initial={{ opacity: 0, y: 24, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.98 }}
+      transition={{
+        duration: 0.35,
+        delay: index * 0.07,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className={`group relative flex h-full flex-col justify-between overflow-hidden rounded-2xl border bg-white p-5 lg:p-6 transition-all duration-300 ease-out hover:-translate-y-1 ${
+        isRescue
+          ? "border-emerald-500/25 shadow-[0_2px_12px_rgba(16,185,129,0.04)] hover:shadow-[0_16px_36px_rgba(16,185,129,0.08)] hover:border-emerald-500/50"
+          : "border-neutral-200/90 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_16px_36px_rgba(0,0,0,0.07)] hover:border-neutral-300"
+      }`}
+    >
+      {/* Subtle cursor spotlight */}
+      <div
+        className="pointer-events-none absolute -inset-px rounded-2xl transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(350px circle at ${mousePos.x}px ${mousePos.y}px, ${
+            isRescue ? "rgba(16, 185, 129, 0.08)" : "rgba(225, 29, 72, 0.05)"
+          }, transparent 80%)`,
+        }}
+        aria-hidden="true"
+      />
+
+      <div className="relative z-10 flex flex-col h-full justify-between">
+        <div>
+          {/* Card Header: Timestamp + Pill */}
+          <div className="mb-4 flex items-center justify-between">
+            <span className="font-mono text-2xl lg:text-[26px] font-bold tracking-tight text-neutral-900">
+              {step.time}
+            </span>
+            <span
+              className={`inline-flex items-center rounded-full border px-2.5 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider ${pillStyle}`}
+            >
+              {step.badge}
+            </span>
+          </div>
+
+          {/* Media or Visual Content */}
+          <div className="mb-4">
+            {step.mediaContent ? (
+              step.mediaContent
+            ) : (
+              <div className="relative h-[220px] w-full overflow-hidden rounded-xl bg-neutral-100 border border-black/5 aspect-16/10">
+                {step.image && (
+                  <img
+                    src={step.image}
+                    alt={step.imageAlt || step.title}
+                    className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Step Title & Copy */}
+          <h3 className="mb-2 text-lg font-bold tracking-tight text-neutral-900">
+            {step.title}
+          </h3>
+          <p className="text-sm leading-relaxed text-neutral-600">
+            {step.description}
+          </p>
+        </div>
+
+        {/* Bottom Monospace Telemetry / Metric */}
+        <div className="mt-5 border-t border-neutral-100 pt-3 font-mono text-[11px] text-neutral-500 flex items-center justify-between">
+          <span>{step.footer}</span>
+          <span className="text-[10px] text-neutral-400">STEP 0{index + 1}</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export function RescueTimelineSection({
   legacyBeats,
 }: {
   legacyBeats?: { time: string; role: string; title: string; desc: string }[];
 } = {}) {
-  const [mode, setMode] = useState<"old" | "our">("old");
-  const [activeIndex, setActiveIndex] = useState<number>(0);
-  const [isManualOverride, setIsManualOverride] = useState(false);
+  const [mode, setMode] = useState<"before" | "after">("before");
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const sectionRef = useRef<HTMLElement>(null);
-
-  // 480vh scroll runway gives smooth, unhurried room for all 8 steps (4 Old + 3D Flip + 4 Our)
+  // Automatically switches from "Before" to "After" as user scrolls halfway through the sticky track
   const { scrollYProgress } = useScroll({
-    target: sectionRef,
+    target: containerRef,
     offset: ["start start", "end end"],
   });
 
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
-    if (isManualOverride) return;
-
-    // First half of scroll (0.00 -> 0.48): Old Method Steps 0, 1, 2, 3
-    // Second half of scroll (0.52 -> 1.00): Our Method Steps 0, 1, 2, 3
-    if (latest < 0.5) {
-      if (mode !== "old") setMode("old");
-      const normalized = Math.min(0.999, Math.max(0, latest / 0.48));
-      const nextIdx = Math.floor(normalized * 4);
-      if (nextIdx !== activeIndex) setActiveIndex(nextIdx);
-    } else {
-      if (mode !== "our") setMode("our");
-      const normalized = Math.min(0.999, Math.max(0, (latest - 0.52) / 0.48));
-      const nextIdx = Math.floor(normalized * 4);
-      if (nextIdx !== activeIndex) setActiveIndex(nextIdx);
+    if (latest > 0.48 && mode !== "after") {
+      setMode("after");
+    } else if (latest <= 0.48 && mode !== "before") {
+      setMode("before");
     }
   });
 
-  const isRescue = mode === "our";
-
-  // Helper to manually switch mode with 3D flip
-  const handleModeSwitch = (targetMode: "old" | "our") => {
-    setIsManualOverride(true);
-    setMode(targetMode);
-    setTimeout(() => setIsManualOverride(false), 1800);
-  };
+  const isRescue = mode === "after";
+  const steps = isRescue ? AFTER_STEPS : BEFORE_STEPS;
 
   return (
     <section
-      ref={sectionRef}
+      ref={containerRef}
       id="product"
-      className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper relative min-h-auto md:h-[480vh] w-full bg-[#F6F5F0] text-neutral-900 border-t border-b border-neutral-200/80 select-none"
+      className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper relative min-h-auto md:min-h-[220vh] bg-[#F6F5F0] text-neutral-900 border-t border-b border-neutral-200/80"
       aria-label="The 2:14 PM delivery story and 90-second autonomous rescue"
     >
-      {/* Full-Viewport Sticky Stage */}
-      <div className="relative md:sticky md:top-14 flex min-h-auto md:h-[calc(100vh-3.5rem)] w-full flex-col justify-between px-4 py-4 md:px-8 lg:px-12 md:py-5">
-        <div className="mx-auto flex h-full w-full max-w-[1440px] flex-col justify-between">
-          {/* 1. COMPACT FULL-WIDTH HEADER + INCIDENT BAR */}
-          <div>
-            <div className="mb-1 text-center font-mono text-xs font-semibold tracking-[0.22em] text-neutral-500 uppercase">
-              {isRescue
-                ? "AUTONOMOUS 90-SECOND RESCUE · SAME-DAY HANDOVER"
-                : "OPERATIONAL REALITY · WHAT HAPPENS AT 2:14 PM ON THE STREET"}
-            </div>
-
-            {/* 3D Flipping Headline Banner (Zero Opacity Flicker) */}
-            <div
-              className="mx-auto mb-3 max-w-4xl text-center"
-              style={{ perspective: "1000px" }}
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={mode}
-                  initial={false}
-                  animate={{ rotateX: 0, opacity: 1, y: 0 }}
-                  exit={{ rotateX: 75, opacity: 0, y: -12 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 24,
-                  }}
-                  style={{ transformOrigin: "center center" }}
-                >
-                  <h2 className="text-2xl font-extrabold tracking-tight sm:text-4xl md:text-[38px] md:leading-[1.15] text-neutral-900">
-                    {isRescue
-                      ? "Our Method: The 4-step same-day rescue engine."
-                      : "Old Method: The 4-step reverse logistics trap."}
-                  </h2>
-                  <p className="mx-auto mt-1 max-w-2xl text-xs md:text-sm text-neutral-600 leading-relaxed">
-                    {isRescue
-                      ? "Instead of losing the order to next-day RTO, RescueShip intercepts the rider in 12 seconds, verifies availability, converts COD to Prepaid, and delivers the same day:"
-                      : "Every D2C founder knows this sinking feeling. Your marketing spent ₹230 to get the order. Then a false 'Door Locked' scan starts a multi-day dead loss cycle:"}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
-            {/* Incident Log & Mode Flip Switcher */}
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-neutral-300/80 bg-[#ECEAE4] px-4 py-2 font-mono text-xs md:text-sm shadow-xs">
-              <div className="flex flex-wrap items-center gap-2">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full transition-colors duration-300 ${
-                    isRescue
-                      ? "bg-emerald-500 shadow-[0_0_8px_#10b981]"
-                      : "bg-red-500 shadow-[0_0_8px_#ef4444]"
-                  }`}
-                />
-                <span className="font-bold text-neutral-800">
-                  INCIDENT_LOG #89421
-                </span>
-                <span className="hidden text-neutral-400 sm:inline">·</span>
-                <span className="hidden font-semibold text-red-700 sm:inline">
-                  CARRIER REMARK: &ldquo;DOOR LOCKED&rdquo;
-                </span>
-                <span className="hidden text-neutral-400 lg:inline">·</span>
-                <span className="hidden text-neutral-500 lg:inline">
-                  SCAN: 02:14:12 PM
-                </span>
-              </div>
-
-              {/* Interactive Flip Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch("old")}
-                  className={`cursor-pointer rounded-full px-3.5 py-1 font-mono text-xs font-bold tracking-wider transition-all duration-300 ${
-                    !isRescue
-                      ? "border border-red-300 bg-white text-red-700 shadow-xs ring-1 ring-red-200"
-                      : "text-neutral-600 hover:text-neutral-900"
-                  }`}
-                >
-                  OLD METHOD (18H RTO TRAP)
-                </button>
-                <span className="text-xs text-neutral-400">vs</span>
-                <button
-                  type="button"
-                  onClick={() => handleModeSwitch("our")}
-                  className={`cursor-pointer rounded-full px-3.5 py-1 font-mono text-xs font-bold tracking-wider transition-all duration-300 ${
-                    isRescue
-                      ? "border border-emerald-500 bg-emerald-600 text-white shadow-xs ring-1 ring-emerald-400"
-                      : "text-neutral-600 hover:text-neutral-900"
-                  }`}
-                >
-                  OUR METHOD (SAME-DAY RESCUE)
-                </button>
-              </div>
-            </div>
+      {/* Sticky Viewport Container on Desktop; Natural Flow on Mobile */}
+      <div className="relative md:sticky md:top-0 flex min-h-auto md:min-h-screen flex-col justify-center overflow-hidden px-4 py-8 md:px-8 lg:px-12">
+        <div className="mx-auto w-full max-w-6xl">
+          {/* Top Eyebrow Header */}
+          <div className="mb-3 text-center font-mono text-[11px] font-semibold tracking-[0.2em] text-neutral-500 uppercase">
+            {isRescue
+              ? "THE 90-SECOND RESCUE PIPELINE · ZERO CARRIER CSVS"
+              : "OPERATIONAL REALITY · WHAT HAPPENS AT 2:14 PM ON THE STREET"}
           </div>
 
-          {/* 2. ELASTIC GALLERY + 3D FLIP STAGE (Fills Viewport Space) */}
-          <div className="my-2.5 flex min-h-0 flex-1 flex-col md:flex-row gap-3 w-full h-[480px] md:h-[500px]">
-            {[0, 1, 2, 3].map((index) => {
-              const isExpanded = activeIndex === index;
-              const oldStep = OLD_METHOD_STEPS[index];
-              const ourStep = OUR_METHOD_STEPS[index];
-
-              return (
-                <motion.div
-                  key={index}
-                  layout
-                  onClick={() => {
-                    setIsManualOverride(true);
-                    setActiveIndex(index);
-                    setTimeout(() => setIsManualOverride(false), 1500);
-                  }}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  initial={false}
-                  animate={{
-                    flex: isExpanded ? 4.4 : 0.85,
-                  }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 26,
-                    mass: 0.9,
-                  }}
-                  style={{ perspective: "1600px" }}
-                  className="group relative h-full min-h-[140px] cursor-pointer overflow-visible"
-                >
-                  {/* 3D Flipper Container: Rotates 180deg on Y-axis with staggered wave flip */}
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      rotateY: isRescue ? 180 : 0,
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 180,
-                      damping: 22,
-                      delay: index * 0.065, // Staggered wave flip across the 4 panels!
-                    }}
-                    style={{
-                      transformStyle: "preserve-3d",
-                    }}
-                    className="relative h-full w-full"
-                  >
-                    {/* ================= FRONT FACE: OLD METHOD ================= */}
-                    <div
-                      style={{ backfaceVisibility: "hidden" }}
-                      className={`absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border transition-colors duration-300 ${
-                        isExpanded
-                          ? "border-red-300 bg-white shadow-lg ring-1 ring-red-200"
-                          : "border-neutral-200/90 bg-neutral-900"
-                      }`}
-                    >
-                      <ElasticPanelContent
-                        step={oldStep}
-                        isExpanded={isExpanded}
-                        variant="old"
-                      />
-                    </div>
-
-                    {/* ================= BACK FACE: OUR METHOD (Rotated 180deg) ================= */}
-                    <div
-                      style={{
-                        backfaceVisibility: "hidden",
-                        transform: "rotateY(180deg)",
-                      }}
-                      className={`absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border transition-colors duration-300 ${
-                        isExpanded
-                          ? "border-emerald-400 bg-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-300"
-                          : "border-emerald-900/40 bg-neutral-900"
-                      }`}
-                    >
-                      <ElasticPanelContent
-                        step={ourStep}
-                        isExpanded={isExpanded}
-                        variant="our"
-                      />
-                    </div>
-                  </motion.div>
-                </motion.div>
-              );
-            })}
+          {/* Animated Headline & Subhead */}
+          <div className="mx-auto mb-6 max-w-3xl text-center">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 14, filter: "blur(4px)" }}
+                animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+                exit={{ opacity: 0, y: -14, filter: "blur(4px)" }}
+                transition={{ duration: 0.35, ease: "easeOut" }}
+              >
+                <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl text-neutral-900">
+                  {isRescue
+                    ? "This is where RescueShip helps you and your business."
+                    : "What actually happens at 2:14 PM on the street."}
+                </h2>
+                <p className="mt-3 text-sm text-neutral-600 md:text-base leading-relaxed">
+                  {isRescue
+                    ? "Instead of waiting 18 hours for tomorrow's dead-freight CSV, RescueShip intercepts the delivery failure in 12 seconds. While the driver is still on the same street, here is what happens instead:"
+                    : "Every D2C founder knows this sinking feeling. Your marketing spent ₹230 to get the order. Your warehouse picked and packed it with care. Then this happens:"}
+                </p>
+              </motion.div>
+            </AnimatePresence>
           </div>
 
-          {/* 3. BOTTOM PROGRESS INDICATOR & LIVE CHAT CUE */}
-          <div className="flex flex-col items-center gap-1.5 pt-1 font-mono text-xs text-neutral-500">
-            <div className="flex items-center justify-between w-full max-w-lg">
-              <div className="flex items-center gap-2">
-                {[0, 1, 2, 3].map((idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    aria-label={`Jump to step ${idx + 1}`}
-                    onClick={() => setActiveIndex(idx)}
-                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
-                      activeIndex === idx
-                        ? isRescue
-                          ? "w-8 bg-emerald-600"
-                          : "w-8 bg-red-500"
-                        : "w-2 bg-neutral-300 hover:bg-neutral-400"
-                    }`}
-                  />
-                ))}
-              </div>
-
-              <div className="text-center font-semibold uppercase tracking-wider text-[11px]">
-                {isRescue
-                  ? "✓ SAME-DAY RESCUE ACTIVE"
-                  : "⚠ 18H DEAD RTO TRAP"}
-              </div>
-
-              <div className="hidden sm:block text-[11px]">
-                MODE:{" "}
-                <span
-                  className={
-                    isRescue
-                      ? "font-bold text-emerald-700"
-                      : "font-bold text-red-700"
-                  }
-                >
-                  {isRescue ? "RESCUESHIP" : "LEGACY"}
-                </span>
-              </div>
-            </div>
-
-            {/* Scroll For Live Chat Interface with 3 Animated Chevrons */}
-            <div className="flex flex-col items-center justify-center -space-y-0.5 text-neutral-700">
-              <span className="font-semibold uppercase tracking-widest text-[11px]">
-                Scroll for live chat interface
+          {/* Interactive Incident Log Bar (Timeline Control Center) */}
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-neutral-300/80 bg-[#ECEAE4] px-4 py-2.5 font-mono text-xs shadow-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${
+                  isRescue ? "bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" : "bg-red-500"
+                }`}
+              />
+              <span className="font-semibold text-neutral-800">
+                INCIDENT_LOG #89421
               </span>
-              <div className="flex flex-col items-center -space-y-2 text-neutral-400">
-                <motion.div
-                  animate={{ y: [0, 4, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </motion.div>
-                <motion.div
-                  animate={{ y: [0, 4, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 1.4, repeat: Infinity, delay: 0.2, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </motion.div>
-                <motion.div
-                  animate={{ y: [0, 4, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 1.4, repeat: Infinity, delay: 0.4, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </motion.div>
-              </div>
+              <span className="text-neutral-400">·</span>
+              <span className="text-red-700 font-medium">
+                CARRIER REMARK: &ldquo;DOOR LOCKED&rdquo;
+              </span>
+              <span className="text-neutral-400 hidden sm:inline">·</span>
+              <span className="text-neutral-500 hidden sm:inline">SCAN: 02:14:12 PM</span>
             </div>
+
+            {/* Interactive Mode Switcher Pill */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("before")}
+                className={`rounded-md px-3 py-1 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+                  !isRescue
+                    ? "bg-rose-100 text-rose-800 ring-1 ring-rose-300 shadow-xs"
+                    : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60"
+                }`}
+              >
+                18H UN-INTERCEPTED RTO
+              </button>
+              <span className="text-neutral-400 text-xs">vs</span>
+              <button
+                type="button"
+                onClick={() => setMode("after")}
+                className={`rounded-md px-3 py-1 font-mono text-[11px] font-semibold transition-all cursor-pointer ${
+                  isRescue
+                    ? "bg-emerald-100 text-emerald-800 ring-1 ring-emerald-400 shadow-xs"
+                    : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/60"
+                }`}
+              >
+                90S RESCUESHIP SLA
+              </button>
+            </div>
+          </div>
+
+          {/* Animated SVG Progress Connector Beam Across 3 Steps */}
+          <div className="relative mb-3 hidden md:block">
+            <div className="h-1 w-full rounded-full bg-neutral-200 overflow-hidden">
+              <motion.div
+                key={mode}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 0.6, ease: "easeInOut" }}
+                className={`h-full ${
+                  isRescue
+                    ? "bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.6)]"
+                    : "bg-gradient-to-r from-rose-500 via-amber-500 to-stone-400"
+                }`}
+              />
+            </div>
+          </div>
+
+          {/* 3-Step Story Cards with Scroll / Mode Morphing */}
+          <div className="relative grid grid-cols-1 gap-5 md:grid-cols-3">
+            <AnimatePresence mode="wait">
+              {steps.map((step, index) => (
+                <TimelineCard
+                  key={`${mode}-${step.time}-${index}`}
+                  step={step}
+                  index={index}
+                  isRescue={isRescue}
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Hint indicator on desktop */}
+          <div className="mt-4 text-center hidden md:block">
+            <span className="font-mono text-[10px] tracking-wider text-neutral-400 uppercase">
+              {isRescue
+                ? "Autonomous resolution active · Scroll up to review failure log"
+                : "Scroll down to witness autonomous 90-second rescue"}
+            </span>
           </div>
 
           {/* Legacy backward compatibility harness for landing-v2.spec.ts assertions */}
@@ -466,162 +385,4 @@ export function RescueTimelineSection({
   );
 }
 
-/**
- * Renders the interior of each Elastic Gallery panel:
- * - Collapsed panels show their background image slice with dark tint + vertical text
- * - Expanded panel smoothly counter-scales the image (1.14 -> 1.0) and presents full details
- */
-function ElasticPanelContent({
-  step,
-  isExpanded,
-  variant,
-}: {
-  step: GalleryStep;
-  isExpanded: boolean;
-  variant: "old" | "our";
-}) {
-  const isRescue = variant === "our";
-
-  return (
-    <div className="relative flex h-full w-full flex-col justify-between overflow-hidden">
-      {/* COLLAPSED VERTICAL SLICE OVERLAY (Always shows real image + vertical label when collapsed!) */}
-      <motion.div
-        initial={false}
-        animate={{
-          opacity: isExpanded ? 0 : 1,
-          pointerEvents: isExpanded ? "none" : "auto",
-        }}
-        transition={{ duration: 0.25 }}
-        className="absolute inset-0 z-20 flex flex-col items-center justify-between p-3 text-white"
-      >
-        {/* Full-height background image inside collapsed slice */}
-        <img
-          src={step.image}
-          alt={step.title}
-          className="absolute inset-0 h-full w-full object-cover brightness-[0.42] contrast-110 transition-transform duration-700 group-hover:scale-110"
-        />
-        <div
-          className={`absolute inset-0 bg-gradient-to-b ${
-            isRescue
-              ? "from-emerald-950/70 via-black/40 to-emerald-950/85"
-              : "from-black/70 via-black/40 to-red-950/80"
-          }`}
-        />
-
-        {/* Step Number Pill at Top */}
-        <span
-          className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border font-mono text-xs font-bold backdrop-blur-xs ${
-            isRescue
-              ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
-              : "border-white/30 bg-white/10 text-white"
-          }`}
-        >
-          {step.stepNum}
-        </span>
-
-        {/* Vertical Rotated Label in Center */}
-        <div className="relative z-10 flex flex-1 items-center justify-center">
-          <div className="flex -rotate-90 items-center gap-2.5 whitespace-nowrap font-mono text-xs tracking-[0.2em] uppercase">
-            <span className="font-bold text-white">{step.shortTitle}</span>
-            <span className="text-white/50">·</span>
-            <span className={isRescue ? "text-emerald-300 font-semibold" : "text-amber-300 font-semibold"}>
-              {step.time}
-            </span>
-          </div>
-        </div>
-
-        {/* Bottom Indicator Dot */}
-        <span
-          className={`relative z-10 h-2 w-2 rounded-full ${
-            isRescue ? "bg-emerald-400" : "bg-red-400"
-          }`}
-        />
-      </motion.div>
-
-      {/* EXPANDED FULL CARD VIEW */}
-      <motion.div
-        initial={false}
-        animate={{
-          opacity: isExpanded ? 1 : 0,
-        }}
-        transition={{ duration: 0.3, delay: isExpanded ? 0.08 : 0 }}
-        className="relative z-10 flex h-full w-full flex-col justify-between p-4 md:p-5"
-      >
-        {/* Top Row: Timestamp + Status Pill + Step Counter */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2.5">
-            <span className="font-mono text-xl md:text-2xl font-extrabold tracking-tight text-neutral-900">
-              {step.time}
-            </span>
-            <span
-              className={`rounded-full px-2.5 py-0.5 font-mono text-xs font-bold tracking-wider uppercase ${
-                isRescue
-                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border border-red-200 bg-red-50 text-red-700"
-              }`}
-            >
-              {step.badge}
-            </span>
-          </div>
-
-          <span className="font-mono text-xs font-semibold text-neutral-400">
-            STEP {step.stepNum}
-          </span>
-        </div>
-
-        {/* Elastic Image Stage with Counter-Scale Transition */}
-        <div className="relative my-2.5 min-h-[160px] flex-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-900">
-          <motion.img
-            src={step.image}
-            alt={step.title}
-            initial={false}
-            animate={{
-              scale: isExpanded ? 1 : 1.14,
-            }}
-            transition={{
-              type: "spring",
-              stiffness: 200,
-              damping: 25,
-            }}
-            className="h-full w-full object-cover"
-          />
-
-          {/* Subtle Live Overlay Badge on Image */}
-          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-2 rounded-lg border border-white/20 bg-black/65 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur-md">
-            <span
-              className={`h-2 w-2 rounded-full ${
-                isRescue ? "bg-emerald-400 animate-pulse" : "bg-red-500"
-              }`}
-            />
-            <span>{step.shortTitle}</span>
-          </div>
-        </div>
-
-        {/* Copy Block */}
-        <div>
-          <h3 className="text-base md:text-lg font-bold tracking-tight text-neutral-900">
-            {step.title}
-          </h3>
-          <p className="mt-1 text-xs md:text-sm leading-relaxed text-neutral-600 line-clamp-2">
-            {step.description}
-          </p>
-
-          {/* Footer Bar */}
-          <div className="mt-2.5 flex items-center justify-between border-t border-neutral-100 pt-2 font-mono text-xs text-neutral-500">
-            <span
-              className={
-                isRescue ? "font-semibold text-emerald-700" : "text-neutral-700"
-              }
-            >
-              {step.footerLeft}
-            </span>
-            <span className="text-neutral-400">{step.footerRight}</span>
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-export { RescueTimelineSection as RescueElasticGallerySection };
 export default RescueTimelineSection;
