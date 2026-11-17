@@ -89,7 +89,9 @@ export function drawIosWhatsAppNotification(
   const radius = 22;
 
   ctx.save();
-  ctx.scale(cssScale, cssScale);
+  if (cssScale !== 1) {
+    ctx.scale(cssScale, cssScale);
+  }
 
   // 1. Soft iOS ambient drop shadow
   ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
@@ -209,21 +211,22 @@ export function drawWhatsAppNotif(
 ): void {
   const context = canvas.getContext('2d');
   if (!context) return;
-  const isInner = canvas.width > 1600;
+  const isInner = canvas.width > 1200;
 
-  // Outer plate: 1398 x 2034 representing 470px CSS width. cssScale = 1398 / 470 = 2.974
-  // Inner plate: 2048 x 1441 representing 956px CSS width. cssScale = 2048 / 956 = 2.142
-  const cssScale = isInner ? canvas.width / 956 : canvas.width / 470;
-  const centerX = isInner ? 956 / 2 : 470 / 2;
-  const topY = 285;
+  // Outer plate: 774px canvas representing 470px CSS width. cssScale = 774 / 470 = 1.6468
+  // Inner plate: 1600px canvas representing 956px CSS width. cssScale = 1600 / 956 = 1.6736
+  const targetWidth = isInner ? 956 : 470;
+  const cssScale = canvas.width / targetWidth;
+  const centerX = targetWidth / 2;
+  const topY = isInner ? 220 : 280;
   const cardWidth = isInner ? 560 : 412;
   const cardHeight = 96;
 
   // Clear previous notification pixels cleanly
   context.save();
   context.globalCompositeOperation = 'destination-out';
-  const clearY = Math.max(0, (topY - 50) * cssScale);
-  const clearH = (cardHeight + 100) * cssScale;
+  const clearY = Math.max(0, (topY - 40) * cssScale);
+  const clearH = (cardHeight + 80) * cssScale;
   context.fillRect(0, clearY, canvas.width, clearH);
   context.restore();
 
@@ -232,15 +235,16 @@ export function drawWhatsAppNotif(
   context.save();
   context.globalAlpha = Math.max(0, Math.min(1, pop));
 
-  // iOS subtle spring pop-in
-  const animScale = 0.92 + pop * 0.08;
-  const animY = (1 - pop) * -20;
-  context.translate(centerX * cssScale, (topY + cardHeight / 2) * cssScale);
-  context.scale(animScale, animScale);
-  context.translate(-centerX * cssScale, -(topY + cardHeight / 2) * cssScale);
-  context.translate(0, animY * cssScale);
+  // Transform once: scale canvas to CSS space + spring pop
+  const animScale = 0.94 + pop * 0.06;
+  const animY = (1 - pop) * -16;
 
-  drawIosWhatsAppNotification(context, centerX, topY, cardWidth, cssScale);
+  context.translate(centerX * cssScale, (topY + cardHeight / 2) * cssScale);
+  context.scale(cssScale * animScale, cssScale * animScale);
+  context.translate(-centerX, -(topY + cardHeight / 2));
+  context.translate(0, animY);
+
+  drawIosWhatsAppNotification(context, centerX, topY, cardWidth, 1);
 
   context.restore();
 }

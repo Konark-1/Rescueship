@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef } from "react";
-import { motion, useScroll, useTransform } from "framer-motion";
+import { motion, useScroll, useTransform } from "motion/react";
 
 export interface RescueExpansionHeroProps {
   /** Pass a video URL (.mp4) or image URL, OR pass your custom React dashboard/demo via children */

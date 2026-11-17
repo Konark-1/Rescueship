@@ -139,22 +139,19 @@ export function RescueCommandHero({
         {/* FOREGROUND FLOATING CARD 1: Top-Left Carrier Webhook Trigger */}
         <motion.div
           style={{ y: floatLeftY }}
-          initial={{ opacity: 0, x: -24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.3 }}
-          className="pointer-events-none absolute -top-5 -left-2 z-30 hidden w-64 rounded-xl border border-neutral-200/90 bg-white/95 p-3.5 shadow-xl backdrop-blur-md lg:block"
+          className="pointer-events-none absolute -top-10 -left-4 xl:-left-14 xl:-top-6 z-30 hidden w-64 rounded-xl border border-neutral-200 bg-white p-3.5 shadow-xl lg:block"
         >
           <div className="flex items-center justify-between font-mono text-[10px]">
-            <span className="flex items-center gap-1.5 font-bold text-red-700">
-              <span className="h-2 w-2 rounded-full bg-red-600 animate-ping" />
+            <span className="flex items-center gap-1.5 font-bold text-red-800">
+              <span className="h-2 w-2 rounded-full bg-red-600" />
               NDR WEBHOOK CAUGHT
             </span>
-            <span className="text-neutral-600">14:14:12</span>
+            <span className="text-neutral-700 font-medium">14:14:12</span>
           </div>
           <div className="mt-1.5 text-xs font-bold text-neutral-900">
             Delhivery · AWB #4923118876
           </div>
-          <div className="mt-1 rounded bg-red-50 px-2 py-1 font-mono text-[10px] font-semibold text-red-800">
+          <div className="mt-1 rounded bg-red-100/90 px-2 py-1 font-mono text-[10px] font-bold text-red-950">
             Remark: &ldquo;Consignee Door Locked&rdquo;
           </div>
         </motion.div>
@@ -162,22 +159,19 @@ export function RescueCommandHero({
         {/* FOREGROUND FLOATING CARD 2: Mid-Right Buyer WhatsApp Verification */}
         <motion.div
           style={{ y: floatRightY }}
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.6, delay: 0.4 }}
-          className="pointer-events-none absolute top-1/3 -right-3 z-30 hidden w-68 rounded-xl border border-emerald-200 bg-white/95 p-3.5 shadow-xl backdrop-blur-md lg:block"
+          className="pointer-events-none absolute top-1/4 -right-4 xl:-right-14 z-30 hidden w-68 rounded-xl border border-emerald-200 bg-white p-3.5 shadow-xl lg:block"
         >
           <div className="flex items-center justify-between font-mono text-[10px]">
             <span className="flex items-center gap-1.5 font-bold text-emerald-800">
               <span className="h-2 w-2 rounded-full bg-emerald-600" />
               WHATSAPP PIN VERIFIED
             </span>
-            <span className="text-neutral-600 font-medium">+42s</span>
+            <span className="text-neutral-700 font-medium">+42s</span>
           </div>
           <div className="mt-1.5 text-xs font-bold text-neutral-900">
             Buyer confirmed availability + GPS
           </div>
-          <div className="mt-1 rounded bg-emerald-50 px-2 py-1 font-mono text-[10px] font-bold text-emerald-900">
+          <div className="mt-1 rounded bg-emerald-100/90 px-2 py-1 font-mono text-[10px] font-bold text-emerald-950">
             ✓ Converted ₹1,240 COD → UPI Prepaid
           </div>
         </motion.div>
@@ -185,10 +179,7 @@ export function RescueCommandHero({
         {/* FOREGROUND FLOATING CARD 3: Bottom-Left Rider Re-Route Metric */}
         <motion.div
           style={{ y: floatLeftY }}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6, delay: 0.5 }}
-          className="pointer-events-none absolute -bottom-5 left-8 z-30 hidden items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-white shadow-2xl lg:flex"
+          className="pointer-events-none absolute -bottom-7 left-4 xl:-bottom-8 xl:left-8 z-30 hidden items-center gap-3 rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-white shadow-2xl lg:flex"
         >
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-500/20 font-mono text-sm font-bold text-emerald-400">
             ₹430

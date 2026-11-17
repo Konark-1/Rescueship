@@ -235,6 +235,27 @@ export const FoldfolioShowcase: React.FC = () => {
     }
   }, [messages, stage, dashboardLive]);
 
+  // Cache positioner offsets on resize to eliminate synchronous layout reflows during RAF
+  const offsetsRef = useRef({ left: 0, top: 0, zoom: 1 });
+  useEffect(() => {
+    const updateOffsets = () => {
+      const positioner = positionerRef.current;
+      const viewport = viewportRef.current;
+      if (!positioner || !viewport) return;
+      const pr = positioner.getBoundingClientRect();
+      const vr = viewport.getBoundingClientRect();
+      const zoom = parseFloat(getComputedStyle(viewport).zoom) || 1;
+      offsetsRef.current = {
+        left: (pr.left - vr.left) / zoom,
+        top: (pr.top - vr.top) / zoom,
+        zoom,
+      };
+    };
+    updateOffsets();
+    window.addEventListener('resize', updateOffsets, { passive: true });
+    return () => window.removeEventListener('resize', updateOffsets);
+  }, []);
+
   // Registers the panoramic HTML overlay with the WebGL phone's projected
   // inner-screen quad so the home screen / WhatsApp app fill the actual display
   // area of the 3D model (no "screen inside a screen" floating box).
@@ -242,14 +263,9 @@ export const FoldfolioShowcase: React.FC = () => {
     (frame: ScreenFrame | null) => {
       const overlay = panoramaRef.current;
       if (!overlay || !frame) return;
-      const positioner = positionerRef.current;
-      const viewport = viewportRef.current;
-      if (!positioner || !viewport) return;
-      const pr = positioner.getBoundingClientRect();
-      const vr = viewport.getBoundingClientRect();
-      const zoom = parseFloat(getComputedStyle(viewport).zoom) || 1;
-      overlay.style.left = `${frame.left - (pr.left - vr.left) / zoom}px`;
-      overlay.style.top = `${frame.top - (pr.top - vr.top) / zoom}px`;
+      const { left, top } = offsetsRef.current;
+      overlay.style.left = `${frame.left - left}px`;
+      overlay.style.top = `${frame.top - top}px`;
       overlay.style.width = `${frame.width}px`;
       overlay.style.height = `${frame.height}px`;
       overlay.style.borderRadius = `${frame.radius}px`;
@@ -491,6 +507,54 @@ export const FoldfolioShowcase: React.FC = () => {
             <p className="rs-fold-subtitle">
               Scroll to unfold the dual display. An unverified "Door Locked" scan is intercepted on WhatsApp within 90 seconds, confirmed by the buyer, and re-dispatched to the courier.
             </p>
+            {/* Quick Stage Jump Controls */}
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-3 z-30 pointer-events-auto">
+              <button
+                type="button"
+                onClick={() => jumpToStage(0.05)}
+                className={`px-3 py-1 rounded-full text-xs font-mono transition cursor-pointer ${
+                  activeP < 0.22
+                    ? "bg-white/20 text-white font-bold border border-white/30 shadow-xs"
+                    : "bg-white/5 text-neutral-400 hover:text-white"
+                }`}
+              >
+                1. Lock Screen
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToStage(0.35)}
+                className={`px-3 py-1 rounded-full text-xs font-mono transition cursor-pointer ${
+                  activeP >= 0.22 && activeP < 0.54
+                    ? "bg-white/20 text-white font-bold border border-white/30 shadow-xs"
+                    : "bg-white/5 text-neutral-400 hover:text-white"
+                }`}
+              >
+                2. Unfolding Duo
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToStage(0.65)}
+                className={`px-3 py-1 rounded-full text-xs font-mono transition cursor-pointer ${
+                  activeP >= 0.54 && activeP < 0.72
+                    ? "bg-white/20 text-white font-bold border border-white/30 shadow-xs"
+                    : "bg-white/5 text-neutral-400 hover:text-white"
+                }`}
+              >
+                3. Home Screen
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToStage(0.88)}
+                className={`px-3 py-1 rounded-full text-xs font-mono transition flex items-center gap-1.5 cursor-pointer ${
+                  activeP >= 0.72
+                    ? "bg-emerald-500/25 text-emerald-300 font-bold border border-emerald-500/40 shadow-xs"
+                    : "bg-white/5 text-neutral-400 hover:text-white"
+                }`}
+              >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                4. Interactive WhatsApp (Live)
+              </button>
+            </div>
           </div>
         </header>
 

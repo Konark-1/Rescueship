@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   MapPin,
   CheckCheck,
@@ -15,6 +15,8 @@ import {
   Sparkles,
   ShieldCheck,
   ArrowRight,
+  Wifi,
+  Battery,
 } from "lucide-react";
 
 interface ChatMessage {
@@ -25,7 +27,7 @@ interface ChatMessage {
   isPin?: boolean;
 }
 
-type StepMode = "folded" | "unfolded" | "whatsapp" | "telemetry";
+type StepMode = "folded" | "unfolded" | "whatsapp";
 
 const INITIAL_MESSAGES: ChatMessage[] = [
   {
@@ -133,14 +135,14 @@ export function RescueHeroDuoSimulator() {
   };
 
   return (
-    <div className="w-full bg-[#0E1110] text-neutral-200">
+    <div className="w-full bg-[#0A0C0B] text-neutral-200">
       {/* ================= STEP SELECTOR PILLS ================= */}
-      <div className="flex flex-wrap items-center justify-between border-b border-white/10 bg-[#161918] px-4 py-2.5 gap-2">
+      <div className="flex flex-wrap items-center justify-between border-b border-white/10 bg-[#141716] px-4 py-2.5 gap-2">
         <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
           <button
             type="button"
             onClick={() => setCurrentStep("folded")}
-            className={`rounded-md px-3 py-1.5 transition ${
+            className={`rounded-md px-3 py-1.5 transition cursor-pointer ${
               currentStep === "folded"
                 ? "bg-white/20 text-white font-semibold shadow-xs"
                 : "text-neutral-400 hover:text-white hover:bg-white/5"
@@ -151,7 +153,7 @@ export function RescueHeroDuoSimulator() {
           <button
             type="button"
             onClick={() => setCurrentStep("unfolded")}
-            className={`rounded-md px-3 py-1.5 transition ${
+            className={`rounded-md px-3 py-1.5 transition cursor-pointer ${
               currentStep === "unfolded"
                 ? "bg-white/20 text-white font-semibold shadow-xs"
                 : "text-neutral-400 hover:text-white hover:bg-white/5"
@@ -162,8 +164,8 @@ export function RescueHeroDuoSimulator() {
           <button
             type="button"
             onClick={() => setCurrentStep("whatsapp")}
-            className={`rounded-md px-3 py-1.5 transition flex items-center gap-1.5 ${
-              currentStep === "whatsapp" || currentStep === "telemetry"
+            className={`rounded-md px-3 py-1.5 transition flex items-center gap-1.5 cursor-pointer ${
+              currentStep === "whatsapp"
                 ? "bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30"
                 : "text-neutral-400 hover:text-white hover:bg-white/5"
             }`}
@@ -179,8 +181,8 @@ export function RescueHeroDuoSimulator() {
             <button
               type="button"
               onClick={() => setActiveTabMobile("buyer")}
-              className={`px-2.5 py-1 rounded-md ${
-                activeTabMobile === "buyer" ? "bg-emerald-600 text-white" : "text-neutral-400"
+              className={`px-2.5 py-1 rounded-md cursor-pointer ${
+                activeTabMobile === "buyer" ? "bg-emerald-600 text-white font-bold" : "text-neutral-400"
               }`}
             >
               WhatsApp
@@ -188,8 +190,8 @@ export function RescueHeroDuoSimulator() {
             <button
               type="button"
               onClick={() => setActiveTabMobile("courier")}
-              className={`px-2.5 py-1 rounded-md ${
-                activeTabMobile === "courier" ? "bg-emerald-600 text-white" : "text-neutral-400"
+              className={`px-2.5 py-1 rounded-md cursor-pointer ${
+                activeTabMobile === "courier" ? "bg-emerald-600 text-white font-bold" : "text-neutral-400"
               }`}
             >
               Telemetry
@@ -199,7 +201,7 @@ export function RescueHeroDuoSimulator() {
           <button
             type="button"
             onClick={handleReset}
-            className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] text-neutral-400 hover:bg-white/10 hover:text-white transition"
+            className="flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2.5 py-1 font-mono text-[11px] text-neutral-400 hover:bg-white/10 hover:text-white transition cursor-pointer"
             title="Reset Simulation"
           >
             <RotateCcw size={12} />
@@ -210,48 +212,74 @@ export function RescueHeroDuoSimulator() {
 
       {/* ================= STEP 1: FOLDED COVER VIEW ================= */}
       {currentStep === "folded" && (
-        <div className="flex min-h-[460px] flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-[#141816] to-[#0A0D0B]">
-          <div className="w-full max-w-xs rounded-[32px] border-[5px] border-neutral-700 bg-neutral-900 p-4 shadow-2xl">
-            {/* Dynamic Island */}
-            <div className="mx-auto mb-6 h-5 w-24 rounded-full bg-black" />
-            {/* Clock */}
-            <div className="font-mono text-3xl font-bold text-white">14:14</div>
-            <div className="text-xs text-neutral-400">Tuesday, 10 November</div>
+        <div className="flex min-h-[520px] flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-[#121614] via-[#0E1210] to-[#080A09]">
+          {/* Authentic iPhone 16 Pro Folded Chassis */}
+          <div className="relative w-full max-w-[340px] rounded-[48px] border-[6px] border-[#383C3A] bg-[#0B0D0C] p-4 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8),inset_0_0_0_1px_rgba(255,255,255,0.15)] ring-1 ring-black">
+            {/* Side Buttons Reflection */}
+            <div className="absolute -left-[9px] top-24 h-12 w-1 rounded-l-md bg-[#484C4A]" />
+            <div className="absolute -left-[9px] top-40 h-12 w-1 rounded-l-md bg-[#484C4A]" />
+            <div className="absolute -right-[9px] top-28 h-16 w-1 rounded-r-md bg-[#484C4A]" />
 
-            {/* Lock Screen Notification */}
-            <div className="mt-8 rounded-2xl border border-red-500/30 bg-red-950/40 p-3.5 text-left backdrop-blur-md">
-              <div className="flex items-center justify-between text-[11px] text-red-300 font-mono">
-                <span className="font-bold flex items-center gap-1">
-                  <span className="h-1.5 w-1.5 rounded-full bg-red-400 animate-ping" />
-                  DELHIVERY SCAN
-                </span>
-                <span>Now</span>
-              </div>
-              <div className="mt-1 text-xs font-semibold text-white">
-                Remark: Consignee Door Locked
-              </div>
-              <div className="mt-0.5 text-[11px] text-neutral-300">
-                AWB #4923118876 · Attempt 1 of 3
+            {/* Dynamic Island Pill */}
+            <div className="mx-auto mb-4 flex h-6 w-28 items-center justify-between rounded-full bg-black px-2.5 shadow-xs">
+              <span className="h-2.5 w-2.5 rounded-full bg-[#181818] border border-white/10" />
+              <span className="h-2 w-2 rounded-full bg-[#083020] border border-emerald-500/40" />
+            </div>
+
+            {/* Screen Top Status */}
+            <div className="flex items-center justify-between px-3 text-[11px] font-mono text-neutral-400">
+              <span>9:41</span>
+              <div className="flex items-center gap-1.5">
+                <Wifi size={12} />
+                <Battery size={14} />
               </div>
             </div>
 
-            {/* WhatsApp Intercept Preview */}
-            <div className="mt-3 rounded-2xl border border-emerald-500/30 bg-emerald-950/40 p-3.5 text-left backdrop-blur-md">
-              <div className="flex items-center justify-between text-[11px] text-emerald-300 font-mono">
-                <span className="font-bold">RESCUESHIP WHATSAPP</span>
-                <span>12s ago</span>
+            {/* Lock Screen Clock */}
+            <div className="mt-4 font-mono text-5xl font-extrabold tracking-tight text-white">
+              14:14
+            </div>
+            <div className="text-xs text-neutral-400 font-medium mt-0.5">
+              Tuesday, 10 November
+            </div>
+
+            {/* Lock Screen Carrier Scan Alert (Crisp Frosted Glass) */}
+            <div className="mt-8 rounded-2xl border border-red-500/40 bg-gradient-to-b from-red-950/60 to-black/80 p-3.5 text-left backdrop-blur-md shadow-lg">
+              <div className="flex items-center justify-between font-mono text-[10px]">
+                <span className="flex items-center gap-1.5 font-bold text-red-400">
+                  <span className="h-2 w-2 rounded-full bg-red-500 animate-ping" />
+                  DELHIVERY SCAN ALERT
+                </span>
+                <span className="text-neutral-400">Just Now</span>
               </div>
-              <div className="mt-1 text-xs text-white">
-                ⚠️ Door Locked scan caught. Are you available?
+              <div className="mt-1.5 text-xs font-bold text-white">
+                Remark: &ldquo;Customer Unavailable / Door Locked&rdquo;
+              </div>
+              <div className="mt-1 text-[11px] text-neutral-300">
+                AWB #4923118876 · Attempt 1 of 3 (0 Call Logs Detected)
+              </div>
+            </div>
+
+            {/* WhatsApp Intercept Pill Preview */}
+            <div className="mt-3 rounded-2xl border border-emerald-500/40 bg-gradient-to-b from-emerald-950/60 to-black/80 p-3.5 text-left backdrop-blur-md shadow-lg">
+              <div className="flex items-center justify-between font-mono text-[10px]">
+                <span className="flex items-center gap-1.5 font-bold text-emerald-400">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  RESCUESHIP 12s INTERCEPT
+                </span>
+                <span className="text-neutral-400">+12s</span>
+              </div>
+              <div className="mt-1.5 text-xs font-semibold text-white">
+                ⚠️ Intercepted: Are you home to receive your order?
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setCurrentStep("whatsapp")}
-              className="mt-6 flex w-full items-center justify-center gap-1.5 rounded-xl bg-emerald-600 py-2.5 text-xs font-bold text-white shadow-md hover:bg-emerald-500 transition"
+              className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 py-3 text-xs font-bold text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500 transition cursor-pointer"
             >
-              <span>Unfold to Inspect Intercept</span>
+              <span>Unfold iPhone Duo to Intercept</span>
               <ArrowRight size={14} />
             </button>
           </div>
@@ -260,8 +288,8 @@ export function RescueHeroDuoSimulator() {
 
       {/* ================= STEP 2: UNFOLDED HOME VIEW ================= */}
       {currentStep === "unfolded" && (
-        <div className="flex min-h-[460px] flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-[#141816] to-[#0A0D0B]">
-          <div className="w-full max-w-xl rounded-3xl border border-neutral-700 bg-neutral-900/90 p-6 shadow-2xl">
+        <div className="flex min-h-[520px] flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-[#121614] via-[#0E1210] to-[#080A09]">
+          <div className="w-full max-w-xl rounded-3xl border border-neutral-700/80 bg-neutral-900/90 p-6 shadow-2xl backdrop-blur-md">
             <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3.5 py-1 font-mono text-xs text-emerald-400">
               <Sparkles size={13} />
               DUAL DISPLAY UNFOLDED
@@ -270,17 +298,17 @@ export function RescueHeroDuoSimulator() {
               Two Screens, One Unified Telemetry Engine
             </h3>
             <p className="mt-2 text-sm text-neutral-400 max-w-md mx-auto">
-              The buyer confirms on WhatsApp while Delhivery&apos;s field courier system receives the real-time re-attempt mandate.
+              The buyer confirms presence on WhatsApp while Delhivery&apos;s field courier system receives the real-time re-attempt mandate.
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-4 text-left">
               <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <div className="font-mono text-[11px] font-bold text-emerald-400">LEFT WING</div>
+                <div className="font-mono text-[11px] font-bold text-emerald-400">LEFT DISPLAY</div>
                 <div className="text-sm font-semibold text-white mt-1">Buyer WhatsApp Intercept</div>
-                <div className="text-xs text-neutral-400 mt-1">1-tap GPS pins, cancellation save discounts, UPI prepayment.</div>
+                <div className="text-xs text-neutral-400 mt-1">1-tap GPS pins, cancellation saves, instant UPI conversion.</div>
               </div>
               <div className="rounded-xl border border-neutral-800 bg-neutral-950 p-4">
-                <div className="font-mono text-[11px] font-bold text-amber-300">RIGHT WING</div>
+                <div className="font-mono text-[11px] font-bold text-amber-300">RIGHT DISPLAY</div>
                 <div className="text-sm font-semibold text-white mt-1">Live Courier Telemetry</div>
                 <div className="text-xs text-neutral-400 mt-1">NDR API webhook hold, 38s turnaround, rider SMS gateway.</div>
               </div>
@@ -289,7 +317,7 @@ export function RescueHeroDuoSimulator() {
             <button
               type="button"
               onClick={() => setCurrentStep("whatsapp")}
-              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-500 transition"
+              className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-md hover:bg-emerald-500 transition cursor-pointer"
             >
               <span>Launch Live WhatsApp Intercept Demo</span>
               <ArrowRight size={16} />
@@ -298,11 +326,25 @@ export function RescueHeroDuoSimulator() {
         </div>
       )}
 
-      {/* ================= STEP 3 & 4: INTERACTIVE DUAL DISPLAY STAGE ================= */}
-      {(currentStep === "whatsapp" || currentStep === "telemetry") && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-white/10 min-h-[560px]">
-          {/* ──────────────── LEFT PANE: BUYER WHATSAPP ──────────────── */}
-          <div className={`flex flex-col bg-[#0B141A] ${activeTabMobile === "courier" ? "hidden lg:flex" : "flex"}`}>
+      {/* ================= STEP 3: INTERACTIVE DUAL DISPLAY HARDWARE ================= */}
+      {currentStep === "whatsapp" && (
+        <div className="relative flex flex-col lg:flex-row min-h-[580px] bg-[#0A0C0B]">
+          {/* ──────────────── LEFT PHONE: BUYER WHATSAPP DISPLAY ──────────────── */}
+          <div className={`flex flex-col flex-1 bg-[#0B141A] lg:border-r lg:border-white/10 ${activeTabMobile === "courier" ? "hidden lg:flex" : "flex"}`}>
+            {/* Phone Top Notch / Dynamic Island Bar */}
+            <div className="flex items-center justify-between px-4 pt-2.5 pb-1 bg-[#1A2328] text-[11px] font-mono text-neutral-400">
+              <span>9:41</span>
+              {/* Dynamic Island Pill */}
+              <div className="h-4 w-20 rounded-full bg-black flex items-center justify-between px-2 text-[9px] text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>12s SLA</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Wifi size={12} />
+                <Battery size={14} />
+              </div>
+            </div>
+
             {/* WhatsApp Business Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[#1A2328] px-3.5 py-2.5 text-white">
               <div className="flex items-center gap-2.5">
@@ -334,8 +376,8 @@ export function RescueHeroDuoSimulator() {
               </div>
             </div>
 
-            {/* Chat Thread */}
-            <div className="flex-1 overflow-y-auto p-3.5 space-y-3 font-sans text-xs bg-[#0B141A] min-h-[340px]">
+            {/* Chat Messages Feed */}
+            <div className="flex-1 overflow-y-auto p-3.5 space-y-3 font-sans text-xs bg-[#0B141A] min-h-[320px]">
               {messages.map((m) => {
                 if (m.sender === "system") {
                   return (
@@ -375,14 +417,14 @@ export function RescueHeroDuoSimulator() {
             <div className="border-t border-white/10 bg-[#111B21] p-3 space-y-2">
               <div className="flex items-center justify-between text-[10px] font-mono text-neutral-400">
                 <span>⚡ TAP ACTION TO TEST RESCUE FLOW:</span>
-                <span className="text-emerald-400">Real-Time</span>
+                <span className="text-emerald-400 font-semibold">Real-Time</span>
               </div>
 
               <div className="grid grid-cols-2 gap-1.5 text-xs">
                 <button
                   type="button"
                   onClick={() => handleUserAction("home")}
-                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between ${
+                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between cursor-pointer ${
                     statusState === "home_confirmed"
                       ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
                       : "border-white/10 bg-[#202C33] text-neutral-200 hover:border-emerald-500/50 hover:bg-[#2A3942]"
@@ -395,7 +437,7 @@ export function RescueHeroDuoSimulator() {
                 <button
                   type="button"
                   onClick={() => handleUserAction("pin")}
-                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between ${
+                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between cursor-pointer ${
                     statusState === "pin_shared"
                       ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
                       : "border-white/10 bg-[#202C33] text-neutral-200 hover:border-emerald-500/50 hover:bg-[#2A3942]"
@@ -411,7 +453,7 @@ export function RescueHeroDuoSimulator() {
                 <button
                   type="button"
                   onClick={() => handleUserAction("upi")}
-                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between ${
+                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between cursor-pointer ${
                     statusState === "upi_converted"
                       ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
                       : "border-white/10 bg-[#202C33] text-neutral-200 hover:border-emerald-500/50 hover:bg-[#2A3942]"
@@ -424,7 +466,7 @@ export function RescueHeroDuoSimulator() {
                 <button
                   type="button"
                   onClick={() => handleUserAction("cancel")}
-                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between ${
+                  className={`rounded-lg border px-3 py-2 text-left font-medium transition flex items-center justify-between cursor-pointer ${
                     statusState === "cancelled"
                       ? "border-red-500 bg-red-500/20 text-red-300"
                       : "border-white/10 bg-[#202C33] text-neutral-300 hover:border-red-500/50 hover:bg-[#2A3942]"
@@ -437,7 +479,7 @@ export function RescueHeroDuoSimulator() {
 
               {/* iOS Bottom Input Pill Bar */}
               <div className="flex items-center gap-2 pt-1 text-neutral-400">
-                <Plus size={18} className="text-[#00A884]" />
+                <Plus size={18} className="text-emerald-400" />
                 <div className="flex-1 rounded-full bg-[#2A3942] px-3.5 py-1.5 text-[11px] text-neutral-300">
                   {statusState !== "initial"
                     ? "Order rescue locked · Carrier notified"
@@ -449,8 +491,15 @@ export function RescueHeroDuoSimulator() {
             </div>
           </div>
 
-          {/* ──────────────── RIGHT PANE: LIVE COURIER OS & TELEMETRY ──────────────── */}
-          <div className={`flex flex-col bg-[#0D0F0E] text-neutral-200 ${activeTabMobile === "buyer" ? "hidden lg:flex" : "flex"}`}>
+          {/* ──────────────── CENTER PRECISION TITANIUM HINGE ──────────────── */}
+          <div className="hidden lg:flex w-2.5 flex-col justify-around bg-gradient-to-r from-[#1A1A18] via-[#3C3E3B] to-[#1A1A18] border-x border-black/50 shadow-inner py-8">
+            <div className="h-6 w-full rounded-sm bg-neutral-600/40" />
+            <div className="h-6 w-full rounded-sm bg-neutral-600/40" />
+            <div className="h-6 w-full rounded-sm bg-neutral-600/40" />
+          </div>
+
+          {/* ──────────────── RIGHT SCREEN: LIVE COURIER OS & TELEMETRY ──────────────── */}
+          <div className={`flex flex-col flex-1 bg-[#0D0F0E] text-neutral-200 ${activeTabMobile === "buyer" ? "hidden lg:flex" : "flex"}`}>
             {/* Telemetry Header */}
             <div className="flex items-center justify-between border-b border-white/10 bg-[#141716] px-4 py-2.5">
               <div className="flex items-center gap-2 font-mono text-xs text-neutral-200 font-bold">
