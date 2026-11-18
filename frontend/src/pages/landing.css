@@ -9628,7 +9628,7 @@ html {
   border-bottom: 1px solid rgb(244 241 234 / 10%) !important;
   border-radius: 0 !important;
   background: transparent !important;
-  opacity: 1 !important;
+  opacity: 0.5 !important;
   transition: all 0.2s ease !important;
 }
 
