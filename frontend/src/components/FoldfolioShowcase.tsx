@@ -94,7 +94,6 @@ export const FoldfolioShowcase: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
-  const positionerRef = useRef<HTMLDivElement>(null);
   const panoramaRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
   const [webglReady, setWebglReady] = useState(false);
@@ -203,13 +202,9 @@ export const FoldfolioShowcase: React.FC = () => {
   const appLaunchT = rawAppLaunch * rawAppLaunch * (3 - 2 * rawAppLaunch);
   const isAppInteractive = activeP >= 0.76;
 
-  const chassisShiftX = -(1 - unfoldT) * 235;
-
   // Drive 3D model kinematics via unfoldT
   const openness = unfoldT;
   const notifPopT = Math.max(0, Math.min(1, (activeP - 0.02) / 0.08));
-  const swingArcTiltX = Math.sin(openness * Math.PI) * 7;
-  const swingArcTiltY = -7 * (1 - openness);
   const dashboardLive = isAppInteractive;
 
   // Sequential WhatsApp flow state
@@ -235,27 +230,6 @@ export const FoldfolioShowcase: React.FC = () => {
     }
   }, [messages, stage, dashboardLive]);
 
-  // Cache positioner offsets on resize to eliminate synchronous layout reflows during RAF
-  const offsetsRef = useRef({ left: 0, top: 0, zoom: 1 });
-  useEffect(() => {
-    const updateOffsets = () => {
-      const positioner = positionerRef.current;
-      const viewport = viewportRef.current;
-      if (!positioner || !viewport) return;
-      const pr = positioner.getBoundingClientRect();
-      const vr = viewport.getBoundingClientRect();
-      const zoom = parseFloat(getComputedStyle(viewport).zoom) || 1;
-      offsetsRef.current = {
-        left: (pr.left - vr.left) / zoom,
-        top: (pr.top - vr.top) / zoom,
-        zoom,
-      };
-    };
-    updateOffsets();
-    window.addEventListener('resize', updateOffsets, { passive: true });
-    return () => window.removeEventListener('resize', updateOffsets);
-  }, []);
-
   // Registers the panoramic HTML overlay with the WebGL phone's projected
   // inner-screen quad so the home screen / WhatsApp app fill the actual display
   // area of the 3D model (no "screen inside a screen" floating box).
@@ -263,9 +237,8 @@ export const FoldfolioShowcase: React.FC = () => {
     (frame: ScreenFrame | null) => {
       const overlay = panoramaRef.current;
       if (!overlay || !frame) return;
-      const { left, top } = offsetsRef.current;
-      overlay.style.left = `${frame.left - left}px`;
-      overlay.style.top = `${frame.top - top}px`;
+      overlay.style.left = `${frame.left}px`;
+      overlay.style.top = `${frame.top}px`;
       overlay.style.width = `${frame.width}px`;
       overlay.style.height = `${frame.height}px`;
       overlay.style.borderRadius = `${frame.radius}px`;
@@ -275,21 +248,24 @@ export const FoldfolioShowcase: React.FC = () => {
     []
   );
 
-  // Non-WebGL fallback: size the overlay to the CSS chassis screens instead.
+  // Non-WebGL fallback: center the overlay in the viewport if 3D model is unavailable
   useEffect(() => {
     if (webglReady) return;
     const applyFallback = () => {
       const overlay = panoramaRef.current;
-      const positioner = positionerRef.current;
-      if (!overlay || !positioner) return;
-      const pr = positioner.getBoundingClientRect();
-      const insetX = pr.width * 0.032;
-      const insetY = pr.height * 0.032;
-      overlay.style.left = `${insetX}px`;
-      overlay.style.top = `${insetY}px`;
-      overlay.style.width = `${pr.width - insetX * 2}px`;
-      overlay.style.height = `${pr.height - insetY * 2}px`;
-      overlay.style.borderRadius = '36px';
+      const viewport = viewportRef.current;
+      if (!overlay || !viewport) return;
+      const vr = viewport.getBoundingClientRect();
+      const zoom = parseFloat(getComputedStyle(viewport).zoom) || 1;
+      const vw = vr.width / zoom;
+      const vh = vr.height / zoom;
+      const w = Math.min(948, vw * 0.9);
+      const h = w * (660 / 948);
+      overlay.style.left = `${(vw - w) / 2}px`;
+      overlay.style.top = `${(vh - h) / 2}px`;
+      overlay.style.width = `${w}px`;
+      overlay.style.height = `${h}px`;
+      overlay.style.borderRadius = '38px';
       overlay.style.right = 'auto';
       overlay.style.bottom = 'auto';
     };
@@ -532,25 +508,15 @@ export const FoldfolioShowcase: React.FC = () => {
             />
           )}
 
+          {/* =========================================================
+              SEAMLESS FLAT PANORAMIC OVERLAY
+              Renders when phone is flat open
+              Contains the dual-page iOS Home Screen, widgets, app grid,
+              iOS app-launch morph, WhatsApp chat, and live Dashboard!
+             ========================================================= */}
           <div
-            className="rs-duo-outer-positioner"
-            ref={positionerRef}
-            style={{
-              transform: `translate3d(${chassisShiftX.toFixed(1)}px, 0, 0) rotateX(${swingArcTiltX.toFixed(2)}deg) rotateY(${swingArcTiltY.toFixed(2)}deg)`,
-              transformStyle: 'preserve-3d',
-              willChange: 'transform',
-              zIndex: 5,
-            }}
-          >
-            {/* =========================================================
-                SEAMLESS FLAT PANORAMIC OVERLAY
-                Renders when phone is flat open
-                Contains the dual-page iOS Home Screen, widgets, app grid,
-                iOS app-launch morph, WhatsApp chat, and live Dashboard!
-               ========================================================= */}
-            <div
-              className="rs-duo-panoramic-overlay rs-duo-fullbleed-screen"
-              ref={panoramaRef}
+            className="rs-duo-panoramic-overlay rs-duo-fullbleed-screen"
+            ref={panoramaRef}
               style={{
                 opacity: unfoldT > 0.92 ? Number(Math.min(1, unlockT * 1.35).toFixed(2)) : 0,
                 pointerEvents: unfoldT > 0.92 && unlockT > 0.4 ? 'auto' : 'none',
@@ -1322,7 +1288,6 @@ export const FoldfolioShowcase: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
 
         {/* Direction A Audited Pill: Solid architectural dot, clean typography */}
         <div className="rs-floating-island-wrap">
