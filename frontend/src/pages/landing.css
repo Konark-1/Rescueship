@@ -8745,21 +8745,31 @@ html {
 
 #foldfolio-demo,
 #foldfolio-demo.rs-duo-master-track,
-#foldfolio-demo.rs-duo-scroll-track {
+#foldfolio-demo.rs-duo-scroll-track,
+#foldfolio-demo.rs-duo-clean-section {
   position: relative !important;
-  height: 600vh !important; /* Expanded from 460vh to give each stage ample runway */
+  height: auto !important;
+  min-height: 100vh !important;
+  padding: 4.5rem 1rem 5.5rem !important;
   background: #090908 !important;
   color: #f4f1ea !important;
   scroll-snap-align: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
 }
 
+#foldfolio-demo .rs-duo-inner-wrap,
 #foldfolio-demo .rs-duo-sticky-viewport,
 #foldfolio-demo .rs-duo-sticky-stage {
-  position: sticky !important;
-  top: 64px !important;
-  height: calc(100vh - 64px) !important;
+  position: relative !important;
+  top: auto !important;
+  height: auto !important;
   width: 100% !important;
-  overflow: hidden !important;
+  max-width: 1080px !important;
+  overflow: visible !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -9073,10 +9083,11 @@ html {
    ========================================================================== */
 
 #foldfolio-demo .rs-duo-app-fullbleed {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
+  position: relative !important;
+  width: 956px !important;
+  max-width: 100% !important;
+  height: 660px !important;
+  max-height: calc(100vh - 180px) !important;
   z-index: 40 !important;
   display: grid !important;
   grid-template-columns: 48% 52% !important;
@@ -9085,7 +9096,8 @@ html {
   box-sizing: border-box !important;
   overflow: hidden !important;
   border-radius: 28px !important;
-  transform-origin: 50% 34% !important;
+  box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.7) !important;
+  margin: 1.5rem auto !important;
 }
 
 /* ---------- LEFT PANE: iOS WHATSAPP BUSINESS THREAD ---------- */
@@ -9110,6 +9122,18 @@ html {
   flex-shrink: 0 !important;
 }
 
+.lp-hero__kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono, monospace);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #a8a69e;
+  margin-bottom: 0.75rem;
+}
+
 #foldfolio-demo .rs-wa-back-btn {
   display: inline-flex !important;
   align-items: center !important;
@@ -9117,7 +9141,7 @@ html {
   background: none !important;
   border: none !important;
   padding: 0 2px 0 0 !important;
-  color: rgb(0 122 255) !important;
+  color: rgb(0 86 179) !important;
   font-size: 0.92rem !important;
   font-weight: 600 !important;
   cursor: pointer !important;
@@ -9126,6 +9150,7 @@ html {
 #foldfolio-demo .rs-wa-unread-count {
   font-size: 0.86rem !important;
   margin-left: -2px !important;
+  color: rgb(0 86 179) !important;
 }
 
 #foldfolio-demo .rs-wa-avatar {
@@ -9164,7 +9189,7 @@ html {
 
 #foldfolio-demo .rs-wa-contact__sub {
   font-size: 0.74rem !important;
-  color: rgb(102 119 129) !important;
+  color: rgb(74 85 94) !important;
   font-weight: 500 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
@@ -9175,7 +9200,7 @@ html {
   display: flex !important;
   align-items: center !important;
   gap: 0.85rem !important;
-  color: rgb(0 122 255) !important;
+  color: rgb(0 86 179) !important;
   padding-right: 0.2rem !important;
 }
 
@@ -9365,7 +9390,7 @@ html {
 
 #foldfolio-demo .rs-waba-footer-line {
   font-size: 0.68rem !important;
-  color: rgb(134 150 160) !important;
+  color: rgb(84 101 111) !important;
   margin-top: 0.35rem !important;
   display: flex !important;
   justify-content: space-between !important;
@@ -9391,7 +9416,7 @@ html {
   padding: 0.62rem 0.75rem !important;
   font-size: 0.84rem !important;
   font-weight: 700 !important;
-  color: rgb(0 168 132) !important;
+  color: rgb(0 128 105) !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -9453,7 +9478,7 @@ html {
   border-radius: 999px !important;
   padding: 0.38rem 0.85rem !important;
   font-size: 0.76rem !important;
-  color: rgb(134 150 160) !important;
+  color: rgb(84 101 111) !important;
 }
 
 /* ---------- RIGHT PANE: SWISS ARCHITECTURAL TELEMETRY INSPECTOR ---------- */
@@ -9617,7 +9642,7 @@ html {
   font-family: "JetBrains Mono", monospace !important;
   font-size: 0.76rem !important;
   font-weight: 800 !important;
-  color: rgb(244 241 234 / 50%) !important;
+  color: #9c9b98 !important;
   padding-top: 2px !important;
 }
 
@@ -9661,14 +9686,14 @@ html {
 
 #foldfolio-demo .rs-dash-step-tag.is-wait {
   background: rgb(244 241 234 / 10%) !important;
-  color: rgb(244 241 234 / 70%) !important;
+  color: #b8b6b0 !important;
 }
 
 #foldfolio-demo .rs-dash-pipe-step p {
   margin: 0 !important;
   font-size: 0.78rem !important;
   line-height: 1.38 !important;
-  color: rgb(244 241 234 / 78%) !important;
+  color: #a8a6a0 !important;
 }
 
 /* Bottom Carrier Webhook Payload Inspector */

@@ -148,6 +148,8 @@ export function RescueTimelineSection({
   const [isManualOverride, setIsManualOverride] = useState(false);
 
   const sectionRef = useRef<HTMLElement>(null);
+  const currentModeRef = useRef<"old" | "our">(mode);
+  currentModeRef.current = mode;
 
   // 180vh scroll runway: smooth, snappy flip from Old Method to Our Method without scroll fatigue
   const { scrollYProgress } = useScroll({
@@ -158,12 +160,12 @@ export function RescueTimelineSection({
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
     if (isManualOverride) return;
 
-    // Scroll ONLY toggles mode between Old Method and Our Method.
-    // Active step is explored exclusively via HOVER.
-    if (latest < 0.48) {
-      if (mode !== "old") setMode("old");
-    } else if (latest > 0.52) {
-      if (mode !== "our") setMode("our");
+    // Scroll ONLY toggles mode between Old Method and Our Method with safe deadzone.
+    // Guarded by currentModeRef to guarantee ZERO redundant React re-renders while scrolling.
+    if (latest < 0.44 && currentModeRef.current !== "old") {
+      setMode("old");
+    } else if (latest > 0.56 && currentModeRef.current !== "our") {
+      setMode("our");
     }
   });
 
@@ -180,7 +182,8 @@ export function RescueTimelineSection({
     <section
       ref={sectionRef}
       id="product"
-      className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper relative min-h-auto md:h-[180vh] w-full bg-[#F6F5F0] text-neutral-900 border-t border-b border-neutral-200/80 select-none"
+      style={{ scrollSnapAlign: "none" }}
+      className="lp-chapter lp-chapter--paper relative min-h-auto md:h-[180vh] w-full bg-[#F6F5F0] text-neutral-900 border-t border-b border-neutral-200/80 select-none"
       aria-label="The 2:14 PM delivery story and 90-second autonomous rescue"
     >
       {/* Full-Viewport Sticky Stage */}
@@ -194,23 +197,15 @@ export function RescueTimelineSection({
                 : "OPERATIONAL REALITY · WHAT HAPPENS AT 2:14 PM ON THE STREET"}
             </div>
 
-            {/* 3D Flipping Headline Banner (Zero Opacity Flicker) */}
-            <div
-              className="mx-auto mb-3 max-w-4xl text-center"
-              style={{ perspective: "1000px" }}
-            >
+            {/* Stable Headline Banner (Zero Layout Shift, Pure Opacity/Y Crossfade) */}
+            <div className="mx-auto mb-3 max-w-4xl text-center min-h-[96px] sm:min-h-[88px] flex flex-col justify-center">
               <AnimatePresence mode="wait" initial={false}>
                 <motion.div
                   key={mode}
-                  initial={false}
-                  animate={{ rotateX: 0, opacity: 1, y: 0 }}
-                  exit={{ rotateX: 75, opacity: 0, y: -12 }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 24,
-                  }}
-                  style={{ transformOrigin: "center center" }}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
                 >
                   <h2 className="text-2xl font-extrabold tracking-tight sm:text-4xl md:text-[38px] md:leading-[1.15] text-neutral-900">
                     {isRescue
@@ -278,7 +273,7 @@ export function RescueTimelineSection({
             </div>
           </div>
 
-          {/* 2. ELASTIC GALLERY + 3D FLIP STAGE (Hover-Activated Steps) */}
+          {/* 2. ELASTIC GALLERY + 3D FLIP STAGE (Pure Native CSS Transitions for 120 FPS) */}
           <div className="my-2.5 flex min-h-0 flex-1 flex-col md:flex-row gap-3 w-full h-[480px] md:h-[500px]">
             {[0, 1, 2, 3].map((index) => {
               const isExpanded = activeIndex === index;
@@ -286,44 +281,31 @@ export function RescueTimelineSection({
               const ourStep = OUR_METHOD_STEPS[index];
 
               return (
-                <motion.div
+                <div
                   key={index}
                   onClick={() => setActiveIndex(index)}
                   onMouseEnter={() => setActiveIndex(index)}
-                  initial={false}
-                  animate={{
-                    flex: isExpanded ? 4.4 : 0.85,
+                  style={{
+                    flex: isExpanded ? "4.2 1 0%" : "0.85 1 0%",
+                    perspective: "1600px",
                   }}
-                  transition={{
-                    duration: 0.32,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                  style={{ perspective: "1600px" }}
-                  className="group relative h-full min-h-[140px] cursor-pointer overflow-visible transform-gpu"
+                  className="group relative h-full min-h-[140px] cursor-pointer overflow-hidden rounded-2xl transition-[flex] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-[flex]"
                 >
-                  {/* 3D Flipper Container: Rotates 180deg on Y-axis with staggered wave flip */}
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      rotateY: isRescue ? 180 : 0,
-                    }}
-                    transition={{
-                      duration: 0.55,
-                      ease: [0.22, 1, 0.36, 1],
-                      delay: index * 0.05, // Staggered wave flip across the 4 panels!
-                    }}
+                  {/* 3D Flipper Container: Hardware Accelerated via CSS transform transition */}
+                  <div
                     style={{
+                      transform: isRescue ? "rotateY(180deg)" : "rotateY(0deg)",
                       transformStyle: "preserve-3d",
-                      willChange: "transform",
+                      transitionDelay: `${index * 45}ms`,
                     }}
-                    className="relative h-full w-full transform-gpu"
+                    className="relative h-full w-full transition-transform duration-500 ease-[cubic-bezier(0.2,1,0.3,1)] will-change-transform"
                   >
                     {/* ================= FRONT FACE: OLD METHOD ================= */}
                     <div
                       style={{ backfaceVisibility: "hidden" }}
-                      className={`absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border transition-colors duration-300 ${
+                      className={`absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border transition-colors duration-200 ${
                         isExpanded
-                          ? "border-red-300 bg-white shadow-lg ring-1 ring-red-200"
+                          ? "border-red-300 bg-white shadow-md ring-1 ring-red-200"
                           : "border-neutral-200/90 bg-neutral-900"
                       }`}
                     >
@@ -340,9 +322,9 @@ export function RescueTimelineSection({
                         backfaceVisibility: "hidden",
                         transform: "rotateY(180deg)",
                       }}
-                      className={`absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border transition-colors duration-300 ${
+                      className={`absolute inset-0 flex h-full w-full flex-col justify-between overflow-hidden rounded-2xl border transition-colors duration-200 ${
                         isExpanded
-                          ? "border-emerald-400 bg-white shadow-lg shadow-emerald-950/10 ring-1 ring-emerald-300"
+                          ? "border-emerald-400 bg-white shadow-md shadow-emerald-950/5 ring-1 ring-emerald-300"
                           : "border-emerald-900/40 bg-neutral-900"
                       }`}
                     >
@@ -352,8 +334,8 @@ export function RescueTimelineSection({
                         variant="our"
                       />
                     </div>
-                  </motion.div>
-                </motion.div>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -437,9 +419,9 @@ export function RescueTimelineSection({
 }
 
 /**
- * Renders the interior of each Elastic Gallery panel:
+ * Renders the interior of each Elastic Gallery panel with pure hardware-accelerated CSS transitions:
  * - Collapsed panels show their background image slice with dark tint + vertical text
- * - Expanded panel smoothly counter-scales the image (1.14 -> 1.0) and presents full details
+ * - Expanded panel smoothly presents full details without backdrop-filter GPU stalls
  */
 function ElasticPanelContent({
   step,
@@ -454,21 +436,19 @@ function ElasticPanelContent({
 
   return (
     <div className="relative flex h-full w-full flex-col justify-between overflow-hidden">
-      {/* COLLAPSED VERTICAL SLICE OVERLAY (Always shows real image + vertical label when collapsed!) */}
-      <motion.div
-        initial={false}
-        animate={{
-          opacity: isExpanded ? 0 : 1,
-          pointerEvents: isExpanded ? "none" : "auto",
-        }}
-        transition={{ duration: 0.25 }}
-        className="absolute inset-0 z-20 flex flex-col items-center justify-between p-3 text-white"
+      {/* COLLAPSED VERTICAL SLICE OVERLAY */}
+      <div
+        className={`absolute inset-0 z-20 flex flex-col items-center justify-between p-3 text-white transition-opacity duration-200 ${
+          isExpanded ? "opacity-0 pointer-events-none" : "opacity-100 pointer-events-auto"
+        }`}
       >
         {/* Full-height background image inside collapsed slice */}
         <img
           src={step.image}
           alt={step.title}
-          className="absolute inset-0 h-full w-full object-cover brightness-[0.42] contrast-110 transition-transform duration-700 group-hover:scale-110"
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover brightness-[0.42] contrast-110"
         />
         <div
           className={`absolute inset-0 bg-gradient-to-b ${
@@ -480,10 +460,10 @@ function ElasticPanelContent({
 
         {/* Step Number Pill at Top */}
         <span
-          className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border font-mono text-xs font-bold backdrop-blur-xs ${
+          className={`relative z-10 flex h-7 w-7 items-center justify-center rounded-full border font-mono text-xs font-bold ${
             isRescue
-              ? "border-emerald-400/50 bg-emerald-500/20 text-emerald-200"
-              : "border-white/30 bg-white/10 text-white"
+              ? "border-emerald-400/50 bg-emerald-950/80 text-emerald-200"
+              : "border-white/30 bg-neutral-900/80 text-white"
           }`}
         >
           {step.stepNum}
@@ -506,16 +486,13 @@ function ElasticPanelContent({
             isRescue ? "bg-emerald-400" : "bg-red-400"
           }`}
         />
-      </motion.div>
+      </div>
 
       {/* EXPANDED FULL CARD VIEW */}
-      <motion.div
-        initial={false}
-        animate={{
-          opacity: isExpanded ? 1 : 0,
-        }}
-        transition={{ duration: 0.3, delay: isExpanded ? 0.08 : 0 }}
-        className="relative z-10 flex h-full w-full flex-col justify-between p-4 md:p-5"
+      <div
+        className={`relative z-10 flex h-full w-full flex-col justify-between p-4 md:p-5 transition-opacity duration-200 ${
+          isExpanded ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        }`}
       >
         {/* Top Row: Timestamp + Status Pill + Step Counter */}
         <div className="flex items-center justify-between gap-2">
@@ -541,23 +518,19 @@ function ElasticPanelContent({
 
         {/* Elastic Image Stage with GPU Scale Transition */}
         <div className="relative my-2.5 min-h-[160px] flex-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-900">
-          <motion.img
+          <img
             src={step.image}
             alt={step.title}
-            initial={false}
-            animate={{
-              scale: isExpanded ? 1 : 1.08,
+            loading="lazy"
+            decoding="async"
+            style={{
+              transform: isExpanded ? "scale(1)" : "scale(1.05)",
             }}
-            transition={{
-              duration: 0.32,
-              ease: [0.16, 1, 0.3, 1],
-            }}
-            className="h-full w-full object-cover transform-gpu"
-            style={{ willChange: "transform" }}
+            className="h-full w-full object-cover transition-transform duration-300 ease-out will-change-transform"
           />
 
-          {/* Subtle Live Overlay Badge on Image */}
-          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-2 rounded-lg border border-white/20 bg-black/65 px-2.5 py-1 font-mono text-[11px] text-white backdrop-blur-md">
+          {/* Subtle Live Overlay Badge on Image (Crisp Alpha, Zero Backdrop Blur) */}
+          <div className="absolute bottom-2.5 left-2.5 flex items-center gap-2 rounded-lg border border-white/20 bg-black/80 px-2.5 py-1 font-mono text-[11px] text-white">
             <span
               className={`h-2 w-2 rounded-full ${
                 isRescue ? "bg-emerald-400 animate-pulse" : "bg-red-500"
@@ -588,7 +561,7 @@ function ElasticPanelContent({
             <span className="text-neutral-400">{step.footerRight}</span>
           </div>
         </div>
-      </motion.div>
+      </div>
     </div>
   );
 }
