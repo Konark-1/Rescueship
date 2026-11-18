@@ -149,7 +149,7 @@ export function RescueTimelineSection({
 
   const sectionRef = useRef<HTMLElement>(null);
 
-  // 480vh scroll runway gives smooth, unhurried room for all 8 steps (4 Old + 3D Flip + 4 Our)
+  // 180vh scroll runway: smooth, snappy flip from Old Method to Our Method without scroll fatigue
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start start", "end end"],
@@ -158,18 +158,12 @@ export function RescueTimelineSection({
   useMotionValueEvent(scrollYProgress, "change", (latest) => {
     if (isManualOverride) return;
 
-    // First half of scroll (0.00 -> 0.48): Old Method Steps 0, 1, 2, 3
-    // Second half of scroll (0.52 -> 1.00): Our Method Steps 0, 1, 2, 3
-    if (latest < 0.5) {
+    // Scroll ONLY toggles mode between Old Method and Our Method.
+    // Active step is explored exclusively via HOVER.
+    if (latest < 0.48) {
       if (mode !== "old") setMode("old");
-      const normalized = Math.min(0.999, Math.max(0, latest / 0.48));
-      const nextIdx = Math.floor(normalized * 4);
-      if (nextIdx !== activeIndex) setActiveIndex(nextIdx);
-    } else {
+    } else if (latest > 0.52) {
       if (mode !== "our") setMode("our");
-      const normalized = Math.min(0.999, Math.max(0, (latest - 0.52) / 0.48));
-      const nextIdx = Math.floor(normalized * 4);
-      if (nextIdx !== activeIndex) setActiveIndex(nextIdx);
     }
   });
 
@@ -186,7 +180,7 @@ export function RescueTimelineSection({
     <section
       ref={sectionRef}
       id="product"
-      className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper relative min-h-auto md:h-[480vh] w-full bg-[#F6F5F0] text-neutral-900 border-t border-b border-neutral-200/80 select-none"
+      className="nt-snap-section nt-snap-section--manifesto lp-chapter lp-chapter--paper relative min-h-auto md:h-[180vh] w-full bg-[#F6F5F0] text-neutral-900 border-t border-b border-neutral-200/80 select-none"
       aria-label="The 2:14 PM delivery story and 90-second autonomous rescue"
     >
       {/* Full-Viewport Sticky Stage */}
@@ -284,7 +278,7 @@ export function RescueTimelineSection({
             </div>
           </div>
 
-          {/* 2. ELASTIC GALLERY + 3D FLIP STAGE (Fills Viewport Space) */}
+          {/* 2. ELASTIC GALLERY + 3D FLIP STAGE (Hover-Activated Steps) */}
           <div className="my-2.5 flex min-h-0 flex-1 flex-col md:flex-row gap-3 w-full h-[480px] md:h-[500px]">
             {[0, 1, 2, 3].map((index) => {
               const isExpanded = activeIndex === index;
@@ -294,25 +288,18 @@ export function RescueTimelineSection({
               return (
                 <motion.div
                   key={index}
-                  layout
-                  onClick={() => {
-                    setIsManualOverride(true);
-                    setActiveIndex(index);
-                    setTimeout(() => setIsManualOverride(false), 1500);
-                  }}
+                  onClick={() => setActiveIndex(index)}
                   onMouseEnter={() => setActiveIndex(index)}
                   initial={false}
                   animate={{
                     flex: isExpanded ? 4.4 : 0.85,
                   }}
                   transition={{
-                    type: "spring",
-                    stiffness: 260,
-                    damping: 26,
-                    mass: 0.9,
+                    duration: 0.32,
+                    ease: [0.16, 1, 0.3, 1],
                   }}
                   style={{ perspective: "1600px" }}
-                  className="group relative h-full min-h-[140px] cursor-pointer overflow-visible"
+                  className="group relative h-full min-h-[140px] cursor-pointer overflow-visible transform-gpu"
                 >
                   {/* 3D Flipper Container: Rotates 180deg on Y-axis with staggered wave flip */}
                   <motion.div
@@ -321,15 +308,15 @@ export function RescueTimelineSection({
                       rotateY: isRescue ? 180 : 0,
                     }}
                     transition={{
-                      type: "spring",
-                      stiffness: 180,
-                      damping: 22,
-                      delay: index * 0.065, // Staggered wave flip across the 4 panels!
+                      duration: 0.55,
+                      ease: [0.22, 1, 0.36, 1],
+                      delay: index * 0.05, // Staggered wave flip across the 4 panels!
                     }}
                     style={{
                       transformStyle: "preserve-3d",
+                      willChange: "transform",
                     }}
-                    className="relative h-full w-full"
+                    className="relative h-full w-full transform-gpu"
                   >
                     {/* ================= FRONT FACE: OLD METHOD ================= */}
                     <div
@@ -412,30 +399,13 @@ export function RescueTimelineSection({
               </div>
             </div>
 
-            {/* Scroll For Live Chat Interface with 3 Animated Chevrons */}
+            {/* Scroll Indicator: Guidance on what scrolling triggers */}
             <div className="flex flex-col items-center justify-center -space-y-0.5 text-neutral-700">
               <span className="font-semibold uppercase tracking-widest text-[11px]">
-                Scroll for live chat interface
+                {isRescue ? "Scroll for live chat interface" : "Scroll to switch to Our Method"}
               </span>
-              <div className="flex flex-col items-center -space-y-2 text-neutral-400">
-                <motion.div
-                  animate={{ y: [0, 4, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </motion.div>
-                <motion.div
-                  animate={{ y: [0, 4, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 1.4, repeat: Infinity, delay: 0.2, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </motion.div>
-                <motion.div
-                  animate={{ y: [0, 4, 0], opacity: [0.35, 1, 0.35] }}
-                  transition={{ duration: 1.4, repeat: Infinity, delay: 0.4, ease: "easeInOut" }}
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </motion.div>
+              <div className="flex flex-col items-center pt-0.5 text-neutral-400">
+                <ChevronDown className="h-4 w-4 animate-bounce" />
               </div>
             </div>
           </div>
@@ -569,21 +539,21 @@ function ElasticPanelContent({
           </span>
         </div>
 
-        {/* Elastic Image Stage with Counter-Scale Transition */}
+        {/* Elastic Image Stage with GPU Scale Transition */}
         <div className="relative my-2.5 min-h-[160px] flex-1 overflow-hidden rounded-xl border border-neutral-200/80 bg-neutral-900">
           <motion.img
             src={step.image}
             alt={step.title}
             initial={false}
             animate={{
-              scale: isExpanded ? 1 : 1.14,
+              scale: isExpanded ? 1 : 1.08,
             }}
             transition={{
-              type: "spring",
-              stiffness: 200,
-              damping: 25,
+              duration: 0.32,
+              ease: [0.16, 1, 0.3, 1],
             }}
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transform-gpu"
+            style={{ willChange: "transform" }}
           />
 
           {/* Subtle Live Overlay Badge on Image */}
