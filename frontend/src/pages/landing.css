@@ -3724,11 +3724,11 @@ section[id] {
   font-family: var(--font-serif);
   font-style: italic;
   font-weight: 400;
-  color: #b82e12;
+  color: #ff5a3d;
   padding: 0 0.06em;
 }
 .lp-chapter--dark .nt-serif, .dark .nt-serif {
-  color: #ff4d2e;
+  color: #ff5a3d;
 }
 
 .nt-slot-counter {
@@ -8745,31 +8745,21 @@ html {
 
 #foldfolio-demo,
 #foldfolio-demo.rs-duo-master-track,
-#foldfolio-demo.rs-duo-scroll-track,
-#foldfolio-demo.rs-duo-clean-section {
+#foldfolio-demo.rs-duo-scroll-track {
   position: relative !important;
-  height: auto !important;
-  min-height: 100vh !important;
-  padding: 4.5rem 1rem 5.5rem !important;
+  height: 600vh !important; /* Expanded from 460vh to give each stage ample runway */
   background: #090908 !important;
   color: #f4f1ea !important;
   scroll-snap-align: none !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
 }
 
-#foldfolio-demo .rs-duo-inner-wrap,
 #foldfolio-demo .rs-duo-sticky-viewport,
 #foldfolio-demo .rs-duo-sticky-stage {
-  position: relative !important;
-  top: auto !important;
-  height: auto !important;
+  position: sticky !important;
+  top: 64px !important;
+  height: calc(100vh - 64px) !important;
   width: 100% !important;
-  max-width: 1080px !important;
-  overflow: visible !important;
+  overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -9083,21 +9073,20 @@ html {
    ========================================================================== */
 
 #foldfolio-demo .rs-duo-app-fullbleed {
-  position: relative !important;
-  width: 956px !important;
-  max-width: 100% !important;
-  height: 660px !important;
-  max-height: calc(100vh - 180px) !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
   z-index: 40 !important;
   display: grid !important;
   grid-template-columns: 48% 52% !important;
   background: rgb(14 14 13) !important;
-  border: 2px solid rgb(24 24 26) !important;
+  border: none !important;
   box-sizing: border-box !important;
   overflow: hidden !important;
   border-radius: 28px !important;
-  box-shadow: 0 24px 60px -15px rgba(0, 0, 0, 0.7) !important;
-  margin: 1.5rem auto !important;
+  box-shadow: none !important;
+  margin: 0 !important;
 }
 
 /* ---------- LEFT PANE: iOS WHATSAPP BUSINESS THREAD ---------- */
@@ -9628,7 +9617,7 @@ html {
   border-bottom: 1px solid rgb(244 241 234 / 10%) !important;
   border-radius: 0 !important;
   background: transparent !important;
-  opacity: 0.5 !important;
+  opacity: 1 !important;
   transition: all 0.2s ease !important;
 }
 

@@ -124,8 +124,11 @@ export const FoldfolioShowcase: React.FC = () => {
   const appLaunchProgress = useTransform(smoothProgress, [0.70, 0.82], [0, 1]);
 
   // Gated visibility to prevent background bleeding
-  const showHomeScreen = useTransform(smoothProgress, (p) => p > 0.46);
-  const showStage4App = useTransform(smoothProgress, (p) => p > 0.68);
+  const showHomeScreen = useTransform(smoothProgress, (p) => (webglReady ? p > 0.46 && p < 0.80 : false));
+  const showStage4App = useTransform(smoothProgress, (p) => (!webglReady ? true : p > 0.68));
+  const appLaunchOpacity = useTransform(appLaunchProgress, [0.2, 1], [0, 1]);
+  const appLaunchScale = useTransform(appLaunchProgress, [0, 1], [1.04, 1]);
+  const appInteractivePointer = useTransform(smoothProgress, (p) => (!webglReady || p >= 0.76 ? 'auto' : 'none'));
 
   // Allow user to also click the stage pills at the top to jump to any stage
   const [manualProgress, setManualProgress] = useState<number | null>(null);
@@ -517,13 +520,13 @@ export const FoldfolioShowcase: React.FC = () => {
           <div
             className="rs-duo-panoramic-overlay rs-duo-fullbleed-screen"
             ref={panoramaRef}
-              style={{
-                opacity: unfoldT > 0.92 ? Number(Math.min(1, unlockT * 1.35).toFixed(2)) : 0,
-                pointerEvents: unfoldT > 0.92 && unlockT > 0.4 ? 'auto' : 'none',
-              }}
-              aria-hidden={unfoldT <= 0.92 || unlockT <= 0.1}
-              inert={unfoldT <= 0.92 || unlockT <= 0.1 ? true : undefined}
-            >
+            style={{
+              opacity: !webglReady ? 1 : (unfoldT > 0.92 ? Number(Math.min(1, unlockT * 1.35).toFixed(2)) : 0),
+              pointerEvents: !webglReady ? 'auto' : (unfoldT > 0.92 && unlockT > 0.4 ? 'auto' : 'none'),
+            }}
+            aria-hidden={webglReady && (unfoldT <= 0.92 || unlockT <= 0.1)}
+            inert={webglReady && (unfoldT <= 0.92 || unlockT <= 0.1) ? true : undefined}
+          >
               <div className="rs-duo-panoramic-bezel rs-duo-inner-display">
                 {/* Home Screen Layer */}
                 <motion.div
@@ -777,13 +780,13 @@ export const FoldfolioShowcase: React.FC = () => {
                 <motion.div
                   className="rs-duo-app-fullbleed"
                   style={{
-                    opacity: useTransform(appLaunchProgress, [0.2, 1], [0, 1]),
-                    scale: useTransform(appLaunchProgress, [0, 1], [1.04, 1]),
-                    pointerEvents: useTransform(smoothProgress, (p) => (p >= 0.76 ? 'auto' : 'none')),
+                    opacity: webglReady ? appLaunchOpacity : 1,
+                    scale: webglReady ? appLaunchScale : 1,
+                    pointerEvents: appInteractivePointer,
                     display: useTransform(showStage4App, (show) => (show ? 'grid' : 'none')),
                   }}
-                  aria-hidden={!isAppInteractive}
-                  inert={!isAppInteractive ? true : undefined}
+                  aria-hidden={webglReady && !isAppInteractive}
+                  inert={webglReady && !isAppInteractive ? true : undefined}
                 >
                   {/* ==========================================================
                       LEFT PANE: AUTHENTIC iOS WHATSAPP BUSINESS API (WABA) CHAT
