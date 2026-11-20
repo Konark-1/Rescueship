@@ -242,6 +242,7 @@ export function createStage(host: HTMLElement, obstacle?: HTMLElement): Stage {
 		},
 		dispose() {
 			observer.disconnect();
+			controls.dispose();
 			renderer.dispose();
 			renderer.domElement.remove();
 		},
