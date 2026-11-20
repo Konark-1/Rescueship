@@ -124,11 +124,11 @@ export const FoldfolioShowcase: React.FC = () => {
   const appLaunchProgress = useTransform(smoothProgress, [0.70, 0.82], [0, 1]);
 
   // Gated visibility to prevent background bleeding
-  const showHomeScreen = useTransform(smoothProgress, (p) => (webglReady ? p > 0.46 && p < 0.80 : false));
-  const showStage4App = useTransform(smoothProgress, (p) => (!webglReady ? true : p > 0.68));
+  const showHomeScreen = useTransform(smoothProgress, (p) => p > 0.46 && p < 0.80);
+  const showStage4App = useTransform(smoothProgress, (p) => p > 0.68);
   const appLaunchOpacity = useTransform(appLaunchProgress, [0.2, 1], [0, 1]);
   const appLaunchScale = useTransform(appLaunchProgress, [0, 1], [1.04, 1]);
-  const appInteractivePointer = useTransform(smoothProgress, (p) => (!webglReady || p >= 0.76 ? 'auto' : 'none'));
+  const appInteractivePointer = useTransform(smoothProgress, (p) => (p >= 0.76 ? 'auto' : 'none'));
 
   // Allow user to also click the stage pills at the top to jump to any stage
   const [manualProgress, setManualProgress] = useState<number | null>(null);
@@ -247,6 +247,7 @@ export const FoldfolioShowcase: React.FC = () => {
       overlay.style.borderRadius = `${frame.radius}px`;
       overlay.style.right = 'auto';
       overlay.style.bottom = 'auto';
+      overlay.classList.remove('is-fallback-chassis');
     },
     []
   );
@@ -271,6 +272,7 @@ export const FoldfolioShowcase: React.FC = () => {
       overlay.style.borderRadius = '38px';
       overlay.style.right = 'auto';
       overlay.style.bottom = 'auto';
+      overlay.classList.add('is-fallback-chassis');
     };
     applyFallback();
     window.addEventListener('resize', applyFallback);
@@ -780,13 +782,13 @@ export const FoldfolioShowcase: React.FC = () => {
                 <motion.div
                   className="rs-duo-app-fullbleed"
                   style={{
-                    opacity: webglReady ? appLaunchOpacity : 1,
-                    scale: webglReady ? appLaunchScale : 1,
+                    opacity: appLaunchOpacity,
+                    scale: appLaunchScale,
                     pointerEvents: appInteractivePointer,
                     display: useTransform(showStage4App, (show) => (show ? 'grid' : 'none')),
                   }}
-                  aria-hidden={webglReady && !isAppInteractive}
-                  inert={webglReady && !isAppInteractive ? true : undefined}
+                  aria-hidden={!isAppInteractive}
+                  inert={!isAppInteractive ? true : undefined}
                 >
                   {/* ==========================================================
                       LEFT PANE: AUTHENTIC iOS WHATSAPP BUSINESS API (WABA) CHAT
