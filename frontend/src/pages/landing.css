@@ -8788,24 +8788,12 @@ html {
 #foldfolio-demo.rs-duo-master-track,
 #foldfolio-demo.rs-duo-scroll-track {
   position: relative !important;
-  height: 600vh !important; /* Expanded from 460vh to give each stage ample runway */
-  background: #090908 !important;
-  color: #f4f1ea !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%) !important;
+  color: #1d1d1f !important;
   scroll-snap-align: none !important;
-}
-
-#foldfolio-demo .rs-duo-sticky-viewport,
-#foldfolio-demo .rs-duo-sticky-stage {
-  position: sticky !important;
-  top: 64px !important;
-  height: calc(100vh - 64px) !important;
-  width: 100% !important;
-  overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  box-sizing: border-box !important;
+  padding: 48px 0 64px !important;
 }
 
 /* Keep Chapter 3.5 pinned cleanly without bleeding into Chapter 4 */

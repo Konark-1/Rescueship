@@ -16,8 +16,8 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 
 const CAMERA_DISTANCE = 40;
 const HINGE_DEPTH = 0.275454;
-const FRAMED_WIDTH = 13.5;
-const FRAMED_HEIGHT = 13.0;
+const FRAMED_WIDTH = 17;
+const FRAMED_HEIGHT = 16.5;
 const FRAME_DAMPING = 9;
 const MAX_BOTTOM_CARVE = 0.65;
 export interface StageView {
@@ -49,7 +49,7 @@ interface Inset {
 	left: number;
 	bottom: number;
 }
-export function createStage(host: HTMLElement, obstacle?: HTMLElement): Stage {
+export function createStage(host: HTMLElement, obstacle: HTMLElement): Stage {
 	const renderer = new WebGLRenderer({
 		antialias: true,
 		alpha: true,
@@ -121,7 +121,7 @@ export function createStage(host: HTMLElement, obstacle?: HTMLElement): Stage {
 			size.height = height;
 			renderer.setSize(width, height);
 		}
-		const rail = obstacle ? obstacle.getBoundingClientRect() : { width: 0, height: 0, top: 0, bottom: 0, left: 0, right: 0 } as DOMRect;
+		const rail = obstacle.getBoundingClientRect();
 		const overlaps =
 			rail.width > 0 &&
 			rail.height > 0 &&
@@ -182,7 +182,7 @@ export function createStage(host: HTMLElement, obstacle?: HTMLElement): Stage {
 	}
 	const observer = new ResizeObserver(reframe);
 	observer.observe(host);
-	if (obstacle) observer.observe(obstacle);
+	observer.observe(obstacle);
 	reframe();
 	return {
 		scene,

@@ -1,6 +1,5 @@
 import {
 	BufferAttribute,
-	LinearFilter,
 	type Color,
 	Group,
 	MathUtils,
@@ -24,7 +23,6 @@ import {
 	type RollDirection,
 	type ScreenImage,
 	type ScreenTurn,
-	drawWhatsAppNotif,
 } from "./screens";
 import { ScreenWipe } from "./wipe";
 
@@ -44,15 +42,12 @@ const FLEXIBLE_MESHES = new Set([
 	"MvKPXGSdYDVvSpk",
 ]);
 const UI_REFERENCE_EYE = new Vector3(0, 0, 40);
-/** Local-space frame (x, y, width, height) of the flat inner display, for HTML overlay projection. */
-export const INNER_UI_FRAME = new Vector4(
+const INNER_UI_FRAME = new Vector4(
 	-7.89935,
 	0.34562 - MODEL_DROP,
 	15.7987,
 	11.1035,
 );
-/** Local-space z of the inner display surface when the phone lies open. */
-export const INNER_UI_DEPTH = 0.24948;
 const OUTER_UI_FRAME = new Vector4(
 	0.23396,
 	0.27173 - MODEL_DROP,
@@ -182,8 +177,6 @@ interface Screen {
 export interface Foldable {
 	readonly root: Group;
 	setOpenness(openness: number): void;
-	setNotifPop(pop: number): void;
-	setUnlock(unlock: number): void;
 	setRoll(direction: RollDirection | null, panel?: ScreenKind): void;
 	setFocus(kind: ScreenKind | null): void;
 	setViewpoint(eye: Vector3, parallax: number): void;
@@ -254,11 +247,6 @@ function createTexture(
 	texture.colorSpace = SRGBColorSpace;
 	texture.anisotropy = anisotropy;
 	texture.premultiplyAlpha = premultiplied;
-	if (typeof HTMLCanvasElement !== "undefined" && image instanceof HTMLCanvasElement) {
-		texture.minFilter = LinearFilter;
-		texture.magFilter = LinearFilter;
-		texture.generateMipmaps = false;
-	}
 	texture.needsUpdate = true;
 	return texture;
 }
@@ -577,25 +565,6 @@ export function createFoldable(
 		root.position.x = (-halfWidth / 2) * (1 - value);
 		light();
 	}
-	let notifPop = -1;
-	function setNotifPop(pop: number): void {
-		const value = MathUtils.clamp(pop, 0, 1);
-		if (Math.abs(value - notifPop) < 0.003) return;
-		notifPop = value;
-		for (const kind of ["inner", "outer"] as const) {
-			const image = screens[kind].plates.chrome.image;
-			if (image instanceof HTMLCanvasElement) drawWhatsAppNotif(image, value);
-			screens[kind].plates.chrome.needsUpdate = true;
-		}
-		dirty = true;
-	}
-	let unlock = 0;
-	function setUnlock(value: number): void {
-		const clamped = MathUtils.clamp(value, 0, 1);
-		if (Math.abs(clamped - unlock) < 0.005) return;
-		unlock = clamped;
-		dirty = true;
-	}
 	function dress(): void {
 		const changed = new Set<ScreenKind>();
 		for (const kind of ["inner", "outer"] as const) {
@@ -671,7 +640,6 @@ export function createFoldable(
 						}
 					: null,
 				clock: look.clock ? screen.plates : null,
-				plateOpacity: Math.max(0, 1 - unlock * 1.8),
 			},
 			look.settled ? 0 : swept,
 		);
@@ -705,8 +673,6 @@ export function createFoldable(
 	return {
 		root,
 		setOpenness,
-		setNotifPop,
-		setUnlock,
 		setRoll,
 		setFocus,
 		setViewpoint,
