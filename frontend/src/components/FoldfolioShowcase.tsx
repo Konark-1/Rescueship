@@ -189,13 +189,13 @@ export const FoldfolioShowcase: React.FC = () => {
   const unfoldT = rawUnfold * rawUnfold * (3 - 2 * rawUnfold);
 
   // STAGE 2B BUFFER (0.40 -> 0.48): Unfolded Lock Screen holds flat (100% open)
-  // STAGE 3A (0.48 -> 0.60): Bottom-to-Top iPhone Swipe-to-Unlock
-  const rawUnlock = Math.max(0, Math.min(1, (activeP - 0.48) / 0.12));
+  // STAGE 3A (0.48 -> 0.58): Clean Physical Swipe-to-Unlock
+  const rawUnlock = Math.max(0, Math.min(1, (activeP - 0.48) / 0.10));
   const unlockT = rawUnlock * rawUnlock * (3 - 2 * rawUnlock);
   const lockCurtainY = -105 * unlockT;
-  const lockCurtainOpacity = Math.max(0, 1 - unlockT * 1.25);
+  const isCurtainMounted = activeP < 0.58;
 
-  // STAGE 3B BUFFER (0.60 -> 0.70): Unlocked Homepage Icons hold
+  // STAGE 3B BUFFER (0.58 -> 0.70): Unlocked Homepage Icons hold
   // STAGE 4A (0.70 -> 0.82): Full-Screen WhatsApp Chat + Live Dashboard Launch
   // STAGE 4B BUFFER (0.82 -> 1.00): 18% End Buffer Hold so user never scrolls past Live Chat!
   const rawAppLaunch = Math.max(0, Math.min(1, (activeP - 0.70) / 0.12));
@@ -204,7 +204,8 @@ export const FoldfolioShowcase: React.FC = () => {
 
   // Drive 3D model kinematics via unfoldT
   const openness = unfoldT;
-  const notifPopT = Math.max(0, Math.min(1, (activeP - 0.02) / 0.08));
+  // Clear 3D WebGL notification card once flat open (DOM takes over at activeP >= 0.40)
+  const notifPopT = activeP >= 0.40 ? 0 : Math.max(0, Math.min(1, (activeP - 0.02) / 0.08));
   const dashboardLive = isAppInteractive;
 
   // Sequential WhatsApp flow state
@@ -531,16 +532,15 @@ export const FoldfolioShowcase: React.FC = () => {
               {/* ------------------------------------------------------------
                   LAYER 1: AUTHENTIC iOS 18 LOCK SCREEN CURTAIN
                   Resting flat when phone unfolds (openness = 1.0)
-                  Slides up (0% -> -105% Y) between scroll 0.48 and 0.60
-                  with authentic iOS swipe-up unlock physics
+                  Slides up (0% -> -105% Y) between scroll 0.48 and 0.58
+                  with authentic iOS swipe-up unlock physics (opaque curtain)
                  ------------------------------------------------------------ */}
-              {activeP < 0.62 && (
+              {isCurtainMounted && (
                 <div
                   className="rs-duo-lockscreen-curtain"
                   style={{
                     transform: `translateY(${lockCurtainY.toFixed(2)}%)`,
-                    opacity: lockCurtainOpacity.toFixed(3),
-                    willChange: 'transform, opacity',
+                    willChange: 'transform',
                     pointerEvents: activeP < 0.48 ? 'auto' : 'none',
                   }}
                   aria-hidden={activeP >= 0.55}

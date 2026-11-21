@@ -2,6 +2,7 @@ import {
 	BufferAttribute,
 	type Color,
 	Group,
+	LinearFilter,
 	MathUtils,
 	Mesh,
 	MeshStandardMaterial,
@@ -255,8 +256,13 @@ function createTexture(
 ): Texture {
 	const texture = new Texture(image);
 	texture.colorSpace = SRGBColorSpace;
-	texture.anisotropy = anisotropy;
+	texture.anisotropy = Math.max(anisotropy, 16);
 	texture.premultiplyAlpha = premultiplied;
+	if (typeof HTMLCanvasElement !== "undefined" && image instanceof HTMLCanvasElement) {
+		texture.generateMipmaps = false;
+		texture.minFilter = LinearFilter;
+		texture.magFilter = LinearFilter;
+	}
 	texture.needsUpdate = true;
 	return texture;
 }

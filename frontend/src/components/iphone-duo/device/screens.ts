@@ -68,12 +68,8 @@ function splitClock(plate: HTMLImageElement): ClockPlates {
 
 /* ==========================================================================
    AUTHENTIC APPLE iOS 18 GLASS WHATSAPP NOTIFICATION
-   Rendered with 2x/3x Retina supersampling directly onto the canvas plates.
-   Features:
-   - Smoked-sand frosted glass gradient blending with desert wallpaper
-   - Ultra-subtle 1px specular glass rim (no thick grey borders)
-   - Real WhatsApp speech bubble + handset vector logo inside iOS squircle
-   - High-contrast 3-row iOS 18 notification typography hierarchy
+   Rendered with native Retina supersampling directly onto the canvas plates.
+   Safe lower-stack placement below clock digits (never overlapping "9:41").
    ========================================================================== */
 
 export function drawIosWhatsAppNotification(
@@ -81,27 +77,24 @@ export function drawIosWhatsAppNotification(
   centerX: number,
   topY: number,
   cardWidth: number,
-  cssScale = 1
+  cardHeight = 175,
 ): void {
-  const cardHeight = 96;
-  const x = centerX - cardWidth / 2;
-  const y = topY;
-  const radius = 22;
+  const scale = cardHeight / 175;
+  const x = Math.round(centerX - cardWidth / 2);
+  const y = Math.round(topY);
+  const radius = Math.round(34 * scale);
 
   ctx.save();
-  if (cssScale !== 1) {
-    ctx.scale(cssScale, cssScale);
-  }
 
   // 1. Soft iOS ambient drop shadow
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetY = 8;
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = Math.round(28 * scale);
+  ctx.shadowOffsetY = Math.round(10 * scale);
 
-  // 2. Authentic iOS 18 translucent smoked-sand glass fill (blends with desert wallpaper)
+  // 2. High-contrast authentic iOS 18 smoked glass fill
   const bgGrad = ctx.createLinearGradient(x, y, x, y + cardHeight);
-  bgGrad.addColorStop(0, 'rgba(38, 36, 34, 0.68)');
-  bgGrad.addColorStop(1, 'rgba(24, 23, 22, 0.76)');
+  bgGrad.addColorStop(0, 'rgba(28, 30, 36, 0.88)');
+  bgGrad.addColorStop(1, 'rgba(14, 16, 20, 0.94)');
   ctx.fillStyle = bgGrad;
 
   ctx.beginPath();
@@ -113,92 +106,94 @@ export function drawIosWhatsAppNotification(
   ctx.shadowBlur = 0;
   ctx.shadowOffsetY = 0;
 
-  // 3. Ultra-subtle 0.75px-1px iOS specular glass rim (NOT a thick grey border)
+  // 3. Crisp iOS specular glass rim
   const borderGrad = ctx.createLinearGradient(x, y, x, y + cardHeight);
-  borderGrad.addColorStop(0, 'rgba(255, 255, 255, 0.38)');
-  borderGrad.addColorStop(1, 'rgba(255, 255, 255, 0.12)');
-  ctx.lineWidth = 1;
+  borderGrad.addColorStop(0, 'rgba(255, 255, 255, 0.48)');
+  borderGrad.addColorStop(1, 'rgba(255, 255, 255, 0.20)');
+  ctx.lineWidth = Math.max(2, Math.round(2.5 * scale));
   ctx.strokeStyle = borderGrad;
   ctx.stroke();
 
-  // 4. Authentic WhatsApp iOS Squircle Icon (46x46)
-  const iconSize = 46;
-  const iconX = x + 18;
-  const iconY = y + (cardHeight - iconSize) / 2;
+  // 4. WhatsApp iOS Squircle Icon
+  const iconSize = Math.round(72 * scale);
+  const iconX = x + Math.round(26 * scale);
+  const iconY = y + Math.round((cardHeight - iconSize) / 2);
 
   const waGrad = ctx.createLinearGradient(iconX, iconY, iconX, iconY + iconSize);
   waGrad.addColorStop(0, '#25D366');
   waGrad.addColorStop(1, '#1DA851');
   ctx.fillStyle = waGrad;
   ctx.beginPath();
-  ctx.roundRect(iconX, iconY, iconSize, iconSize, 12);
+  ctx.roundRect(iconX, iconY, iconSize, iconSize, Math.round(18 * scale));
   ctx.fill();
 
   // Draw real WhatsApp Speech Bubble + Handset Vector inside the squircle
   ctx.save();
-  ctx.translate(iconX + 11, iconY + 11);
+  ctx.translate(iconX + 16 * scale, iconY + 16 * scale);
+  ctx.scale(scale, scale);
   ctx.fillStyle = '#FFFFFF';
   ctx.beginPath();
-  ctx.arc(12, 12, 10, 0.25 * Math.PI, 1.95 * Math.PI, false);
-  ctx.lineTo(4, 21);
+  ctx.arc(19, 19, 16, 0.25 * Math.PI, 1.95 * Math.PI, false);
+  ctx.lineTo(6, 33);
   ctx.closePath();
-  ctx.lineWidth = 2.2;
+  ctx.lineWidth = 3.2;
   ctx.strokeStyle = '#FFFFFF';
   ctx.stroke();
   ctx.beginPath();
-  ctx.arc(12, 12, 5.2, 0.15 * Math.PI, 0.85 * Math.PI, false);
-  ctx.lineWidth = 2.4;
+  ctx.arc(19, 19, 8.5, 0.15 * Math.PI, 0.85 * Math.PI, false);
+  ctx.lineWidth = 3.6;
   ctx.lineCap = 'round';
   ctx.stroke();
   ctx.restore();
 
   // Notification Unread Badge ("1")
-  const badgeX = iconX + iconSize - 2;
-  const badgeY = iconY + 2;
+  const badgeX = iconX + iconSize - Math.round(4 * scale);
+  const badgeY = iconY + Math.round(2 * scale);
+  const badgeR = Math.round(13 * scale);
   ctx.fillStyle = '#FF3B30';
   ctx.beginPath();
-  ctx.arc(badgeX, badgeY, 9.5, 0, Math.PI * 2);
+  ctx.arc(badgeX, badgeY, badgeR, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '700 11.5px -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif';
+  ctx.font = `700 ${Math.round(15 * scale)}px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('1', badgeX, badgeY + 0.5);
+  ctx.fillText('1', badgeX, badgeY + 1);
 
-  // 5. Crisp iOS 18 Notification Typography Hierarchy
-  const textX = iconX + iconSize + 14;
-  const maxTextW = cardWidth - (textX - x) - 18;
+  // 5. Crisp Native Typography Hierarchy (Large, high-contrast, razor-sharp)
+  const textX = iconX + iconSize + Math.round(24 * scale);
+  const maxTextW = cardWidth - (textX - x) - Math.round(26 * scale);
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
 
   // Row 1: App/Sender Title + Timestamp
   ctx.fillStyle = '#FFFFFF';
-  ctx.font = '600 16px -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('RescueShip Delivery Support', textX, y + 31);
+  ctx.font = `700 ${Math.round(26 * scale)}px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.fillText('RescueShip Support', textX, y + Math.round(52 * scale));
 
   // Verified Checkmark Pill
-  const titleWidth = ctx.measureText('RescueShip Delivery Support').width;
+  const titleWidth = ctx.measureText('RescueShip Support').width;
   ctx.fillStyle = '#25D366';
-  ctx.font = '700 14px -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('✓', textX + titleWidth + 5, y + 31);
+  ctx.font = `700 ${Math.round(24 * scale)}px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.fillText('✓', textX + titleWidth + Math.round(8 * scale), y + Math.round(52 * scale));
 
   // "now" timestamp aligned right
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.62)';
-  ctx.font = '500 13px -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+  ctx.font = `500 ${Math.round(21 * scale)}px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
   ctx.textAlign = 'right';
-  ctx.fillText('now', x + cardWidth - 18, y + 30);
+  ctx.fillText('now · Delhivery NDR', x + cardWidth - Math.round(26 * scale), y + Math.round(52 * scale));
 
   // Row 2: Subtitle (Order AWB & Status)
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-  ctx.font = '600 14px -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('AWB #4023118876 · Delhivery Marked "Door Locked"', textX, y + 54, maxTextW);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = `600 ${Math.round(23 * scale)}px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.fillText('AWB #4023118876 · Marked "Door Locked"', textX, y + Math.round(94 * scale), maxTextW);
 
   // Row 3: Body Action Prompt
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.78)';
-  ctx.font = '400 13.5px -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif';
-  ctx.fillText('Are you home? Scroll to unlock & confirm re-delivery.', textX, y + 75, maxTextW);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+  ctx.font = `400 ${Math.round(20 * scale)}px "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+  ctx.fillText('Are you home? Scroll to unlock & confirm re-delivery.', textX, y + Math.round(132 * scale), maxTextW);
 
   ctx.restore();
 }
@@ -209,20 +204,27 @@ export function drawWhatsAppNotif(
 ): void {
   const context = canvas.getContext('2d');
   if (!context) return;
-  const isInner = canvas.width > 1200;
+  // Outer canvas is portrait (1398 x 2034, width < height); inner canvas is landscape (2048 x 1441, width > height)
+  const isInner = canvas.width > canvas.height;
 
-  const targetWidth = isInner ? 956 : 470;
-  const cssScale = canvas.width / targetWidth;
-  const centerX = targetWidth / 2;
-  const topY = isInner ? 220 : 280;
-  const cardWidth = isInner ? 560 : 412;
-  const cardHeight = 96;
+  // Exact safe vertical placement:
+  // Outer (1398 x 2034): clock ends at y = 779, flashlight/camera starts at y = 1584.
+  //   topY = 960, cardHeight = 270 -> sits y: 960 to 1230 (181px below clock, 354px above buttons).
+  //   centerX = Math.round(canvas.width / 2) = 699, cardWidth = 1140 -> centered horizontally.
+  // Inner (2048 x 1441): clock ends at y = 556, bottom starts at y = 1117.
+  //   Center crease is at x = 1024.
+  //   centerX = 1580 (safely right of the center crease), cardWidth = 780.
+  //   topY = 660, cardHeight = 220 -> sits y: 660 to 880 (104px below clock, 237px above buttons).
+  const topY = isInner ? 660 : 960;
+  const cardHeight = isInner ? 220 : 270;
+  const centerX = isInner ? 1580 : Math.round(canvas.width / 2);
+  const cardWidth = isInner ? 780 : 1140;
 
   // Clear previous notification pixels cleanly
   context.save();
   context.globalCompositeOperation = 'destination-out';
-  const clearY = Math.max(0, (topY - 40) * cssScale);
-  const clearH = (cardHeight + 80) * cssScale;
+  const clearY = Math.max(0, topY - 40);
+  const clearH = cardHeight + 80;
   context.fillRect(0, clearY, canvas.width, clearH);
   context.restore();
 
@@ -231,15 +233,15 @@ export function drawWhatsAppNotif(
   context.save();
   context.globalAlpha = Math.max(0, Math.min(1, pop));
 
-  const animScale = 0.94 + pop * 0.06;
-  const animY = (1 - pop) * -16;
+  const animScale = 0.92 + pop * 0.08;
+  const animY = (1 - pop) * -18;
 
-  context.translate(centerX * cssScale, (topY + cardHeight / 2) * cssScale);
-  context.scale(cssScale * animScale, cssScale * animScale);
+  context.translate(centerX, topY + cardHeight / 2);
+  context.scale(animScale, animScale);
   context.translate(-centerX, -(topY + cardHeight / 2));
   context.translate(0, animY);
 
-  drawIosWhatsAppNotification(context, centerX, topY, cardWidth, 1);
+  drawIosWhatsAppNotification(context, centerX, topY, cardWidth, cardHeight);
 
   context.restore();
 }

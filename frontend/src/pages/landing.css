@@ -12350,16 +12350,17 @@ html {
 .rs-duo-lockscreen-curtain {
   position: absolute;
   inset: 0;
-  z-index: 10;
-  background: url('/assets/ui/base.webp') center / cover no-repeat;
+  z-index: 25 !important;
+  background: #090908 url('/assets/ui/base.webp') center / cover no-repeat !important;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: center;
-  overflow: hidden;
+  overflow: hidden !important;
   border-radius: inherit;
   box-sizing: border-box;
   padding: 16px 20px 18px;
+  opacity: 1 !important;
 }
 
 .rs-lockscreen-top-indicator {
@@ -12373,21 +12374,21 @@ html {
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-top: 12px;
+  margin-top: 14px;
 }
 
 .rs-curtain-date {
   font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(255, 255, 255, 0.90);
   letter-spacing: -0.01em;
 }
 
 .rs-curtain-digits {
   margin: 2px 0 0;
   font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
-  font-size: 72px;
+  font-size: 76px;
   font-weight: 700;
   line-height: 1;
   color: #ffffff;
@@ -12397,13 +12398,18 @@ html {
 .rs-curtain-notif-wrap {
   width: 100%;
   max-width: 540px;
-  margin-top: auto;
+  margin-top: 20px;
   margin-bottom: auto;
 }
 
 .rs-curtain-glass-notif {
   width: 100% !important;
   margin: 0 !important;
+  background: rgba(24, 26, 32, 0.88) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.32) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.40) !important;
 }
 
 .rs-curtain-bottom {
@@ -12417,8 +12423,8 @@ html {
 .rs-curtain-swipe-prompt {
   font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
   font-size: 12px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.72);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -12426,6 +12432,6 @@ html {
 .rs-curtain-homebar {
   width: 140px;
   height: 5px;
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.85);
   border-radius: 999px;
 }
