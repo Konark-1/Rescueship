@@ -1,5 +1,5 @@
 # RescueShip Enterprise Production Keepalive & Uptime Monitoring
-# Targets: Render Backend (srv-dah653142hec73evd020) and Netlify Frontend (Site: rescueship)
+# Targets: Render Backend and Netlify Frontend
 # Primary Keepalive: cron-job.org (5-minute interval)
 # Secondary Keepalive & Cold-Start Guard: BetterStack / UptimeRobot (3-minute interval)
 
@@ -24,7 +24,7 @@ monitors:
     alerting:
       consecutive_failures_threshold: 2
       notification_channels:
-        - email: "konarkofficial@gmail.com"
+        - email: "${OPS_ALERT_EMAIL}"
         - webhook: "https://rescueship.onrender.com/api/liveops/uptime-alert"
       recovery_notification: true
       escalation_wait_minutes: 10
@@ -44,12 +44,12 @@ monitors:
     alerting:
       consecutive_failures_threshold: 3
       notification_channels:
-        - email: "konarkofficial@gmail.com"
+        - email: "${OPS_ALERT_EMAIL}"
 
 heartbeat:
   service_name: "RescueShip Enterprise"
-  render_service_id: "srv-dah653142hec73evd020"
-  netlify_site_id: "50a5e507-c497-49b0-b441-7251fe527838"
+  render_service_id: "${RENDER_SERVICE_ID}"
+  netlify_site_id: "${NETLIFY_SITE_ID}"
   primary_keepalive_service: "cron-job.org (every 5m to /health)"
   secondary_uptime_service: "BetterStack / UptimeRobot (every 3m to /health)"
   cold_start_mitigation: "Active — Dual heartbeat ensures zero cold-start delay for morning carrier webhooks"

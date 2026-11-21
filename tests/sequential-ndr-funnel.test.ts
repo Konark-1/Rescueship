@@ -224,7 +224,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_fake_dropoff',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-FAKE-DROPOFF',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         orderValue: 1200,
         carrier: 'shiprocket',
         awb: 'AWB998811',
@@ -250,7 +250,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
 
       // Customer taps verify:fake and nothing else
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'verify:fake:order_fake_dropoff',
         mockOrder
       );
@@ -281,7 +281,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
 
       // 🛡️ Assertion 4: WhatsApp timing selection buttons were sent (Step 2A-1)
       expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
-        '918800957178',
+        '919876543210',
         expect.any(String),
         expect.arrayContaining([
           expect.objectContaining({ id: expect.stringContaining('resched:tomorrow') }),
@@ -295,7 +295,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_redeliver_dropoff',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-REDELIVER-DROPOFF',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         orderValue: 800,
         carrier: 'delhivery',
         awb: 'DLV887766',
@@ -319,7 +319,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (NdrCase.findOneAndUpdate as jest.Mock).mockResolvedValue({});
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'verify:redeliver:order_redeliver_dropoff',
         mockOrder
       );
@@ -348,7 +348,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_slot_step2',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-SLOT-STEP2',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         carrier: 'shiprocket',
         awb: 'AWB554433',
         status: 'ndr_rescued',
@@ -368,7 +368,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
 
       // Customer taps resched:today
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'resched:today:order_slot_step2',
         mockOrder
       );
@@ -385,7 +385,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
 
       // Outbound message must prompt for address update with Skip
       expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
-        '918800957178',
+        '919876543210',
         expect.stringContaining('Delivery scheduled for Today (Same-Day Priority)!'),
         [
           { id: 'address:update:order_slot_step2', title: '📍 Update Address' },
@@ -400,7 +400,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_skip_address',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-SKIP-ADDR',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         status: 'ndr_rescued',
         ndr: { scheduledSlot: 'today' },
         save: jest.fn().mockResolvedValue(true),
@@ -415,13 +415,13 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'address:skip:order_skip_address',
         mockOrder
       );
 
       expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
-        '918800957178',
+        '919876543210',
         expect.stringContaining('Delivery confirmed for Today with your current address'),
         [],
         expect.anything()
@@ -439,7 +439,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_update_address',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-UPDATE-ADDR',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         status: 'ndr_rescued',
         save: jest.fn().mockResolvedValue(true),
       };
@@ -453,7 +453,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'address:update:order_update_address',
         mockOrder
       );
@@ -474,7 +474,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_ret_flat',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-FLAT-DISCOUNT',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         orderValue: 999,
         paymentMethod: 'cod',
         status: 'ndr_rescue_sent',
@@ -498,7 +498,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'verify:cancel:order_ret_flat',
         mockOrder
       );
@@ -509,7 +509,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       expect(mockOrder.ndr.retentionFinalAmount).toBe(924);
 
       expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
-        '918800957178',
+        '919876543210',
         expect.stringContaining('save ₹75! Your new total is ₹924'),
         [
           { id: 'retention:pay:order_ret_flat', title: '💳 Pay ₹924 Online' },
@@ -524,7 +524,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_ret_pct_cap',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-PCT-CAP',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         orderValue: 2000,
         paymentMethod: 'cod',
         status: 'ndr_rescue_sent',
@@ -549,7 +549,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'verify:cancel:order_ret_pct_cap',
         mockOrder
       );
@@ -559,7 +559,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       expect(mockOrder.ndr.retentionFinalAmount).toBe(1850);
 
       expect(whatsAppService.sendInteractiveButtons).toHaveBeenCalledWith(
-        '918800957178',
+        '919876543210',
         expect.stringContaining('save ₹150! Your new total is ₹1850'),
         [
           { id: 'retention:pay:order_ret_pct_cap', title: '💳 Pay ₹1850 Online' },
@@ -574,7 +574,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_ret_pct_low',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-PCT-LOW',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         orderValue: 800,
         paymentMethod: 'cod',
         status: 'ndr_rescue_sent',
@@ -599,7 +599,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'verify:cancel:order_ret_pct_low',
         mockOrder
       );
@@ -613,7 +613,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
         _id: 'order_ret_abuser',
         merchantId: 'merchant_123',
         externalOrderId: 'ORD-ABUSER',
-        customerPhone: '918800957178',
+        customerPhone: '919876543210',
         orderValue: 1200,
         paymentMethod: 'cod',
         carrier: 'shiprocket',
@@ -636,7 +636,7 @@ describe('Decoupled Sequential NDR Conversational Funnel Test Suite', () => {
       (Merchant.findById as jest.Mock).mockResolvedValue(mockMerchant);
 
       await ndrService.handleCustomerResponse(
-        '918800957178',
+        '919876543210',
         'verify:cancel:order_ret_abuser',
         mockOrder
       );

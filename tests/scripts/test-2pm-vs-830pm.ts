@@ -23,7 +23,7 @@ async function runComparison() {
     outForDeliveryAt: ofd2PM,
     externalOrderId: 'ORD-2PM-REALISTIC',
     customerName: 'Priya Verma',
-    customerPhone: '+918800957178',
+    customerPhone: '+919876543210',
     status: 'out_for_delivery',
     orderValue: 1499,
   };
@@ -36,7 +36,7 @@ async function runComparison() {
     outForDeliveryAt: ofdB,
     externalOrderId: 'ORD-830PM-SHIFTEND',
     customerName: 'Rohit Kulkarni',
-    customerPhone: '+918800957178',
+    customerPhone: '+919876543210',
     status: 'out_for_delivery',
     orderValue: 2199,
   };
@@ -47,7 +47,7 @@ async function runComparison() {
     outForDeliveryAt: ofdB_Rapid,
     externalOrderId: 'ORD-830PM-RAPID',
     customerName: 'Ankit Mehta',
-    customerPhone: '+918800957178',
+    customerPhone: '+919876543210',
     status: 'out_for_delivery',
     orderValue: 1899,
   };

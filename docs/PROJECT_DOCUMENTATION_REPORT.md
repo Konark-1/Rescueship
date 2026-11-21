@@ -263,9 +263,9 @@ Derived from the dark mission-control aesthetic (`frontend/src/index.css`):
 
 ### 5.2 Production Deployment & Keepalive
 - **Frontend Web App (Primary)**: Hosted on **Render Static Site** (`https://rescueship-frontend.onrender.com`, Service ID: `srv-damhfof40ujc73av6hj0`) with Docker Full-Stack container fallback (`https://rescueship.onrender.com`).
-- **Frontend Web App (Alternative)**: Hosted on **Netlify** Edge CDN (`https://rescueship.netlify.app`, Site ID: `50a5e507-c497-49b0-b441-7251fe527838`).
-- **Backend API Engine**: Hosted on **Render Web Service** (`https://rescueship.onrender.com`, Service ID: `srv-dah653142hec73evd020`).
-- **Key-Value & Redis Queue**: Hosted on **Render Native Redis** (`rescueship-redis`, Service ID: `red-dah7i215efls738cbueg`, `redis://red-dah7i215efls738cbueg:6379`) with unmetered commands and zero monthly quota ceiling.
+- **Frontend Web App (Alternative)**: Hosted on **Netlify** Edge CDN (`https://rescueship.netlify.app`).
+- **Backend API Engine**: Hosted on **Render Web Service** (`https://rescueship.onrender.com`).
+- **Key-Value & Redis Queue**: Hosted on **Render Native Redis** (`redis://private-redis:6379`) with unmetered commands and zero monthly quota ceiling.
 - **Automated Keepalive**: Configured via `cron-job.org` pinging `/health` every 5 minutes so Render instances never experience cold-start latency.
 - **Email Infrastructure**: Gmail SMTP over TLS/SSL (Port 465) using `konarkofficial@gmail.com` with App Password. Automatically dispatches 24–48h confirmation emails to retailers upon integration requests, accompanied by immediate admin alerts to `konarkofficial@gmail.com`.
 - **Credential Vault**: Isolated outside Git in `CREDENTIALS.md`.

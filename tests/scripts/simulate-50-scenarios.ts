@@ -41,7 +41,7 @@ export function run50ScenarioSimulation(): { total: number; passed: number; summ
     totalRupeesSaved += s.financialOutcome.totalRupeesSaved || 0;
 
     // Validate scenario integrity
-    const hasValidPhone = s.customer.phone === '+918800957178';
+    const hasValidPhone = s.customer.phone === '+919876543210';
     const hasCategory = Boolean(s.category);
     const hasFinalStatus = Boolean(s.finalStatus);
     const hasCarrierSync = Boolean(s.carrierSyncPayload && Object.keys(s.carrierSyncPayload).length > 0);

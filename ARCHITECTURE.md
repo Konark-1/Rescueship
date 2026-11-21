@@ -292,9 +292,9 @@ Heavy libraries are separated into dedicated vendor chunks in [`vite.config.ts`]
 
 ### 8.1 Production Infrastructure Topology
 - **Frontend SPA (Primary)**: Render Static Site (`https://rescueship-frontend.onrender.com`, Service ID: `srv-damhfof40ujc73av6hj0`) + Docker Full-Stack Fallback (`https://rescueship.onrender.com`)
-- **Frontend SPA (Alternative)**: Netlify Global Edge CDN (`https://rescueship.netlify.app`, Site ID: `50a5e507-c497-49b0-b441-7251fe527838`)
-- **Backend API**: Render Web Service (`https://rescueship.onrender.com`, Service ID: `srv-dah653142hec73evd020`)
-- **Key-Value & Redis Queue**: Render Native Redis (`rescueship-redis`, Service ID: `red-dah7i215efls738cbueg`, `redis://red-dah7i215efls738cbueg:6379`) with unmetered commands and zero monthly quota ceiling.
+- **Frontend SPA (Alternative)**: Netlify Global Edge CDN (`https://rescueship.netlify.app`)
+- **Backend API**: Render Web Service (`https://rescueship.onrender.com`)
+- **Key-Value & Redis Queue**: Render Native Redis (`redis://private-redis:6379`) with unmetered commands and zero monthly quota ceiling.
 - **Keepalive Probe**: `cron-job.org` synthetic monitoring pings `/health` every 5 minutes to prevent container sleep.
 - **Database**: MongoDB Atlas M10+ replica set (AWS Mumbai) with automated daily snapshots and primary-preferred reads.
 

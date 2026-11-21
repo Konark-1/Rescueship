@@ -274,14 +274,29 @@ npm run dev
 * **Backend REST API:** `http://localhost:3000`
 * **Health Check:** `http://localhost:3000/health`
 
+### 4. Zero-Key Local Simulation & Replication (Sandbox Mode)
+RescueShip includes a built-in sandbox simulation suite allowing developers to trigger and evaluate end-to-end NDR interception without live Meta, Shopify, or Courier API credentials:
+* **Interactive UI Simulator:** Open `http://localhost:5173/templates` to test the 5 recovery decision trees and live chat auditor.
+* **Simulate NDR Webhook Ingestion:**
+  ```bash
+  curl -X POST http://localhost:3000/api/sandbox/simulate-ndr \
+    -H "Content-Type: application/json" \
+    -d '{"category": "CUSTOMER_NOT_AVAILABLE", "carrier": "delhivery"}'
+  ```
+* **Verify Automated Test Suite:**
+  ```bash
+  npm test                 # Run 539 unit & integration tests
+  cd frontend && npm test  # Run frontend vitest suite
+  ```
+
 ---
 
 ## 🌐 Live Production Deployments
 
 | Service | Environment | Endpoint | Details |
 | :--- | :--- | :--- | :--- |
-| **Frontend Web App (Primary)** | Netlify Global CDN | [`https://rescueship.netlify.app`](https://rescueship.netlify.app) | Instant global edge delivery (Site ID: `50a5e507-c497-49b0-b441-7251fe527838`) |
-| **Backend REST API** | Render Web Service | [`https://rescueship.onrender.com`](https://rescueship.onrender.com) | Express 5 + Node.js cluster (Service ID: `srv-dah653142hec73evd020`) |
+| **Frontend Web App (Primary)** | Netlify Global CDN | [`https://rescueship.netlify.app`](https://rescueship.netlify.app) | Instant global edge delivery & SSL |
+| **Backend REST API** | Render Web Service | [`https://rescueship.onrender.com`](https://rescueship.onrender.com) | Express 5 + Node.js cluster |
 | **Active Keepalive** | Cron-Job.org | [`https://rescueship.onrender.com/health`](https://rescueship.onrender.com/health) | Continuous health probe every 5 mins preventing cold-starts |
 
 ---

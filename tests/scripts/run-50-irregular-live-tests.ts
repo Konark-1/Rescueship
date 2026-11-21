@@ -132,7 +132,7 @@ export async function run50IrregularLiveTests() {
       externalOrderId: testOrderId,
       platform: s.platform.toLowerCase() as any,
       customerName: s.customer.name,
-      customerPhone: s.customer.phone || '+918800957178',
+      customerPhone: s.customer.phone || '+919876543210',
       orderValue: s.financialOutcome.inventoryRetained || 1850,
       paymentMethod: s.category === 'COD_TO_UPI' ? 'cod' : (s.finalStatus === 'CONVERTED_PREPAID' ? 'prepaid' : 'cod'),
       carrier: s.carrier.toLowerCase() === 'delhivery' ? 'delhivery' : 'shiprocket',
@@ -205,7 +205,7 @@ export async function run50IrregularLiveTests() {
     await MessageLog.create({
       orderId: order._id,
       merchantId,
-      customerPhone: s.customer.phone || '+918800957178',
+      customerPhone: s.customer.phone || '+919876543210',
       direction: 'OUTBOUND',
       templateName: s.category === 'MULTILINGUAL_LOCALIZATION' ? 'ndr_rescue_hi' : 'ndr_rescue_v2_en',
       messageType: 'template',
@@ -222,7 +222,7 @@ export async function run50IrregularLiveTests() {
     await MessageLog.create({
       orderId: order._id,
       merchantId,
-      customerPhone: s.customer.phone || '+918800957178',
+      customerPhone: s.customer.phone || '+919876543210',
       direction: 'INBOUND',
       messageType: 'button',
       metaMessageId: `wamid.HB_SIM_${Date.now()}_${idx}_IN`,
@@ -266,7 +266,7 @@ export async function run50IrregularLiveTests() {
             ndr_reason: s.courierRawRemark,
             current_timestamp: failedAttemptTime.toISOString(),
             attempt_time: failedAttemptTime.toISOString(),
-            customer_phone: s.customer.phone || '+918800957178',
+            customer_phone: s.customer.phone || '+919876543210',
           },
           {
             headers: {
