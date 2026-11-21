@@ -177,6 +177,10 @@ interface Screen {
 export interface Foldable {
 	readonly root: Group;
 	setOpenness(openness: number): void;
+	setScreens(
+		outer: HTMLCanvasElement | Texture | null,
+		inner: HTMLCanvasElement | Texture | null,
+	): void;
 	setRoll(direction: RollDirection | null, panel?: ScreenKind): void;
 	setFocus(kind: ScreenKind | null): void;
 	setViewpoint(eye: Vector3, parallax: number): void;
@@ -346,8 +350,10 @@ export function createFoldable(
 		};
 		idle(next);
 	}
-	let customTexture: Texture | null = null;
-	let retired: Texture | null = null;
+	const customTextures: Record<ScreenKind, Texture | null> = {
+		inner: null,
+		outer: null,
+	};
 	const turn: Record<ScreenKind, ScreenTurn> = { inner: "none", outer: "none" };
 	let focus: ScreenKind | null = null;
 	let fade = 1;
@@ -361,10 +367,11 @@ export function createFoldable(
 			settled: focus === kind,
 			dim: kind === "inner" && focus === "outer",
 		};
-		if (customTexture)
+		const custom = customTextures[kind];
+		if (custom)
 			return {
 				...common,
-				backdrop: customTexture,
+				backdrop: custom,
 				layered: false,
 				clock: false,
 			};
@@ -600,8 +607,6 @@ export function createFoldable(
 		if (fade >= 1) {
 			screens.inner.previous = null;
 			screens.outer.previous = null;
-			retired?.dispose();
-			retired = null;
 		}
 		sync();
 	}
@@ -658,21 +663,39 @@ export function createFoldable(
 		viewAmount = amount;
 		sync();
 	}
-	function swapImage(texture: Texture | null): void {
-		retired?.dispose();
-		retired = customTexture;
-		customTexture = texture;
+	function setScreens(
+		outer: HTMLCanvasElement | Texture | null,
+		inner: HTMLCanvasElement | Texture | null,
+	): void {
+		if (outer) {
+			customTextures.outer =
+				outer instanceof Texture ? outer : createTexture(outer, anisotropy);
+		} else {
+			customTextures.outer = null;
+		}
+		if (inner) {
+			customTextures.inner =
+				inner instanceof Texture ? inner : createTexture(inner, anisotropy);
+		} else {
+			customTextures.inner = null;
+		}
 		dress();
 	}
 	function showImage(image: HTMLCanvasElement): void {
-		swapImage(createTexture(image, anisotropy));
+		const texture = createTexture(image, anisotropy);
+		customTextures.inner = texture;
+		customTextures.outer = texture;
+		dress();
 	}
 	function clearImage(): void {
-		swapImage(null);
+		customTextures.inner = null;
+		customTextures.outer = null;
+		dress();
 	}
 	return {
 		root,
 		setOpenness,
+		setScreens,
 		setRoll,
 		setFocus,
 		setViewpoint,

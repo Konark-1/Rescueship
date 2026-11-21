@@ -49,7 +49,7 @@ interface Inset {
 	left: number;
 	bottom: number;
 }
-export function createStage(host: HTMLElement, obstacle: HTMLElement): Stage {
+export function createStage(host: HTMLElement, obstacle?: HTMLElement): Stage {
 	const renderer = new WebGLRenderer({
 		antialias: true,
 		alpha: true,
@@ -121,23 +121,25 @@ export function createStage(host: HTMLElement, obstacle: HTMLElement): Stage {
 			size.height = height;
 			renderer.setSize(width, height);
 		}
-		const rail = obstacle.getBoundingClientRect();
-		const overlaps =
+		const rail = obstacle ? obstacle.getBoundingClientRect() : null;
+		const overlaps = Boolean(
+			rail &&
 			rail.width > 0 &&
 			rail.height > 0 &&
 			rail.bottom > bounds.top &&
 			rail.top < bounds.bottom &&
 			rail.right > bounds.left &&
-			rail.left < bounds.right;
+			rail.left < bounds.right
+		);
 		const fromLeft: Inset = {
-			left: overlaps
+			left: overlaps && rail
 				? MathUtils.clamp(rail.right - bounds.left, 0, width / 2)
 				: 0,
 			bottom: 0,
 		};
 		const fromBottom: Inset = {
 			left: 0,
-			bottom: overlaps
+			bottom: overlaps && rail
 				? MathUtils.clamp(
 						bounds.bottom - rail.top,
 						0,
@@ -182,7 +184,7 @@ export function createStage(host: HTMLElement, obstacle: HTMLElement): Stage {
 	}
 	const observer = new ResizeObserver(reframe);
 	observer.observe(host);
-	observer.observe(obstacle);
+	if (obstacle) observer.observe(obstacle);
 	reframe();
 	return {
 		scene,
