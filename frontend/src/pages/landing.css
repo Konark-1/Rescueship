@@ -12343,3 +12343,89 @@ html {
     transition: none !important;
   }
 }
+
+/* ==========================================================================
+   AUTHENTIC iOS LOCK SCREEN CURTAIN (SWIPE-UP UNLOCK STAGE 3A)
+   ========================================================================== */
+.rs-duo-lockscreen-curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: url('/assets/ui/base.webp') center / cover no-repeat;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+  box-sizing: border-box;
+  padding: 16px 20px 18px;
+}
+
+.rs-lockscreen-top-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.rs-curtain-clock-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.rs-curtain-date {
+  font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+  letter-spacing: -0.01em;
+}
+
+.rs-curtain-digits {
+  margin: 2px 0 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
+  font-size: 72px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  letter-spacing: -0.03em;
+}
+
+.rs-curtain-notif-wrap {
+  width: 100%;
+  max-width: 540px;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+.rs-curtain-glass-notif {
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+.rs-curtain-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.rs-curtain-swipe-prompt {
+  font-family: -apple-system, BlinkMacSystemFont, "Plus Jakarta Sans", sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.72);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.rs-curtain-homebar {
+  width: 140px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+}

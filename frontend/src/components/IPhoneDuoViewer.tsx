@@ -1,62 +1,156 @@
-import { useEffect, useRef, useState } from 'react';
-import * as THREE from 'three';
-import { type MotionValue } from 'motion/react';
-import { createRescueScreenSurfaces } from './rescueScreens';
+import React, { useEffect, useRef, useState } from 'react';
+import { MathUtils, Vector3, type PerspectiveCamera } from 'three';
 import { createStage, type Stage } from './iphone-duo/stage/stage';
-import { createFoldable, loadModel, type Foldable } from './iphone-duo/device/foldable';
+import {
+  createFoldable,
+  INNER_UI_DEPTH,
+  INNER_UI_FRAME,
+  loadModel,
+  type Foldable,
+} from './iphone-duo/device/foldable';
 import { loadLockScreen } from './iphone-duo/device/screens';
 
-export type FoldPhase = 0 | 1 | 2;
-
-interface IPhoneDuoViewerProps {
-  openness: MotionValue<number>;
-  reducedMotion: boolean;
-  onPhaseChange?: (phase: FoldPhase) => void;
+export interface ScreenFrame {
+  readonly left: number;
+  readonly top: number;
+  readonly width: number;
+  readonly height: number;
+  readonly radius: number;
 }
 
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
+export interface IPhoneDuoViewerProps {
+  openness: number; // 0 (closed) -> 1 (flat open)
+  notifPop?: number; // 0 (hidden) -> 1 (settled WhatsApp notification on the clock plane)
+  unlock?: number; // 0 (locked) -> 1 (unlocked)
+  className?: string;
+  style?: React.CSSProperties;
+  onLoaded?: () => void;
+  onScreenFrame?: (frame: ScreenFrame | null) => void;
 }
 
-function phaseFromOpenness(t: number): FoldPhase {
-  if (t < 0.18) return 0;
-  if (t < 0.78) return 1;
-  return 2;
-}
-
-export function IPhoneDuoViewer({
+export const IPhoneDuoViewer: React.FC<IPhoneDuoViewerProps> = ({
   openness,
-  reducedMotion,
-  onPhaseChange,
-}: IPhoneDuoViewerProps) {
-  const hostRef = useRef<HTMLDivElement | null>(null);
-  const phaseRef = useRef<FoldPhase>(0);
+  notifPop = 0,
+  unlock = 0,
+  className = '',
+  style,
+  onLoaded,
+  onScreenFrame,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<Stage | null>(null);
+  const foldableRef = useRef<Foldable | null>(null);
+  const opennessRef = useRef<number>(openness);
+  const notifPopRef = useRef<number>(notifPop);
+  const unlockRef = useRef<number>(unlock);
+  const onLoadedRef = useRef(onLoaded);
+  const onScreenFrameRef = useRef(onScreenFrame);
+  const lastFrameRef = useRef<ScreenFrame | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
   const pointerTargetRef = useRef({ x: 0, y: 0 });
   const pointerCurrentRef = useRef({ x: 0, y: 0 });
-  const onPhaseChangeRef = useRef(onPhaseChange);
-  onPhaseChangeRef.current = onPhaseChange;
-
-  const [webglFailed, setWebglFailed] = useState(false);
-  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    const container = hostRef.current;
-    if (!container) return;
+    onLoadedRef.current = onLoaded;
+  }, [onLoaded]);
 
-    let disposed = false;
-    let rafId = 0;
-    let stage: Stage | null = null;
-    let foldable: Foldable | null = null;
-    let rescueScreens: ReturnType<typeof createRescueScreenSurfaces> | null = null;
+  useEffect(() => {
+    onScreenFrameRef.current = onScreenFrame;
+  }, [onScreenFrame]);
+
+  useEffect(() => {
+    opennessRef.current = openness;
+    if (foldableRef.current) {
+      foldableRef.current.setOpenness(openness);
+    }
+  }, [openness]);
+
+  useEffect(() => {
+    notifPopRef.current = notifPop;
+    if (foldableRef.current) {
+      foldableRef.current.setNotifPop(notifPop);
+    }
+  }, [notifPop]);
+
+  useEffect(() => {
+    unlockRef.current = unlock;
+    if (foldableRef.current) {
+      foldableRef.current.setUnlock(unlock);
+    }
+  }, [unlock]);
+
+  const reportScreenFrame = (camera: PerspectiveCamera) => {
+    const host = containerRef.current;
+    const foldable = foldableRef.current;
+    const callback = onScreenFrameRef.current;
+    if (!host || !foldable || !callback) return;
+
+    const width = host.clientWidth;
+    const height = host.clientHeight;
+    if (width < 2 || height < 2) return;
+
+    foldable.root.updateMatrixWorld(true);
+    const corner = new Vector3();
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const [cx, cy] of [
+      [INNER_UI_FRAME.x, INNER_UI_FRAME.y],
+      [INNER_UI_FRAME.x + INNER_UI_FRAME.z, INNER_UI_FRAME.y],
+      [INNER_UI_FRAME.x, INNER_UI_FRAME.y + INNER_UI_FRAME.w],
+      [INNER_UI_FRAME.x + INNER_UI_FRAME.z, INNER_UI_FRAME.y + INNER_UI_FRAME.w],
+    ]) {
+      corner.set(cx, cy, INNER_UI_DEPTH);
+      foldable.root.localToWorld(corner);
+      corner.project(camera);
+      const px = ((corner.x + 1) / 2) * width;
+      const py = ((1 - corner.y) / 2) * height;
+      if (px < minX) minX = px;
+      if (px > maxX) maxX = px;
+      if (py < minY) minY = py;
+      if (py > maxY) maxY = py;
+    }
+
+    const frame: ScreenFrame = {
+      left: minX,
+      top: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+      radius: ((maxY - minY) * 66) / 1125,
+    };
+
+    const previous = lastFrameRef.current;
+    const moved =
+      !previous ||
+      Math.abs(previous.left - frame.left) > 0.5 ||
+      Math.abs(previous.top - frame.top) > 0.5 ||
+      Math.abs(previous.width - frame.width) > 0.5 ||
+      Math.abs(previous.height - frame.height) > 0.5;
+
+    if (moved) {
+      lastFrameRef.current = frame;
+      callback(frame);
+    }
+  };
+
+  useEffect(() => {
+    const hostElement = containerRef.current;
+    if (!hostElement) return;
+
+    let isDisposed = false;
+    let animFrameId: number;
 
     const handlePointerMove = (event: PointerEvent) => {
-      if (reducedMotion) return;
-      const rect = container.getBoundingClientRect();
+      const rect = hostElement.getBoundingClientRect();
       if (rect.width <= 0 || rect.height <= 0) return;
       const nx = ((event.clientX - rect.left) / rect.width) * 2 - 1;
       const ny = ((event.clientY - rect.top) / rect.height) * 2 - 1;
-      pointerTargetRef.current.x = THREE.MathUtils.clamp(nx, -1, 1);
-      pointerTargetRef.current.y = THREE.MathUtils.clamp(ny, -1, 1);
+      pointerTargetRef.current.x = MathUtils.clamp(nx, -1, 1);
+      pointerTargetRef.current.y = MathUtils.clamp(ny, -1, 1);
     };
 
     const handlePointerLeave = () => {
@@ -64,96 +158,85 @@ export function IPhoneDuoViewer({
       pointerTargetRef.current.y = 0;
     };
 
-    container.addEventListener('pointermove', handlePointerMove, { passive: true });
-    container.addEventListener('pointerleave', handlePointerLeave, { passive: true });
+    hostElement.addEventListener('pointermove', handlePointerMove, { passive: true });
+    hostElement.addEventListener('pointerleave', handlePointerLeave, { passive: true });
 
-    const init = async () => {
+    async function init3D(host: HTMLElement) {
       try {
-        // createStage without obstacle frames the 3D phone dead-center
-        stage = createStage(container);
+        const stage = createStage(host);
+        stageRef.current = stage;
 
-        if (disposed) {
-          stage.dispose();
-          return;
-        }
-
-        // Disable OrbitControls so page scrolling is never hijacked
         stage.setOrbitEnabled(false);
 
-        // Load 3D model and lock screen artwork in parallel side-by-side
         const [model, lockScreen] = await Promise.all([
           loadModel(),
           loadLockScreen(),
         ]);
 
-        if (disposed) {
+        if (isDisposed) {
           stage.dispose();
           return;
         }
 
-        const maxAnisotropy = stage.renderer.capabilities.getMaxAnisotropy();
-        rescueScreens = createRescueScreenSurfaces(maxAnisotropy);
-
-        foldable = createFoldable(
-          model,
-          lockScreen,
-          maxAnisotropy,
-          stage.scene.environment
-        );
-
-        if (disposed) {
-          rescueScreens.dispose();
-          stage.dispose();
-          return;
-        }
-
-        // Bind high-contrast WhatsApp NDR Lockscreen (outer) + Live Recovery Telemetry (inner)
-        foldable.setScreens(rescueScreens.outerCanvas, rescueScreens.innerCanvas);
+        const anisotropy = stage.renderer.capabilities.getMaxAnisotropy();
+        const environment = stage.scene.environment;
+        const foldable = createFoldable(model, lockScreen, anisotropy, environment);
+        foldableRef.current = foldable;
 
         stage.content.add(foldable.root);
 
-        // Set initial closed/open state
-        const initialT = reducedMotion ? 1 : clamp01(openness.get());
-        foldable.setOpenness(initialT);
+        // Precompute screen frame at flat-open position so overlay has pixel-perfect dimensions immediately
+        foldable.setOpenness(1.0);
+        stage.applyView({ distance: 36.5, pitch: 1.51, yaw: 0 });
+        stage.render();
+        reportScreenFrame(stage.camera);
+
+        // Restore initial state
+        const initialOpen = opennessRef.current;
+        foldable.setOpenness(initialOpen);
+        foldable.setNotifPop(notifPopRef.current);
+        foldable.setUnlock(unlockRef.current);
         foldable.warmUp();
 
-        setIsReady(true);
+        await stage.renderer.compileAsync(stage.scene, stage.camera);
+
+        if (isDisposed) {
+          stage.dispose();
+          return;
+        }
+
+        setIsLoaded(true);
+        onLoadedRef.current?.();
 
         let prevTime = performance.now();
-
-        const tick = (time: number) => {
-          if (disposed || !stage || !foldable) return;
-
+        const renderLoop = (time: number) => {
+          if (isDisposed) return;
           const delta = Math.min((time - prevTime) / 1000, 1 / 30);
           prevTime = time;
 
-          const t = reducedMotion ? 1 : clamp01(openness.get());
-          foldable.setOpenness(t);
+          const currentOpen = opennessRef.current;
+          foldable.setOpenness(currentOpen);
+          foldable.setNotifPop(notifPopRef.current);
+          foldable.setUnlock(unlockRef.current);
           foldable.advanceBlend(delta);
 
-          const nextPhase = phaseFromOpenness(t);
-          if (nextPhase !== phaseRef.current) {
-            phaseRef.current = nextPhase;
-            onPhaseChangeRef.current?.(nextPhase);
-          }
-
-          // Subtle pointer parallax damping
+          // Pointer parallax damping
           const ease = 0.08;
           pointerCurrentRef.current.x +=
             (pointerTargetRef.current.x - pointerCurrentRef.current.x) * ease;
           pointerCurrentRef.current.y +=
             (pointerTargetRef.current.y - pointerCurrentRef.current.y) * ease;
 
-          const parallaxYaw = reducedMotion ? 0 : pointerCurrentRef.current.x * 0.065;
-          const parallaxPitch = reducedMotion ? 0 : -pointerCurrentRef.current.y * 0.045;
+          const parallaxYaw = pointerCurrentRef.current.x * 0.05;
+          const parallaxPitch = -pointerCurrentRef.current.y * 0.035;
 
-          // Cinematic camera framing:
-          // When closed: slight yaw to catch rim light on titanium spine
+          // Camera framing based on openness:
+          // When closed: slight yaw to catch titanium spine rim light
           // When open: flat front-on framing
-          const baseYaw = -0.12 * (1 - t);
+          const baseYaw = -0.10 * (1 - currentOpen);
           const targetYaw = baseYaw + parallaxYaw;
-          const targetDistance = THREE.MathUtils.lerp(35.0, 36.5, t);
-          const targetPitch = THREE.MathUtils.lerp(1.57, 1.51, t) + parallaxPitch;
+          const targetDistance = MathUtils.lerp(35.0, 36.5, currentOpen);
+          const targetPitch = MathUtils.lerp(1.57, 1.51, currentOpen) + parallaxPitch;
 
           stage.applyView({
             distance: targetDistance,
@@ -161,58 +244,61 @@ export function IPhoneDuoViewer({
             yaw: targetYaw,
           });
 
-          // Render WebGL frame & screen wipe
           stage.render();
           foldable.render(stage.renderer);
 
-          rafId = window.requestAnimationFrame(tick);
+          if (currentOpen >= 0.85) {
+            reportScreenFrame(stage.camera);
+          }
+
+          animFrameId = requestAnimationFrame(renderLoop);
         };
 
-        rafId = window.requestAnimationFrame(tick);
-      } catch (error) {
-        if (!disposed) {
-          console.error('[IPhoneDuoViewer] WebGL initialization failed:', error);
-          setWebglFailed(true);
-        }
+        animFrameId = requestAnimationFrame(renderLoop);
+      } catch (err) {
+        console.error('Failed to initialize 3D iPhone Duo:', err);
+        setHasError(true);
       }
-    };
+    }
 
-    void init();
+    init3D(hostElement);
 
     return () => {
-      disposed = true;
-      window.cancelAnimationFrame(rafId);
-      container.removeEventListener('pointermove', handlePointerMove);
-      container.removeEventListener('pointerleave', handlePointerLeave);
-      rescueScreens?.dispose();
-      stage?.dispose();
+      isDisposed = true;
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      hostElement.removeEventListener('pointermove', handlePointerMove);
+      hostElement.removeEventListener('pointerleave', handlePointerLeave);
+      if (stageRef.current) {
+        stageRef.current.dispose();
+        stageRef.current = null;
+      }
+      foldableRef.current = null;
     };
-  }, [openness, reducedMotion]);
-
-  if (webglFailed) {
-    return (
-      <div className="foldfolio-fallback" role="region" aria-label="RescueShip live NDR preview">
-        <div className="foldfolio-fallback-card">
-          <span className="foldfolio-fallback-badge">WhatsApp NDR Intercept</span>
-          <p className="foldfolio-fallback-title">Order #RS-84920 Rescued in 42s</p>
-          <p className="foldfolio-fallback-copy">
-            Hardware 3D WebGL acceleration is unavailable on this browser. Courier webhook patched
-            with customer security pin and re-attempt scheduled automatically.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  }, []);
 
   return (
-    <div className="foldfolio-stage-frame">
-      <div
-        ref={hostRef}
-        className={`foldfolio-canvas-host${isReady ? ' is-ready' : ''}`}
-        aria-hidden="true"
-      />
+    <div
+      ref={containerRef}
+      className={`rs-duo-webgl-canvas-host ${className}`}
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: isLoaded ? 1 : 0.05,
+        transition: 'opacity 0.4s ease',
+        ...style,
+      }}
+    >
+      {hasError && (
+        <div className="rs-duo-webgl-error" style={{ display: 'none' }}>
+          WebGL not supported
+        </div>
+      )}
     </div>
   );
-}
+};
 
 export default IPhoneDuoViewer;
