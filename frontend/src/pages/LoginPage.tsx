@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { GoogleLogin } from '@react-oauth/google';
+import { GoogleOAuthBoundary } from '../components/GoogleOAuthBoundary';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import AuthLayout from '../components/AuthLayout';
@@ -105,12 +106,14 @@ const LoginPage: React.FC = () => {
       )}
 
       <div className="google-btn-wrapper">
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={() => setError('Google Login Failed')}
-          theme="filled_black"
-          shape="pill"
-        />
+        <GoogleOAuthBoundary>
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={() => setError('Google Login Failed')}
+            theme="filled_black"
+            shape="pill"
+          />
+        </GoogleOAuthBoundary>
       </div>
 
       <div className="auth-divider"><span>or sign in with email</span></div>

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useSpring } from 'motion/react';
+import { motion, useScroll } from 'motion/react';
 
 interface StickyNavProps {
   onNavigate?: (anchor: string) => void;
@@ -7,11 +7,6 @@ interface StickyNavProps {
 
 export function StickyNav({ onNavigate }: StickyNavProps) {
   const { scrollYProgress } = useScroll();
-  const scaleX = useSpring(scrollYProgress, {
-    stiffness: 140,
-    damping: 28,
-    mass: 0.25,
-  });
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
     const targetId = href.replace('#', '');
@@ -30,7 +25,7 @@ export function StickyNav({ onNavigate }: StickyNavProps) {
 
   return (
     <nav className="lnav" aria-label="Landing navigation">
-      <motion.div className="lnav__progress" style={{ scaleX }} aria-hidden="true" />
+      <motion.div className="lnav__progress" style={{ scaleX: scrollYProgress }} aria-hidden="true" />
       <div className="lnav__inner">
         <div className="lnav__brand-group">
           <a href="#product" className="lnav__brand lp-brand" onClick={(e) => handleNavClick(e, '#product')}>

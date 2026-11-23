@@ -22,7 +22,17 @@
   to = "/index.html"
   status = 200
 
-# Security Headers
+# Security & Cache Headers
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
 [[headers]]
   for = "/*"
   [headers.values]
@@ -30,4 +40,4 @@
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://sdk.cashfree.com https://js.razorpay.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://rescueship.onrender.com https://api.razorpay.com https://api.cashfree.com https://*.rescueship.io https://*.netlify.app wss: ws:; frame-src https://checkout.razorpay.com https://api.razorpay.com https://sdk.cashfree.com; object-src 'none'; base-uri 'self';"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://sdk.cashfree.com https://js.razorpay.com https://cdn.jsdelivr.net https://accounts.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://rescueship.onrender.com https://api.razorpay.com https://api.cashfree.com https://*.rescueship.io https://*.netlify.app https://accounts.google.com wss: ws:; frame-src https://checkout.razorpay.com https://api.razorpay.com https://sdk.cashfree.com https://accounts.google.com; object-src 'none'; base-uri 'self';"

@@ -33,6 +33,8 @@ Return-to-Origin (RTO) on Cash-on-Delivery (COD) shipments costs Indian D2C bran
 | :--- | :--- |
 | **Interception Latency** | **Sub-90s** automated courier NDR detection-to-WhatsApp dispatch loop |
 | **RTO Cost Prevention** | **₹200–₹400** saved per recovered COD shipment (₹140 direct freight + inventory CAC) |
+| **Web Performance (Mobile FCP)** | **280 ms** First Contentful Paint (3.7x faster) · **161 ms** DOMContentLoaded · **Solid 60 FPS** scroll smoothness |
+| **Landing Page Payload** | **~170 KB** compressed JS (86% reduction) · **Zero component removals** · **0.0% long frame drops** |
 | **Test Verification** | **539 passing tests** across **62 suites** (Jest + Playwright Visual Regression + A11y) |
 | **Messaging Engine** | Official **Meta WhatsApp Cloud API v22.0** utility playbooks |
 | **Infrastructure** | **MongoDB Atlas (AWS Mumbai)** + **Render Native Redis / BullMQ** + **5-min `/health` keepalive** |

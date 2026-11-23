@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://vite.dev/config/
+const hasPkg = (id: string, pkgs: string[]) =>
+  pkgs.some((pkg) => id.includes(`/node_modules/${pkg}/`) || id.includes(`\\node_modules\\${pkg}\\`));
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
@@ -29,19 +32,30 @@ export default defineConfig({
     },
   },
   build: {
+    target: 'es2022',
+    cssCodeSplit: true,
+    modulePreload: {
+      // Hard gate: Never preload Three.js or Charts on the initial entry
+      resolveDependencies: (_filename, deps) =>
+        deps.filter((dep) => !dep.includes('vendor-charts') && !dep.includes('vendor-three') && !dep.includes('experience')),
+    },
     rollupOptions: {
       output: {
         manualChunks(id: string) {
-          if (id.includes('recharts')) {
-            return 'vendor-recharts';
+          if (!id.includes('node_modules')) return undefined;
+
+          // 1. Core React runtime
+          if (hasPkg(id, ['react', 'react-dom', 'scheduler', 'use-sync-external-store', 'zustand'])) {
+            return 'vendor-react';
           }
-          if (id.includes('motion')) {
-            return 'vendor-motion';
+
+          // 2. Three.js (Strictly isolated)
+          if (hasPkg(id, ['three', '@react-three'])) {
+            return 'vendor-three';
           }
-          if (id.includes('lucide-react')) {
-            return 'vendor-lucide';
-          }
-          if (id.includes('react-router')) {
+
+          // 3. Router runtime
+          if (hasPkg(id, ['react-router', 'react-router-dom', '@remix-run/router'])) {
             return 'vendor-router';
           }
         },

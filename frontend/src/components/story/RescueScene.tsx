@@ -522,3 +522,5 @@ export function RescueScene({ active, reduced = false, codIncentive }: RescueSce
     </div>
   );
 }
+
+export default RescueScene;
